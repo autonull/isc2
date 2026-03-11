@@ -1,4 +1,4 @@
-import type { DelegateCapability } from '@isc/protocol/src/messages.js';
+import type { DelegateCapability } from '@isc/protocol/messages';
 
 export interface SupernodeDiscoveryConfig {
   dht: DHTAdapter;

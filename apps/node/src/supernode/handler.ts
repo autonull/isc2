@@ -3,6 +3,51 @@ import { EmbedService } from './services/embed.js';
 import { ANNService } from './services/ann.js';
 import { SigVerifyService } from './services/verify.js';
 
+class LRUCache<K, V> {
+  private cache: Map<K, V> = new Map();
+  private maxSize: number;
+
+  constructor(maxSize: number) {
+    this.maxSize = maxSize;
+  }
+
+  get(key: K): V | undefined {
+    if (!this.cache.has(key)) return undefined;
+
+    const value = this.cache.get(key);
+    if (value === undefined) return undefined;
+
+    this.cache.delete(key);
+    this.cache.set(key, value);
+    return value;
+  }
+
+  set(key: K, value: V): void {
+    if (this.cache.has(key)) {
+      this.cache.delete(key);
+    } else if (this.cache.size >= this.maxSize) {
+      const iterator = this.cache.keys();
+      const firstResult = iterator.next();
+      if (!firstResult.done && firstResult.value !== undefined) {
+        this.cache.delete(firstResult.value);
+      }
+    }
+    this.cache.set(key, value);
+  }
+
+  has(key: K): boolean {
+    return this.cache.has(key);
+  }
+
+  clear(): void {
+    this.cache.clear();
+  }
+
+  size(): number {
+    return this.cache.size;
+  }
+}
+
 export interface DelegationMetrics {
   totalRequests: number;
   successfulRequests: number;
@@ -19,7 +64,7 @@ export class SupernodeHandler {
   publicKey: Uint8Array;
   private metrics: DelegationMetrics;
   private requestTimestamps: number[] = [];
-  private seenRequestIDs: Set<string> = new Set();
+  private seenRequestIDs: LRUCache<string, number> = new LRUCache(1000);
   private maxConcurrent: number;
   private currentRequests: number = 0;
 
@@ -107,6 +152,7 @@ export class SupernodeHandler {
     if (!request.timestamp || Date.now() - request.timestamp > 30000) return false;
     if (this.seenRequestIDs.has(request.requestID)) return false;
 
+    this.seenRequestIDs.set(request.requestID, Date.now());
     return true;
   }
 

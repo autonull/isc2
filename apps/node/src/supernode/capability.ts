@@ -16,7 +16,8 @@ export function validateDelegateCapability(cap: DelegateCapability): boolean {
     return false;
   if (!cap.model || typeof cap.model !== 'string') return false;
   if (cap.uptime < 0 || cap.uptime > 1) return false;
-  if (!cap.signature || !(cap.signature instanceof Uint8Array)) return false;
+  if (!cap.signature || !(cap.signature instanceof Uint8Array) || cap.signature.length === 0)
+    return false;
   return true;
 }
 

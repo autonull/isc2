@@ -5,32 +5,22 @@ export class ChatHandler {
     config;
     keepaliveTimers = new Map();
     constructor(config) {
-        this.config = {
-            messageTimeout: 30000,
-            ...config,
-        };
+        this.config = { messageTimeout: 30000, ...config };
     }
     async handleStream(stream, peerId) {
         try {
             this.startKeepalive(peerId, stream);
             for await (const chunk of stream.source) {
-                const data = decoder.decode(chunk);
-                const message = JSON.parse(data);
-                const isValid = await this.validateMessage(message);
-                if (!isValid) {
-                    const error = {
+                const message = JSON.parse(decoder.decode(chunk));
+                if (!(await this.validateMessage(message))) {
+                    await this.sendError(stream, {
                         code: 'INVALID_SIGNATURE',
                         message: 'Message signature verification failed',
-                    };
-                    await this.sendError(stream, error);
+                    });
                     continue;
                 }
                 this.config.onMessage(message, peerId);
-                const ack = {
-                    type: 'ack',
-                    timestamp: message.timestamp,
-                    receivedAt: Date.now(),
-                };
+                const ack = { type: 'ack', timestamp: message.timestamp, receivedAt: Date.now() };
                 await stream.sink({
                     [Symbol.asyncIterator]: async function* () {
                         yield encoder.encode(JSON.stringify(ack));
@@ -40,11 +30,7 @@ export class ChatHandler {
         }
         catch (error) {
             if (this.isTimeoutError(error)) {
-                const chatError = {
-                    code: 'TIMEOUT',
-                    message: 'Stream timed out',
-                };
-                await this.sendError(stream, chatError);
+                await this.sendError(stream, { code: 'TIMEOUT', message: 'Stream timed out' });
             }
             console.error('Chat stream error:', error);
         }

@@ -1,4 +1,4 @@
-import type { DelegateRequest } from '@isc/protocol/src/messages.js';
+import type { DelegateRequest } from '@isc/protocol/messages';
 
 export interface DelegationRequestOptions {
   requestID: string;
@@ -32,7 +32,7 @@ export async function createDelegationRequest(
 }
 
 function toArrayBuffer(view: Uint8Array): ArrayBuffer {
-  return view.buffer.slice(view.byteOffset, view.byteOffset + view.byteLength);
+  return view.buffer.slice(view.byteOffset, view.byteOffset + view.byteLength) as ArrayBuffer;
 }
 
 async function encryptPayload(

@@ -27,9 +27,13 @@ export class SigVerifyService {
     publicKey: Uint8Array
   ): Promise<boolean> {
     try {
-      const key = await crypto.subtle.importKey('raw', publicKey, { name: 'Ed25519' }, true, [
-        'verify',
-      ]);
+      const key = await crypto.subtle.importKey(
+        'raw',
+        publicKey.buffer as ArrayBuffer,
+        { name: 'Ed25519' },
+        true,
+        ['verify']
+      );
 
       return await crypto.subtle.verify(
         { name: 'Ed25519' },

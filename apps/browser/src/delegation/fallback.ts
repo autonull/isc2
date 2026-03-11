@@ -2,14 +2,17 @@ import type {
   DelegateRequest,
   DelegateResponse,
   DelegateCapability,
-} from '@isc/protocol/src/messages.js';
+  DelegationHealth,
+} from '@isc/protocol/messages';
 import { SupernodeDiscovery } from './discovery.js';
-import { rankSupernodes, type ScoredSupernode } from './scoring.js';
+import { HealthSelector } from './selection.js';
+import { rankSupernodes, type ScoredSupernode, type SupernodeStats } from './scoring.js';
 import { createDelegationRequest, decryptResponsePayload } from './request.js';
 import { verifyDelegationResponse } from './verify.js';
 
 export interface DelegationConfig {
   discovery: SupernodeDiscovery;
+  healthSelector: HealthSelector;
   localHandler: LocalHandler;
   maxSupernodes: number;
   timeoutMs: number;
@@ -86,8 +89,24 @@ export class DelegationClient {
 
   private async getEligibleSupernodes(): Promise<ScoredSupernode[]> {
     const capabilities = await this.config.discovery.discoverSupernodes();
-    const eligible = capabilities.filter((c) => !this.isBlocked(c.peerID));
-    return rankSupernodes(eligible, new Map(), new Map()).slice(0, this.config.maxSupernodes);
+    const eligibleWithoutHealth = capabilities.filter((c) => !this.isBlocked(c.peerID));
+
+    const peerIDs = eligibleWithoutHealth.map((c) => c.peerID);
+    const healthMap = await this.config.healthSelector.fetchHealthMetrics(peerIDs);
+
+    const statsMap = new Map<string, SupernodeStats>();
+    for (const [peerID, health] of healthMap) {
+      statsMap.set(peerID, {
+        successRate: health.successRate,
+        avgLatencyMs: health.avgLatencyMs,
+        requestsServed24h: health.requestsServed24h,
+      });
+    }
+
+    return rankSupernodes(eligibleWithoutHealth, healthMap, statsMap).slice(
+      0,
+      this.config.maxSupernodes
+    );
   }
 
   private async sendToSupernode(

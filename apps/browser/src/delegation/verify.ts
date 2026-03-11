@@ -1,4 +1,4 @@
-import type { DelegateResponse } from '@isc/protocol/src/messages.js';
+import type { DelegateResponse } from '@isc/protocol/messages';
 
 export interface EmbedResult {
   embedding: number[];
@@ -18,7 +18,7 @@ export interface SigVerifyResult {
 export type ServiceResult = EmbedResult | ANNResult | SigVerifyResult;
 
 function toArrayBuffer(view: Uint8Array): ArrayBuffer {
-  return view.buffer.slice(view.byteOffset, view.byteOffset + view.byteLength);
+  return view.buffer.slice(view.byteOffset, view.byteOffset + view.byteLength) as ArrayBuffer;
 }
 
 export async function verifyDelegationResponse(

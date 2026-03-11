@@ -8,3 +8,11 @@ export {
 } from './keypair.js';
 
 export { sign, verify, signObject, verifyObject } from './signing.js';
+
+export {
+  deriveKeyFromPassphrase,
+  encryptPrivateKey,
+  decryptPrivateKey,
+  validatePassphraseStrength,
+  type EncryptedKeypair,
+} from './encryption.js';

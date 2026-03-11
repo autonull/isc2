@@ -19,6 +19,9 @@
     "noFallthroughCasesInSwitch": true,
     "allowSyntheticDefaultImports": true,
     "incremental": true,
+    "jsx": "react",
+    "jsxFactory": "h",
+    "jsxFragmentFactory": "Fragment",
     "baseUrl": ".",
     "paths": {
       "@isc/core": ["packages/core/src/index.ts"],
@@ -31,14 +34,6 @@
       "@isc/tests/*": ["tests/*"]
     }
   },
-  "include": [
-    "packages/**/src/**/*",
-    "apps/**/src/**/*",
-    "tests/**/*"
-  ],
-  "exclude": [
-    "node_modules",
-    "**/dist/**",
-    "**/coverage/**"
-  ]
+  "include": ["packages/**/src/**/*", "apps/**/src/**/*", "tests/**/*"],
+  "exclude": ["node_modules", "**/dist/**", "**/coverage/**"]
 }

@@ -1,4 +1,4 @@
-import type { DelegateCapability, DelegationHealth } from '@isc/protocol/src/messages.js';
+import type { DelegateCapability, DelegationHealth } from '@isc/protocol/messages';
 
 export interface SupernodeStats {
   successRate: number;

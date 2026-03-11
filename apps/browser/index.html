@@ -4,12 +4,215 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>ISC - Indexed Semantic Connect</title>
+    <style>
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      }
+      #app {
+        min-height: 100vh;
+      }
+      .app {
+        display: flex;
+        flex-direction: column;
+        min-height: 100vh;
+      }
+      .app-content {
+        flex: 1;
+        overflow-y: auto;
+        padding-bottom: 60px;
+      }
+
+      /* Tab Bar */
+      .tab-bar {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        display: flex;
+        justify-content: space-around;
+        background: #fff;
+        border-top: 1px solid #e0e0e0;
+        padding: 8px 0;
+        height: 60px;
+        z-index: 100;
+      }
+      .tab {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        border: none;
+        background: none;
+        cursor: pointer;
+        font-size: 12px;
+        color: #666;
+        position: relative;
+      }
+      .tab.active {
+        color: #007aff;
+      }
+      .tab.compose {
+        color: #007aff;
+        font-size: 24px;
+      }
+      .tab-icon {
+        font-size: 20px;
+      }
+      .badge {
+        position: absolute;
+        top: -4px;
+        right: -8px;
+        background: #ff3b30;
+        color: #fff;
+        border-radius: 10px;
+        padding: 2px 6px;
+        font-size: 10px;
+      }
+
+      /* Screens */
+      .screen {
+        padding: 16px;
+      }
+      .screen-header {
+        margin-bottom: 16px;
+      }
+      .screen-header h1 {
+        font-size: 24px;
+        font-weight: 600;
+      }
+
+      /* Channel Header */
+      .channel-header {
+        background: #fff;
+        border-bottom: 1px solid #e0e0e0;
+        padding: 12px 16px;
+        position: sticky;
+        top: 0;
+      }
+      .channel-title-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+      .channel-name {
+        font-size: 18px;
+        font-weight: 600;
+      }
+      .channel-actions {
+        display: flex;
+        gap: 8px;
+      }
+      .icon-btn {
+        border: none;
+        background: none;
+        cursor: pointer;
+        font-size: 16px;
+      }
+      .channel-description {
+        color: #666;
+        margin-top: 4px;
+        font-size: 14px;
+      }
+      .channel-meta {
+        margin-top: 8px;
+        font-size: 12px;
+        color: #999;
+      }
+      .channel-match-count {
+        float: right;
+        color: #007aff;
+      }
+
+      /* Overlay */
+      .overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.4);
+        z-index: 200;
+        display: flex;
+        align-items: flex-end;
+      }
+      .switcher-sheet {
+        background: #fff;
+        border-radius: 16px 16px 0 0;
+        width: 100%;
+        max-height: 70vh;
+        overflow-y: auto;
+        animation: slideUp 0.3s ease;
+      }
+      @keyframes slideUp {
+        from {
+          transform: translateY(100%);
+        }
+        to {
+          transform: translateY(0);
+        }
+      }
+      .switcher-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 16px;
+        border-bottom: 1px solid #e0e0e0;
+      }
+      .switcher-header h3 {
+        font-size: 18px;
+        font-weight: 600;
+      }
+      .close-btn {
+        border: none;
+        background: none;
+        font-size: 20px;
+        cursor: pointer;
+      }
+      .channel-list {
+        list-style: none;
+      }
+      .channel-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 16px;
+        border-bottom: 1px solid #f0f0f0;
+        cursor: pointer;
+      }
+      .channel-item:active {
+        background: #f5f5f5;
+      }
+      .channel-item.active {
+        background: #f0f8ff;
+      }
+      .active-dot {
+        color: #007aff;
+      }
+      .empty {
+        padding: 32px;
+        text-align: center;
+        color: #999;
+      }
+
+      /* Primary button */
+      .primary-btn {
+        background: #007aff;
+        color: #fff;
+        border: none;
+        padding: 12px 24px;
+        border-radius: 8px;
+        font-size: 16px;
+        cursor: pointer;
+        margin-top: 16px;
+      }
+      .primary-btn:active {
+        background: #0056b3;
+      }
+    </style>
   </head>
   <body>
-    <div id="app">
-      <h1>ISC - Indexed Semantic Connect</h1>
-      <p>Loading...</p>
-    </div>
-    <script type="module" src="/src/index.ts"></script>
+    <div id="app"></div>
+    <script type="module" src="/src/index.tsx"></script>
   </body>
 </html>

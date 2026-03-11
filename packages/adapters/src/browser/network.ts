@@ -31,10 +31,12 @@ export class BrowserNetworkAdapter implements NetworkAdapter {
     this._running = true;
     console.log(`[Network] Started with peerId: ${this.peerId}`);
   }
+
   async stop(): Promise<void> {
     this._running = false;
     console.log('[Network] Stopped');
   }
+
   getPeerId(): string {
     return this.peerId;
   }

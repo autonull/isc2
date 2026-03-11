@@ -11,17 +11,9 @@
     "resolveJsonModule": true,
     "isolatedModules": true,
     "noEmit": true,
-    "outDir": "./dist",
-    "rootDir": ".",
-    "baseUrl": ".",
-    "paths": {
-      "@isc/core": ["../../packages/core/src/index.ts"],
-      "@isc/core/*": ["../../packages/core/src/*"],
-      "@isc/adapters": ["../../packages/adapters/src/index.ts"],
-      "@isc/adapters/*": ["../../packages/adapters/src/*"],
-      "@isc/protocol": ["../../packages/protocol/src/index.ts"],
-      "@isc/protocol/*": ["../../packages/protocol/src/*"]
-    }
+    "jsx": "react",
+    "jsxFactory": "h",
+    "jsxFragmentFactory": "Fragment"
   },
   "include": ["src/**/*"],
   "exclude": ["node_modules", "dist", "tests"]

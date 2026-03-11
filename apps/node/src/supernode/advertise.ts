@@ -60,7 +60,11 @@ export class SupernodeAdvertiser {
   }
 
   private async signData(data: Uint8Array): Promise<Uint8Array> {
-    const signature = await crypto.subtle.sign({ name: 'Ed25519' }, this.config.privateKey, data);
+    const signature = await crypto.subtle.sign(
+      { name: 'Ed25519' },
+      this.config.privateKey,
+      data.buffer as ArrayBuffer
+    );
     return new Uint8Array(signature);
   }
 

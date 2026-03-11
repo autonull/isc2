@@ -82,9 +82,10 @@ export function validateANNQueryRequest(req: ANNQueryRequest): boolean {
 }
 
 export function validateSigVerifyRequest(req: SigVerifyRequest): boolean {
-  return (
-    req.payload instanceof Uint8Array &&
-    req.signature instanceof Uint8Array &&
-    req.publicKey instanceof Uint8Array
-  );
+  const isValidArray = (arr: any): boolean => {
+    if (arr instanceof Uint8Array) return true;
+    if (Array.isArray(arr) && arr.every((v) => typeof v === 'number')) return true;
+    return false;
+  };
+  return isValidArray(req.payload) && isValidArray(req.signature) && isValidArray(req.publicKey);
 }
