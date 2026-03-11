@@ -1,0 +1,44 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noImplicitReturns": true,
+    "noFallthroughCasesInSwitch": true,
+    "allowSyntheticDefaultImports": true,
+    "incremental": true,
+    "baseUrl": ".",
+    "paths": {
+      "@isc/core": ["packages/core/src/index.ts"],
+      "@isc/core/*": ["packages/core/src/*"],
+      "@isc/adapters": ["packages/adapters/src/index.ts"],
+      "@isc/adapters/*": ["packages/adapters/src/*"],
+      "@isc/protocol": ["packages/protocol/src/index.ts"],
+      "@isc/protocol/*": ["packages/protocol/src/*"],
+      "@isc/apps/*": ["apps/*"],
+      "@isc/tests/*": ["tests/*"]
+    }
+  },
+  "include": [
+    "packages/**/src/**/*",
+    "apps/**/src/**/*",
+    "tests/**/*"
+  ],
+  "exclude": [
+    "node_modules",
+    "**/dist/**",
+    "**/coverage/**"
+  ]
+}

@@ -1,0 +1,14 @@
+node_modules/
+dist/
+.turbo/
+coverage/
+.next/
+build/
+*.onnx
+*.bin
+*.safetensors
+models/
+.cache/
+logs/
+tmp/
+temp/
