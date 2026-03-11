@@ -1,188 +1,291 @@
 /**
  * Trending & Global Explore Service
- * 
- * Handles engagement-weighted ranking and trending detection.
+ *
+ * Handles engagement-weighted post ranking with time decay.
  * References: SOCIAL.md#trending--global-explore
  */
 
-import { queryPostsByEmbedding } from './posts';
-import { computeEngagementScore, getReplies } from './interactions';
-import { getChannel } from '../channels/manager';
-import type { RankedPost, SignedPost } from './types';
+import type { SignedPost } from './types.js';
+import { getInteractionCounts } from './interactions.js';
+import { getAllPosts, getPostsByChannel } from './posts.js';
 
-/** Decay factor for time-based scoring (half-life: 1 hour) */
+/** Time decay half-life in milliseconds (1 hour) */
 const TIME_DECAY_HALF_LIFE = 3600 * 1000;
 
-/** Minimum engagement threshold for trending */
-const MIN_TRENDING_ENGAGEMENT = 5;
+/** Minimum engagement threshold for trending consideration */
+const MIN_ENGAGEMENT = 3;
+
+/** Engagement weights */
+const ENGAGEMENT_WEIGHTS = {
+  likes: 1,
+  reposts: 2,
+  replies: 3,
+  quotes: 2,
+};
 
 /**
- * Compute trending score for a post
+ * Ranked post with trending score
  */
-export async function computeTrendingScore(post: SignedPost): Promise<number> {
-  const engagement = await computeEngagementScore(post.postID);
-  const age = Date.now() - post.timestamp;
-  const timeDecay = Math.exp(-age / TIME_DECAY_HALF_LIFE);
-  
-  // Trending = engagement * timeDecay
-  return engagement * timeDecay;
+export interface RankedPost extends SignedPost {
+  trendingScore: number;
+  engagementCount: number;
 }
 
 /**
- * Get trending posts globally
+ * Calculate trending score for a post using Gravity-style ranking
+ *
+ * Formula: engagement / (ageHours + 2)^1.5
+ * Similar to Hacker News ranking algorithm
+ */
+export function calculateTrendingScore(
+  post: SignedPost,
+  interactions: { likes: number; reposts: number; replies: number; quotes: number }
+): number {
+  const age = Date.now() - post.timestamp;
+  const ageHours = age / (1000 * 60 * 60);
+
+  // Weighted engagement
+  const engagement =
+    interactions.likes * ENGAGEMENT_WEIGHTS.likes +
+    interactions.reposts * ENGAGEMENT_WEIGHTS.reposts +
+    interactions.replies * ENGAGEMENT_WEIGHTS.replies +
+    interactions.quotes * ENGAGEMENT_WEIGHTS.quotes;
+
+  // Skip posts with insufficient engagement
+  if (engagement < MIN_ENGAGEMENT) {
+    return 0;
+  }
+
+  // Gravity-style ranking with time decay
+  const score = engagement / Math.pow(ageHours + 2, 1.5);
+
+  return score;
+}
+
+/**
+ * Get trending posts across all channels
  */
 export async function getTrendingPosts(limit: number = 20): Promise<RankedPost[]> {
-  const channelIDs = await getActiveChannelIDs();
-  const allPosts: RankedPost[] = [];
-  
-  for (const channelID of channelIDs) {
-    const channel = await getChannel(channelID);
-    if (!channel) continue;
-    
-    const sample = channel.distributions[0]?.mu ?? [];
-    if (sample.length === 0) continue;
-    
-    const posts = await queryPostsByEmbedding(sample, limit * 3);
-    const scored = await Promise.all(
-      posts.map(async (post) => ({
-        post,
-        score: await computeTrendingScore(post),
-      }))
-    );
-    
-    allPosts.push(
-      ...scored
-        .filter(s => s.score > 0)
-        .map(s => ({
-          ...s.post,
-          similarityScore: s.score,
-          matchedChannel: channelID,
-        }))
-    );
-  }
-  
-  // Sort by trending score
-  allPosts.sort((a, b) => (b.similarityScore ?? 0) - (a.similarityScore ?? 0));
-  return allPosts.slice(0, limit);
+  const allPosts = await getAllPosts();
+
+  const scored = await Promise.all(
+    allPosts.map(async (post) => {
+      const interactions = await getInteractionCounts(post.id);
+      const score = calculateTrendingScore(post, interactions);
+
+      return {
+        ...post,
+        trendingScore: score,
+        engagementCount: interactions.likes + interactions.reposts + interactions.replies + interactions.quotes,
+      };
+    })
+  );
+
+  // Filter and sort by trending score
+  return scored
+    .filter((p) => p.trendingScore > 0)
+    .sort((a, b) => b.trendingScore - a.trendingScore)
+    .slice(0, limit);
 }
 
 /**
- * Get trending topics (based on reply clusters)
+ * Get trending posts for a specific channel
  */
-export async function getTrendingTopics(limit: number = 10): Promise<TrendingTopic[]> {
-  const trending = await getTrendingPosts(limit * 5);
-  const topicMap = new Map<string, { post: RankedPost; replyCount: number }>();
-  
+export async function getTrendingPostsForChannel(
+  channelID: string,
+  limit: number = 20
+): Promise<RankedPost[]> {
+  const channelPosts = await getPostsByChannel(channelID);
+
+  const scored = await Promise.all(
+    channelPosts.map(async (post) => {
+      const interactions = await getInteractionCounts(post.id);
+      const score = calculateTrendingScore(post, interactions);
+
+      return {
+        ...post,
+        trendingScore: score,
+        engagementCount: interactions.likes + interactions.reposts + interactions.replies + interactions.quotes,
+      };
+    })
+  );
+
+  return scored
+    .filter((p) => p.trendingScore > 0)
+    .sort((a, b) => b.trendingScore - a.trendingScore)
+    .slice(0, limit);
+}
+
+/**
+ * Get hot posts (recent with high engagement)
+ * Uses shorter time window for "hot" vs "trending"
+ */
+export async function getHotPosts(limit: number = 20): Promise<RankedPost[]> {
+  const allPosts = await getAllPosts();
+  const now = Date.now();
+  const oneHourAgo = now - 3600 * 1000; // 1 hour
+
+  // Filter to recent posts
+  const recentPosts = allPosts.filter((p) => p.timestamp > oneHourAgo);
+
+  const scored = await Promise.all(
+    recentPosts.map(async (post) => {
+      const interactions = await getInteractionCounts(post.id);
+      const score = calculateTrendingScore(post, interactions);
+
+      return {
+        ...post,
+        trendingScore: score * 2, // Boost recent posts
+        engagementCount: interactions.likes + interactions.reposts + interactions.replies + interactions.quotes,
+      };
+    })
+  );
+
+  return scored
+    .filter((p) => p.trendingScore > 0)
+    .sort((a, b) => b.trendingScore - a.trendingScore)
+    .slice(0, limit);
+}
+
+/**
+ * Get explore feed with diversity and serendipity
+ * Mixes trending posts with some random high-quality posts
+ */
+export async function getExploreFeed(
+  chaosLevel: number = 0.2,
+  limit: number = 30
+): Promise<RankedPost[]> {
+  const trending = await getTrendingPosts(limit * 2);
+
+  if (chaosLevel <= 0) {
+    return trending.slice(0, limit);
+  }
+
+  // Ensure channel diversity
+  const channelCounts = new Map<string, number>();
+  const diverse: RankedPost[] = [];
+  const maxPerChannel = Math.ceil(limit / 3); // Max ~33% from same channel
+
   for (const post of trending) {
-    const replies = await getReplies(post.postID);
-    if (replies.length >= 2) {
-      const existing = topicMap.get(post.content.slice(0, 50));
-      if (!existing || replies.length > existing.replyCount) {
-        topicMap.set(post.content.slice(0, 50), { post, replyCount: replies.length });
-      }
+    const count = channelCounts.get(post.channelID) || 0;
+    if (count < maxPerChannel) {
+      diverse.push(post);
+      channelCounts.set(post.channelID, count + 1);
     }
   }
-  
+
+  // Add chaos/serendipity by shuffling some posts
+  if (chaosLevel > 0 && diverse.length > 5) {
+    const chaosCount = Math.floor(diverse.length * chaosLevel);
+    const startIndex = Math.floor(Math.random() * (diverse.length - chaosCount));
+    const toShuffle = diverse.slice(startIndex, startIndex + chaosCount);
+
+    // Fisher-Yates shuffle
+    for (let i = toShuffle.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [toShuffle[i], toShuffle[j]] = [toShuffle[j], toShuffle[i]];
+    }
+
+    // Put shuffled posts back
+    for (let i = 0; i < chaosCount; i++) {
+      diverse[startIndex + i] = toShuffle[i];
+    }
+  }
+
+  return diverse.slice(0, limit);
+}
+
+/**
+ * Get trending topics based on reply clusters
+ * Groups posts by content similarity and counts engagement
+ */
+export async function getTrendingTopics(limit: number = 10): Promise<TrendingTopic[]> {
+  const trending = await getTrendingPosts(limit * 3);
+
+  // Group by content prefix (simple clustering)
+  const topicMap = new Map<
+    string,
+    {
+      posts: RankedPost[];
+      totalEngagement: number;
+      preview: string;
+    }
+  >();
+
+  for (const post of trending) {
+    // Use first 50 chars as topic key
+    const topicKey = post.content.slice(0, 50).toLowerCase().trim();
+    if (topicKey.length < 10) continue; // Skip very short content
+
+    const existing = topicMap.get(topicKey);
+    if (existing) {
+      existing.posts.push(post);
+      existing.totalEngagement += post.engagementCount;
+    } else {
+      topicMap.set(topicKey, {
+        posts: [post],
+        totalEngagement: post.engagementCount,
+        preview: post.content.slice(0, 100),
+      });
+    }
+  }
+
+  // Convert to topics and sort by engagement
   const topics = Array.from(topicMap.values())
-    .sort((a, b) => b.replyCount - a.replyCount)
+    .filter((t) => t.posts.length >= 1) // At least 1 post
+    .sort((a, b) => b.totalEngagement - a.totalEngagement)
     .slice(0, limit)
-    .map(t => ({
-      preview: t.post.content.slice(0, 100) + '...',
-      replyCount: t.replyCount,
-      postID: t.post.postID,
+    .map((t) => ({
+      preview: t.preview + (t.posts.length > 1 ? '...' : ''),
+      postCount: t.posts.length,
+      totalEngagement: t.totalEngagement,
+      postID: t.posts[0].id,
+      channelID: t.posts[0].channelID,
     }));
-  
+
   return topics;
 }
 
 /**
- * Get explore feed with serendipity factor
+ * Get personalized feed based on followed users
  */
-export async function getExploreFeed(
-  channelID: string,
-  chaosLevel: number = 0.2,
-  limit: number = 20
-): Promise<RankedPost[]> {
-  const channel = await getChannel(channelID);
-  if (!channel) return [];
-  
-  let sample = channel.distributions[0]?.mu ?? [];
-  if (sample.length === 0) return [];
-  
-  // Apply chaos mode for serendipity
-  if (chaosLevel > 0) {
-    sample = applyChaosMode(sample, chaosLevel);
+export async function getFollowingFeed(limit: number = 50): Promise<RankedPost[]> {
+  const { getFollowees } = await import('./graph.js');
+  const followees = await getFollowees();
+
+  if (followees.length === 0) {
+    return getTrendingPosts(limit);
   }
-  
-  const posts = await queryPostsByEmbedding(sample, limit * 4);
+
+  const allPosts = await getAllPosts();
+  const followingPosts = allPosts.filter((p) => followees.includes(p.author));
+
   const scored = await Promise.all(
-    posts.map(async (post) => ({
-      post,
-      similarity: cosineSimilarity(channel.distributions[0]?.mu ?? [], post.embedding),
-      engagement: await computeEngagementScore(post.postID),
-    }))
+    followingPosts.map(async (post) => {
+      const interactions = await getInteractionCounts(post.id);
+      const score = calculateTrendingScore(post, interactions);
+
+      return {
+        ...post,
+        trendingScore: score,
+        engagementCount: interactions.likes + interactions.reposts + interactions.replies + interactions.quotes,
+      };
+    })
   );
-  
-  // Combine similarity and engagement
-  const ranked = scored
-    .filter(s => s.similarity > 0.5)
-    .map(s => ({
-      ...s.post,
-      similarityScore: s.similarity * 0.7 + (s.engagement / 100) * 0.3,
-      matchedChannel: channelID,
-    }))
-    .sort((a, b) => (b.similarityScore ?? 0) - (a.similarityScore ?? 0))
+
+  return scored
+    .filter((p) => p.trendingScore > 0)
+    .sort((a, b) => b.trendingScore - a.trendingScore)
     .slice(0, limit);
-  
-  return ranked;
 }
 
 /**
- * Get global explore (all channels)
+ * Trending topic summary
  */
-export async function getGlobalExplore(limit: number = 30): Promise<RankedPost[]> {
-  const trending = await getTrendingPosts(limit);
-  
-  // Add diversity by ensuring variety of channels
-  const channelCounts = new Map<string, number>();
-  const diverse: RankedPost[] = [];
-  
-  for (const post of trending) {
-    const channel = post.matchedChannel || 'default';
-    const count = channelCounts.get(channel) || 0;
-    if (count < limit / 5) { // Max 20% from same channel
-      diverse.push(post);
-      channelCounts.set(channel, count + 1);
-    }
-  }
-  
-  return diverse.slice(0, limit);
-}
-
-// Helpers
-async function getActiveChannelIDs(): Promise<string[]> {
-  // Placeholder - would query DHT for active channels
-  return ['default'];
-}
-
-function cosineSimilarity(a: number[], b: number[]): number {
-  if (a.length === 0 || b.length === 0) return 0;
-  const dot = a.reduce((sum, va, i) => sum + va * b[i], 0);
-  const normA = Math.sqrt(a.reduce((sum, v) => sum + v * v, 0));
-  const normB = Math.sqrt(b.reduce((sum, v) => sum + v * v, 0));
-  if (normA === 0 || normB === 0) return 0;
-  return dot / (normA * normB);
-}
-
-function applyChaosMode(embedding: number[], chaosLevel: number): number[] {
-  const noise = embedding.map(() => (Math.random() * 2 - 1) * chaosLevel);
-  const perturbed = embedding.map((v, i) => v + noise[i]);
-  const norm = Math.sqrt(perturbed.reduce((sum, v) => sum + v * v, 0));
-  return norm > 0 ? perturbed.map(v => v / norm) : embedding;
-}
-
 export interface TrendingTopic {
   preview: string;
-  replyCount: number;
+  postCount: number;
+  totalEngagement: number;
   postID: string;
+  channelID: string;
 }

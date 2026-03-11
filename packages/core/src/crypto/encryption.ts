@@ -106,3 +106,61 @@ export function validatePassphraseStrength(passphrase: string): {
 
   return { score, feedback };
 }
+
+/**
+ * Encrypt content using AES-GCM with a public key
+ */
+export async function encrypt(content: string, publicKeyBytes: Uint8Array): Promise<Uint8Array> {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(content);
+
+  // Import the public key
+  const publicKey = await crypto.subtle.importKey(
+    'raw',
+    publicKeyBytes.buffer as ArrayBuffer,
+    { name: 'AES-GCM', length: 256 },
+    false,
+    ['encrypt']
+  );
+
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const encrypted = await crypto.subtle.encrypt(
+    { name: 'AES-GCM', iv: iv.buffer as ArrayBuffer, tagLength: 128 },
+    publicKey,
+    data.buffer as ArrayBuffer
+  );
+
+  // Prepend IV to encrypted data
+  const result = new Uint8Array(iv.length + encrypted.byteLength);
+  result.set(iv);
+  result.set(new Uint8Array(encrypted), iv.length);
+  return result;
+}
+
+/**
+ * Decrypt content using AES-GCM with a private key
+ */
+export async function decrypt(encryptedData: Uint8Array, privateKeyBytes: Uint8Array): Promise<string> {
+  const decoder = new TextDecoder();
+
+  // Import the private key
+  const privateKey = await crypto.subtle.importKey(
+    'raw',
+    privateKeyBytes.buffer as ArrayBuffer,
+    { name: 'AES-GCM', length: 256 },
+    false,
+    ['decrypt']
+  );
+
+  // Extract IV and ciphertext
+  const iv = encryptedData.slice(0, 12);
+  const ciphertext = encryptedData.slice(12);
+
+  const decrypted = await crypto.subtle.decrypt(
+    { name: 'AES-GCM', iv: iv.buffer as ArrayBuffer, tagLength: 128 },
+    privateKey,
+    ciphertext.buffer as ArrayBuffer
+  );
+
+  return decoder.decode(decrypted);
+}

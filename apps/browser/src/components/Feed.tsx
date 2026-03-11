@@ -1,0 +1,159 @@
+/**
+ * Feed Component
+ * 
+ * Renders a list of posts with pull-to-refresh.
+ */
+
+import { h } from 'preact';
+import { useState, useEffect, useCallback } from 'preact/hooks';
+import type { SignedPost } from '../social/types.js';
+import { Post } from './Post.js';
+import { getForYouFeed, getFollowingFeed, refreshFeed } from '../social/index.js';
+
+type FeedType = 'for-you' | 'following';
+
+interface FeedProps {
+  type?: FeedType;
+  channelID?: string;
+  limit?: number;
+}
+
+const styles = {
+  feed: { display: 'flex', flexDirection: 'column' as const } as const,
+  loading: { display: 'flex', flexDirection: 'column' as const, alignItems: 'center', justifyContent: 'center', padding: '48px 16px' } as const,
+  error: { display: 'flex', flexDirection: 'column' as const, alignItems: 'center', justifyContent: 'center', padding: '48px 16px', textAlign: 'center' as const } as const,
+  retryBtn: { marginTop: '16px', padding: '8px 24px', background: '#1da1f2', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' } as const,
+  empty: { display: 'flex', flexDirection: 'column' as const, alignItems: 'center', justifyContent: 'center', padding: '48px 16px', textAlign: 'center' as const, color: '#657786' } as const,
+  emptySub: { fontSize: '14px', marginTop: '8px' } as const,
+  refreshing: { display: 'flex', justifyContent: 'center', padding: '16px' } as const,
+  spinner: { width: '24px', height: '24px', border: '3px solid #e1e8ed', borderTopColor: '#1da1f2', borderRadius: '50%', animation: 'spin 1s linear infinite' } as const,
+};
+
+export function Feed({ type = 'for-you', channelID, limit = 50 }: FeedProps) {
+  const [posts, setPosts] = useState<SignedPost[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const loadPosts = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      let fetched: SignedPost[];
+      if (type === 'following') {
+        fetched = await getFollowingFeed(limit);
+      } else {
+        fetched = await getForYouFeed(limit);
+      }
+      
+      setPosts(fetched);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load posts');
+    } finally {
+      setLoading(false);
+    }
+  }, [type, limit]);
+
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await refreshFeed(channelID);
+      await loadPosts();
+    } catch (err) {
+      console.error('Refresh failed:', err);
+    } finally {
+      setRefreshing(false);
+    }
+  }, [loadPosts, channelID]);
+
+  useEffect(() => {
+    loadPosts();
+  }, [loadPosts]);
+
+  // Pull-to-refresh handler
+  useEffect(() => {
+    let startY = 0;
+    let currentY = 0;
+    
+    const handleTouchStart = (e: TouchEvent) => {
+      if (window.scrollY === 0) {
+        startY = e.touches[0].clientY;
+      }
+    };
+    
+    const handleTouchMove = (e: TouchEvent) => {
+      if (startY > 0) {
+        currentY = e.touches[0].clientY;
+        const diff = currentY - startY;
+        if (diff > 100 && !refreshing) {
+          handleRefresh();
+        }
+        startY = 0;
+        currentY = 0;
+      }
+    };
+    
+    document.addEventListener('touchstart', handleTouchStart, { passive: true });
+    document.addEventListener('touchmove', handleTouchMove, { passive: true });
+    
+    return () => {
+      document.removeEventListener('touchstart', handleTouchStart);
+      document.removeEventListener('touchmove', handleTouchMove);
+    };
+  }, [handleRefresh, refreshing]);
+
+  if (loading) {
+    return (
+      <div style={styles.loading}>
+        <div style={styles.spinner}></div>
+        <p>Loading posts...</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div style={styles.error}>
+        <p>{error}</p>
+        <button onClick={loadPosts} style={styles.retryBtn}>
+          Retry
+        </button>
+      </div>
+    );
+  }
+
+  if (posts.length === 0) {
+    return (
+      <div style={styles.empty}>
+        <p>No posts yet</p>
+        <p style={styles.emptySub}>Be the first to post!</p>
+      </div>
+    );
+  }
+
+  return (
+    <div style={styles.feed}>
+      {refreshing && (
+        <div style={styles.refreshing}>
+          <div style={styles.spinner}></div>
+        </div>
+      )}
+      
+      {posts.map((post) => (
+        <Post key={post.id} post={post} />
+      ))}
+    </div>
+  );
+}
+
+// Add CSS animation for spinner
+if (typeof document !== 'undefined') {
+  const style = document.createElement('style');
+  style.textContent = `
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+  `;
+  document.head.appendChild(style);
+}

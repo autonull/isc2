@@ -1,12 +1,12 @@
 /**
  * Posts Service
- * 
+ *
  * Handles post creation, signing, and DHT announcement.
  */
 
-import { sign, encode, verify } from '@isc/core';
+import { sign, encode, verify, decode } from '@isc/core';
 import type { SignedPost } from './types.js';
-import { getPeerID, getKeypair } from '../identity/index.js';
+import { getPeerID, getKeypair, getPeerPublicKey, announcePublicKey } from '../identity/index.js';
 import { DelegationClient } from '../delegation/fallback.js';
 import { dbGet, dbGetAll, dbPut, dbFilter } from '../db/helpers.js';
 
@@ -50,6 +50,9 @@ export async function createPost(
     await client.announce(key, encode(signedPost), DEFAULT_TTL);
   }
 
+  // Ensure public key is announced for verification
+  await announcePublicKey();
+
   return signedPost;
 }
 
@@ -88,13 +91,50 @@ export async function verifyPost(post: SignedPost): Promise<boolean> {
   try {
     const { signature, ...postWithoutSig } = post;
     const payload = encode(postWithoutSig);
-    // Placeholder - would need to fetch actual key from somewhere
-    // For now, return true to allow development
-    console.warn('Post verification not fully implemented');
-    return true;
-  } catch {
+
+    const publicKey = await getPeerPublicKey(post.author);
+    if (!publicKey) {
+      console.warn(`Public key not found for peer ${post.author}`);
+      return false;
+    }
+
+    return verify(payload, signature, publicKey);
+  } catch (error) {
+    console.error('Post verification failed:', error);
     return false;
   }
+}
+
+/**
+ * Discover posts from DHT for a channel
+ */
+export async function discoverPosts(channelID: string, limit: number = 50): Promise<SignedPost[]> {
+  const client = DelegationClient.getInstance();
+  if (!client) {
+    return getPostsByChannel(channelID);
+  }
+
+  const key = `/isc/post/${channelID}`;
+  const encoded = await client.query(key, limit);
+
+  const posts: SignedPost[] = [];
+  for (const data of encoded) {
+    try {
+      const post = decode(data) as SignedPost;
+      if (post && post.id && post.author) {
+        posts.push(post);
+      }
+    } catch (error) {
+      console.warn('Failed to decode post:', error);
+    }
+  }
+
+  // Store discovered posts locally
+  for (const post of posts) {
+    await dbPut(POSTS_STORE, post);
+  }
+
+  return posts;
 }
 
 /**

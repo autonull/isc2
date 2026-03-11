@@ -15,5 +15,7 @@ export {
   encryptPrivateKey,
   decryptPrivateKey,
   validatePassphraseStrength,
+  encrypt,
+  decrypt,
   type EncryptedKeypair,
 } from './encryption.js';

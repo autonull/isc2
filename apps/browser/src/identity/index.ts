@@ -227,3 +227,56 @@ export const getPeerID = async (): Promise<string> => {
  * Get the current keypair
  */
 export const getKeypair = (): CryptoKeyPair | null => identityState.keypair;
+
+/**
+ * Get the current public key in exportable format
+ */
+export const getPublicKey = async (): Promise<Uint8Array> => {
+  if (!identityState.keypair) {
+    throw new Error('Identity not initialized');
+  }
+  const exported = await exportKeypair(identityState.keypair);
+  return exported.publicKey;
+};
+
+/**
+ * Get public key for a peer from DHT
+ */
+export const getPeerPublicKey = async (peerID: string): Promise<CryptoKey | null> => {
+  const { DelegationClient } = await import('../delegation/fallback');
+  const client = DelegationClient.getInstance();
+  if (!client) return null;
+
+  const key = `/isc/identity/${peerID}/public-key`;
+  const encoded = await client.query(key, 1);
+  if (encoded.length === 0) return null;
+
+  try {
+    const keyData = JSON.parse(new TextDecoder().decode(encoded[0]));
+    return crypto.subtle.importKey(
+      'raw',
+      new Uint8Array(keyData.data),
+      { name: 'Ed25519', namedCurve: 'Ed25519' },
+      false,
+      ['verify']
+    );
+  } catch {
+    return null;
+  }
+};
+
+/**
+ * Announce public key to DHT for discovery
+ */
+export const announcePublicKey = async (): Promise<void> => {
+  const { DelegationClient } = await import('../delegation/fallback');
+  const client = DelegationClient.getInstance();
+  if (!client || !identityState.keypair) return;
+
+  const peerID = await getPeerID();
+  const publicKey = await getPublicKey();
+
+  const key = `/isc/identity/${peerID}/public-key`;
+  const payload = JSON.stringify({ peerID, data: Array.from(publicKey) });
+  await client.announce(key, new TextEncoder().encode(payload), 86400 * 30);
+};

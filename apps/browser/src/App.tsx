@@ -7,6 +7,8 @@ import { TopNav } from './components/TopNav.js';
 import { channelManager } from './channels/manager.js';
 import type { Channel } from '@isc/core';
 import { usePullToRefresh } from './hooks/usePullToRefresh.js';
+import { NowScreen } from './screens/Now.js';
+import { FollowingScreen } from './screens/Following.js';
 
 interface AppProps {
   onReady?: () => void;
@@ -165,6 +167,8 @@ function Screen({ route }: { route: Route }) {
   switch (route) {
     case 'now':
       return <NowScreen />;
+    case 'following':
+      return <FollowingScreen />;
     case 'discover':
       return <DiscoverScreen />;
     case 'compose':
@@ -176,19 +180,6 @@ function Screen({ route }: { route: Route }) {
     default:
       return <NowScreen />;
   }
-}
-
-function NowScreen() {
-  return (
-    <div class="screen now-screen">
-      <header class="screen-header">
-        <h1>Now</h1>
-      </header>
-      <div class="screen-content">
-        <p>Active conversations will appear here</p>
-      </div>
-    </div>
-  );
 }
 
 function DiscoverScreen() {
