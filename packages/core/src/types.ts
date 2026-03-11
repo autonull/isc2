@@ -23,6 +23,7 @@ export interface Channel {
   createdAt: number;
   updatedAt: number;
   active: boolean;
+  distributions?: Distribution[];  // Optional embedding space distributions
 }
 
 /**

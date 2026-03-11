@@ -2,201 +2,248 @@
  * Interactions Service
  * 
  * Handles likes, reposts, replies, and quotes.
- * References: SOCIAL.md#interactions
  */
 
-import { sign, encode } from '@isc/core/crypto';
-import { lshHash } from '@isc/core/math';
-import type { 
-  LikeEvent, 
-  RepostEvent, 
-  ReplyEvent, 
-  QuoteEvent,
-  SignedPost 
-} from './types';
-import { getPeerID, getKeypair } from '../identity';
-import { loadEmbeddingModel } from '../identity/embedding';
-import { getChannel } from '../channels/manager';
+import { sign, encode } from '@isc/core';
+import type { LikeEvent, RepostEvent, ReplyEvent, QuoteEvent } from './types.js';
+import { getPeerID, getKeypair } from '../identity/index.js';
+import { DelegationClient } from '../delegation/fallback.js';
+import { dbGet, dbGetAll, dbPut, dbDelete, dbFilter } from '../db/helpers.js';
 
-/** Default TTL for interactions (24 hours) */
-const DEFAULT_TTL = 86400;
+const LIKES_STORE = 'likes';
+const REPOSTS_STORE = 'reposts';
+const REPLIES_STORE = 'replies';
+const QUOTES_STORE = 'quotes';
+const DEFAULT_TTL = 86400 * 30; // 30 days
 
 /**
  * Like a post
  */
 export async function likePost(postID: string): Promise<LikeEvent> {
-  const event: LikeEvent = {
-    type: 'like',
-    reactor: await getPeerID(),
-    targetPostID: postID,
-    timestamp: Date.now(),
-    signature: await sign(
-      encode({ type: 'like', targetPostID: postID, timestamp: Date.now() }),
-      (await getKeypair()).privateKey
-    ),
-  };
+  const liker = await getPeerID();
+  const keypair = getKeypair();
 
-  await announceInteraction(`/isc/likes/${postID}`, event);
-  return event;
-}
-
-/**
- * Repost a post with reposter's semantic distribution
- */
-export async function repostPost(
-  postID: string,
-  channelID: string
-): Promise<RepostEvent> {
-  const channel = await getChannel(channelID);
-  const embedding = channel?.distributions[0]?.mu ?? [];
-
-  const event: RepostEvent = {
-    type: 'repost',
-    reactor: await getPeerID(),
-    targetPostID: postID,
-    channelID,
-    embedding,
-    timestamp: Date.now(),
-    signature: await sign(
-      encode({ type: 'repost', targetPostID: postID, channelID, timestamp: Date.now() }),
-      (await getKeypair()).privateKey
-    ),
-  };
-
-  // Announce under reposter's channel for hybrid reach
-  await announceInteraction(`/isc/reposts/${postID}`, event);
-  
-  // Also re-announce original post under reposter's semantic bucket
-  if (embedding.length > 0) {
-    const hashes = lshHash(embedding, 'default-384', 3);
-    const { DelegationClient } = await import('../delegation/fallback');
-    const client = DelegationClient.getInstance();
-    
-    for (const hash of hashes) {
-      const key = `/isc/post/default-384/${hash}`;
-      const repostKey = `/isc/repost/${postID}/${hash}`;
-      await client.announce(repostKey, encode(event), DEFAULT_TTL);
-    }
+  if (!keypair) {
+    throw new Error('Identity not initialized');
   }
 
-  return event;
-}
-
-/**
- * Reply to a post
- */
-export async function replyToPost(
-  postID: string,
-  content: string
-): Promise<ReplyEvent> {
-  const model = await loadEmbeddingModel();
-  const embedding = await model.embed(content);
-
-  const event: ReplyEvent = {
-    type: 'reply',
-    reactor: await getPeerID(),
-    targetPostID: postID,
-    content,
-    embedding,
+  const like: Omit<LikeEvent, 'signature'> = {
+    id: `like_${crypto.randomUUID()}`,
+    liker,
+    postID,
     timestamp: Date.now(),
-    signature: await sign(
-      encode({ type: 'reply', targetPostID: postID, content, timestamp: Date.now() }),
-      (await getKeypair()).privateKey
-    ),
   };
 
-  await announceInteraction(`/isc/replies/${postID}`, event);
-  return event;
-}
+  const payload = encode(like);
+  const signature = await sign(payload, keypair.privateKey);
 
-/**
- * Quote a post with commentary
- */
-export async function quotePost(
-  postID: string,
-  originalContent: string,
-  commentary: string
-): Promise<QuoteEvent> {
-  const model = await loadEmbeddingModel();
-  const fusedEmbedding = await model.embed(`${originalContent} ${commentary}`);
+  const signedLike: LikeEvent = { ...like, signature };
 
-  const event: QuoteEvent = {
-    type: 'quote',
-    reactor: await getPeerID(),
-    targetPostID: postID,
-    originalContent,
-    commentary,
-    fusedEmbedding,
-    timestamp: Date.now(),
-    signature: await sign(
-      encode({ type: 'quote', targetPostID: postID, commentary, timestamp: Date.now() }),
-      (await getKeypair()).privateKey
-    ),
-  };
+  // Store locally
+  await dbPut(LIKES_STORE, signedLike);
 
-  await announceInteraction(`/isc/quotes/${postID}`, event);
-  return event;
-}
-
-/**
- * Compute engagement score for a post
- */
-export async function computeEngagementScore(postID: string): Promise<number> {
-  const { DelegationClient } = await import('../delegation/fallback');
+  // Announce to DHT
   const client = DelegationClient.getInstance();
+  if (client) {
+    const key = `/isc/like/${postID}/${liker}`;
+    await client.announce(key, encode(signedLike), DEFAULT_TTL);
+  }
 
-  const [likes, reposts, replies] = await Promise.all([
-    client.query(`/isc/likes/${postID}`, 1000),
-    client.query(`/isc/reposts/${postID}`, 1000),
-    client.query(`/isc/replies/${postID}`, 1000),
-  ]);
-
-  // Weighted score: replies > reposts > likes
-  return replies.length * 3 + reposts.length * 2 + likes.length;
+  return signedLike;
 }
 
 /**
- * Get replies for a post
+ * Unlike a post
  */
-export async function getReplies(postID: string): Promise<ReplyEvent[]> {
-  const { DelegationClient } = await import('../delegation/fallback');
-  const client = DelegationClient.getInstance();
+export async function unlikePost(postID: string): Promise<void> {
+  const liker = await getPeerID();
+  const likes = await dbFilter<LikeEvent>(LIKES_STORE, (like) =>
+    like.postID === postID && like.liker === liker
+  );
 
-  const encoded = await client.query(`/isc/replies/${postID}`, 100);
-  return encoded.map((d) => JSON.parse(d) as ReplyEvent);
+  for (const like of likes) {
+    await dbDelete(LIKES_STORE, like.id);
+  }
+
+  // Would announce removal to DHT
 }
 
 /**
  * Get like count for a post
  */
 export async function getLikeCount(postID: string): Promise<number> {
-  const { DelegationClient } = await import('../delegation/fallback');
-  const client = DelegationClient.getInstance();
-
-  const encoded = await client.query(`/isc/likes/${postID}`, 1000);
-  return encoded.length;
+  const likes = await dbFilter<LikeEvent>(LIKES_STORE, (like) => like.postID === postID);
+  return likes.length;
 }
 
 /**
- * Get repost count for a post
+ * Check if user liked a post
  */
-export async function getRepostCount(postID: string): Promise<number> {
-  const { DelegationClient } = await import('../delegation/fallback');
-  const client = DelegationClient.getInstance();
-
-  const encoded = await client.query(`/isc/reposts/${postID}`, 1000);
-  return encoded.length;
+export async function hasLiked(postID: string): Promise<boolean> {
+  const liker = await getPeerID();
+  const likes = await dbFilter<LikeEvent>(LIKES_STORE, (like) =>
+    like.postID === postID && like.liker === liker
+  );
+  return likes.length > 0;
 }
 
 /**
- * Announce interaction to DHT
+ * Repost a post
  */
-async function announceInteraction(key: string, event: unknown): Promise<void> {
-  const { DelegationClient } = await import('../delegation/fallback');
+export async function repostPost(postID: string): Promise<RepostEvent> {
+  const reposter = await getPeerID();
+  const keypair = getKeypair();
+
+  if (!keypair) {
+    throw new Error('Identity not initialized');
+  }
+
+  const repost: Omit<RepostEvent, 'signature'> = {
+    id: `repost_${crypto.randomUUID()}`,
+    reposter,
+    postID,
+    timestamp: Date.now(),
+  };
+
+  const payload = encode(repost);
+  const signature = await sign(payload, keypair.privateKey);
+
+  const signedRepost: RepostEvent = { ...repost, signature };
+
+  // Store locally
+  await dbPut(REPOSTS_STORE, signedRepost);
+
+  // Announce to DHT
   const client = DelegationClient.getInstance();
-  await client.announce(key, encode(event), DEFAULT_TTL);
+  if (client) {
+    const key = `/isc/repost/${postID}/${reposter}`;
+    await client.announce(key, encode(signedRepost), DEFAULT_TTL);
+  }
+
+  return signedRepost;
 }
 
-function encode(data: unknown): string {
-  return JSON.stringify(data);
+/**
+ * Reply to a post
+ */
+export async function replyToPost(
+  parentID: string,
+  content: string,
+  channelID: string
+): Promise<ReplyEvent> {
+  const author = await getPeerID();
+  const keypair = getKeypair();
+
+  if (!keypair) {
+    throw new Error('Identity not initialized');
+  }
+
+  const reply: Omit<ReplyEvent, 'signature'> = {
+    id: `reply_${crypto.randomUUID()}`,
+    parentID,
+    author,
+    content,
+    channelID,
+    timestamp: Date.now(),
+  };
+
+  const payload = encode(reply);
+  const signature = await sign(payload, keypair.privateKey);
+
+  const signedReply: ReplyEvent = { ...reply, signature };
+
+  // Store locally
+  await dbPut(REPLIES_STORE, signedReply);
+
+  // Announce to DHT
+  const client = DelegationClient.getInstance();
+  if (client) {
+    const key = `/isc/reply/${parentID}/${signedReply.id}`;
+    await client.announce(key, encode(signedReply), DEFAULT_TTL);
+  }
+
+  return signedReply;
+}
+
+/**
+ * Get replies to a post
+ */
+export async function getReplies(parentID: string): Promise<ReplyEvent[]> {
+  return dbFilter<ReplyEvent>(REPLIES_STORE, (reply) => reply.parentID === parentID);
+}
+
+/**
+ * Quote a post (repost with comment)
+ */
+export async function quotePost(
+  postID: string,
+  content: string,
+  channelID: string
+): Promise<QuoteEvent> {
+  const quoter = await getPeerID();
+  const keypair = getKeypair();
+
+  if (!keypair) {
+    throw new Error('Identity not initialized');
+  }
+
+  const quote: Omit<QuoteEvent, 'signature'> = {
+    id: `quote_${crypto.randomUUID()}`,
+    quoter,
+    postID,
+    content,
+    channelID,
+    timestamp: Date.now(),
+  };
+
+  const payload = encode(quote);
+  const signature = await sign(payload, keypair.privateKey);
+
+  const signedQuote: QuoteEvent = { ...quote, signature };
+
+  // Store locally
+  await dbPut(QUOTES_STORE, signedQuote);
+
+  // Announce to DHT
+  const client = DelegationClient.getInstance();
+  if (client) {
+    const key = `/isc/quote/${postID}/${quoter}`;
+    await client.announce(key, encode(signedQuote), DEFAULT_TTL);
+  }
+
+  return signedQuote;
+}
+
+/**
+ * Get interaction counts for a post
+ */
+export async function getInteractionCounts(postID: string): Promise<{
+  likes: number;
+  reposts: number;
+  replies: number;
+  quotes: number;
+}> {
+  const [likes, reposts, replies, quotes] = await Promise.all([
+    getLikeCount(postID),
+    getRepostCount(postID),
+    getReplyCount(postID),
+    getQuoteCount(postID),
+  ]);
+
+  return { likes, reposts, replies, quotes };
+}
+
+async function getRepostCount(postID: string): Promise<number> {
+  const reposts = await dbFilter<RepostEvent>(REPOSTS_STORE, (repost) => repost.postID === postID);
+  return reposts.length;
+}
+
+async function getReplyCount(parentID: string): Promise<number> {
+  const replies = await dbFilter<ReplyEvent>(REPLIES_STORE, (reply) => reply.parentID === parentID);
+  return replies.length;
+}
+
+async function getQuoteCount(postID: string): Promise<number> {
+  const quotes = await dbFilter<QuoteEvent>(QUOTES_STORE, (quote) => quote.postID === postID);
+  return quotes.length;
 }

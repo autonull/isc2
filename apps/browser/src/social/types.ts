@@ -1,271 +1,177 @@
 /**
- * Social Layer Types
- * 
- * Defines the core data structures for posts, interactions, and social graph.
- * References: SOCIAL.md
+ * Social Layer Type Definitions
  */
 
-import type { Signature, PublicKey } from '@isc/core/crypto';
+import type { Signature } from '@isc/core';
+import type { Channel } from '@isc/core';
 
 /**
- * Core post structure with cryptographic signature
+ * Signed post with author signature
  */
 export interface SignedPost {
-  type: 'post';
-  postID: string;
-  author: string; // peerID
-  content: string;
-  channelID: string;
-  embedding: number[];
-  timestamp: number;
-  ttl: number;
-  signature: Signature;
-}
-
-/**
- * Payload for creating a post (before signing)
- */
-export interface PostPayload {
-  type: 'post';
-  postID: string;
+  id: string;
   author: string;
   content: string;
   channelID: string;
-  embedding: number[];
-  timestamp: number;
-  ttl: number;
-}
-
-/**
- * Post with additional metadata from feed ranking
- */
-export interface RankedPost extends SignedPost {
-  similarityScore?: number;
-  engagementScore?: number;
-  matchedChannel?: string;
-}
-
-/**
- * Like event for post interactions
- */
-export interface LikeEvent {
-  type: 'like';
-  reactor: string; // peerID
-  targetPostID: string;
   timestamp: number;
   signature: Signature;
+  lshHash?: string; // For semantic discovery
 }
 
 /**
- * Repost event - re-announce with reposter's semantic distribution
- */
-export interface RepostEvent {
-  type: 'repost';
-  reactor: string;
-  targetPostID: string;
-  channelID: string;
-  embedding: number[]; // Reposter's channel embedding
-  timestamp: number;
-  signature: Signature;
-}
-
-/**
- * Reply event for threaded conversations
- */
-export interface ReplyEvent {
-  type: 'reply';
-  reactor: string;
-  targetPostID: string;
-  content: string;
-  embedding: number[];
-  timestamp: number;
-  signature: Signature;
-}
-
-/**
- * Quote event - embed original + commentary as fused vector
- */
-export interface QuoteEvent {
-  type: 'quote';
-  reactor: string;
-  targetPostID: string;
-  originalContent: string;
-  commentary: string;
-  fusedEmbedding: number[];
-  timestamp: number;
-  signature: Signature;
-}
-
-/**
- * Follow event for social graph
- */
-export interface FollowEvent {
-  type: 'follow' | 'unfollow';
-  follower: string;
-  followee: string;
-  timestamp: number;
-  signature: Signature;
-}
-
-/**
- * Local follow subscription (stored in IndexedDB)
+ * Follow subscription
  */
 export interface FollowSubscription {
-  followee: string; // peerID
-  channelID?: string; // Optional: follow specific channel
+  followee: string;
   since: number;
 }
 
 /**
- * User profile aggregated from channels
+ * Like event
  */
-export interface Profile {
-  peerID: string;
-  bio?: string;
-  bioEmbedding?: number[]; // Computed: mean(channelEmbeddings)
-  channels: ChannelSummary[];
-  followerCount: number;
-  followingCount: number;
-  joinedAt: number;
-  signature?: Signature;
+export interface LikeEvent {
+  id: string;
+  liker: string;
+  postID: string;
+  timestamp: number;
+  signature: Signature;
 }
 
 /**
- * Channel summary for profile display
+ * Repost event
  */
-export interface ChannelSummary {
+export interface RepostEvent {
+  id: string;
+  reposter: string;
+  postID: string;
+  timestamp: number;
+  signature: Signature;
+}
+
+/**
+ * Reply event
+ */
+export interface ReplyEvent {
+  id: string;
+  parentID: string;
+  author: string;
+  content: string;
+  channelID: string;
+  timestamp: number;
+  signature: Signature;
+}
+
+/**
+ * Quote event (repost with comment)
+ */
+export interface QuoteEvent {
+  id: string;
+  quoter: string;
+  postID: string;
+  content: string;
+  channelID: string;
+  timestamp: number;
+  signature: Signature;
+}
+
+/**
+ * Community channel with shared editing
+ */
+export interface CommunityChannel {
   channelID: string;
   name: string;
   description: string;
+  members: string[];
+  coEditors: string[];
   embedding: number[];
-  postCount: number;
-  latestEmbedding: number[];
+  createdAt: number;
+  updatedAt: number;
+  signature: Signature;
 }
 
 /**
- * Community report for content moderation
+ * Group DM
+ */
+export interface GroupDM {
+  groupID: string;
+  members: string[];
+  creator: string;
+  createdAt: number;
+}
+
+/**
+ * DM message
+ */
+export interface DMMessage {
+  id: string;
+  groupID: string;
+  sender: string;
+  content: string;
+  timestamp: number;
+  encrypted: Uint8Array;
+}
+
+/**
+ * Community report
  */
 export interface CommunityReport {
+  id: string;
   reporter: string;
-  targetPostID: string;
-  reason: 'off-topic' | 'spam' | 'harassment';
-  evidence: string;
-  signature: Signature;
-}
-
-/**
- * Reputation score for peer trust
- */
-export interface ReputationScore {
-  peerID: string;
-  score: number; // 0.0 - 1.0
-  mutualFollows: number;
-  interactionHistory: Interaction[];
-  halfLifeDays: number; // 30-day decay
-}
-
-/**
- * Generic interaction for reputation tracking
- */
-export interface Interaction {
-  type: 'like' | 'repost' | 'reply' | 'quote' | 'follow';
-  peerID: string;
-  timestamp: number;
-  weight: number;
-}
-
-/**
- * Feed type enumeration
- */
-export type FeedType = 'forYou' | 'following' | 'explore' | 'channel';
-
-/**
- * Feed query parameters
- */
-export interface FeedQuery {
-  type: FeedType;
-  channelID?: string;
-  limit?: number;
-  since?: number;
-  excludeAuthors?: string[];
-}
-
-/**
- * Block event - stronger than mute, prevents all interaction
- */
-export interface BlockEvent {
-  type: 'block' | 'unblock';
-  blocker: string;
-  blocked: string;
+  reported: string;
+  reason: string;
+  evidence: string[];
   timestamp: number;
   signature: Signature;
 }
 
 /**
- * Trust path for Web of Trust discovery
+ * Vote on a report
  */
-export interface TrustPath {
-  source: string;
-  target: string;
-  hops: string[]; // Intermediate peers (source -> hops[0] -> ... -> target)
-  trustScore: number; // Product of edge trust scores
-  depth: number;
-}
-
-/**
- * Trust edge between two peers
- */
-export interface TrustEdge {
-  from: string;
-  to: string;
-  score: number; // 0.0 - 1.0
-  mutualFollows: boolean;
+export interface Vote {
+  id: string;
+  reportId: string;
+  voter: string;
+  decision: 'guilty' | 'not_guilty';
   timestamp: number;
+  signature: Signature;
 }
 
 /**
- * Community council for decentralized moderation
+ * Community council
  */
 export interface CommunityCouncil {
   id: string;
   name: string;
-  members: string[]; // peerIDs
-  threshold: number; // Minimum votes needed (e.g., 3 of 5)
-  jurisdiction: string[]; // Channel IDs this council moderates
-  reputationThreshold: number; // Minimum rep to join (e.g., 0.7)
+  members: string[];
+  threshold: number; // Minimum votes for action
+  jurisdiction: string[]; // Channel IDs or '*'
 }
 
 /**
- * Moderation vote for council decisions
+ * Profile summary
  */
-export interface ModerationVote {
-  councilId: string;
-  reportId: string;
-  voter: string;
-  decision: 'approve' | 'reject' | 'dismiss';
-  reasoning: string;
+export interface ProfileSummary {
+  peerID: string;
+  bio?: string;
+  channelCount: number;
+  followerCount: number;
+  followingCount: number;
+  updatedAt: number;
+}
+
+/**
+ * Feed item (unified type for feed rendering)
+ */
+export interface FeedItem {
+  type: 'post' | 'repost' | 'reply' | 'quote';
+  id: string;
+  author: string;
+  content: string;
   timestamp: number;
-  signature: Signature;
-}
-
-/**
- * Moderation decision result
- */
-export interface ModerationDecision {
-  reportId: string;
-  outcome: 'hidden' | 'restored' | 'escalated';
-  votes: ModerationVote[];
-  decidedBy: string; // peerID who made final call if tied
-  timestamp: number;
-}
-
-/**
- * Trust score with Web of Trust components
- */
-export interface TrustScore {
-  directTrust: number; // From direct interactions
-  indirectTrust: number; // From trust paths
-  mutualFollowBonus: number;
-  sybilCap: number; // Maximum contribution from indirect sources (0.3)
-  total: number; // Combined score
+  likes: number;
+  reposts: number;
+  replies: number;
+  channelID: string;
+  parentID?: string;
+  originalPostID?: string;
 }

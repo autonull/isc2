@@ -203,3 +203,11 @@ export const channelManager = new ChannelManager();
  * Convenience function to get a channel by ID
  */
 export const getChannel = (id: string): Promise<Channel | null> => channelManager.getChannel(id);
+
+/**
+ * Convenience function to update a channel
+ */
+export const updateChannel = (
+  id: string,
+  updates: Partial<Omit<Channel, 'id' | 'createdAt'>>
+): Promise<Channel | null> => channelManager.updateChannel(id, updates);

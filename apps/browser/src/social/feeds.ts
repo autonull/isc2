@@ -1,182 +1,74 @@
 /**
- * Feed Service
+ * Feeds Service
  * 
- * Implements For You, Following, and Explore feeds.
- * References: SOCIAL.md#posts--feeds
+ * Handles feed generation: For You, Following, Explore.
  */
 
-import { cosineSimilarity } from '@isc/core/math';
-import type { RankedPost, SignedPost, FeedQuery, FollowSubscription } from './types';
-import { queryPostsByEmbedding, getPostsByAuthor, isPostValid } from './posts';
-import { getChannel } from '../channels/manager';
-
-/** Minimum similarity threshold for For You feed */
-const MIN_SIMILARITY = 0.6;
+import type { SignedPost } from './types.js';
+import { getAllPosts, getPostsByChannel } from './posts.js';
+import { getFollowees } from './graph.js';
+import { getChannel } from '../channels/manager.js';
 
 /**
- * Get "For You" feed - semantic proximity ranking
+ * Get "For You" feed - posts from channels user is in
  */
-export async function getForYouFeed(
-  channelID: string,
-  limit: number = 50
-): Promise<RankedPost[]> {
-  const channel = await getChannel(channelID);
-  if (!channel) {
-    return [];
-  }
-
-  // Sample from channel distribution for query vector
-  const sample = channel.distributions[0]?.mu ?? [];
-  if (sample.length === 0) {
-    return [];
-  }
-
-  const candidates = await queryPostsByEmbedding(sample, limit * 4);
+export async function getForYouFeed(limit: number = 50): Promise<SignedPost[]> {
+  const allPosts = await getAllPosts();
   
-  // Score and rank by similarity
-  const scored = candidates
-    .filter(isPostValid)
-    .map(post => ({
-      post,
-      score: cosineSimilarity(sample, post.embedding),
-    }));
-
-  scored.sort((a, b) => b.score - a.score);
-
-  return scored
-    .filter(s => s.score > MIN_SIMILARITY)
-    .slice(0, limit)
-    .map(s => ({
-      ...s.post,
-      similarityScore: s.score,
-      matchedChannel: channelID,
-    }));
-}
-
-/**
- * Get "Following" feed - posts from followed peers
- */
-export async function getFollowingFeed(
-  subscriptions: FollowSubscription[],
-  limit: number = 50
-): Promise<SignedPost[]> {
-  const allPosts: SignedPost[] = [];
-
-  for (const sub of subscriptions) {
-    const authorPosts = await getPostsByAuthor(sub.followee, limit);
-    allPosts.push(...authorPosts.filter(isPostValid));
-  }
-
-  // Sort by timestamp descending
-  allPosts.sort((a, b) => b.timestamp - a.timestamp);
-  return allPosts.slice(0, limit);
-}
-
-/**
- * Get "Explore" feed - trending posts
- */
-export async function getExploreFeed(
-  limit: number = 50
-): Promise<RankedPost[]> {
-  // For now, return high-engagement posts
-  // TODO: Implement trending detection based on likes/reposts
-  const channelIDs = await getActiveChannelIDs();
-  const allPosts: RankedPost[] = [];
-
-  for (const channelID of channelIDs.slice(0, 5)) {
-    const channel = await getChannel(channelID);
-    if (!channel) continue;
-
-    const sample = channel.distributions[0]?.mu ?? [];
-    if (sample.length === 0) continue;
-
-    const posts = await queryPostsByEmbedding(sample, limit / 5);
-    const scored = posts
-      .filter(isPostValid)
-      .map(post => ({
-        post,
-        score: cosineSimilarity(sample, post.embedding),
-      }))
-      .filter(s => s.score > MIN_SIMILARITY)
-      .map(s => ({
-        ...s.post,
-        similarityScore: s.score,
-        matchedChannel: channelID,
-      }));
-
-    allPosts.push(...scored);
-  }
-
-  allPosts.sort((a, b) => (b.similarityScore ?? 0) - (a.similarityScore ?? 0));
-  return allPosts.slice(0, limit);
-}
-
-/**
- * Get channel-specific feed
- */
-export async function getChannelFeed(
-  channelID: string,
-  limit: number = 50
-): Promise<RankedPost[]> {
-  const channel = await getChannel(channelID);
-  if (!channel) {
-    return [];
-  }
-
-  const sample = channel.distributions[0]?.mu ?? [];
-  if (sample.length === 0) {
-    return [];
-  }
-
-  const candidates = await queryPostsByEmbedding(sample, limit * 3);
+  // Sort by timestamp (newest first)
+  const sorted = allPosts.sort((a, b) => b.timestamp - a.timestamp);
   
-  const scored = candidates
-    .filter(isPostValid)
-    .map(post => ({
-      post,
-      score: cosineSimilarity(sample, post.embedding),
-    }));
-
-  scored.sort((a, b) => b.score - a.score);
-
-  return scored
-    .filter(s => s.score > MIN_SIMILARITY)
-    .slice(0, limit)
-    .map(s => ({
-      ...s.post,
-      similarityScore: s.score,
-      matchedChannel: channelID,
-    }));
+  return sorted.slice(0, limit);
 }
 
 /**
- * Get feed based on query type
+ * Get "Following" feed - posts from followed users
  */
-export async function getFeed(query: FeedQuery): Promise<RankedPost[]> {
-  const { type, channelID, limit = 50 } = query;
-
-  switch (type) {
-    case 'forYou':
-      if (!channelID) return [];
-      return getForYouFeed(channelID, limit);
-    case 'following':
-      // Requires subscriptions - return empty for now
-      return [];
-    case 'explore':
-      return getExploreFeed(limit);
-    case 'channel':
-      if (!channelID) return [];
-      return getChannelFeed(channelID, limit);
-    default:
-      return [];
-  }
+export async function getFollowingFeed(limit: number = 50): Promise<SignedPost[]> {
+  const followees = await getFollowees();
+  const allPosts = await getAllPosts();
+  
+  // Filter to posts from followees
+  const followingPosts = allPosts.filter((post) =>
+    followees.includes(post.author)
+  );
+  
+  // Sort by timestamp (newest first)
+  const sorted = followingPosts.sort((a, b) => b.timestamp - a.timestamp);
+  
+  return sorted.slice(0, limit);
 }
 
 /**
- * Get list of active channel IDs
- * TODO: Implement proper channel discovery
+ * Get "Explore" feed - posts from all channels, ranked by engagement
+ * Note: Simple implementation without real engagement metrics
  */
-async function getActiveChannelIDs(): Promise<string[]> {
-  // Placeholder - would query DHT for active channels
-  return ['default'];
+export async function getExploreFeed(limit: number = 50): Promise<SignedPost[]> {
+  const allPosts = await getAllPosts();
+  
+  // Sort by timestamp (newest first) - would use engagement ranking in real implementation
+  const sorted = allPosts.sort((a, b) => b.timestamp - a.timestamp);
+  
+  return sorted.slice(0, limit);
+}
+
+/**
+ * Get channel feed - posts from a specific channel
+ */
+export async function getChannelFeed(channelID: string, limit: number = 50): Promise<SignedPost[]> {
+  const posts = await getPostsByChannel(channelID);
+  
+  // Sort by timestamp (newest first)
+  const sorted = posts.sort((a, b) => b.timestamp - a.timestamp);
+  
+  return sorted.slice(0, limit);
+}
+
+/**
+ * Refresh feed by fetching new posts from DHT
+ * Note: Placeholder for DHT integration
+ */
+export async function refreshFeed(channelID?: string): Promise<void> {
+  // Would query DHT for new posts here
+  console.log('[Feeds] Refreshing feed...', channelID ? `channel: ${channelID}` : 'all channels');
 }

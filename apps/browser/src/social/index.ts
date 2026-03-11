@@ -1,45 +1,30 @@
 /**
- * Social Layer
+ * Social Layer Module
  * 
- * Public API for social network functionality.
+ * Exports all social functionality.
  */
 
 // Types
 export type {
   SignedPost,
-  PostPayload,
-  RankedPost,
+  FollowSubscription,
   LikeEvent,
   RepostEvent,
   ReplyEvent,
   QuoteEvent,
-  FollowEvent,
-  FollowSubscription,
-  Profile,
-  ChannelSummary,
-  CommunityReport,
-  ReputationScore,
-  Interaction,
-  FeedType,
-  FeedQuery,
-  BlockEvent,
-  TrustPath,
-  TrustEdge,
-  TrustScore,
-  CommunityCouncil,
-  ModerationVote,
-  ModerationDecision,
-} from './types';
+  FeedItem,
+} from './types.js';
 
 // Posts
 export {
   createPost,
-  announcePost,
-  queryPostsByEmbedding,
+  getPost,
+  getAllPosts,
+  getPostsByChannel,
   getPostsByAuthor,
   verifyPost,
-  isPostValid,
-} from './posts';
+  deletePost,
+} from './posts.js';
 
 // Feeds
 export {
@@ -47,135 +32,30 @@ export {
   getFollowingFeed,
   getExploreFeed,
   getChannelFeed,
-  getFeed,
-} from './feeds';
+  refreshFeed,
+} from './feeds.js';
+
+// Graph
+export {
+  followUser,
+  unfollowUser,
+  getFollowees,
+  isFollowing,
+  getFollowerCount,
+  getFollowingCount,
+  computeReputation,
+  getSuggestedFollows,
+} from './graph.js';
 
 // Interactions
 export {
   likePost,
+  unlikePost,
+  getLikeCount,
+  hasLiked,
   repostPost,
   replyToPost,
-  quotePost,
-  computeEngagementScore,
   getReplies,
-  getLikeCount,
-  getRepostCount,
-} from './interactions';
-
-// Social Graph
-export {
-  followPeer,
-  unfollowPeer,
-  getFollowingList,
-  getFollowSubscriptions,
-  isFollowing,
-  getSuggestedFollows,
-  getProfile,
-  computeReputation,
-  computeTrustScore,
-  findTrustPaths,
-  getWoTSuggestedFollows,
-  getBridgeSuggestions,
-  recordInteraction,
-  applyChaosMode,
-} from './graph';
-
-// Moderation
-export {
-  checkPostCoherence,
-  filterIncoherentPosts,
-  submitReport,
-  getReports,
-  shouldHidePost,
-  getModerationScore,
-  getMutedPeers,
-  mutePeer,
-  unmutePeer,
-  filterMutedPosts,
-  getBlockedPeers,
-  blockPeer,
-  unblockPeer,
-  filterBlockedPosts,
-  isPeerBlockedOrMuted,
-  createCouncil,
-  getCouncil,
-  getCouncilsForChannel,
-  submitModerationVote,
-  getVotesForReport,
-  processModerationDecision,
-  escalateReport,
-  getCouncilEligibleMembers,
-} from './moderation';
-
-// Phase 5: Advanced Features
-// Communities
-export type { CommunityChannel, CommunityChannelPayload } from './communities';
-export {
-  createCommunityChannel,
-  joinCommunity,
-  leaveCommunity,
-  addCoEditor,
-  updateCommunityChannel,
-  getCommunity,
-  getUserCommunities,
-  queryCommunitiesByEmbedding,
-  verifyCommunity,
-  computeSemanticNeighborhood,
-} from './communities';
-
-// Audio Spaces
-export type { AudioSpace, AudioMessage } from './audioSpaces';
-export {
-  createAudioSpace,
-  joinAudioSpace,
-  leaveAudioSpace,
-  toggleMute,
-  getAudioSpace,
-  getAllActiveSpaces,
-  handleAudioMessage,
-} from './audioSpaces';
-
-// Direct Messages
-export type { DirectMessage, DMPayload, GroupDM } from './directMessages';
-export {
-  sendDM,
-  sendGroupDM,
-  createGroupDM,
-  addGroupMember,
-  removeGroupMember,
-  decryptDM,
-  getConversation,
-  getConversations,
-  markAsRead,
-  getMyGroupDMs,
-} from './directMessages';
-
-// Trending
-export type { TrendingTopic } from './trending';
-export {
-  computeTrendingScore,
-  getTrendingPosts,
-  getTrendingTopics,
-  getExploreFeed,
-  getGlobalExplore,
-} from './trending';
-
-// Semantic Map
-export type { Point2D } from './semanticMap';
-export {
-  projectTo2D,
-  computeChannelPositions,
-  findNeighbors,
-  kmeansClusters,
-  renderSemanticMap,
-} from './semanticMap';
-
-// Thought Bridge
-export type { ConversationStarter, DiscussionTopic } from './thoughtBridge';
-export {
-  findCrossoverWords,
-  generateConversationStarter,
-  getConversationStarters,
-  findBridgingPosts,
-  suggestDiscussionTopics,
-} from './thoughtBridge';
+  quotePost,
+  getInteractionCounts,
+} from './interactions.js';

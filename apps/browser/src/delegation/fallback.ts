@@ -278,6 +278,25 @@ export class DelegationClient {
     return Array.from(this.blockedSupernodes);
   }
 
+  /**
+   * Announce data to DHT via supernode delegation
+   */
+  async announce(key: string, value: Uint8Array, ttl: number = 300): Promise<void> {
+    // Direct DHT announcement (not delegated)
+    // This is a placeholder - actual implementation would use network adapter
+    console.log(`[DelegationClient] Announce: ${key} (${value.length} bytes, TTL: ${ttl}s)`);
+  }
+
+  /**
+   * Query DHT via supernode delegation
+   */
+  async query(key: string, count: number = 10): Promise<Uint8Array[]> {
+    // Direct DHT query (not delegated)
+    // This is a placeholder - actual implementation would use network adapter
+    console.log(`[DelegationClient] Query: ${key} (count: ${count})`);
+    return [];
+  }
+
   private static instance: DelegationClient | null = null;
 
   static getInstance(): DelegationClient | null {

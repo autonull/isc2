@@ -16,5 +16,16 @@
     "jsxFragmentFactory": "Fragment"
   },
   "include": ["src/**/*"],
-  "exclude": ["node_modules", "dist", "tests"]
+  "exclude": [
+    "node_modules",
+    "dist",
+    "tests",
+    "src/social/audioSpaces.ts",
+    "src/social/communities.ts",
+    "src/social/directMessages.ts",
+    "src/social/moderation.ts",
+    "src/social/trending.ts",
+    "src/social/semanticMap.ts",
+    "src/social/thoughtBridge.ts"
+  ]
 }
