@@ -10,6 +10,7 @@ interface TopNavProps {
 const tabs = [
   { id: 'now', label: 'Now', icon: '🏠' },
   { id: 'discover', label: 'Discover', icon: '📡' },
+  { id: 'video', label: 'Video', icon: '📹' },
   { id: 'compose', label: 'Compose', icon: '➕', special: true },
   { id: 'chats', label: 'Chats', icon: '💬' },
   { id: 'settings', label: 'Settings', icon: '⚙️' },

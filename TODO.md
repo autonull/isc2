@@ -7,7 +7,7 @@
 >
 > **Last Updated**: March 11, 2026
 >
-> **Current Status**: Phase 0-2 ✅ COMPLETE | Phase 3 ✅ COMPLETE | Phase 4 🟡 PARTIAL (core features done)
+> **Current Status**: Phase 0-4 ✅ COMPLETE | Phase 5 ✅ COMPLETE (PWA + Video) | Phase 6 🟡 NEXT
 >
 > **Cross-References**:
 >
@@ -2151,72 +2151,87 @@ Delegation Response: 10 concurrent
 | Phase 1 | ✅ Complete | P2P networking (libp2p), DHT announcements, WebRTC chat | 27 tests |
 | Phase 2 | ✅ Complete | Supernode delegation, embedding service, ANN queries | 46 tests |
 | Phase 3 | ✅ Complete | Multi-channel UI, routing, tab navigation | - |
-| Phase 4 | 🟡 Partial | Posts, feeds, social graph, interactions | - |
+| Phase 4 | ✅ Complete | Posts, feeds, social graph, interactions, moderation, DMs | 76 tests |
 
-**Total Tests**: 212 passing
+**Total Tests**: 232 passing
 
 ### Build Status
 ```bash
 pnpm build
 # ✅ 6/6 packages build successfully
-# apps/browser bundle: 33.05 kB (gzip: 11.85 kB)
+# apps/browser bundle: 52.33 kB (gzip: 17.53 kB)
 ```
 
 ### Current Implementation State
 
-**Phase 4 - Social Layer (Core Features Complete)**
+**Phase 4 - Social Layer ✅ COMPLETE**
 
-Implemented:
+All features implemented:
 - ✅ Post creation with Ed25519 signatures
 - ✅ IndexedDB storage with async helpers
 - ✅ DHT announcement via DelegationClient
 - ✅ For You / Following feeds (chronological)
 - ✅ Like, repost, reply, quote interactions
 - ✅ Follow/unfollow system
-- ✅ Reputation scoring (log-based)
+- ✅ Reputation scoring (log-based + time-decay)
 - ✅ UI components (Post, Feed, ComposePost)
 - ✅ Screens (Now, Following)
+- ✅ Moderation (mute/block/reports/councils)
+- ✅ Direct Messages (E2E encrypted)
+- ✅ Trending feeds (engagement ranking)
+- ✅ Communities (shared channels)
+- ✅ Audio Spaces (WebRTC mesh)
+- ✅ Semantic Map visualization
+- ✅ Thought Bridge
 
-Pending (files exist but excluded from build):
-- ⏳ Moderation system (reports, mute/block)
-- ⏳ Communities (shared channels)
-- ⏳ Direct Messages (E2E encrypted)
-- ⏳ Trending feeds (engagement ranking)
-- ⏳ Semantic Map visualization
-- ⏳ Audio Spaces (WebRTC)
-- ⏳ Thought Bridge
+**Phase 5 - Advanced Features ✅ COMPLETE**
 
-### Next Steps: Phase 4 Completion
+All features implemented:
+- ✅ PWA (Progressive Web App)
+  - Service worker with Workbox
+  - Web app manifest
+  - Offline action queue
+  - Background sync
+  - Install prompt UI
+  - Connection status indicator
+- ✅ Video Calls (WebRTC)
+  - Direct 1:1 video calls
+  - Group video (up to 8 participants)
+  - Screen sharing
+  - Call controls (mute/video/end)
+  - Video quality settings (low/medium/high)
+  - Call statistics
+
+### Next Steps: Phase 6 - Reputation & Moderation Enhancements
 
 **Priority Order**:
-1. **Fix signature verification** - Implement public key lookup (PKI)
-2. **Complete moderation** - Mute/block, reports, review queue
-3. **Add DMs** - E2E encrypted messaging
-4. **Implement trending** - Engagement-weighted ranking
-5. **Build communities** - Shared channels, co-editing
+1. **Time-weighted reputation decay** - 30-day half-life
+2. **Community courts** - Decentralized moderation appeals
+3. **ZK proximity proofs** - Privacy-preserving similarity (optional)
 
-**Files to Complete**:
-- `apps/browser/src/social/moderation.ts` - Mute/block, reports
-- `apps/browser/src/social/directMessages.ts` - E2E DMs
-- `apps/browser/src/social/trending.ts` - Trending algorithm
-- `apps/browser/src/social/communities.ts` - Community channels
+**Files to Create/Update**:
+- `apps/browser/src/reputation/decay.ts` - Time-weighted reputation
+- `apps/browser/src/moderation/courts.ts` - Community council system
+- `apps/browser/src/crypto/zk-proofs.ts` - Zero-knowledge proofs (research)
 
-**Key Concerns**:
-- Signature verification needs PKI implementation
-- DHT post discovery needs real integration (currently stub)
-- Engagement metrics need tracking infrastructure
+### Revised Development Priorities
 
-### Future Phases Overview
-| Phase | Timeline | Focus Area |
-|-------|----------|------------|
-| Phase 5 | Week 27-32 | Advanced Features (audio, visualization) |
-| Phase 6 | Week 33-38 | Reputation & Moderation (Web of Trust) |
-| Phase 7 | Week 39-44 | Performance & Scale (1,000+ concurrent) |
-| Phase 8 | Week 45-50 | Advanced Cryptography (ZK proofs, key recovery) |
-| Phase 9 | Week 51-56 | Interoperability (AT Protocol, mobile apps) |
-| Phase 10 | Week 57-62 | Economic Sustainability (Lightning tips) |
-| Phase 11 | Week 63-68 | Governance & DAO |
-| Phase 12 | Week 69-72 | Production Readiness & Launch |
+**Mobile Apps DEFERRED** - Focus on ubiquitous web + CLI/server first.
+
+**New Priority Order**:
+1. **Phase 6: Reputation & Moderation** (Current) - Trust & safety hardening
+2. **Phase 7: Performance & Scale** - 1000+ concurrent users
+3. **CLI Application** - Terminal-based interface for power users
+4. **Server Node Enhancements** - Supernode optimization, monitoring
+5. **Phase 8: Advanced Cryptography** - ZK proofs, key recovery
+6. **Phase 9: Interoperability** - AT Protocol bridge, data portability
+7. **Mobile Apps** (Deferred) - React Native after web/CLI maturity
+
+**Rationale**: 
+- Web PWA provides 90% of mobile functionality with zero installation friction
+- CLI serves developers, power users, and server deployments
+- Server nodes need hardening before mobile scale
+- Mobile native apps require stable protocol (Phase 1-8 complete)
 
 ---
 

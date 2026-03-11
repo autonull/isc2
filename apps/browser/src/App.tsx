@@ -12,6 +12,7 @@ import { usePullToRefresh } from './hooks/usePullToRefresh.js';
 import { initConnectionMonitor, initSyncManager, isOnline } from './offline/index.js';
 import { NowScreen } from './screens/Now.js';
 import { FollowingScreen } from './screens/Following.js';
+import { VideoCallScreen } from './screens/VideoCalls.js';
 
 interface AppProps {
   onReady?: () => void;
@@ -187,6 +188,8 @@ function Screen({ route }: { route: Route }) {
       return <ChatsScreen />;
     case 'settings':
       return <SettingsScreen />;
+    case 'video':
+      return <VideoCallScreen />;
     default:
       return <NowScreen />;
   }
@@ -254,6 +257,7 @@ function TabBar({ activeTab, onTabClick, badges = {} }: TabBarProps) {
   const tabs: { id: Route; label: string; icon: string; special?: boolean }[] = [
     { id: 'now', label: 'Now', icon: '🏠' },
     { id: 'discover', label: 'Discover', icon: '📡' },
+    { id: 'video', label: 'Video', icon: '📹' },
     { id: 'compose', label: '', icon: '➕', special: true },
     { id: 'chats', label: 'Chats', icon: '💬' },
     { id: 'settings', label: 'Settings', icon: '⚙️' },

@@ -1,4 +1,4 @@
-export type Route = 'now' | 'following' | 'discover' | 'compose' | 'chats' | 'settings';
+export type Route = 'now' | 'following' | 'discover' | 'compose' | 'chats' | 'settings' | 'video';
 
 type RouteChangeCallback = (route: Route) => void;
 
@@ -29,7 +29,7 @@ class Router {
 
   getRouteFromHash(): Route {
     const hash = window.location.hash.slice(2) || 'now';
-    const validRoutes: Route[] = ['now', 'following', 'discover', 'compose', 'chats', 'settings'];
+    const validRoutes: Route[] = ['now', 'following', 'discover', 'compose', 'chats', 'settings', 'video'];
     return validRoutes.includes(hash as Route) ? (hash as Route) : 'now';
   }
 
