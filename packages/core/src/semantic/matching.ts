@@ -1,6 +1,6 @@
 import { cosineSimilarity } from '../math/cosine.js';
 import { Distribution, Relation } from '../types.js';
-import { locationOverlap, timeOverlap, spatiotemporalSimilarity, Location, TimeWindow } from './spatiotemporal.js';
+import { locationOverlap, timeOverlap, Location, TimeWindow } from './spatiotemporal.js';
 
 /**
  * Relational matching configuration.
@@ -19,14 +19,7 @@ const DEFAULT_CONFIG: MatchConfig = {
   minSimilarity: 0.55,
 };
 
-/**
- * Parses a relation object string into structured data.
- * 
- * @param object - Relation object string (e.g., "lat:35.6895, long:139.6917, radius:50km")
- * @returns Parsed location, time window, or null
- */
 function parseRelationObject(object: string): Location | TimeWindow | null {
-  // Try parsing as location
   const locationMatch = object.match(/lat:([-\d.]+),\s*long:([-\d.]+)(?:,\s*radius:(\d+)km)?/i);
   if (locationMatch) {
     return {
@@ -36,64 +29,41 @@ function parseRelationObject(object: string): Location | TimeWindow | null {
     };
   }
 
-  // Try parsing as time window
   const timeMatch = object.match(/start:([^,]+),\s*end:([^,]+)/i);
   if (timeMatch) {
     const start = new Date(timeMatch[1].trim()).getTime();
     const end = new Date(timeMatch[2].trim()).getTime();
-    if (!isNaN(start) && !isNaN(end)) {
-      return { start, end };
-    }
+    return !isNaN(start) && !isNaN(end) ? { start, end } : null;
   }
 
   return null;
 }
 
-/**
- * Computes spatiotemporal bonus between two relations.
- * 
- * @param relA - First relation
- * @param relB - Second relation
- * @returns Spatiotemporal bonus factor (1.0 = no bonus, >1.0 = bonus)
- */
 function spatiotemporalBonus(relA: Relation, relB: Relation): number {
-  if (!relA.object || !relB.object) {
-    return 1.0;
-  }
+  if (!relA.object || !relB.object) return 1.0;
 
   const objA = parseRelationObject(relA.object);
   const objB = parseRelationObject(relB.object);
 
-  if (!objA || !objB) {
-    return 1.0;
-  }
+  if (!objA || !objB) return 1.0;
 
-  // Both are locations
-  if ('lat' in objA && 'lat' in objB) {
-    const overlap = locationOverlap(objA, objB);
-    return 1.0 + overlap * 0.5; // Up to 1.5x bonus
-  }
-
-  // Both are time windows
-  if ('start' in objA && 'start' in objB) {
-    const overlap = timeOverlap(objA, objB);
-    return 1.0 + overlap * 0.5; // Up to 1.5x bonus
-  }
+  if ('lat' in objA && 'lat' in objB) return 1.0 + locationOverlap(objA, objB) * 0.5;
+  if ('start' in objA && 'start' in objB) return 1.0 + timeOverlap(objA, objB) * 0.5;
 
   return 1.0;
 }
 
 /**
  * Computes relational match score between two sets of distributions.
- * 
+ *
  * Uses bipartite best-match alignment across root and fused distributions,
  * with bonuses for tag matching and spatiotemporal overlap.
- * 
+ *
  * @param myDists - My channel distributions (root + fused)
  * @param peerDists - Peer channel distributions (root + fused)
  * @param config - Optional matching configuration
  * @returns Match score in [0, 1], filtered to 0 if below minSimilarity
- * 
+ *
  * @example
  * ```typescript
  * const myDists = [
@@ -114,19 +84,14 @@ export function relationalMatch(
 ): number {
   const cfg = { ...DEFAULT_CONFIG, ...config };
 
-  // Handle empty distributions
-  if (myDists.length === 0 || peerDists.length === 0) {
-    return 0;
-  }
+  if (myDists.length === 0 || peerDists.length === 0) return 0;
 
-  // Find root distributions
-  const myRoot = myDists.find(d => d.tag === 'root');
-  const peerRoot = peerDists.find(d => d.tag === 'root');
+  const myRoot = myDists.find((d) => d.tag === 'root');
+  const peerRoot = peerDists.find((d) => d.tag === 'root');
 
   let score = 0;
   let totalWeight = 0;
 
-  // Root alignment (weighted)
   if (myRoot && peerRoot) {
     const rootSim = cosineSimilarity(myRoot.mu, peerRoot.mu);
     const weightedSim = rootSim * cfg.rootWeight * (myRoot.weight ?? 1) * (peerRoot.weight ?? 1);
@@ -134,12 +99,10 @@ export function relationalMatch(
     totalWeight += cfg.rootWeight;
   }
 
-  // Fused distribution alignment (bipartite best-match)
-  const myFused = myDists.filter(d => d.tag !== 'root');
-  const peerFused = peerDists.filter(d => d.tag !== 'root');
+  const myFused = myDists.filter((d) => d.tag !== 'root');
+  const peerFused = peerDists.filter((d) => d.tag !== 'root');
 
   if (myFused.length > 0 && peerFused.length > 0) {
-    // Create similarity matrix
     const usedPeer = new Set<number>();
     let fusedScore = 0;
     let fusedWeight = 0;
@@ -154,18 +117,12 @@ export function relationalMatch(
 
         const peerDist = peerFused[j];
         const sim = cosineSimilarity(myDist.mu, peerDist.mu);
+        let bonus =
+          myDist.tag && peerDist.tag && myDist.tag === peerDist.tag ? cfg.tagMatchBonus : 1.0;
 
-        // Tag match bonus
-        let bonus = 1.0;
-        if (myDist.tag && peerDist.tag && myDist.tag === peerDist.tag) {
-          bonus = cfg.tagMatchBonus;
-        }
-
-        // Spatiotemporal bonus
-        const myRel: Relation = { tag: myDist.tag || '', object: undefined, weight: myDist.weight };
-        const peerRel: Relation = { tag: peerDist.tag || '', object: undefined, weight: peerDist.weight };
-        const stBonus = spatiotemporalBonus(myRel, peerRel);
-        bonus *= stBonus;
+        const myRel: Relation = { tag: myDist.tag || '', weight: myDist.weight };
+        const peerRel: Relation = { tag: peerDist.tag || '', weight: peerDist.weight };
+        bonus *= spatiotemporalBonus(myRel, peerRel);
 
         const weightedSim = sim * bonus;
         if (weightedSim > bestSim) {
@@ -188,25 +145,17 @@ export function relationalMatch(
     }
   }
 
-  // Normalize to [0, 1]
-  if (totalWeight === 0) {
-    return 0;
-  }
+  if (totalWeight === 0) return 0;
 
   const normalizedScore = score / totalWeight;
+  if (normalizedScore < cfg.minSimilarity) return 0;
 
-  // Filter by minimum similarity
-  if (normalizedScore < cfg.minSimilarity) {
-    return 0;
-  }
-
-  // Clamp to [0, 1]
   return Math.max(0, Math.min(1, normalizedScore));
 }
 
 /**
  * Computes simple cosine similarity between distribution means.
- * 
+ *
  * @param a - First distribution
  * @param b - Second distribution
  * @returns Cosine similarity in [-1, 1]
@@ -217,7 +166,7 @@ export function distributionSimilarity(a: Distribution, b: Distribution): number
 
 /**
  * Ranks peer distributions against my distributions.
- * 
+ *
  * @param myDists - My distributions
  * @param candidates - Array of peer distribution sets
  * @param config - Optional matching configuration
@@ -228,13 +177,10 @@ export function rankCandidates(
   candidates: Distribution[][],
   config: Partial<MatchConfig> = {}
 ): Array<{ peerIndex: number; score: number }> {
-  const scores = candidates.map((peerDists, idx) => ({
-    peerIndex: idx,
-    score: relationalMatch(myDists, peerDists, config),
-  }));
-
-  // Sort by score descending
-  scores.sort((a, b) => b.score - a.score);
-
-  return scores;
+  return candidates
+    .map((peerDists, idx) => ({
+      peerIndex: idx,
+      score: relationalMatch(myDists, peerDists, config),
+    }))
+    .sort((a, b) => b.score - a.score);
 }

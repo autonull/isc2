@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { seededRng, randomInt, shuffle, randomSample } from '../src/math/rng.js';
+import { seededRng, randomInt, shuffle, randomSample } from '../../src/math/rng';
 
 describe('seededRng', () => {
   it('produces deterministic output for same seed', () => {
@@ -65,7 +65,7 @@ describe('randomInt', () => {
   it('can return min and max values', () => {
     const rng = seededRng('boundary-test');
     const values = new Set<number>();
-    
+
     // Run many iterations to hit boundaries
     for (let i = 0; i < 1000; i++) {
       values.add(randomInt(rng, 1, 3));
@@ -94,7 +94,7 @@ describe('shuffle', () => {
   it('produces different orderings for different seeds', () => {
     const arr1 = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
     const arr2 = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
-    
+
     const shuffled1 = shuffle([...arr1], seededRng('seed-1'));
     const shuffled2 = shuffle([...arr2], seededRng('seed-2'));
 

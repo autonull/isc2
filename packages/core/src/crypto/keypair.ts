@@ -16,10 +16,10 @@ export interface Signature {
 
 /**
  * Generates an Ed25519 keypair using the Web Crypto API.
- * 
+ *
  * @returns Generated keypair
  * @throws Error if Web Crypto API is unavailable or Ed25519 is unsupported
- * 
+ *
  * @example
  * ```typescript
  * const keypair = await generateKeypair();
@@ -32,28 +32,18 @@ export async function generateKeypair(): Promise<Keypair> {
     throw new Error('Web Crypto API is not available');
   }
 
-  try {
-    const keyPair = await globalThis.crypto.subtle.generateKey(
-      {
-        name: 'Ed25519',
-        namedCurve: 'Ed25519',
-      },
-      true, // Extractable (for export/backup)
-      ['sign', 'verify']
-    );
+  const keyPair = await globalThis.crypto.subtle.generateKey(
+    { name: 'Ed25519', namedCurve: 'Ed25519' },
+    true,
+    ['sign', 'verify']
+  );
 
-    return {
-      publicKey: keyPair.publicKey,
-      privateKey: keyPair.privateKey,
-    };
-  } catch (error) {
-    throw new Error(`Failed to generate keypair: ${error instanceof Error ? error.message : String(error)}`);
-  }
+  return { publicKey: keyPair.publicKey, privateKey: keyPair.privateKey };
 }
 
 /**
  * Exports a keypair to a portable format for storage or transmission.
- * 
+ *
  * @param keypair - Keypair to export
  * @returns Object with exported key data
  */
@@ -66,15 +56,12 @@ export async function exportKeypair(keypair: Keypair): Promise<{
     globalThis.crypto.subtle.exportKey('pkcs8', keypair.privateKey),
   ]);
 
-  return {
-    publicKey: new Uint8Array(publicKey),
-    privateKey: new Uint8Array(privateKey),
-  };
+  return { publicKey: new Uint8Array(publicKey), privateKey: new Uint8Array(privateKey) };
 }
 
 /**
  * Imports a keypair from exported format.
- * 
+ *
  * @param publicKey - Exported public key bytes
  * @param privateKey - Exported private key bytes
  * @returns Imported keypair
@@ -84,12 +71,20 @@ export async function importKeypair(
   privateKey: Uint8Array
 ): Promise<Keypair> {
   const [pubKey, privKey] = await Promise.all([
-    globalThis.crypto.subtle.importKey('raw', publicKey, { name: 'Ed25519', namedCurve: 'Ed25519' }, true, [
-      'verify',
-    ]),
-    globalThis.crypto.subtle.importKey('pkcs8', privateKey, { name: 'Ed25519', namedCurve: 'Ed25519' }, true, [
-      'sign',
-    ]),
+    globalThis.crypto.subtle.importKey(
+      'raw',
+      publicKey.buffer as ArrayBuffer,
+      { name: 'Ed25519', namedCurve: 'Ed25519' },
+      true,
+      ['verify']
+    ),
+    globalThis.crypto.subtle.importKey(
+      'pkcs8',
+      privateKey.buffer as ArrayBuffer,
+      { name: 'Ed25519', namedCurve: 'Ed25519' },
+      true,
+      ['sign']
+    ),
   ]);
 
   return {
@@ -100,7 +95,7 @@ export async function importKeypair(
 
 /**
  * Formats a public key as a human-readable fingerprint.
- * 
+ *
  * @param publicKey - Public key to format
  * @returns Base58-encoded fingerprint (first 16 chars)
  */
@@ -109,34 +104,24 @@ export async function formatKeyFingerprint(publicKey: CryptoKey): Promise<string
   return base58Encode(new Uint8Array(keyData)).slice(0, 16);
 }
 
+const BASE58_ALPHABET = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+
 /**
  * Simple Base58 encoding (Bitcoin alphabet).
  */
 function base58Encode(data: Uint8Array): string {
-  const alphabet = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
-  
-  // Convert to big integer
   let num = BigInt(0);
   for (const byte of data) {
     num = num * BigInt(256) + BigInt(byte);
   }
 
-  // Convert to base58
   let encoded = '';
   while (num > BigInt(0)) {
     const remainder = Number(num % BigInt(58));
     num = num / BigInt(58);
-    encoded = alphabet[remainder] + encoded;
+    encoded = BASE58_ALPHABET[remainder] + encoded;
   }
 
-  // Add leading '1's for leading zeros
-  for (const byte of data) {
-    if (byte === 0) {
-      encoded = '1' + encoded;
-    } else {
-      break;
-    }
-  }
-
-  return encoded || '1';
+  const leadingZeros = data.findIndex((b) => b !== 0);
+  return (leadingZeros === -1 ? '' : '1'.repeat(leadingZeros)) + encoded || '1';
 }

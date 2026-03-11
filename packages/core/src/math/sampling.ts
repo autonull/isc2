@@ -3,16 +3,16 @@ import { normalize } from './cosine.js';
 
 /**
  * Samples n vectors from a multivariate normal distribution N(μ, σ²I).
- * 
+ *
  * Each dimension is sampled independently from N(μᵢ, σ), then the
  * resulting vector is normalized to unit length.
- * 
+ *
  * @param mu - Mean vector (μ)
  * @param sigma - Standard deviation (σ) for all dimensions
  * @param n - Number of samples to generate
  * @param rng - Optional custom RNG function (for deterministic tests)
  * @returns Array of n normalized sample vectors
- * 
+ *
  * @example
  * ```typescript
  * const mu = [0.1, -0.2, 0.3, ...]; // 384-dim mean
@@ -59,7 +59,7 @@ export function sampleFromDistribution(
 
 /**
  * Computes the mean vector from a set of samples.
- * 
+ *
  * @param samples - Array of vectors
  * @returns Mean vector
  */
@@ -69,24 +69,20 @@ export function computeMean(samples: number[][]): number[] {
   }
 
   const dimensions = samples[0].length;
-  const mean = new Array(dimensions).fill(0);
+  const sum = new Array(dimensions).fill(0);
 
   for (const sample of samples) {
-    for (let i = 0; i < dimensions; i++) {
-      mean[i] += sample[i];
-    }
+    sample.forEach((v, i) => {
+      sum[i] += v;
+    });
   }
 
-  for (let i = 0; i < dimensions; i++) {
-    mean[i] /= samples.length;
-  }
-
-  return mean;
+  return sum.map((v) => v / samples.length);
 }
 
 /**
  * Computes the standard deviation for each dimension.
- * 
+ *
  * @param samples - Array of vectors
  * @param mean - Pre-computed mean vector
  * @returns Standard deviation vector
@@ -100,16 +96,11 @@ export function computeStdDev(samples: number[][], mean: number[]): number[] {
   const variance = new Array(dimensions).fill(0);
 
   for (const sample of samples) {
-    for (let i = 0; i < dimensions; i++) {
-      const diff = sample[i] - mean[i];
+    sample.forEach((v, i) => {
+      const diff = v - mean[i];
       variance[i] += diff * diff;
-    }
+    });
   }
 
-  const stdDev = new Array(dimensions);
-  for (let i = 0; i < dimensions; i++) {
-    stdDev[i] = Math.sqrt(variance[i] / samples.length);
-  }
-
-  return stdDev;
+  return variance.map((v) => Math.sqrt(v / samples.length));
 }

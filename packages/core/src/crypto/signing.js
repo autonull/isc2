@@ -1,0 +1,117 @@
+/**
+ * Signs a payload using Ed25519.
+ *
+ * @param payload - Data to sign (Uint8Array)
+ * @param privateKey - Private key for signing
+ * @returns Digital signature
+ * @throws Error if signing fails
+ *
+ * @example
+ * ```typescript
+ * const payload = new TextEncoder().encode('Hello, World!');
+ * const signature = await sign(payload, keypair.privateKey);
+ * ```
+ */
+export async function sign(payload, privateKey) {
+    if (!globalThis.crypto?.subtle) {
+        throw new Error('Web Crypto API is not available');
+    }
+    try {
+        const signature = await globalThis.crypto.subtle.sign('Ed25519', privateKey, payload.buffer);
+        return {
+            data: new Uint8Array(signature),
+            algorithm: 'Ed25519',
+        };
+    }
+    catch (error) {
+        throw new Error(`Failed to sign payload: ${error instanceof Error ? error.message : String(error)}`);
+    }
+}
+/**
+ * Verifies a digital signature.
+ *
+ * @param payload - Original data that was signed
+ * @param signature - Signature to verify
+ * @param publicKey - Public key for verification
+ * @returns True if signature is valid, false otherwise
+ *
+ * @example
+ * ```typescript
+ * const isValid = await verify(payload, signature, keypair.publicKey);
+ * if (isValid) {
+ *   console.log('Signature is valid!');
+ * } else {
+ *   console.log('Signature verification failed!');
+ * }
+ * ```
+ */
+export async function verify(payload, signature, publicKey) {
+    if (!globalThis.crypto?.subtle) {
+        throw new Error('Web Crypto API is not available');
+    }
+    if (signature.algorithm !== 'Ed25519') {
+        throw new Error(`Unsupported signature algorithm: ${signature.algorithm}`);
+    }
+    try {
+        return await globalThis.crypto.subtle.verify('Ed25519', publicKey, signature.data.buffer, payload.buffer);
+    }
+    catch {
+        return false;
+    }
+}
+/**
+ * Signs a JSON-serializable object.
+ *
+ * @param obj - Object to sign (will be JSON-stringified)
+ * @param privateKey - Private key for signing
+ * @returns Object with original data and signature
+ */
+export async function signObject(obj, privateKey) {
+    const encoder = new TextEncoder();
+    const payload = encoder.encode(JSON.stringify(obj));
+    const sig = await sign(payload, privateKey);
+    return {
+        ...obj,
+        signature: bytesToHex(sig.data),
+        timestamp: Date.now(),
+    };
+}
+/**
+ * Verifies and extracts a signed object.
+ *
+ * @param signedObj - Signed object with signature field
+ * @param publicKey - Public key for verification
+ * @returns Original object without signature, or null if verification fails
+ */
+export async function verifyObject(signedObj, publicKey) {
+    try {
+        const { signature, timestamp, ...obj } = signedObj;
+        const encoder = new TextEncoder();
+        const payload = encoder.encode(JSON.stringify(obj));
+        const sigData = hexToBytes(signature);
+        const isValid = await verify(payload, { data: sigData, algorithm: 'Ed25519' }, publicKey);
+        return isValid ? obj : null;
+    }
+    catch {
+        return null;
+    }
+}
+/**
+ * Converts bytes to hex string.
+ */
+function bytesToHex(bytes) {
+    return Array.from(bytes)
+        .map((b) => b.toString(16).padStart(2, '0'))
+        .join('');
+}
+/**
+ * Converts hex string to bytes.
+ */
+function hexToBytes(hex) {
+    const bytes = new Uint8Array(hex.length / 2);
+    for (let i = 0; i < hex.length; i += 2) {
+        bytes[i / 2] = parseInt(hex.slice(i, i + 2), 16);
+    }
+    return bytes;
+}
+//# sourceMappingURL=signing.js.map

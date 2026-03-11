@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { cosineSimilarity, normalize, squaredEuclideanDistance } from '../src/math/cosine.js';
+import { cosineSimilarity, normalize, squaredEuclideanDistance } from '../../src/math/cosine';
 
 describe('cosineSimilarity', () => {
   it('returns 1.0 for identical vectors', () => {

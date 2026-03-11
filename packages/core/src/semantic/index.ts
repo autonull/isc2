@@ -1,4 +1,9 @@
-export { relationalMatch, distributionSimilarity, rankCandidates, type MatchConfig } from './matching.js';
+export {
+  relationalMatch,
+  distributionSimilarity,
+  rankCandidates,
+  type MatchConfig,
+} from './matching.js';
 export {
   haversineDistance,
   locationOverlap,
@@ -7,3 +12,4 @@ export {
   type Location,
   type TimeWindow,
 } from './spatiotemporal.js';
+export { computeRelationalDistributions, type EmbeddingModel } from './distributions.js';
