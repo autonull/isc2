@@ -3,8 +3,10 @@ import { useState, useEffect } from 'preact/hooks';
 import { router, currentRoute, navigate, initRouter } from './router.js';
 import type { Route } from './router.js';
 import { ChannelHeader } from './components/ChannelHeader.js';
+import { TopNav } from './components/TopNav.js';
 import { channelManager } from './channels/manager.js';
 import type { Channel } from '@isc/core';
+import { usePullToRefresh } from './hooks/usePullToRefresh.js';
 
 interface AppProps {
   onReady?: () => void;
@@ -19,6 +21,8 @@ export function App({ onReady }: AppProps) {
     now: 0,
     chats: 0,
   });
+  const [isDesktop, setIsDesktop] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   useEffect(() => {
     initRouter();
@@ -34,11 +38,41 @@ export function App({ onReady }: AppProps) {
       setRoute(newRoute);
     });
 
-    return () => unsubscribe();
+    const checkDesktop = () => {
+      setIsDesktop(window.innerWidth >= 768);
+    };
+
+    checkDesktop();
+    window.addEventListener('resize', checkDesktop);
+
+    return () => {
+      unsubscribe();
+      window.removeEventListener('resize', checkDesktop);
+    };
   }, []);
 
-  const handleTabClick = (tabId: string) => {
-    navigate(tabId as Route);
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    try {
+      // Re-fetch channels and trigger match query
+      const chs = await channelManager.getAllChannels();
+      setChannels(chs);
+      const active = chs.find((c) => c.active) || null;
+      setActiveChannel(active);
+    } catch (err) {
+      console.error('Refresh failed:', err);
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
+  usePullToRefresh({
+    onRefresh: handleRefresh,
+    threshold: 80,
+  });
+
+  const handleTabClick = (tabId: Route) => {
+    navigate(tabId);
   };
 
   const handleChannelSwitch = () => {
@@ -58,7 +92,10 @@ export function App({ onReady }: AppProps) {
 
   return (
     <div class="app">
-      {activeChannel && (
+      <div class={`ptr-indicator ${isRefreshing ? 'visible' : ''}`}>
+        <div class="ptr-spinner" />
+      </div>
+      {isDesktop && activeChannel && (
         <ChannelHeader
           channel={activeChannel}
           matchCount={badges.now}
@@ -77,7 +114,11 @@ export function App({ onReady }: AppProps) {
       <main class="app-content">
         <Screen route={route} />
       </main>
-      <TabBar activeTab={route} onTabClick={handleTabClick} badges={badges} />
+      {isDesktop ? (
+        <TopNav activeTab={route} onTabClick={handleTabClick} badges={badges} />
+      ) : (
+        <TabBar activeTab={route} onTabClick={handleTabClick} badges={badges} />
+      )}
     </div>
   );
 }
@@ -203,13 +244,13 @@ function SettingsScreen() {
 }
 
 interface TabBarProps {
-  activeTab: string;
-  onTabClick: (tabId: string) => void;
+  activeTab: Route;
+  onTabClick: (tabId: Route) => void;
   badges?: Record<string, number>;
 }
 
 function TabBar({ activeTab, onTabClick, badges = {} }: TabBarProps) {
-  const tabs = [
+  const tabs: { id: Route; label: string; icon: string; special?: boolean }[] = [
     { id: 'now', label: 'Now', icon: '🏠' },
     { id: 'discover', label: 'Discover', icon: '📡' },
     { id: 'compose', label: '', icon: '➕', special: true },

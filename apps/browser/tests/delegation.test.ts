@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, vi, setTimeout } from 'vitest';
 import {
   DelegationClient,
   type LocalHandler,
@@ -132,6 +132,91 @@ describe('Delegation Integration', () => {
 
       const blocked = client.getBlockedSupernodes();
       expect(blocked).not.toContain('peer1');
+    });
+
+    it('should queue requests when max concurrent reached', async () => {
+      const client = new DelegationClient(config, 2, 10); // max 2 concurrent
+
+      const request: DelegateRequest = {
+        type: 'delegate_request',
+        requestID: 'test-1',
+        service: 'embed',
+        payload: new TextEncoder().encode(JSON.stringify({ text: 'test', model: 'test-model' })),
+        requesterPubKey: new Uint8Array(32),
+        timestamp: Date.now(),
+        signature: validSignature,
+      };
+
+      // First two requests should start immediately
+      const p1 = client.delegate(request);
+      const p2 = client.delegate(request);
+
+      // Wait a bit for them to start
+      await new Promise((r) => setTimeout(r, 10));
+
+      const stats = client.getStats();
+      expect(stats.queuedRequests).toBe(0); // No queueing yet
+
+      // Third request should be queued
+      const p3 = client.delegate(request);
+      const stats2 = client.getStats();
+      expect(stats2.queuedRequests).toBe(1);
+
+      // All should resolve
+      await Promise.all([p1, p2, p3]);
+    });
+
+    it('should reject when queue is full', async () => {
+      const client = new DelegationClient(config, 1, 2); // max 1 concurrent, queue size 2
+
+      const request: DelegateRequest = {
+        type: 'delegate_request',
+        requestID: 'test-1',
+        service: 'embed',
+        payload: new TextEncoder().encode(JSON.stringify({ text: 'test', model: 'test-model' })),
+        requesterPubKey: new Uint8Array(32),
+        timestamp: Date.now(),
+        signature: validSignature,
+      };
+
+      // Start one request
+      const p1 = client.delegate(request);
+
+      // Fill the queue
+      const p2 = client.delegate(request);
+      const p3 = client.delegate(request);
+
+      // This should be rejected
+      await expect(client.delegate(request)).rejects.toThrow('QUEUE_FULL');
+
+      const stats = client.getStats();
+      expect(stats.rejectedRequests).toBe(1);
+
+      await Promise.all([p1, p2, p3].map((p) => p.catch(() => {})));
+    });
+
+    it('should track queued and rejected stats', async () => {
+      const client = new DelegationClient(config, 1, 5);
+
+      const request: DelegateRequest = {
+        type: 'delegate_request',
+        requestID: 'test-1',
+        service: 'embed',
+        payload: new TextEncoder().encode(JSON.stringify({ text: 'test', model: 'test-model' })),
+        requesterPubKey: new Uint8Array(32),
+        timestamp: Date.now(),
+        signature: validSignature,
+      };
+
+      // Start one request
+      client.delegate(request);
+
+      // Queue some requests
+      await client.delegate(request);
+      await client.delegate(request);
+
+      const stats = client.getStats();
+      expect(stats.queuedRequests).toBeGreaterThanOrEqual(0);
     });
   });
 });

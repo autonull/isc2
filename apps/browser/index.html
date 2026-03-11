@@ -196,21 +196,183 @@
       }
 
       /* Primary button */
-      .primary-btn {
-        background: #007aff;
-        color: #fff;
-        border: none;
-        padding: 12px 24px;
-        border-radius: 8px;
-        font-size: 16px;
-        cursor: pointer;
-        margin-top: 16px;
-      }
-      .primary-btn:active {
-        background: #0056b3;
-      }
-    </style>
-  </head>
+.primary-btn { background: #007aff; color: #fff; border: none; padding: 12px 24px; border-radius: 8px; font-size: 16px; cursor: pointer; margin-top: 16px; }
+.primary-btn:active { background: #0056b3; }
+
+/* Responsive Breakpoints */
+@media (min-width: 768px) {
+  .app-content { padding-bottom: 0; padding-top: 60px; }
+
+  /* Top Nav (Desktop) */
+  .top-nav {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 60px;
+    background: #fff;
+    border-bottom: 1px solid #e0e0e0;
+    z-index: 100;
+  }
+
+  .top-nav-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 100%;
+    padding: 0 24px;
+  }
+
+  .top-nav-brand {
+    font-size: 20px;
+    font-weight: 700;
+    color: #007aff;
+  }
+
+  .top-nav-tabs {
+    display: flex;
+    gap: 8px;
+  }
+
+  .top-nav-tab {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    border: none;
+    background: none;
+    cursor: pointer;
+    padding: 8px 12px;
+    border-radius: 8px;
+    font-size: 14px;
+    color: #666;
+    transition: background 0.2s;
+  }
+
+  .top-nav-tab:hover {
+    background: #f5f5f5;
+  }
+
+  .top-nav-tab.active {
+    color: #007aff;
+    background: #f0f8ff;
+  }
+
+  .top-nav-tab.compose {
+    background: #007aff;
+    color: #fff;
+    font-size: 20px;
+    padding: 8px 16px;
+  }
+
+  .top-nav-tab.compose:hover {
+    background: #0056b3;
+  }
+
+  .top-nav-tab-icon {
+    font-size: 18px;
+  }
+
+  .top-nav-tab-label {
+    display: none;
+  }
+
+  .top-nav-badge {
+    position: absolute;
+    top: -4px;
+    right: -4px;
+    background: #ff3b30;
+    color: #fff;
+    border-radius: 10px;
+    padding: 2px 6px;
+    font-size: 10px;
+  }
+
+  .top-nav-actions {
+    display: flex;
+    gap: 12px;
+  }
+
+  .top-nav-btn {
+    border: none;
+    background: none;
+    cursor: pointer;
+    font-size: 18px;
+    padding: 8px;
+    border-radius: 8px;
+  }
+
+  .top-nav-btn:hover {
+    background: #f5f5f5;
+  }
+
+  /* Hide tab bar on desktop */
+  .tab-bar {
+    display: none;
+  }
+
+  /* Channel header on desktop */
+  .channel-header {
+    padding: 12px 24px;
+  }
+
+  /* Screens on desktop */
+  .screen {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 24px;
+  }
+
+  .screen-header h1 {
+    font-size: 32px;
+  }
+}
+
+@media (min-width: 1024px) {
+  .top-nav-tab-label {
+    display: inline;
+  }
+
+  .screen {
+    max-width: 1000px;
+  }
+}
+
+/* Pull-to-refresh indicator */
+.ptr-indicator {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  z-index: 99;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.ptr-indicator.visible {
+  opacity: 1;
+}
+
+.ptr-spinner {
+  width: 24px;
+  height: 24px;
+  border: 3px solid #f0f0f0;
+  border-top-color: #007aff;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+</style>
+</head>
   <body>
     <div id="app"></div>
     <script type="module" src="/src/index.tsx"></script>

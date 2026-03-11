@@ -36,6 +36,16 @@ export interface DelegationStats {
   supernodeSuccesses: number;
   supernodeFailures: number;
   localFallbacks: number;
+  queuedRequests: number;
+  rejectedRequests: number;
+}
+
+interface QueuedRequest {
+  request: DelegateRequest;
+  resolve: (response: DelegateResponse) => void;
+  reject: (error: Error) => void;
+  timestamp: number;
+  priority: number;
 }
 
 export class DelegationClient {
@@ -43,20 +53,73 @@ export class DelegationClient {
   private stats: DelegationStats;
   private blockedSupernodes: Set<string> = new Set();
   private failureCounts: Map<string, number> = new Map();
+  private requestQueue: QueuedRequest[] = [];
+  private activeRequests: number = 0;
+  private maxConcurrent: number = 5;
+  private maxQueueSize: number = 50;
 
-  constructor(config: DelegationConfig) {
+  constructor(config: DelegationConfig, maxConcurrent: number = 5, maxQueueSize: number = 50) {
     this.config = config;
+    this.maxConcurrent = maxConcurrent;
+    this.maxQueueSize = maxQueueSize;
     this.stats = {
       totalAttempts: 0,
       supernodeSuccesses: 0,
       supernodeFailures: 0,
       localFallbacks: 0,
+      queuedRequests: 0,
+      rejectedRequests: 0,
     };
   }
 
   async delegate(request: DelegateRequest): Promise<DelegateResponse> {
     this.stats.totalAttempts++;
 
+    if (this.activeRequests >= this.maxConcurrent) {
+      return this.queueRequest(request);
+    }
+
+    return this.processRequest(request);
+  }
+
+  private async queueRequest(request: DelegateRequest): Promise<DelegateResponse> {
+    if (this.requestQueue.length >= this.maxQueueSize) {
+      this.stats.rejectedRequests++;
+      throw new Error('QUEUE_FULL: max queue size exceeded (429)');
+    }
+
+    this.stats.queuedRequests++;
+    return new Promise((resolve, reject) => {
+      this.requestQueue.push({
+        request,
+        resolve,
+        reject,
+        timestamp: Date.now(),
+        priority: 0,
+      });
+      this.processQueue();
+    });
+  }
+
+  private async processQueue(): Promise<void> {
+    while (this.activeRequests < this.maxConcurrent && this.requestQueue.length > 0) {
+      const queued = this.requestQueue.shift();
+      if (queued) {
+        this.activeRequests++;
+        try {
+          const response = await this.processRequest(queued.request);
+          queued.resolve(response);
+        } catch (error) {
+          queued.reject(error as Error);
+        } finally {
+          this.activeRequests--;
+          this.processQueue();
+        }
+      }
+    }
+  }
+
+  private async processRequest(request: DelegateRequest): Promise<DelegateResponse> {
     const supernodes = await this.getEligibleSupernodes();
 
     for (const supernode of supernodes) {
