@@ -1,0 +1,124 @@
+import type { DelegateResponse } from '@isc/protocol/src/messages.js';
+
+export interface EmbedResult {
+  embedding: number[];
+  model: string;
+  norm: number;
+}
+
+export interface ANNResult {
+  matches: string[];
+  scores: number[];
+}
+
+export interface SigVerifyResult {
+  valid: boolean;
+}
+
+export type ServiceResult = EmbedResult | ANNResult | SigVerifyResult;
+
+function toArrayBuffer(view: Uint8Array): ArrayBuffer {
+  return view.buffer.slice(view.byteOffset, view.byteOffset + view.byteLength);
+}
+
+export async function verifyDelegationResponse(
+  response: DelegateResponse,
+  expectedRequestID: string,
+  expectedModel: string,
+  supernodePubKey: Uint8Array
+): Promise<boolean> {
+  if (response.requestID !== expectedRequestID) {
+    console.warn('Request ID mismatch');
+    return false;
+  }
+
+  const validSignature = await verifySignature(response, supernodePubKey);
+  if (!validSignature) {
+    console.warn('Invalid signature');
+    return false;
+  }
+
+  if (response.service === 'embed') {
+    const result = decodeEmbedResponse(response.payload);
+    if (!result) return false;
+
+    if (result.model !== expectedModel) {
+      console.warn('Model mismatch:', result.model, '!=', expectedModel);
+      return false;
+    }
+
+    const norm = Math.sqrt(result.embedding.reduce((sum: number, v: number) => sum + v * v, 0));
+    if (Math.abs(norm - 1.0) > 0.01) {
+      console.warn('Invalid norm:', norm);
+      return false;
+    }
+
+    return true;
+  }
+
+  return true;
+}
+
+async function verifySignature(
+  response: DelegateResponse,
+  publicKey: Uint8Array
+): Promise<boolean> {
+  try {
+    const key = await crypto.subtle.importKey(
+      'raw',
+      toArrayBuffer(publicKey),
+      { name: 'Ed25519' },
+      true,
+      ['verify']
+    );
+
+    const encoder = new TextEncoder();
+    const data = encoder.encode(
+      JSON.stringify({
+        type: response.type,
+        requestID: response.requestID,
+        service: response.service,
+        payload: Array.from(response.payload),
+        responderPubKey: Array.from(response.responderPubKey),
+        timestamp: response.timestamp,
+      })
+    );
+
+    return await crypto.subtle.verify(
+      { name: 'Ed25519' },
+      key,
+      toArrayBuffer(response.signature),
+      toArrayBuffer(data)
+    );
+  } catch (err) {
+    console.error('Signature verification error:', err);
+    return false;
+  }
+}
+
+function decodeEmbedResponse(payload: Uint8Array): EmbedResult | null {
+  try {
+    const decoder = new TextDecoder();
+    return JSON.parse(decoder.decode(payload)) as EmbedResult;
+  } catch {
+    return null;
+  }
+}
+
+export function decodeANNResponse(payload: Uint8Array): ANNResult | null {
+  try {
+    const decoder = new TextDecoder();
+    return JSON.parse(decoder.decode(payload)) as ANNResult;
+  } catch {
+    return null;
+  }
+}
+
+export function decodeSigVerifyResponse(payload: Uint8Array): SigVerifyResult | null {
+  try {
+    const decoder = new TextDecoder();
+    return JSON.parse(decoder.decode(payload)) as SigVerifyResult;
+  } catch {
+    return null;
+  }
+}

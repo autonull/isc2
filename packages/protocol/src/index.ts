@@ -15,6 +15,8 @@ import type {
   ChatMessage,
   DelegateRequest,
   DelegateResponse,
+  DelegateCapability,
+  DelegationHealth,
 } from './messages.js';
 
 export {
@@ -31,4 +33,11 @@ export {
   PROTOCOL_DM,
   PROTOCOL_RELAY,
 };
-export type { SignedAnnouncement, ChatMessage, DelegateRequest, DelegateResponse };
+export type {
+  SignedAnnouncement,
+  ChatMessage,
+  DelegateRequest,
+  DelegateResponse,
+  DelegateCapability,
+  DelegationHealth,
+};

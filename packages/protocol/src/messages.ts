@@ -108,6 +108,16 @@ export interface DelegateCapability {
   signature: Uint8Array;
 }
 
+export interface DelegationHealth {
+  type: 'delegation_health';
+  peerID: string;
+  successRate: number;
+  avgLatencyMs: number;
+  requestsServed24h: number;
+  timestamp: number;
+  signature: Uint8Array;
+}
+
 export interface Post {
   id: string;
   author: string;
