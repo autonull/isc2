@@ -4,9 +4,12 @@ import { router, currentRoute, navigate, initRouter } from './router.js';
 import type { Route } from './router.js';
 import { ChannelHeader } from './components/ChannelHeader.js';
 import { TopNav } from './components/TopNav.js';
+import { PWAInstallPrompt } from './components/PWAInstallPrompt.js';
+import { ConnectionStatusIndicator } from './components/ConnectionStatusIndicator.js';
 import { channelManager } from './channels/manager.js';
 import type { Channel } from '@isc/core';
 import { usePullToRefresh } from './hooks/usePullToRefresh.js';
+import { initConnectionMonitor, initSyncManager, isOnline } from './offline/index.js';
 import { NowScreen } from './screens/Now.js';
 import { FollowingScreen } from './screens/Following.js';
 
@@ -27,6 +30,10 @@ export function App({ onReady }: AppProps) {
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   useEffect(() => {
+    // Initialize offline-first features
+    initConnectionMonitor();
+    initSyncManager();
+    
     initRouter();
     onReady?.();
 
@@ -121,6 +128,9 @@ export function App({ onReady }: AppProps) {
       ) : (
         <TabBar activeTab={route} onTabClick={handleTabClick} badges={badges} />
       )}
+      {/* PWA Components */}
+      {!isDesktop && <ConnectionStatusIndicator />}
+      <PWAInstallPrompt />
     </div>
   );
 }

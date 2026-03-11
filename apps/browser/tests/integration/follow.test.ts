@@ -132,26 +132,27 @@ describe('Follow Integration', () => {
   });
 
   describe('Reputation Calculation', () => {
-    it('should compute reputation based on followers', async () => {
-      const { computeReputation } = await import('../../src/social/graph');
+    it('should compute reputation based on interactions', async () => {
+      const { computeReputation, recordInteraction } = await import('../../src/social/graph');
 
-      // Mock 100 followers
-      storage.set('follows', new Map());
+      // Record 100 interactions for target-user
       for (let i = 0; i < 100; i++) {
-        storage.get('follows')!.set(`follower-${i}`, { followee: 'target-user', since: Date.now() });
+        await recordInteraction('target-user', 'like', 1);
       }
 
       const reputation = await computeReputation('target-user');
 
-      // log2(100 + 1) ≈ 6.66
-      expect(reputation).toBeCloseTo(Math.log2(101), 0);
+      // With 100 interactions, score should be > 0
+      expect(reputation.score).toBeGreaterThan(0);
+      expect(reputation.score).toBeLessThanOrEqual(1);
+      expect(reputation.halfLifeDays).toBe(30);
     });
 
     it('should return 0 for user with no followers', async () => {
       const { computeReputation } = await import('../../src/social/graph');
 
       const reputation = await computeReputation('target-user');
-      expect(reputation).toBe(0);
+      expect(reputation.score).toBe(0);
     });
   });
 

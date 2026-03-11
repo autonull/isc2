@@ -2,8 +2,15 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>ISC - Indexed Semantic Connect</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <meta name="theme-color" content="#1da1f2" />
+    <meta name="description" content="Decentralized P2P social platform with semantic matching" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="ISC" />
+    <link rel="manifest" href="/manifest.json" />
+    <link rel="apple-touch-icon" href="/icons/icon-192x192.png" />
+    <title>ISC - Internet Semantic Chat</title>
     <style>
       * {
         box-sizing: border-box;
@@ -370,6 +377,14 @@
 
 @keyframes spin {
   to { transform: rotate(360deg); }
+}
+
+/* Connection Status Indicator */
+.connection-status {
+  position: fixed;
+  bottom: 70px;
+  right: 16px;
+  z-index: 999;
 }
 </style>
 </head>

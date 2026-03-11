@@ -9,6 +9,7 @@ const idbStores = new Map<string, Map<string, any>>();
 
 // Mock IndexedDB
 class MockIDBDatabase {
+  private _objectStoreNames = new Set<string>();
   transaction = vi.fn((storeName: string, mode: string) => {
     const store = this.getObjectStore(storeName);
     return {
@@ -18,19 +19,23 @@ class MockIDBDatabase {
       onabort: null,
     };
   });
-  objectStoreNames = new Set<string>();
+  objectStoreNames = {
+    contains: (name: string) => this._objectStoreNames.has(name),
+    item: (index: number) => Array.from(this._objectStoreNames)[index] || null,
+    get length() { return this._objectStoreNames.size; },
+  };
   name = 'mock-db';
   version = 1;
 
   createObjectStore = vi.fn((name: string) => {
-    this.objectStoreNames.add(name);
+    this._objectStoreNames.add(name);
     if (!idbStores.has(name)) {
       idbStores.set(name, new Map());
     }
     return this.getObjectStore(name);
   });
   deleteObjectStore = vi.fn((name: string) => {
-    this.objectStoreNames.delete(name);
+    this._objectStoreNames.delete(name);
     idbStores.delete(name);
   });
   close = vi.fn();
@@ -134,7 +139,7 @@ const mockIndexedDB = {
       'impressions', 'analytics'];
 
     commonStores.forEach(store => {
-      db.objectStoreNames.add(store);
+      (db as any)._objectStoreNames.add(store);
       if (!idbStores.has(store)) {
         idbStores.set(store, new Map());
       }

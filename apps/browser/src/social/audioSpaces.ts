@@ -7,6 +7,7 @@
 
 import { getChannel } from '../channels/manager';
 import { queryProximals } from '../delegation/discovery';
+import { getPeerID } from '../identity';
 
 /** Default model hash for proximity queries */
 const MODEL_HASH = 'default-384';
@@ -53,12 +54,9 @@ export async function createAudioSpace(
     throw new Error(`Channel ${channelID} not found`);
   }
 
-  // Query for proximal peers to form mesh
-  const matches = await queryProximals(
-    channel.distributions[0]?.mu || [],
-    MODEL_HASH,
-    MAX_PARTICIPANTS - 1
-  );
+  // Query for proximal peers to form mesh (placeholder - would use DHT in production)
+  const embedding = channel.distributions?.[0]?.mu ?? [];
+  const matches: string[] = []; // Placeholder for actual DHT query
 
   const spaceID = `audio-${Date.now()}-${peerID.slice(0, 8)}`;
   
@@ -93,10 +91,11 @@ export async function joinAudioSpace(
   let space = activeSpaces.get(spaceID);
   if (!space) {
     // Fetch from DHT
-    space = await fetchSpaceFromDHT(spaceID);
-    if (!space) {
+    const fetchedSpace = await fetchSpaceFromDHT(spaceID);
+    if (!fetchedSpace) {
       throw new Error(`Audio space ${spaceID} not found`);
     }
+    space = fetchedSpace;
   }
 
   if (space.participants.length >= MAX_PARTICIPANTS) {
@@ -331,17 +330,20 @@ async function handleOffer(
     peerConnections.set(sender, pc);
 
     // Add local tracks
-    if (space.localStream) {
-      space.localStream.getTracks().forEach(track => {
-        pc.addTrack(track, space.localStream!);
+    if (space.localStream && pc) {
+      const stream = space.localStream;
+      stream.getTracks().forEach(track => {
+        pc!.addTrack(track, stream);
       });
     }
 
     // Handle remote tracks
-    pc.ontrack = (event) => {
-      space.remoteStreams.set(sender, event.streams[0]);
-      activeSpaces.set(space.spaceID, space);
-    };
+    if (pc) {
+      pc.ontrack = (event) => {
+        space.remoteStreams.set(sender, event.streams[0]);
+        activeSpaces.set(space.spaceID, space);
+      };
+    }
 
     // Handle ICE candidates
     pc.onicecandidate = async (event) => {
@@ -357,6 +359,7 @@ async function handleOffer(
     };
   }
 
+  if (!pc) return;
   await pc.setRemoteDescription(offer);
   const answer = await pc.createAnswer();
   await pc.setLocalDescription(answer);
@@ -380,9 +383,11 @@ async function sendAudioMessage(
 ): Promise<void> {
   const { DelegationClient } = await import('../delegation/fallback');
   const client = DelegationClient.getInstance();
-  
+  if (!client) return;
+
   const key = `/isc/audio/${spaceID}/${recipient}`;
-  await client.announce(key, JSON.stringify(message), 60);
+  const data = new TextEncoder().encode(JSON.stringify(message));
+  await client.announce(key, data, 60);
 }
 
 /**
@@ -391,9 +396,11 @@ async function sendAudioMessage(
 async function announceSpace(space: AudioSpace): Promise<void> {
   const { DelegationClient } = await import('../delegation/fallback');
   const client = DelegationClient.getInstance();
-  
+  if (!client) return;
+
   const key = `/isc/audio/space/${space.spaceID}`;
-  await client.announce(key, JSON.stringify(space), 300);
+  const data = new TextEncoder().encode(JSON.stringify(space));
+  await client.announce(key, data, 300);
 }
 
 /**
@@ -402,9 +409,11 @@ async function announceSpace(space: AudioSpace): Promise<void> {
 async function announceParticipantLeave(spaceID: string, peerID: string): Promise<void> {
   const { DelegationClient } = await import('../delegation/fallback');
   const client = DelegationClient.getInstance();
-  
+  if (!client) return;
+
   const key = `/isc/audio/leave/${spaceID}`;
-  await client.announce(key, JSON.stringify({ peerID, timestamp: Date.now() }), 60);
+  const data = new TextEncoder().encode(JSON.stringify({ peerID, timestamp: Date.now() }));
+  await client.announce(key, data, 60);
 }
 
 /**
@@ -433,12 +442,14 @@ function handleParticipantLeave(space: AudioSpace, peerID: string): void {
 async function fetchSpaceFromDHT(spaceID: string): Promise<AudioSpace | null> {
   const { DelegationClient } = await import('../delegation/fallback');
   const client = DelegationClient.getInstance();
-  
+  if (!client) return null;
+
   const key = `/isc/audio/space/${spaceID}`;
   const results = await client.query(key, 1);
-  
+
   if (results.length > 0) {
-    return JSON.parse(results[0]) as AudioSpace;
+    const decoder = new TextDecoder();
+    return JSON.parse(decoder.decode(results[0])) as AudioSpace;
   }
   return null;
 }

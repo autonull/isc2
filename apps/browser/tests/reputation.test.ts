@@ -175,7 +175,11 @@ describe('Community Councils', () => {
       expect(council.id).toBeDefined();
       expect(council.name).toBe('Test Council');
       expect(council.jurisdiction).toEqual(['channel_1', 'channel_2']);
-      expect(council.members).toEqual(['member1', 'member2', 'member3']);
+      // Creator is automatically added to members
+      expect(council.members).toContain('member1');
+      expect(council.members).toContain('member2');
+      expect(council.members).toContain('member3');
+      expect(council.members).toContain('peer_test');
     });
 
     it('should set threshold to majority + 1', async () => {

@@ -6,7 +6,7 @@
  */
 
 import { sign, encode, decode, encrypt, decrypt } from '@isc/core';
-import type { Signature } from '@isc/core/crypto/keypair.js';
+import type { Signature } from '@isc/core';
 import { getPeerID, getKeypair, getPeerPublicKey, getPublicKey } from '../identity/index.js';
 import { DelegationClient } from '../delegation/fallback.js';
 
@@ -220,16 +220,20 @@ export async function getDMs(peerID: string, limit: number = 50): Promise<Direct
   const myID = await getPeerID();
   const db = await getDMDB();
 
-  const all = await db.transaction('dms', 'readonly').objectStore('dms').getAll();
-
-  const conversation = all.filter(
-    (dm: DirectMessage) =>
-      (dm.sender === myID && dm.recipient === peerID) ||
-      (dm.sender === peerID && dm.recipient === myID)
-  );
-
-  conversation.sort((a: DirectMessage, b: DirectMessage) => b.timestamp - a.timestamp);
-  return conversation.slice(0, limit);
+  return new Promise((resolve) => {
+    const req = db.transaction('dms', 'readonly').objectStore('dms').getAll();
+    req.onsuccess = () => {
+      const all = req.result || [];
+      const conversation = all.filter(
+        (dm: DirectMessage) =>
+          (dm.sender === myID && dm.recipient === peerID) ||
+          (dm.sender === peerID && dm.recipient === myID)
+      );
+      conversation.sort((a: DirectMessage, b: DirectMessage) => b.timestamp - a.timestamp);
+      resolve(conversation.slice(0, limit));
+    };
+    req.onerror = () => resolve([]);
+  });
 }
 
 /**
@@ -241,37 +245,39 @@ export async function getConversations(): Promise<
   const myID = await getPeerID();
   const db = await getDMDB();
 
-  const all = await db.transaction('dms', 'readonly').objectStore('dms').getAll();
-
-  // Group by peer
-  const peerMessages = new Map<string, DirectMessage[]>();
-  for (const dm of all) {
-    if (!dm.groupID) {
-      // Only 1:1 DMs
-      const peer = dm.sender === myID ? dm.recipient : dm.sender;
-      if (!peerMessages.has(peer)) {
-        peerMessages.set(peer, []);
+  return new Promise((resolve) => {
+    const req = db.transaction('dms', 'readonly').objectStore('dms').getAll();
+    req.onsuccess = () => {
+      const all = req.result || [];
+      const peerMessages = new Map<string, DirectMessage[]>();
+      for (const dm of all) {
+        if (!dm.groupID) {
+          const peer = dm.sender === myID ? dm.recipient : dm.sender;
+          if (!peerMessages.has(peer)) {
+            peerMessages.set(peer, []);
+          }
+          peerMessages.get(peer)!.push(dm);
+        }
       }
-      peerMessages.get(peer)!.push(dm);
-    }
-  }
 
-  // Build conversation list
-  const conversations = Array.from(peerMessages.entries()).map(([peerID, messages]) => {
-    messages.sort((a, b) => b.timestamp - a.timestamp);
-    const unread = messages.filter(
-      (dm) => dm.sender === peerID && !dm.read
-    ).length;
+      const conversations = Array.from(peerMessages.entries()).map(([peerID, messages]) => {
+        messages.sort((a, b) => b.timestamp - a.timestamp);
+        const unread = messages.filter(
+          (dm) => dm.sender === peerID && !dm.read
+        ).length;
 
-    return {
-      peerID,
-      lastMessage: messages[0],
-      unread,
+        return {
+          peerID,
+          lastMessage: messages[0],
+          unread,
+        };
+      });
+
+      conversations.sort((a, b) => b.lastMessage.timestamp - a.lastMessage.timestamp);
+      resolve(conversations);
     };
+    req.onerror = () => resolve([]);
   });
-
-  conversations.sort((a, b) => b.lastMessage.timestamp - a.lastMessage.timestamp);
-  return conversations;
 }
 
 /**
@@ -281,8 +287,14 @@ export async function getGroupDMs(): Promise<GroupDM[]> {
   const myID = await getPeerID();
   const db = await getDMDB();
 
-  const all = await db.transaction('group_dms', 'readonly').objectStore('group_dms').getAll();
-  return all.filter((g: GroupDM) => g.members.includes(myID));
+  return new Promise((resolve) => {
+    const req = db.transaction('group_dms', 'readonly').objectStore('group_dms').getAll();
+    req.onsuccess = () => {
+      const all = req.result || [];
+      resolve(all.filter((g: GroupDM) => g.members.includes(myID)));
+    };
+    req.onerror = () => resolve([]);
+  });
 }
 
 /**
@@ -290,7 +302,11 @@ export async function getGroupDMs(): Promise<GroupDM[]> {
  */
 export async function getGroupDM(groupID: string): Promise<GroupDM | null> {
   const db = await getDMDB();
-  return db.transaction('group_dms', 'readonly').objectStore('group_dms').get(groupID);
+  return new Promise((resolve) => {
+    const req = db.transaction('group_dms', 'readonly').objectStore('group_dms').get(groupID);
+    req.onsuccess = () => resolve(req.result || null);
+    req.onerror = () => resolve(null);
+  });
 }
 
 /**
@@ -309,11 +325,21 @@ export async function decryptDM(dm: DirectMessage): Promise<string> {
  */
 export async function markAsRead(dmID: string): Promise<void> {
   const db = await getDMDB();
-  const dm = await db.transaction('dms', 'readonly').objectStore('dms').get(dmID);
-  if (dm) {
-    dm.read = true;
-    await db.transaction('dms', 'readwrite').objectStore('dms').put(dm);
-  }
+  return new Promise((resolve, reject) => {
+    const req = db.transaction('dms', 'readonly').objectStore('dms').get(dmID);
+    req.onsuccess = () => {
+      const dm = req.result;
+      if (dm) {
+        dm.read = true;
+        const putReq = db.transaction('dms', 'readwrite').objectStore('dms').put(dm);
+        putReq.onsuccess = () => resolve();
+        putReq.onerror = () => reject(putReq.error);
+      } else {
+        resolve();
+      }
+    };
+    req.onerror = () => reject(req.error);
+  });
 }
 
 /**
@@ -323,13 +349,32 @@ export async function markAllAsRead(peerID: string): Promise<void> {
   const myID = await getPeerID();
   const db = await getDMDB();
 
-  const all = await db.transaction('dms', 'readonly').objectStore('dms').getAll();
-  for (const dm of all) {
-    if (dm.sender === peerID && dm.recipient === myID && !dm.read) {
-      dm.read = true;
-      await db.transaction('dms', 'readwrite').objectStore('dms').put(dm);
-    }
-  }
+  return new Promise((resolve, reject) => {
+    const req = db.transaction('dms', 'readonly').objectStore('dms').getAll();
+    req.onsuccess = () => {
+      const all = req.result || [];
+      const tx = db.transaction('dms', 'readwrite');
+      const store = tx.objectStore('dms');
+      
+      let completed = 0;
+      for (const dm of all) {
+        if (dm.sender === peerID && dm.recipient === myID && !dm.read) {
+          dm.read = true;
+          const putReq = store.put(dm);
+          putReq.onsuccess = () => {
+            completed++;
+            if (completed >= all.filter((d: DirectMessage) => d.sender === peerID && d.recipient === myID && !d.read).length) {
+              resolve();
+            }
+          };
+        } else {
+          completed++;
+        }
+      }
+      if (completed >= all.length) resolve();
+    };
+    req.onerror = () => reject(req.error);
+  });
 }
 
 /**
@@ -339,10 +384,17 @@ export async function getUnreadCount(peerID: string): Promise<number> {
   const myID = await getPeerID();
   const db = await getDMDB();
 
-  const all = await db.transaction('dms', 'readonly').objectStore('dms').getAll();
-  return all.filter(
-    (dm: DirectMessage) => dm.sender === peerID && dm.recipient === myID && !dm.read
-  ).length;
+  return new Promise((resolve) => {
+    const req = db.transaction('dms', 'readonly').objectStore('dms').getAll();
+    req.onsuccess = () => {
+      const all = req.result || [];
+      const count = all.filter(
+        (dm: DirectMessage) => dm.sender === peerID && dm.recipient === myID && !dm.read
+      ).length;
+      resolve(count);
+    };
+    req.onerror = () => resolve(0);
+  });
 }
 
 /**
@@ -350,7 +402,11 @@ export async function getUnreadCount(peerID: string): Promise<number> {
  */
 export async function deleteDM(dmID: string): Promise<void> {
   const db = await getDMDB();
-  await db.transaction('dms', 'readwrite').objectStore('dms').delete(dmID);
+  return new Promise((resolve, reject) => {
+    const req = db.transaction('dms', 'readwrite').objectStore('dms').delete(dmID);
+    req.onsuccess = () => resolve();
+    req.onerror = () => reject(req.error);
+  });
 }
 
 // ============================================================================
@@ -359,12 +415,20 @@ export async function deleteDM(dmID: string): Promise<void> {
 
 async function storeDM(dm: DirectMessage): Promise<void> {
   const db = await getDMDB();
-  await db.transaction('dms', 'readwrite').objectStore('dms').put(dm);
+  return new Promise((resolve, reject) => {
+    const req = db.transaction('dms', 'readwrite').objectStore('dms').put(dm);
+    req.onsuccess = () => resolve();
+    req.onerror = () => reject(req.error);
+  });
 }
 
 async function storeGroupDM(group: GroupDM): Promise<void> {
   const db = await getDMDB();
-  await db.transaction('group_dms', 'readwrite').objectStore('group_dms').put(group);
+  return new Promise((resolve, reject) => {
+    const req = db.transaction('group_dms', 'readwrite').objectStore('group_dms').put(group);
+    req.onsuccess = () => resolve();
+    req.onerror = () => reject(req.error);
+  });
 }
 
 async function deliverDM(dm: DirectMessage): Promise<void> {

@@ -115,6 +115,9 @@ describe('Posts Service', () => {
 
     it('should return null for non-existent post', async () => {
       const { getPost } = await import('../../src/social/posts');
+      const { dbGet } = await import('../../src/db/helpers');
+
+      vi.mocked(dbGet).mockResolvedValue(null);
 
       const post = await getPost('non-existent');
       expect(post).toBeNull();

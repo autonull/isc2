@@ -5,7 +5,7 @@
  * References: SOCIAL.md#semantic-map
  */
 
-import { cosineSimilarity } from '@isc/core/math';
+import { cosineSimilarity } from '@isc/core';
 import type { Channel } from '@isc/core/types';
 
 /**
@@ -57,7 +57,7 @@ export async function computeChannelPositions(channels: Channel[]): Promise<Poin
   const positions: Point2D[] = channels.map((channel, i) => ({
     x: Math.cos(i * 2 * Math.PI / channels.length),
     y: Math.sin(i * 2 * Math.PI / channels.length),
-    data: { embedding: channel.distributions[0]?.mu ?? [] },
+    data: { embedding: channel.distributions?.[0]?.mu ?? [] },
   }));
   
   // Run force-directed layout

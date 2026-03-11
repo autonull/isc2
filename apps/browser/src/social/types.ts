@@ -16,6 +16,7 @@ export interface SignedPost {
   timestamp: number;
   signature: Signature;
   lshHash?: string; // For semantic discovery
+  embedding?: number[]; // For semantic matching
 }
 
 /**
@@ -145,6 +146,8 @@ export interface CommunityCouncil {
   members: string[];
   threshold: number; // Minimum votes for action
   jurisdiction: string[]; // Channel IDs or '*'
+  reputationThreshold: number; // Minimum reputation for council membership
+  signature?: Signature;
 }
 
 /**
@@ -174,4 +177,94 @@ export interface FeedItem {
   channelID: string;
   parentID?: string;
   originalPostID?: string;
+}
+
+/**
+ * Ranked post with trending score
+ */
+export interface RankedPost extends SignedPost {
+  trendingScore: number;
+  engagementCount: number;
+  similarityScore?: number;
+  matchedChannel?: string;
+}
+
+/**
+ * Trending topic summary
+ */
+export interface TrendingTopic {
+  preview: string;
+  postCount: number;
+  totalEngagement: number;
+  postID: string;
+  channelID: string;
+}
+
+/**
+ * Engagement metrics for a post
+ */
+export interface EngagementMetrics {
+  postId: string;
+  views: number;
+  likes: number;
+  reposts: number;
+  replies: number;
+  quotes: number;
+  lastUpdated: number;
+}
+
+/**
+ * Audio space state
+ */
+export interface AudioSpace {
+  spaceID: string;
+  channelID: string;
+  creator: string;
+  participants: string[];
+  localStream: MediaStream | null;
+  remoteStreams: Map<string, MediaStream>;
+  isMuted: boolean;
+  createdAt: number;
+}
+
+/**
+ * Audio message for signaling
+ */
+export interface AudioMessage {
+  type: 'offer' | 'answer' | 'ice-candidate' | 'join' | 'leave';
+  spaceID: string;
+  sender: string;
+  data: unknown;
+  timestamp: number;
+}
+
+/**
+ * 2D point for visualization
+ */
+export interface Point2D {
+  x: number;
+  y: number;
+  data: unknown;
+}
+
+/**
+ * Conversation starter
+ */
+export interface ConversationStarter {
+  id: string;
+  starter: string;
+  post1: SignedPost;
+  post2: SignedPost;
+  similarity: number;
+}
+
+/**
+ * Discussion topic
+ */
+export interface DiscussionTopic {
+  id: string;
+  title: string;
+  description: string;
+  channels: any[]; // Array of Channel objects
+  similarity: number;
 }

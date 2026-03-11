@@ -5,8 +5,8 @@
  * References: SOCIAL.md#thought-bridge
  */
 
-import { cosineSimilarity } from '@isc/core/math';
-import { queryPostsByEmbedding } from './posts';
+import { cosineSimilarity } from '@isc/core';
+import { getAllPosts } from './posts';
 import { getChannel } from '../channels/manager';
 import type { SignedPost } from './types';
 
@@ -45,10 +45,12 @@ export async function generateConversationStarter(
   post2: SignedPost
 ): Promise<string> {
   const crossover = findCrossoverWords(post1.content, post2.content);
-  
+
   // Compute semantic similarity
-  const similarity = cosineSimilarity(post1.embedding, post2.embedding);
-  
+  const emb1 = post1.embedding ?? [];
+  const emb2 = post2.embedding ?? [];
+  const similarity = cosineSimilarity(emb1, emb2);
+
   if (similarity > 0.8) {
     // Very similar - suggest agreement/building
     return `Both posts discuss ${crossover[0] || 'this topic'} from similar angles. How might you synthesize these perspectives?`;
@@ -70,23 +72,24 @@ export async function getConversationStarters(
 ): Promise<ConversationStarter[]> {
   const channel = await getChannel(channelID);
   if (!channel) return [];
-  
-  const sample = channel.distributions[0]?.mu ?? [];
-  if (sample.length === 0) return [];
-  
-  // Get recent posts
-  const posts = await queryPostsByEmbedding(sample, 50);
+
+  // Get posts from the channel
+  const allPosts = await getAllPosts();
+  const posts = allPosts.filter(p => p.channelID === channelID).slice(0, 50);
   if (posts.length < 2) return [];
-  
+
   // Find pairs with moderate similarity (good for discussion)
   const starters: ConversationStarter[] = [];
   for (let i = 0; i < Math.min(posts.length, 20); i++) {
     for (let j = i + 1; j < Math.min(posts.length, 20); j++) {
-      const sim = cosineSimilarity(posts[i].embedding, posts[j].embedding);
+      const embI = posts[i].embedding ?? [];
+      const embJ = posts[j].embedding ?? [];
+
+      const sim = cosineSimilarity(embI, embJ);
       if (sim > 0.4 && sim < 0.8) {
         const starter = await generateConversationStarter(posts[i], posts[j]);
         starters.push({
-          id: `${posts[i].postID}-${posts[j].postID}`,
+          id: `${posts[i].id}-${posts[j].id}`,
           starter,
           post1: posts[i],
           post2: posts[j],
@@ -95,7 +98,7 @@ export async function getConversationStarters(
       }
     }
   }
-  
+
   // Sort by similarity (middle range is best)
   starters.sort((a, b) => {
     const aScore = Math.abs(a.similarity - 0.6);
@@ -115,24 +118,22 @@ export async function findBridgingPosts(
 ): Promise<SignedPost[]> {
   const channel1 = await getChannel(channelID1);
   const channel2 = await getChannel(channelID2);
-  
+
   if (!channel1 || !channel2) return [];
-  
-  const emb1 = channel1.distributions[0]?.mu ?? [];
-  const emb2 = channel2.distributions[0]?.mu ?? [];
-  
-  // Compute midpoint embedding
-  const midpoint = emb1.map((v, i) => (v + (emb2[i] || 0)) / 2);
-  
-  // Query for posts near midpoint
-  const posts = await queryPostsByEmbedding(midpoint, 20);
+
+  const emb1 = channel1.distributions?.[0]?.mu ?? [];
+  const emb2 = channel2.distributions?.[0]?.mu ?? [];
+
+  // Get all posts and filter by similarity to both channels
+  const allPosts = await getAllPosts();
   
   // Filter to posts that have moderate similarity to both
-  return posts.filter(post => {
-    const sim1 = cosineSimilarity(emb1, post.embedding);
-    const sim2 = cosineSimilarity(emb2, post.embedding);
+  return allPosts.filter((post: SignedPost) => {
+    const postEmb = post.embedding ?? [];
+    const sim1 = cosineSimilarity(emb1, postEmb);
+    const sim2 = cosineSimilarity(emb2, postEmb);
     return sim1 > 0.4 && sim2 > 0.4;
-  });
+  }).slice(0, 20);
 }
 
 /**
@@ -141,37 +142,42 @@ export async function findBridgingPosts(
 export async function suggestDiscussionTopics(
   channelIDs: string[]
 ): Promise<DiscussionTopic[]> {
-  const channels = await Promise.all(channelIDs.map(id => getChannel(id)));
-  const validChannels = channels.filter((c): c is NonNullable<typeof c> => c !== null);
-  
+  const channelResults = await Promise.all(channelIDs.map(id => getChannel(id)));
+  const validChannels = channelResults.filter((c): c is Awaited<ReturnType<typeof getChannel>> & NonNullable<unknown> => c !== null);
+
   if (validChannels.length < 2) return [];
-  
+
   // Find channels with moderate divergence
   const topics: DiscussionTopic[] = [];
   for (let i = 0; i < validChannels.length; i++) {
     for (let j = i + 1; j < validChannels.length; j++) {
-      const sim = cosineSimilarity(
-        validChannels[i].distributions[0]?.mu ?? [],
-        validChannels[j].distributions[0]?.mu ?? []
-      );
+      const chI = validChannels[i];
+      const chJ = validChannels[j];
       
+      if (!chI || !chJ) continue;
+
+      const embI = chI.distributions?.[0]?.mu ?? [];
+      const embJ = chJ.distributions?.[0]?.mu ?? [];
+      
+      const sim = cosineSimilarity(embI, embJ);
+
       if (sim > 0.3 && sim < 0.7) {
         const crossover = findCrossoverWords(
-          validChannels[i].description,
-          validChannels[j].description
+          chI.description ?? '',
+          chJ.description ?? ''
         );
-        
+
         topics.push({
-          id: `${validChannels[i].id}-${validChannels[j].id}`,
-          title: `Bridging ${validChannels[i].name} and ${validChannels[j].name}`,
+          id: `${chI.id}-${chJ.id}`,
+          title: `Bridging ${chI.name ?? 'Channel'} and ${chJ.name ?? 'Channel'}`,
           description: `Explore how ${crossover[0] || 'these topics'} intersect`,
-          channels: [validChannels[i], validChannels[j]],
+          channels: [chI, chJ] as any,
           similarity: sim,
         });
       }
     }
   }
-  
+
   return topics.sort((a, b) => b.similarity - a.similarity).slice(0, 5);
 }
 

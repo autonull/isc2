@@ -13,6 +13,23 @@ import { computeReputation } from './graph.js';
 
 const DEFAULT_TTL = 86400 * 30; // 30 days
 
+/**
+ * Check if a post is still valid (not expired)
+ */
+export function isPostValid(post: { timestamp: number; ttl: number }): boolean {
+  const now = Date.now();
+  const expiry = post.timestamp + post.ttl * 1000;
+  return now < expiry;
+}
+
+/**
+ * Filter posts from muted users
+ */
+export function filterMutedPosts<T extends { author: string }>(posts: T[], muted: string[]): T[] {
+  const mutedSet = new Set(muted);
+  return posts.filter((post) => !mutedSet.has(post.author));
+}
+
 // ============================================================================
 // Mute/Block Functions
 // ============================================================================
@@ -41,8 +58,14 @@ export async function unmuteUser(peerID: string): Promise<void> {
  */
 export async function getMutedUsers(): Promise<string[]> {
   const db = await getModerationDB();
-  const mutes = await db.transaction('mutes', 'readonly').objectStore('mutes').getAll();
-  return mutes.map((m: { peerID: string }) => m.peerID);
+  return new Promise((resolve) => {
+    const req = db.transaction('mutes', 'readonly').objectStore('mutes').getAll();
+    req.onsuccess = () => {
+      const mutes = req.result || [];
+      resolve(mutes.map((m: { peerID: string }) => m.peerID));
+    };
+    req.onerror = () => resolve([]);
+  });
 }
 
 /**
@@ -63,9 +86,13 @@ export async function blockUser(peerID: string): Promise<void> {
   const signature = await sign(encode(blockEvent), keypair.privateKey);
 
   const db = await getModerationDB();
-  await db.transaction('blocks', 'readwrite').objectStore('blocks').put({
-    peerID,
-    blockedAt: Date.now(),
+  await new Promise<void>((resolve, reject) => {
+    const req = db.transaction('blocks', 'readwrite').objectStore('blocks').put({
+      peerID,
+      blockedAt: Date.now(),
+    });
+    req.onsuccess = () => resolve();
+    req.onerror = () => reject(req.error);
   });
 
   // Announce to DHT
@@ -80,7 +107,11 @@ export async function blockUser(peerID: string): Promise<void> {
  */
 export async function unblockUser(peerID: string): Promise<void> {
   const db = await getModerationDB();
-  await db.transaction('blocks', 'readwrite').objectStore('blocks').delete(peerID);
+  await new Promise<void>((resolve, reject) => {
+    const req = db.transaction('blocks', 'readwrite').objectStore('blocks').delete(peerID);
+    req.onsuccess = () => resolve();
+    req.onerror = () => reject(req.error);
+  });
 
   // Announce unblock to DHT
   const client = DelegationClient.getInstance();
@@ -106,8 +137,14 @@ export async function unblockUser(peerID: string): Promise<void> {
  */
 export async function getBlockedUsers(): Promise<string[]> {
   const db = await getModerationDB();
-  const blocks = await db.transaction('blocks', 'readonly').objectStore('blocks').getAll();
-  return blocks.map((b: { peerID: string }) => b.peerID);
+  return new Promise((resolve) => {
+    const req = db.transaction('blocks', 'readonly').objectStore('blocks').getAll();
+    req.onsuccess = () => {
+      const blocks = req.result || [];
+      resolve(blocks.map((b: { peerID: string }) => b.peerID));
+    };
+    req.onerror = () => resolve([]);
+  });
 }
 
 /**
@@ -184,13 +221,20 @@ export async function reportUser(
  */
 export async function getPendingReports(): Promise<CommunityReport[]> {
   const db = await getModerationDB();
-  const reports = await db.transaction('reports', 'readonly').objectStore('reports').getAll();
-
-  // Filter to pending reports (not yet decided)
-  const decisions = await db.transaction('decisions', 'readonly').objectStore('decisions').getAll();
-  const decidedIds = new Set(decisions.map((d: { reportId: string }) => d.reportId));
-
-  return reports.filter((r: CommunityReport) => !decidedIds.has(r.id));
+  return new Promise((resolve) => {
+    const req = db.transaction('reports', 'readonly').objectStore('reports').getAll();
+    req.onsuccess = () => {
+      const reports = req.result || [];
+      const decReq = db.transaction('decisions', 'readonly').objectStore('decisions').getAll();
+      decReq.onsuccess = () => {
+        const decisions = decReq.result || [];
+        const decidedIds = new Set(decisions.map((d: { reportId: string }) => d.reportId));
+        resolve(reports.filter((r: CommunityReport) => !decidedIds.has(r.id)));
+      };
+      decReq.onerror = () => resolve(reports);
+    };
+    req.onerror = () => resolve([]);
+  });
 }
 
 /**
@@ -198,10 +242,16 @@ export async function getPendingReports(): Promise<CommunityReport[]> {
  */
 export async function getReportsForTarget(targetId: string): Promise<CommunityReport[]> {
   const db = await getModerationDB();
-  const reports = await db.transaction('reports', 'readonly').objectStore('reports').getAll();
-  return reports.filter(
-    (r: CommunityReport) => r.reported === targetId || r.evidence.includes(targetId)
-  );
+  return new Promise((resolve) => {
+    const req = db.transaction('reports', 'readonly').objectStore('reports').getAll();
+    req.onsuccess = () => {
+      const reports = req.result || [];
+      resolve(reports.filter(
+        (r: CommunityReport) => r.reported === targetId || r.evidence.includes(targetId)
+      ));
+    };
+    req.onerror = () => resolve([]);
+  });
 }
 
 /**
@@ -227,7 +277,11 @@ export async function voteOnReport(
 
   // Store vote
   const db = await getModerationDB();
-  await db.transaction('votes', 'readwrite').objectStore('votes').put({ ...vote, signature });
+  await new Promise<void>((resolve, reject) => {
+    const req = db.transaction('votes', 'readwrite').objectStore('votes').put({ ...vote, signature });
+    req.onsuccess = () => resolve();
+    req.onerror = () => reject(req.error);
+  });
 
   // Check if threshold is met and process decision
   await processReportDecision(reportId);
@@ -238,12 +292,21 @@ export async function voteOnReport(
  */
 async function processReportDecision(reportId: string): Promise<void> {
   const db = await getModerationDB();
-  const report = await db.transaction('reports', 'readonly').objectStore('reports').get(reportId);
+  
+  const report = await new Promise<any>((resolve) => {
+    const req = db.transaction('reports', 'readonly').objectStore('reports').get(reportId);
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => resolve(null);
+  });
   if (!report) return;
 
-  const votes = await db.transaction('votes', 'readonly').objectStore('votes').getAll();
+  const votes = await new Promise<any[]>((resolve) => {
+    const req = db.transaction('votes', 'readonly').objectStore('votes').getAll();
+    req.onsuccess = () => resolve(req.result || []);
+    req.onerror = () => resolve([]);
+  });
+  
   const reportVotes = votes.filter((v: { reportId: string }) => v.reportId === reportId);
-
   const guiltyCount = reportVotes.filter((v: { decision: string }) => v.decision === 'guilty').length;
   const notGuiltyCount = reportVotes.filter((v: { decision: string }) => v.decision === 'not_guilty').length;
 
@@ -251,18 +314,26 @@ async function processReportDecision(reportId: string): Promise<void> {
   const threshold = 3;
 
   if (guiltyCount >= threshold) {
-    await db.transaction('decisions', 'readwrite').objectStore('decisions').put({
-      reportId,
-      outcome: 'guilty' as const,
-      decidedAt: Date.now(),
-      voteCount: guiltyCount,
+    await new Promise<void>((resolve, reject) => {
+      const req = db.transaction('decisions', 'readwrite').objectStore('decisions').put({
+        reportId,
+        outcome: 'guilty' as const,
+        decidedAt: Date.now(),
+        voteCount: guiltyCount,
+      });
+      req.onsuccess = () => resolve();
+      req.onerror = () => reject(req.error);
     });
   } else if (notGuiltyCount >= threshold) {
-    await db.transaction('decisions', 'readwrite').objectStore('decisions').put({
-      reportId,
-      outcome: 'not_guilty' as const,
-      decidedAt: Date.now(),
-      voteCount: notGuiltyCount,
+    await new Promise<void>((resolve, reject) => {
+      const req = db.transaction('decisions', 'readwrite').objectStore('decisions').put({
+        reportId,
+        outcome: 'not_guilty' as const,
+        decidedAt: Date.now(),
+        voteCount: notGuiltyCount,
+      });
+      req.onsuccess = () => resolve();
+      req.onerror = () => reject(req.error);
     });
   }
 }
@@ -289,6 +360,7 @@ export async function createCouncil(
     members: [...new Set([...members, creator])],
     threshold: Math.ceil(members.length / 2) + 1,
     jurisdiction,
+    reputationThreshold: 0.7,
   };
 
   const signature = await sign(encode(council), keypair.privateKey);
@@ -296,7 +368,11 @@ export async function createCouncil(
 
   // Store locally
   const db = await getModerationDB();
-  await db.transaction('councils', 'readwrite').objectStore('councils').put(signedCouncil);
+  await new Promise<void>((resolve, reject) => {
+    const req = db.transaction('councils', 'readwrite').objectStore('councils').put(signedCouncil);
+    req.onsuccess = () => resolve();
+    req.onerror = () => reject(req.error);
+  });
 
   // Announce to DHT
   const client = DelegationClient.getInstance();
@@ -312,7 +388,11 @@ export async function createCouncil(
  */
 export async function getCouncil(councilId: string): Promise<CommunityCouncil | null> {
   const db = await getModerationDB();
-  return db.transaction('councils', 'readonly').objectStore('councils').get(councilId);
+  return new Promise((resolve) => {
+    const req = db.transaction('councils', 'readonly').objectStore('councils').get(councilId);
+    req.onsuccess = () => resolve(req.result || null);
+    req.onerror = () => resolve(null);
+  });
 }
 
 /**
@@ -320,10 +400,16 @@ export async function getCouncil(councilId: string): Promise<CommunityCouncil | 
  */
 export async function getCouncilsForChannel(channelID: string): Promise<CommunityCouncil[]> {
   const db = await getModerationDB();
-  const councils = await db.transaction('councils', 'readonly').objectStore('councils').getAll();
-  return councils.filter((c: CommunityCouncil) =>
-    c.jurisdiction.includes(channelID) || c.jurisdiction.includes('*')
-  );
+  return new Promise((resolve) => {
+    const req = db.transaction('councils', 'readonly').objectStore('councils').getAll();
+    req.onsuccess = () => {
+      const councils = req.result || [];
+      resolve(councils.filter((c: CommunityCouncil) =>
+        c.jurisdiction.includes(channelID) || c.jurisdiction.includes('*')
+      ));
+    };
+    req.onerror = () => resolve([]);
+  });
 }
 
 /**
@@ -332,8 +418,14 @@ export async function getCouncilsForChannel(channelID: string): Promise<Communit
 export async function getMyCouncils(): Promise<CommunityCouncil[]> {
   const peerID = await getPeerID();
   const db = await getModerationDB();
-  const councils = await db.transaction('councils', 'readonly').objectStore('councils').getAll();
-  return councils.filter((c: CommunityCouncil) => c.members.includes(peerID));
+  return new Promise((resolve) => {
+    const req = db.transaction('councils', 'readonly').objectStore('councils').getAll();
+    req.onsuccess = () => {
+      const councils = req.result || [];
+      resolve(councils.filter((c: CommunityCouncil) => c.members.includes(peerID)));
+    };
+    req.onerror = () => resolve([]);
+  });
 }
 
 /**
@@ -342,6 +434,94 @@ export async function getMyCouncils(): Promise<CommunityCouncil[]> {
 export async function isCouncilEligible(peerID: string, minReputation: number = 0.7): Promise<boolean> {
   const rep = await computeReputation(peerID);
   return rep.score >= minReputation;
+}
+
+// ============================================================================
+// Test-Compatible Aliases (for reputation.test.ts)
+// ============================================================================
+
+/**
+ * Alias for blockUser (test-compatible naming)
+ */
+export async function blockPeer(peerID: string): Promise<{
+  type: 'block';
+  blocked: string;
+  timestamp: number;
+  signature: any;
+}> {
+  await blockUser(peerID);
+  const actor = await getPeerID();
+  const keypair = getKeypair();
+  const blockEvent = {
+    type: 'block' as const,
+    blocker: actor,
+    blocked: peerID,
+    timestamp: Date.now(),
+  };
+  const signature = keypair ? await sign(encode(blockEvent), keypair.privateKey) : new Uint8Array();
+  return { ...blockEvent, signature };
+}
+
+/**
+ * Alias for unblockUser (test-compatible naming)
+ */
+export async function unblockPeer(peerID: string): Promise<void> {
+  await unblockUser(peerID);
+}
+
+/**
+ * Alias for getBlockedUsers (test-compatible naming)
+ */
+export async function getBlockedPeers(): Promise<string[]> {
+  return getBlockedUsers();
+}
+
+/**
+ * Alias for voteOnReport (test-compatible naming)
+ */
+export async function submitModerationVote(reportId: string, decision: 'guilty' | 'not_guilty'): Promise<void> {
+  await voteOnReport(reportId, decision);
+}
+
+/**
+ * Process moderation decision based on votes
+ */
+export async function processModerationDecision(
+  reportId: string,
+  councilId: string
+): Promise<{ outcome: 'guilty' | 'not_guilty'; voteCount: number } | null> {
+  const db = await getModerationDB();
+
+  // Get council
+  const council = await getCouncil(councilId);
+  if (!council) return null;
+
+  // Get report
+  const report = await new Promise<any>((resolve) => {
+    const req = db.transaction('reports', 'readonly').objectStore('reports').get(reportId);
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => resolve(null);
+  });
+  if (!report) return null;
+
+  // Get votes
+  const votes = await new Promise<any[]>((resolve) => {
+    const req = db.transaction('votes', 'readonly').objectStore('votes').getAll();
+    req.onsuccess = () => resolve(req.result || []);
+    req.onerror = () => resolve([]);
+  });
+
+  const reportVotes = votes.filter((v) => v.reportId === reportId);
+  const guiltyCount = reportVotes.filter((v) => v.decision === 'guilty').length;
+  const notGuiltyCount = reportVotes.filter((v) => v.decision === 'not_guilty').length;
+
+  if (guiltyCount >= council.threshold) {
+    return { outcome: 'guilty', voteCount: guiltyCount };
+  } else if (notGuiltyCount >= council.threshold) {
+    return { outcome: 'not_guilty', voteCount: notGuiltyCount };
+  }
+
+  return null;
 }
 
 // ============================================================================

@@ -15,8 +15,8 @@
     "test:watch": "vitest"
   },
   "dependencies": {
-    "@isc/core": "workspace:*",
     "@isc/adapters": "workspace:*",
+    "@isc/core": "workspace:*",
     "@isc/protocol": "workspace:*",
     "preact": "^10.19.0"
   },
@@ -24,6 +24,10 @@
     "@types/node": "^20.10.0",
     "typescript": "^5.3.3",
     "vite": "^5.0.0",
-    "vitest": "^1.0.0"
+    "vite-plugin-pwa": "^1.2.0",
+    "vitest": "^1.0.0",
+    "workbox-build": "^7.4.0",
+    "workbox-cli": "^7.4.0",
+    "workbox-window": "^7.4.0"
   }
 }

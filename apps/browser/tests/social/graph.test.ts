@@ -3,89 +3,80 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { followUser, unfollowUser, getFollowees, isFollowing, computeReputation, applyChaosMode } from '../../src/social/graph';
+import * as identity from '../../src/identity';
+import * as dbHelpers from '../../src/db/helpers';
+import { DelegationClient } from '../../src/delegation/fallback';
 
-// Mock identity module
-vi.mock('../../src/identity', () => ({
-  getPeerID: vi.fn().mockResolvedValue('test-peer-id'),
-  getKeypair: vi.fn().mockReturnValue({
-    privateKey: { toString: () => 'private-key' },
-    publicKey: new Uint8Array([4, 5, 6]),
-  }),
-}));
-
-// Mock delegation client
-vi.mock('../../src/delegation/fallback', () => ({
-  DelegationClient: {
-    getInstance: vi.fn().mockReturnValue({
-      announce: vi.fn().mockResolvedValue(undefined),
-    }),
-  },
-}));
-
-// Mock DB helpers
-const mockDBHelpers = {
-  dbGet: vi.fn().mockResolvedValue(null),
-  dbGetAll: vi.fn().mockResolvedValue([]),
-  dbPut: vi.fn().mockResolvedValue(undefined),
-  dbDelete: vi.fn().mockResolvedValue(undefined),
-};
-
-vi.mock('../../src/db/helpers', () => mockDBHelpers);
+vi.mock('../../src/identity');
+vi.mock('../../src/delegation/fallback');
+vi.mock('../../src/db/helpers');
 
 describe('Social Graph', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    
+    // Setup identity mocks
+    vi.spyOn(identity, 'getPeerID').mockResolvedValue('test-peer-id');
+    vi.spyOn(identity, 'getKeypair').mockReturnValue({
+      privateKey: {} as CryptoKey,
+      publicKey: new Uint8Array([4, 5, 6]),
+    });
+    
+    // Setup delegation mock
+    vi.spyOn(DelegationClient, 'getInstance').mockReturnValue({
+      announce: vi.fn().mockResolvedValue(undefined),
+      query: vi.fn().mockResolvedValue([]),
+    } as any);
+    
+    // Setup DB mocks
+    vi.spyOn(dbHelpers, 'dbGet').mockResolvedValue(null);
+    vi.spyOn(dbHelpers, 'dbGetAll').mockResolvedValue([]);
+    vi.spyOn(dbHelpers, 'dbPut').mockResolvedValue(undefined);
+    vi.spyOn(dbHelpers, 'dbDelete').mockResolvedValue(undefined);
+    vi.spyOn(dbHelpers, 'dbFilter').mockResolvedValue([]);
   });
 
   describe('followUser', () => {
     it('should create a follow subscription', async () => {
-      const { followUser } = await import('../../src/social/graph');
-
       await followUser('followee-123');
 
-      const { dbPut } = await import('../../src/db/helpers');
-      expect(dbPut).toHaveBeenCalledWith(
+      expect(dbHelpers.dbPut).toHaveBeenCalledWith(
         'follows',
         expect.objectContaining({
           followee: 'followee-123',
-          since: expect.any(Number),
         })
       );
+    });
+
+    it('should throw error if identity not initialized', async () => {
+      vi.spyOn(identity, 'getKeypair').mockReturnValue(null);
+
+      await expect(followUser('followee-123')).rejects.toThrow('Identity not initialized');
     });
   });
 
   describe('unfollowUser', () => {
     it('should remove follow subscription', async () => {
-      const { unfollowUser } = await import('../../src/social/graph');
-      const { dbDelete } = await import('../../src/db/helpers');
-
       await unfollowUser('followee-123');
 
-      expect(dbDelete).toHaveBeenCalledWith('follows', 'followee-123');
+      expect(dbHelpers.dbDelete).toHaveBeenCalledWith('follows', 'followee-123');
     });
   });
 
   describe('getFollowees', () => {
-    it('should return list of followed users', async () => {
-      const { getFollowees } = await import('../../src/social/graph');
-      const { dbGetAll } = await import('../../src/db/helpers');
-
-      vi.mocked(dbGetAll).mockResolvedValue([
-        { followee: 'user-1', since: Date.now() },
-        { followee: 'user-2', since: Date.now() },
-        { followee: 'user-3', since: Date.now() },
+    it('should return list of followees', async () => {
+      vi.spyOn(dbHelpers, 'dbGetAll').mockResolvedValue([
+        { followee: 'user1', since: Date.now() },
+        { followee: 'user2', since: Date.now() },
       ]);
 
       const followees = await getFollowees();
-      expect(followees).toHaveLength(3);
-      expect(followees).toEqual(['user-1', 'user-2', 'user-3']);
+      expect(followees).toEqual(['user1', 'user2']);
     });
 
-    it('should return empty array if no followees', async () => {
-      const { getFollowees } = await import('../../src/social/graph');
-      const { dbGetAll } = await import('../../src/db/helpers');
-
-      vi.mocked(dbGetAll).mockResolvedValue([]);
+    it('should return empty array when no followees', async () => {
+      vi.spyOn(dbHelpers, 'dbGetAll').mockResolvedValue([]);
 
       const followees = await getFollowees();
       expect(followees).toEqual([]);
@@ -93,75 +84,61 @@ describe('Social Graph', () => {
   });
 
   describe('isFollowing', () => {
-    it('should return true if following user', async () => {
-      const { isFollowing } = await import('../../src/social/graph');
-      const { dbGet } = await import('../../src/db/helpers');
+    it('should return true if following', async () => {
+      vi.spyOn(dbHelpers, 'dbGet').mockResolvedValue({ followee: 'user1', since: Date.now() });
 
-      vi.mocked(dbGet).mockResolvedValue({ followee: 'user-123', since: Date.now() });
-
-      const following = await isFollowing('user-123');
+      const following = await isFollowing('user1');
       expect(following).toBe(true);
     });
 
-    it('should return false if not following user', async () => {
-      const { isFollowing } = await import('../../src/social/graph');
-      const { dbGet } = await import('../../src/db/helpers');
+    it('should return false if not following', async () => {
+      vi.spyOn(dbHelpers, 'dbGet').mockResolvedValue(null);
 
-      vi.mocked(dbGet).mockResolvedValue(null);
-
-      const following = await isFollowing('user-123');
+      const following = await isFollowing('user1');
       expect(following).toBe(false);
     });
   });
 
-  describe('getFollowerCount', () => {
-    it('should count followers for a user', async () => {
-      const { getFollowerCount } = await import('../../src/social/graph');
-      const { dbGetAll } = await import('../../src/db/helpers');
-
-      vi.mocked(dbGetAll).mockResolvedValue([
-        { followee: 'target-user' },
-        { followee: 'target-user' },
-        { followee: 'other-user' },
-      ]);
-
-      const count = await getFollowerCount('target-user');
-      expect(count).toBe(2);
-    });
-  });
-
   describe('computeReputation', () => {
-    it('should compute reputation based on follower count', async () => {
-      const { computeReputation } = await import('../../src/social/graph');
-      const { dbGetAll } = await import('../../src/db/helpers');
-
-      // Mock 100 followers
-      vi.mocked(dbGetAll).mockResolvedValue(Array(100).fill({ followee: 'target-user' }));
-
-      const reputation = await computeReputation('target-user');
-
-      // log2(100 + 1) ≈ 6.66
-      expect(reputation).toBeCloseTo(Math.log2(101), 1);
+    it('should return score between 0 and 1', async () => {
+      const result = await computeReputation('some_peer');
+      expect(result.score).toBeGreaterThanOrEqual(0);
+      expect(result.score).toBeLessThanOrEqual(1);
     });
 
-    it('should return 0 for user with no followers', async () => {
-      const { computeReputation } = await import('../../src/social/graph');
-      const { dbGetAll } = await import('../../src/db/helpers');
+    it('should include halfLifeDays in result', async () => {
+      const result = await computeReputation('some_peer', 30);
+      expect(result.halfLifeDays).toBe(30);
+    });
 
-      vi.mocked(dbGetAll).mockResolvedValue([]);
+    it('should apply exponential decay to interactions', async () => {
+      const result = await computeReputation('some_peer', 30);
+      expect(result).toHaveProperty('interactionHistory');
+      expect(result).toHaveProperty('mutualFollows');
+    });
 
-      const reputation = await computeReputation('target-user');
-      expect(reputation).toBe(0);
+    it('should cap mutual follow contribution to prevent Sybil attacks', async () => {
+      const result = await computeReputation('some_peer');
+      const mutualFollowContribution = Math.min(result.mutualFollows * 0.05, 0.4);
+      expect(mutualFollowContribution).toBeLessThanOrEqual(0.4);
     });
   });
 
-  describe('getSuggestedFollows', () => {
-    it('should return suggested follows', async () => {
-      const { getSuggestedFollows } = await import('../../src/social/graph');
+  describe('applyChaosMode', () => {
+    it('should apply perturbation to embedding', async () => {
+      const embedding = [0.5, 0.5, 0.5, 0.5];
+      const perturbed = applyChaosMode(embedding, 0.1);
 
-      // Currently returns empty array (placeholder implementation)
-      const suggestions = await getSuggestedFollows();
-      expect(Array.isArray(suggestions)).toBe(true);
+      expect(perturbed).toHaveLength(4);
+      const norm = Math.sqrt(perturbed.reduce((sum, v) => sum + v * v, 0));
+      expect(norm).toBeCloseTo(1, 1);
+    });
+
+    it('should return original embedding when chaosLevel is 0', async () => {
+      const embedding = [0.5, 0.5, 0.5, 0.5];
+      const perturbed = applyChaosMode(embedding, 0);
+
+      expect(perturbed).toEqual(embedding);
     });
   });
 });

@@ -1,6 +1,6 @@
 /**
  * Social Layer Module
- * 
+ *
  * Exports all social functionality.
  */
 
@@ -13,6 +13,20 @@ export type {
   ReplyEvent,
   QuoteEvent,
   FeedItem,
+  CommunityChannel,
+  GroupDM,
+  DMMessage,
+  CommunityReport,
+  CommunityCouncil,
+  ProfileSummary,
+  RankedPost,
+  TrendingTopic,
+  EngagementMetrics,
+  AudioSpace,
+  AudioMessage,
+  Point2D,
+  ConversationStarter,
+  DiscussionTopic,
 } from './types.js';
 
 // Posts
@@ -24,6 +38,7 @@ export {
   getPostsByAuthor,
   verifyPost,
   deletePost,
+  discoverPosts,
 } from './posts.js';
 
 // Feeds
@@ -59,3 +74,109 @@ export {
   quotePost,
   getInteractionCounts,
 } from './interactions.js';
+
+// Moderation
+export {
+  muteUser,
+  unmuteUser,
+  getMutedUsers,
+  blockUser,
+  unblockUser,
+  getBlockedUsers,
+  isMuted,
+  isBlocked,
+  filterModeratedPosts,
+  reportUser,
+  getPendingReports,
+  voteOnReport,
+  createCouncil,
+  getCouncil,
+  getCouncilsForChannel,
+  getMyCouncils,
+} from './moderation.js';
+
+// Direct Messages
+export {
+  sendDM,
+  sendGroupMessage,
+  createGroupDM,
+  addGroupMember,
+  removeGroupMember,
+  leaveGroupDM,
+  getDMs,
+  getConversations,
+  getGroupDMs,
+  getGroupDM,
+  decryptDM,
+  markAsRead,
+  markAllAsRead,
+  getUnreadCount,
+  deleteDM,
+} from './directMessages.js';
+
+// Trending
+export {
+  calculateTrendingScore,
+  getTrendingPosts,
+  getTrendingPostsForChannel,
+  getHotPosts,
+  getTrendingTopics,
+  getFollowingFeed as getTrendingFollowingFeed,
+} from './trending.js';
+
+// Communities
+export {
+  createCommunityChannel,
+  joinCommunity,
+  leaveCommunity,
+  addCoEditor,
+  updateCommunityChannel,
+  getCommunity,
+  getUserCommunities,
+  queryCommunitiesByEmbedding,
+  verifyCommunity,
+  computeSemanticNeighborhood,
+} from './communities.js';
+
+// Analytics
+export {
+  trackView,
+  getMetrics,
+  getAggregateMetrics,
+  getTopPostsByEngagement,
+  getTopPostsByViews,
+  trackImpression,
+  getCTR,
+  getUserEngagementSummary,
+  clearOldAnalytics,
+  registerPost,
+} from './analytics.js';
+
+// Audio Spaces
+export {
+  createAudioSpace,
+  joinAudioSpace,
+  leaveAudioSpace,
+  toggleMute,
+  getAudioSpace,
+  getAllActiveSpaces,
+  handleAudioMessage,
+} from './audioSpaces.js';
+
+// Semantic Map
+export {
+  projectTo2D,
+  computeChannelPositions,
+  findNeighbors,
+  kmeansClusters,
+  renderSemanticMap,
+} from './semanticMap.js';
+
+// Thought Bridge
+export {
+  findCrossoverWords,
+  generateConversationStarter,
+  getConversationStarters,
+  findBridgingPosts,
+  suggestDiscussionTopics,
+} from './thoughtBridge.js';
