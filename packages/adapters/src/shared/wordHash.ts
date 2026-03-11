@@ -101,14 +101,17 @@ const VOCAB = new Set([
   'us',
 ]);
 
+export const VOCAB_SIZE = 100;
+const HASH_SIZE = VOCAB_SIZE / 8;
+
 export function wordHash(text: string): Uint8Array {
-  const bitmap = new Uint8Array(100);
+  const bitmap = new Uint8Array(HASH_SIZE);
   const words = text
     .toLowerCase()
     .replace(/[^\w\s]/g, '')
     .split(/\s+/);
   words.forEach((word) => {
-    if (VOCAB.has(word)) bitmap[Math.abs(hashString(word)) % 100] = 1;
+    if (VOCAB.has(word)) bitmap[Math.abs(hashString(word)) % HASH_SIZE] = 1;
   });
   return bitmap;
 }

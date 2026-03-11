@@ -22,6 +22,13 @@ export type {
   Interaction,
   FeedType,
   FeedQuery,
+  BlockEvent,
+  TrustPath,
+  TrustEdge,
+  TrustScore,
+  CommunityCouncil,
+  ModerationVote,
+  ModerationDecision,
 } from './types';
 
 // Posts
@@ -65,6 +72,11 @@ export {
   getSuggestedFollows,
   getProfile,
   computeReputation,
+  computeTrustScore,
+  findTrustPaths,
+  getWoTSuggestedFollows,
+  getBridgeSuggestions,
+  recordInteraction,
   applyChaosMode,
 } from './graph';
 
@@ -80,6 +92,19 @@ export {
   mutePeer,
   unmutePeer,
   filterMutedPosts,
+  getBlockedPeers,
+  blockPeer,
+  unblockPeer,
+  filterBlockedPosts,
+  isPeerBlockedOrMuted,
+  createCouncil,
+  getCouncil,
+  getCouncilsForChannel,
+  submitModerationVote,
+  getVotesForReport,
+  processModerationDecision,
+  escalateReport,
+  getCouncilEligibleMembers,
 } from './moderation';
 
 // Phase 5: Advanced Features

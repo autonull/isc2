@@ -15,6 +15,11 @@ export interface Signature {
 }
 
 /**
+ * Public key type alias for type annotations.
+ */
+export type PublicKey = CryptoKey;
+
+/**
  * Generates an Ed25519 keypair using the Web Crypto API.
  *
  * @returns Generated keypair

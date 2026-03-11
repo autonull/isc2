@@ -277,4 +277,14 @@ export class DelegationClient {
   getBlockedSupernodes(): string[] {
     return Array.from(this.blockedSupernodes);
   }
+
+  private static instance: DelegationClient | null = null;
+
+  static getInstance(): DelegationClient | null {
+    return DelegationClient.instance;
+  }
+
+  static setInstance(instance: DelegationClient): void {
+    DelegationClient.instance = instance;
+  }
 }

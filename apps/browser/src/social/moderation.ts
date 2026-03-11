@@ -1,14 +1,25 @@
 /**
  * Content Moderation Service
- * 
- * Handles semantic moderation, reports, and reputation-based filtering.
- * References: SOCIAL.md#semantic-moderation
+ *
+ * Handles semantic moderation, reports, mute/block, and reputation-based filtering.
+ * References: SOCIAL.md#semantic-moderation, Phase 6 Reputation & Moderation
  */
 
 import { cosineSimilarity } from '@isc/core/math';
-import type { SignedPost, ChannelSummary, CommunityReport, ReputationScore } from './types';
+import { sign, encode } from '@isc/core/crypto';
+import type {
+  SignedPost,
+  ChannelSummary,
+  CommunityReport,
+  ReputationScore,
+  BlockEvent,
+  CommunityCouncil,
+  ModerationVote,
+  ModerationDecision,
+} from './types';
 import { getChannel } from '../channels/manager';
-import { computeReputation } from './graph';
+import { computeReputation, getAllKnownPeers } from './graph';
+import { getPeerID, getKeypair } from '../identity';
 
 /** Minimum coherence threshold for posts */
 const MIN_COHERENCE = 0.5;
@@ -188,16 +199,343 @@ export function filterMutedPosts(
   return posts.filter((post) => !mutedSet.has(post.author));
 }
 
+/**
+ * Get blocked peers from local storage
+ */
+export async function getBlockedPeers(): Promise<string[]> {
+  try {
+    const db = await getIndexedDB();
+    const blocked = await db.transaction('blocks', 'readonly')
+      .objectStore('blocks')
+      .getAllKeys();
+    return blocked.map((k) => k as string);
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Block a peer - prevents all interaction and content visibility
+ * Stronger than mute - also prevents the blocked peer from interacting with you
+ */
+export async function blockPeer(peerID: string): Promise<BlockEvent> {
+  const event: BlockEvent = {
+    type: 'block',
+    blocker: await getPeerID(),
+    blocked: peerID,
+    timestamp: Date.now(),
+    signature: await sign(
+      encode({ type: 'block', blocked: peerID, timestamp: Date.now() }),
+      (await getKeypair()).privateKey
+    ),
+  };
+
+  const db = await getIndexedDB();
+  await db.transaction('blocks', 'readwrite')
+    .objectStore('blocks')
+    .put({
+      peerID,
+      blockedAt: Date.now(),
+    });
+
+  // Announce block to DHT for propagation
+  const { DelegationClient } = await import('../delegation/fallback');
+  const client = DelegationClient.getInstance();
+  await client.announce(`/isc/block/${peerID}`, encode(event), 86400 * 30);
+
+  return event;
+}
+
+/**
+ * Unblock a peer
+ */
+export async function unblockPeer(peerID: string): Promise<void> {
+  const db = await getIndexedDB();
+  await db.transaction('blocks', 'readwrite')
+    .objectStore('blocks')
+    .delete(peerID);
+
+  // Announce unblock
+  const { DelegationClient } = await import('../delegation/fallback');
+  const client = DelegationClient.getInstance();
+  const event: BlockEvent = {
+    type: 'unblock',
+    blocker: await getPeerID(),
+    blocked: peerID,
+    timestamp: Date.now(),
+    signature: await sign(
+      encode({ type: 'unblock', blocked: peerID, timestamp: Date.now() }),
+      (await getKeypair()).privateKey
+    ),
+  };
+  await client.announce(`/isc/block/${peerID}`, encode(event), 86400);
+}
+
+/**
+ * Filter posts by blocked peers (more aggressive than mute)
+ */
+export function filterBlockedPosts(
+  posts: SignedPost[],
+  blockedPeers: string[]
+): SignedPost[] {
+  const blockedSet = new Set(blockedPeers);
+  return posts.filter((post) => !blockedSet.has(post.author));
+}
+
+/**
+ * Check if peer is blocked or muted (combined check)
+ */
+export async function isPeerBlockedOrMuted(peerID: string): Promise<boolean> {
+  const muted = await getMutedPeers();
+  const blocked = await getBlockedPeers();
+  return muted.includes(peerID) || blocked.includes(peerID);
+}
+
+// ============================================================================
+// Decentralized Moderation - Community Councils
+// ============================================================================
+
+/** Default reputation threshold for council membership */
+const COUNCIL_REP_THRESHOLD = 0.7;
+
+/** Default voting threshold (majority) */
+const DEFAULT_VOTING_THRESHOLD = 3;
+
+/**
+ * Create a new community council
+ */
+export async function createCouncil(
+  name: string,
+  jurisdiction: string[],
+  members: string[]
+): Promise<CommunityCouncil> {
+  const council: CommunityCouncil = {
+    id: `council_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+    name,
+    members,
+    threshold: Math.ceil(members.length / 2) + 1, // Majority + 1
+    jurisdiction,
+    reputationThreshold: COUNCIL_REP_THRESHOLD,
+  };
+
+  // Store council definition
+  const db = await getIndexedDB();
+  await db.transaction('councils', 'readwrite')
+    .objectStore('councils')
+    .put(council);
+
+  return council;
+}
+
+/**
+ * Get council by ID
+ */
+export async function getCouncil(councilId: string): Promise<CommunityCouncil | null> {
+  const db = await getIndexedDB();
+  const council = await db.transaction('councils', 'readonly')
+    .objectStore('councils')
+    .get(councilId);
+  return council || null;
+}
+
+/**
+ * Get councils that have jurisdiction over a channel
+ */
+export async function getCouncilsForChannel(channelID: string): Promise<CommunityCouncil[]> {
+  const db = await getIndexedDB();
+  const councils = await db.transaction('councils', 'readonly')
+    .objectStore('councils')
+    .getAll();
+
+  return councils.filter((c) => c.jurisdiction.includes(channelID) || c.jurisdiction.includes('*'));
+}
+
+/**
+ * Submit a moderation vote to a council
+ */
+export async function submitModerationVote(
+  councilId: string,
+  reportId: string,
+  decision: ModerationVote['decision'],
+  reasoning: string
+): Promise<ModerationVote> {
+  const council = await getCouncil(councilId);
+  if (!council) throw new Error(`Council ${councilId} not found`);
+
+  const myPeer = await getPeerID();
+  if (!council.members.includes(myPeer)) {
+    throw new Error('Not a council member');
+  }
+
+  const rep = await computeReputation(myPeer);
+  if (rep.score < council.reputationThreshold) {
+    throw new Error('Insufficient reputation for council voting');
+  }
+
+  const vote: ModerationVote = {
+    councilId,
+    reportId,
+    voter: myPeer,
+    decision,
+    reasoning,
+    timestamp: Date.now(),
+    signature: await sign(
+      encode({ councilId, reportId, decision, reasoning, timestamp: Date.now() }),
+      (await getKeypair()).privateKey
+    ),
+  };
+
+  // Store vote
+  const db = await getIndexedDB();
+  await db.transaction('votes', 'readwrite')
+    .objectStore('votes')
+    .put(vote);
+
+  return vote;
+}
+
+/**
+ * Get all votes for a report
+ */
+export async function getVotesForReport(reportId: string): Promise<ModerationVote[]> {
+  const db = await getIndexedDB();
+  const votes = await db.transaction('votes', 'readonly')
+    .objectStore('votes')
+    .getAll();
+
+  return votes.filter((v) => v.reportId === reportId);
+}
+
+/**
+ * Process moderation decision based on votes
+ * Returns decision if threshold is met, null otherwise
+ */
+export async function processModerationDecision(
+  reportId: string,
+  councilId: string
+): Promise<ModerationDecision | null> {
+  const council = await getCouncil(councilId);
+  if (!council) return null;
+
+  const votes = await getVotesForReport(reportId);
+  const approveCount = votes.filter((v) => v.decision === 'approve').length;
+  const rejectCount = votes.filter((v) => v.decision === 'reject').length;
+  const dismissCount = votes.filter((v) => v.decision === 'dismiss').length;
+
+  // Check if threshold is met
+  if (approveCount >= council.threshold) {
+    return {
+      reportId,
+      outcome: 'hidden',
+      votes,
+      decidedBy: votes[0]?.voter || '',
+      timestamp: Date.now(),
+    };
+  }
+
+  if (rejectCount >= council.threshold || dismissCount >= council.threshold) {
+    return {
+      reportId,
+      outcome: 'restored',
+      votes,
+      decidedBy: votes[0]?.voter || '',
+      timestamp: Date.now(),
+    };
+  }
+
+  // Threshold not met yet
+  return null;
+}
+
+/**
+ * Escalate a report to a higher-level council
+ */
+export async function escalateReport(
+  reportId: string,
+  fromCouncilId: string,
+  toCouncilId: string
+): Promise<void> {
+  const fromCouncil = await getCouncil(fromCouncilId);
+  const toCouncil = await getCouncil(toCouncilId);
+
+  if (!fromCouncil || !toCouncil) {
+    throw new Error('Invalid council IDs');
+  }
+
+  // Create escalation record
+  const db = await getIndexedDB();
+  await db.transaction('escalations', 'readwrite')
+    .objectStore('escalations')
+    .put({
+      reportId,
+      fromCouncilId,
+      toCouncilId,
+      escalatedAt: Date.now(),
+      escalatedBy: await getPeerID(),
+    });
+}
+
+/**
+ * Get council member eligibility (peers who could join)
+ */
+export async function getCouncilEligibleMembers(
+  councilId: string
+): Promise<{ peerID: string; reputation: number }[]> {
+  const council = await getCouncil(councilId);
+  if (!council) return [];
+
+  const candidates = await getAllKnownPeers();
+  const eligible: { peerID: string; reputation: number }[] = [];
+
+  for (const peerID of candidates) {
+    if (council.members.includes(peerID)) continue;
+
+    const rep = await computeReputation(peerID);
+    if (rep.score >= council.reputationThreshold) {
+      eligible.push({ peerID, reputation: rep.score });
+    }
+  }
+
+  return eligible.sort((a, b) => b.reputation - a.reputation);
+}
+
 // IndexedDB helper
 async function getIndexedDB(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
-    const request = indexedDB.open('isc-social', 1);
+    const request = indexedDB.open('isc-social', 2);
     request.onerror = () => reject(request.error);
     request.onsuccess = () => resolve(request.result);
     request.onupgradeneeded = (event) => {
       const db = (event.target as IDBOpenDBRequest).result;
+
+      // Create mutes store if not exists
       if (!db.objectStoreNames.contains('mutes')) {
         db.createObjectStore('mutes', { keyPath: 'peerID' });
+      }
+
+      // Create blocks store if not exists
+      if (!db.objectStoreNames.contains('blocks')) {
+        db.createObjectStore('blocks', { keyPath: 'peerID' });
+      }
+
+      // Create councils store if not exists
+      if (!db.objectStoreNames.contains('councils')) {
+        db.createObjectStore('councils', { keyPath: 'id' });
+      }
+
+      // Create votes store if not exists
+      if (!db.objectStoreNames.contains('votes')) {
+        db.createObjectStore('votes', { keyPath: 'councilId' });
+      }
+
+      // Create escalations store if not exists
+      if (!db.objectStoreNames.contains('escalations')) {
+        db.createObjectStore('escalations', { keyPath: 'reportId' });
+      }
+
+      // Create interactions store if not exists
+      if (!db.objectStoreNames.contains('interactions')) {
+        db.createObjectStore('interactions', { keyPath: ['peerID', 'timestamp'] });
       }
     };
   });

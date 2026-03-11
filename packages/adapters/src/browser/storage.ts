@@ -141,14 +141,20 @@ export class BrowserStorage implements StorageAdapter {
       const store = this.getStore(storeName, 'readonly');
       if (!store) continue;
 
-      yield* new Promise<Iterable<string>>((resolve) => {
+      const keys = await new Promise<string[]>((resolve) => {
         const request = store.getAllKeys();
         request.onsuccess = () => {
-          const keys = request.result as string[];
-          resolve(keys);
+          resolve(request.result as string[]);
         };
         request.onerror = () => resolve([]);
-      }).then((keys) => keys.filter((k) => !seen.has(k) && (prefix ? k.startsWith(prefix) : true)));
+      });
+
+      for (const k of keys) {
+        if (!seen.has(k) && (prefix ? k.startsWith(prefix) : true)) {
+          seen.add(k);
+          yield k;
+        }
+      }
     }
 
     // Also yield localStorage keys
@@ -157,6 +163,7 @@ export class BrowserStorage implements StorageAdapter {
       if (key?.startsWith(LOCAL_STORAGE_PREFIX)) {
         const cleanKey = key.slice(LOCAL_STORAGE_PREFIX.length);
         if (!seen.has(cleanKey) && (prefix ? cleanKey.startsWith(prefix) : true)) {
+          seen.add(cleanKey);
           yield cleanKey;
         }
       }
@@ -168,14 +175,18 @@ export class BrowserStorage implements StorageAdapter {
 
     const stores: typeof STORES = STORES;
     for (const storeName of stores) {
-      const store = this.getStore('readwrite');
+      const store = this.getStore(storeName, 'readwrite');
       if (store) {
         store.clear();
       }
     }
 
     this.localStorageFallback.clear();
-    localStorage.clear();
+    try {
+      localStorage.clear();
+    } catch {
+      // Ignore errors
+    }
   }
 
   private determineStore(key: string): string {
@@ -189,9 +200,11 @@ export class BrowserStorage implements StorageAdapter {
     let size = 0;
     for (let i = 0; i < localStorage.length; i++) {
       const key = localStorage.key(i);
-      const value = localStorage.getItem(key);
-      if (key && value) {
-        size += key.length + value.length;
+      if (key) {
+        const value = localStorage.getItem(key);
+        if (value) {
+          size += key.length + value.length;
+        }
       }
     }
     return size;

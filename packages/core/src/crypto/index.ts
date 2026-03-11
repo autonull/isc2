@@ -5,6 +5,7 @@ export {
   formatKeyFingerprint,
   type Keypair,
   type Signature,
+  type PublicKey,
 } from './keypair.js';
 
 export { sign, verify, signObject, verifyObject } from './signing.js';

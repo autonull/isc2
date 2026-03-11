@@ -90,3 +90,16 @@ export class SupernodeDiscovery {
     this.cache.delete(peerID);
   }
 }
+
+/**
+ * Query for proximal peers/supernodes
+ * This is a convenience function for discovering nearby peers
+ */
+export async function queryProximals(
+  dht: DHTAdapter,
+  count: number = 20
+): Promise<DelegateCapability[]> {
+  const discovery = new SupernodeDiscovery({ dht });
+  const supernodes = await discovery.discoverSupernodes();
+  return supernodes.slice(0, count);
+}

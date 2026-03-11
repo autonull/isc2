@@ -198,3 +198,8 @@ export class ChannelManager {
 }
 
 export const channelManager = new ChannelManager();
+
+/**
+ * Convenience function to get a channel by ID
+ */
+export const getChannel = (id: string): Promise<Channel | null> => channelManager.getChannel(id);

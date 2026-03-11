@@ -189,3 +189,83 @@ export interface FeedQuery {
   since?: number;
   excludeAuthors?: string[];
 }
+
+/**
+ * Block event - stronger than mute, prevents all interaction
+ */
+export interface BlockEvent {
+  type: 'block' | 'unblock';
+  blocker: string;
+  blocked: string;
+  timestamp: number;
+  signature: Signature;
+}
+
+/**
+ * Trust path for Web of Trust discovery
+ */
+export interface TrustPath {
+  source: string;
+  target: string;
+  hops: string[]; // Intermediate peers (source -> hops[0] -> ... -> target)
+  trustScore: number; // Product of edge trust scores
+  depth: number;
+}
+
+/**
+ * Trust edge between two peers
+ */
+export interface TrustEdge {
+  from: string;
+  to: string;
+  score: number; // 0.0 - 1.0
+  mutualFollows: boolean;
+  timestamp: number;
+}
+
+/**
+ * Community council for decentralized moderation
+ */
+export interface CommunityCouncil {
+  id: string;
+  name: string;
+  members: string[]; // peerIDs
+  threshold: number; // Minimum votes needed (e.g., 3 of 5)
+  jurisdiction: string[]; // Channel IDs this council moderates
+  reputationThreshold: number; // Minimum rep to join (e.g., 0.7)
+}
+
+/**
+ * Moderation vote for council decisions
+ */
+export interface ModerationVote {
+  councilId: string;
+  reportId: string;
+  voter: string;
+  decision: 'approve' | 'reject' | 'dismiss';
+  reasoning: string;
+  timestamp: number;
+  signature: Signature;
+}
+
+/**
+ * Moderation decision result
+ */
+export interface ModerationDecision {
+  reportId: string;
+  outcome: 'hidden' | 'restored' | 'escalated';
+  votes: ModerationVote[];
+  decidedBy: string; // peerID who made final call if tied
+  timestamp: number;
+}
+
+/**
+ * Trust score with Web of Trust components
+ */
+export interface TrustScore {
+  directTrust: number; // From direct interactions
+  indirectTrust: number; // From trust paths
+  mutualFollowBonus: number;
+  sybilCap: number; // Maximum contribution from indirect sources (0.3)
+  total: number; // Combined score
+}

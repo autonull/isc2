@@ -212,3 +212,18 @@ export async function importIdentity(
 }
 
 export { validatePassphraseStrength };
+
+/**
+ * Get the current peer ID (public key fingerprint)
+ */
+export const getPeerID = async (): Promise<string> => {
+  if (!identityState.publicKeyFingerprint) {
+    identityState.publicKeyFingerprint = await formatKeyFingerprint(identityState.keypair!.publicKey);
+  }
+  return identityState.publicKeyFingerprint;
+};
+
+/**
+ * Get the current keypair
+ */
+export const getKeypair = (): CryptoKeyPair | null => identityState.keypair;

@@ -21,21 +21,29 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "@isc/core": "workspace:*"
+    "@isc/core": "workspace:*",
+    "@chainsafe/libp2p-noise": "^17.0.0",
+    "@chainsafe/libp2p-yamux": "^8.0.1",
+    "@libp2p/bootstrap": "^12.0.0",
+    "@libp2p/crypto": "^5.1.0",
+    "@libp2p/kad-dht": "^16.1.0",
+    "@libp2p/peer-id": "^6.0.0",
+    "@multiformats/multiaddr": "^13.0.0",
+    "libp2p": "^3.1.0"
   },
   "peerDependencies": {
     "@xenova/transformers": "^2.6",
-    "libp2p": "^1.0",
-    "level": "^8.0"
+    "level": "^8.0",
+    "onnxruntime-node": "^1.17"
   },
   "peerDependenciesMeta": {
     "@xenova/transformers": {
       "optional": true
     },
-    "libp2p": {
+    "level": {
       "optional": true
     },
-    "level": {
+    "onnxruntime-node": {
       "optional": true
     }
   },

@@ -38,7 +38,7 @@ export class NodeModel implements EmbeddingModelAdapter {
     const results = await this.session.run(feeds);
     const outputTensor = results[this.session.outputNames[0]];
 
-    const embedding = Array.from(outputTensor.data).slice(0, 384);
+    const embedding = Array.from(outputTensor.data as Float32Array).slice(0, 384);
     return this.normalize(embedding);
   }
 
