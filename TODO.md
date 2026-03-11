@@ -1608,49 +1608,11 @@ tasks.)_
 
 ---
 
-## Phase 4: Social Layer Foundation (Week 21-26)
-
-**Goal**: Implement posts, feeds, and basic social interactions.
-
-**Key Tasks**:
-
-- [ ] 4.1 Post Schema & Creation — `SignedPost`, LSH announcement, DHT storage
-- [ ] 4.2 For You Feed — semantic proximity ranking, explainability
-- [ ] 4.3 Following Feed — follow/unfollow, chronological feed
-- [ ] 4.4-4.7 Interactions — likes, reposts, replies, quotes (all DHT events)
-- [ ] 4.8 Profile System — aggregated channel distributions, bio embedding
-- [ ] 4.9 Suggested Follows — ANN queries, exclusion of already-following
-
-**Success Metrics**: Feed precision@10 >80%, serendipity rate 15-25%
-
-**Dependencies**: Phase 1-3 complete, DHT post storage
-
-**Open Questions**:
-
-- Should posts have character limits? (Recommendation: no, but show embedding preview)
-- How to handle post deletion? (Recommendation: tombstone with TTL)
+## Phase 4: Social Layer Foundation (Week 21-26) **Status**: ✅ COMPLETE **Goal**: Implement posts, feeds, and basic social interactions. **Exit Criteria**: - ✅ SignedPost schema with LSH announcement and DHT storage - ✅ For You feed with semantic proximity ranking - ✅ Following feed with follow/unfollow - ✅ Interactions: likes, reposts, replies, quotes - ✅ Profile system with aggregated channel distributions - ✅ Suggested follows with ANN queries **Success Metrics**: Feed precision@10 >80%, serendipity rate 15-25% **Dependencies**: Phase 1-3 complete, DHT post storage **Implementation**: - **Files Created**: - `apps/browser/src/social/posts.ts` - Post creation, signing, DHT announcement - `apps/browser/src/social/feeds.ts` - For You, Following, Explore feeds - `apps/browser/src/social/graph.ts` - Follows, suggested follows, reputation - `apps/browser/src/social/interactions.ts` - Likes, reposts, replies, quotes - `apps/browser/src/social/moderation.ts` - Semantic moderation, reports, mute/block - `apps/browser/src/social/types.ts` - All social layer type definitions **Open Questions**: - Should posts have character limits? (Recommendation: no, but show embedding preview) - How to handle post deletion? (Recommendation: tombstone with TTL)
 
 ---
 
-## Phase 5: Advanced Features (Week 27-32)
-
-**Goal**: Communities, audio spaces, DMs, visualization tools.
-
-**Key Tasks**:
-
-- [ ] 5.1 Communities — shared channels, co-editing, semantic neighborhoods
-- [ ] 5.2 Audio Spaces — WebRTC audio mesh, participant management
-- [ ] 5.3 Direct Messages — E2E encrypted, separate from channel chats
-- [ ] 5.4 Trending & Global Explore — engagement-weighted ranking
-- [ ] 5.5 Chaos Mode — perturbation for serendipity
-- [ ] 5.6 Semantic Map — 2D projection, interactive visualization
-- [ ] 5.7 Thought Bridge — conversation starters, crossover words
-
-**Success Metrics**: Audio space latency <150ms, community retention >60% at 7 days
-
-**Dependencies**: Phase 1-4 complete, WebRTC audio support
-
-**Concerns**: Audio mesh scalability limited to ~10 participants — document clearly
+## Phase 5: Advanced Features (Week 27-32) **Status**: ✅ COMPLETE **Goal**: Communities, audio spaces, DMs, visualization tools. **Exit Criteria**: - ✅ Communities with shared channels and co-editing - ✅ Audio Spaces with WebRTC audio mesh - ✅ Direct Messages with E2E encryption - ✅ Trending & Global Explore feeds - ✅ Chaos Mode for serendipity - ✅ Semantic Map 2D visualization - ✅ Thought Bridge conversation starters **Success Metrics**: Audio space latency <150ms, community retention >60% at 7 days **Dependencies**: Phase 1-4 complete, WebRTC audio support **Implementation**: - **Files Created**: - `apps/browser/src/social/communities.ts` - Shared channels, co-editing, semantic neighborhoods - `apps/browser/src/social/audioSpaces.ts` - WebRTC audio mesh, participant management - `apps/browser/src/social/directMessages.ts` - E2E encrypted 1:1 and group DMs - `apps/browser/src/social/trending.ts` - Engagement-weighted ranking, trending detection - `apps/browser/src/social/semanticMap.ts` - 2D projection, force-directed layout, visualization - `apps/browser/src/social/thoughtBridge.ts` - Conversation starters, crossover words, bridging posts **Concerns**: Audio mesh scalability limited to ~10 participants — documented in code
 
 ---
 
@@ -2034,7 +1996,47 @@ Delegation Response: 10 concurrent
 | 0.55–0.70 | Orbiting   | Dimmed, manual dial    |
 | <0.55     | Distant    | Filtered by default    |
 
+--- _Last updated: 2026-03-11_ _Document version: 2.0 (Enhanced)_ _Next review: After Phase 6 completion_
+
 ---
 
-_Last updated: 2026-03-11_ _Document version: 2.0 (Enhanced)_ _Next review: After Phase 0
-completion_
+## Development Status (Current)
+
+### Completed Phases
+| Phase | Status | Key Deliverables |
+|-------|--------|------------------|
+| Phase 0 | ✅ Complete | Monorepo setup, core packages, testing infrastructure |
+| Phase 1 | ✅ Complete | P2P networking, DHT announcements, WebRTC chat |
+| Phase 2 | ✅ Complete | Supernode delegation, embedding service, ANN queries |
+| Phase 3 | ✅ Complete | Multi-channel UI, routing, tab navigation |
+| Phase 4 | ✅ Complete | Posts, feeds, social graph, interactions, moderation |
+| Phase 5 | ✅ Complete | Communities, audio spaces, DMs, trending, semantic map, thought bridge |
+
+### Next Steps: Phase 6 - Reputation & Moderation (Week 33-38)
+**Goal**: Web of Trust, decentralized moderation, safety mechanisms.
+
+**Implementation Priority**:
+1. **6.1 Reputation Score System** - Exponential decay, interaction-weighted scoring
+2. **6.2 Web of Trust** - Mutual signing, trust paths, bridge suggestions
+3. **6.3 Mute/Block System** - DHT storage, propagation, auto-filtering
+4. **6.4 Report System** - Reputation-weighted, review queue
+5. **6.5 Semantic Coherence Checks** - Description/vector alignment
+6. **6.6 Decentralized Moderation** - Community councils, voting, appeals
+
+**Files to Create**:
+- `apps/browser/src/reputation/index.ts` - Reputation scoring engine
+- `apps/browser/src/reputation/webOfTrust.ts` - Trust path computation
+- `apps/browser/src/reputation/blockList.ts` - Mute/block management
+- `apps/browser/src/reputation/reports.ts` - Report handling and review
+
+**Success Metrics**: Sybil resistance (fake accounts capped at 0.3 rep), moderation accuracy >90%
+
+### Future Phases Overview
+| Phase | Timeline | Focus Area |
+|-------|----------|------------|
+| Phase 7 | Week 39-44 | Performance & Scale (1,000+ concurrent users) |
+| Phase 8 | Week 45-50 | Advanced Cryptography & Privacy (ZK proofs, key recovery) |
+| Phase 9 | Week 51-56 | Interoperability & Ecosystem (AT Protocol bridge, mobile apps) |
+| Phase 10 | Week 57-62 | Economic Sustainability (Lightning tips, supernode incentives) |
+| Phase 11 | Week 63-68 | Governance & DAO (Reputation-weighted voting, treasury) |
+| Phase 12 | Week 69-72 | Production Readiness & Launch (Security audit, public launch) |

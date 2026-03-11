@@ -6,5 +6,7 @@ export { BrowserModel } from './browser/model.js';
 export { BrowserTierDetector } from './browser/tier.js';
 export { BrowserNetworkAdapter } from './browser/network.js';
 export { DHTClient } from './browser/dht.js';
+export { BrowserStorage } from './browser/storage.js';
 export { NodeTierDetector } from './node/tier.js';
+export { NodeStorage } from './node/storage.js';
 export { wordHash, hammingDistance } from './shared/wordHash.js';
