@@ -1,20 +1,7 @@
-/**
- * AT Protocol Bridge
- *
- * Interoperability layer for federated social protocols.
- * Enables cross-posting and content synchronization with
- * AT Protocol-compatible networks.
- *
- * References: NEXT_STEPS.md#91-at-protocol-bridge
- */
-
 import { sign, type Signature } from '../crypto/index.js';
 import { encode } from '../encoding.js';
 import type { Keypair } from '../crypto/keypair.js';
 
-/**
- * AT Protocol record types
- */
 export const RecordTypes = {
   POST: 'app.bsky.feed.post',
   PROFILE: 'app.bsky.actor.profile',
@@ -24,9 +11,6 @@ export const RecordTypes = {
   BLOCK: 'app.bsky.graph.block',
 } as const;
 
-/**
- * AT Protocol record
- */
 export interface ATRecord {
   uri: string;
   cid: string;
@@ -34,18 +18,12 @@ export interface ATRecord {
   indexedAt: string;
 }
 
-/**
- * AT Protocol record value
- */
 export interface RecordValue {
   $type: string;
   createdAt: string;
   [key: string]: unknown;
 }
 
-/**
- * AT Protocol post record
- */
 export interface ATPostRecord extends RecordValue {
   $type: typeof RecordTypes.POST;
   text: string;
@@ -72,9 +50,6 @@ export interface ATPostRecord extends RecordValue {
   };
 }
 
-/**
- * AT Protocol profile record
- */
 export interface ATProfileRecord extends RecordValue {
   $type: typeof RecordTypes.PROFILE;
   displayName?: string;
@@ -90,33 +65,21 @@ export interface ATProfileRecord extends RecordValue {
   };
 }
 
-/**
- * AT Protocol follow record
- */
 export interface ATFollowRecord extends RecordValue {
   $type: typeof RecordTypes.FOLLOW;
-  subject: string; // DID of followed user
+  subject: string;
 }
 
-/**
- * AT Protocol like record
- */
 export interface ATLikeRecord extends RecordValue {
   $type: typeof RecordTypes.LIKE;
   subject: { uri: string; cid: string };
 }
 
-/**
- * AT Protocol repost record
- */
 export interface ATRepostRecord extends RecordValue {
   $type: typeof RecordTypes.REPOST;
   subject: { uri: string; cid: string };
 }
 
-/**
- * AT Protocol session
- */
 export interface ATSession {
   accessJwt: string;
   refreshJwt: string;
@@ -127,23 +90,13 @@ export interface ATSession {
   active: boolean;
 }
 
-/**
- * AT Protocol configuration
- */
 export interface ATProtocolConfig {
-  // Service endpoint
   serviceUrl: string;
-  
-  // Identity
   handle?: string;
   did?: string;
   signingKey?: Keypair;
-  
-  // Sync settings
   autoSync: boolean;
-  syncInterval: number; // ms
-  
-  // Content settings
+  syncInterval: number;
   defaultLanguage: string;
   includeEmbeds: boolean;
 }
@@ -151,14 +104,11 @@ export interface ATProtocolConfig {
 const DEFAULT_CONFIG: ATProtocolConfig = {
   serviceUrl: 'https://bsky.social',
   autoSync: false,
-  syncInterval: 300000, // 5 minutes
+  syncInterval: 300000,
   defaultLanguage: 'en',
   includeEmbeds: true,
 };
 
-/**
- * AT Protocol client for cross-posting
- */
 export class ATProtocolClient {
   private config: ATProtocolConfig;
   private session: ATSession | null = null;
@@ -168,12 +118,7 @@ export class ATProtocolClient {
     this.config = { ...DEFAULT_CONFIG, ...config };
   }
 
-  /**
-   * Create session with AT Protocol service
-   */
   async createSession(handle: string, _password: string): Promise<ATSession> {
-    // In production, would make actual API call
-    // This is a placeholder for the authentication flow
     this.session = {
       accessJwt: 'mock_access_token',
       refreshJwt: 'mock_refresh_token',
@@ -183,25 +128,14 @@ export class ATProtocolClient {
       emailConfirmed: true,
       active: true,
     };
-
     return this.session;
   }
 
-  /**
-   * Refresh session token
-   */
   async refreshSession(): Promise<ATSession> {
-    if (!this.session) {
-      throw new Error('No active session');
-    }
-
-    // In production, would call refresh endpoint
+    if (!this.session) throw new Error('No active session');
     return this.session;
   }
 
-  /**
-   * Create a post record
-   */
   createPostRecord(
     text: string,
     options?: {
@@ -215,24 +149,13 @@ export class ATProtocolClient {
       text,
     };
 
-    if (options?.language) {
-      record.lang = options.language;
-    }
-
-    if (options?.replyTo) {
-      record.reply = options.replyTo;
-    }
+    if (options?.language) record.lang = options.language;
+    if (options?.replyTo) record.reply = options.replyTo;
 
     return record;
   }
 
-  /**
-   * Create a profile record
-   */
-  createProfileRecord(
-    displayName?: string,
-    description?: string
-  ): ATProfileRecord {
+  createProfileRecord(displayName?: string, description?: string): ATProfileRecord {
     return {
       $type: RecordTypes.PROFILE,
       createdAt: new Date().toISOString(),
@@ -241,9 +164,6 @@ export class ATProtocolClient {
     };
   }
 
-  /**
-   * Create a follow record
-   */
   createFollowRecord(subject: string): ATFollowRecord {
     return {
       $type: RecordTypes.FOLLOW,
@@ -252,9 +172,6 @@ export class ATProtocolClient {
     };
   }
 
-  /**
-   * Create a like record
-   */
   createLikeRecord(subjectUri: string, subjectCid: string): ATLikeRecord {
     return {
       $type: RecordTypes.LIKE,
@@ -263,9 +180,6 @@ export class ATProtocolClient {
     };
   }
 
-  /**
-   * Create a repost record
-   */
   createRepostRecord(subjectUri: string, subjectCid: string): ATRepostRecord {
     return {
       $type: RecordTypes.REPOST,
@@ -274,22 +188,15 @@ export class ATProtocolClient {
     };
   }
 
-  /**
-   * Sign a record
-   */
   async signRecord(
     record: RecordValue,
     keypair: Keypair
   ): Promise<{ record: RecordValue; signature: Signature }> {
     const payload = encode(record);
     const signature = await sign(payload, keypair.privateKey);
-
     return { record, signature };
   }
 
-  /**
-   * Convert ISC post to AT Protocol format
-   */
   convertToATPost(
     content: string,
     _timestamp: number,
@@ -299,14 +206,11 @@ export class ATProtocolClient {
     }
   ): ATPostRecord {
     return this.createPostRecord(content, {
-      language: options?.language || this.config.defaultLanguage,
+      language: options?.language ?? this.config.defaultLanguage,
       replyTo: options?.replyTo,
     });
   }
 
-  /**
-   * Convert AT Protocol post to ISC format
-   */
   convertFromATPost(record: ATPostRecord): {
     content: string;
     timestamp: number;
@@ -318,30 +222,18 @@ export class ATProtocolClient {
       timestamp: new Date(record.createdAt).getTime(),
       language: (record as any).lang,
       replyTo: record.reply
-        ? {
-            root: record.reply.root.uri,
-            parent: record.reply.parent.uri,
-          }
+        ? { root: record.reply.root.uri, parent: record.reply.parent.uri }
         : undefined,
     };
   }
 
-  /**
-   * Start auto-sync
-   */
   startAutoSync(callback: () => Promise<void>): void {
-    if (this.syncTimer) {
-      this.stopAutoSync();
-    }
-
+    if (this.syncTimer) this.stopAutoSync();
     this.syncTimer = setInterval(() => {
       callback().catch(console.error);
     }, this.config.syncInterval);
   }
 
-  /**
-   * Stop auto-sync
-   */
   stopAutoSync(): void {
     if (this.syncTimer) {
       clearInterval(this.syncTimer);
@@ -349,77 +241,39 @@ export class ATProtocolClient {
     }
   }
 
-  /**
-   * Get current session
-   */
   getSession(): ATSession | null {
     return this.session;
   }
 
-  /**
-   * Check if authenticated
-   */
   isAuthenticated(): boolean {
     return this.session !== null && this.session.active;
   }
 
-  /**
-   * Logout
-   */
   logout(): void {
     this.session = null;
     this.stopAutoSync();
   }
 }
 
-/**
- * Parse AT Protocol URI
- */
-export function parseATUri(uri: string): {
-  did: string;
-  collection: string;
-  rkey: string;
-} | null {
+export function parseATUri(uri: string): { did: string; collection: string; rkey: string } | null {
   const match = uri.match(/^at:\/\/([^/]+)\/([^/]+)\/([^/]+)$/);
   if (!match) return null;
-
-  return {
-    did: match[1],
-    collection: match[2],
-    rkey: match[3],
-  };
+  return { did: match[1], collection: match[2], rkey: match[3] };
 }
 
-/**
- * Build AT Protocol URI
- */
 export function buildATUri(did: string, collection: string, rkey: string): string {
   return `at://${did}/${collection}/${rkey}`;
 }
 
-/**
- * Validate AT Protocol handle
- */
 export function isValidHandle(handle: string): boolean {
-  // Basic handle validation
   return /^[a-z0-9][a-z0-9.-]*[a-z0-9]$/.test(handle) && handle.length >= 3;
 }
 
-/**
- * Validate AT Protocol DID
- */
 export function isValidDID(did: string): boolean {
   return /^did:[a-z0-9]+:[a-zA-Z0-9._-]+$/.test(did);
 }
 
-/**
- * Extract mentions from text
- */
-export function extractMentions(text: string): Array<{
-  handle: string;
-  start: number;
-  end: number;
-}> {
+export function extractMentions(text: string): Array<{ handle: string; start: number; end: number }> {
   const mentions: Array<{ handle: string; start: number; end: number }> = [];
   const mentionRegex = /@([a-z0-9][a-z0-9.-]*[a-z0-9])/gi;
   let match;
@@ -435,14 +289,7 @@ export function extractMentions(text: string): Array<{
   return mentions;
 }
 
-/**
- * Extract hashtags from text
- */
-export function extractHashtags(text: string): Array<{
-  tag: string;
-  start: number;
-  end: number;
-}> {
+export function extractHashtags(text: string): Array<{ tag: string; start: number; end: number }> {
   const hashtags: Array<{ tag: string; start: number; end: number }> = [];
   const hashtagRegex = /#([a-zA-Z0-9_]+)/g;
   let match;
@@ -458,40 +305,22 @@ export function extractHashtags(text: string): Array<{
   return hashtags;
 }
 
-/**
- * Create enriched post with entities
- */
 export function createEnrichedPost(
   text: string
 ): { text: string; entities: Array<{ index: { start: number; end: number }; type: string; value: string }> } {
   const entities: Array<{ index: { start: number; end: number }; type: string; value: string }> = [];
 
-  // Extract mentions
-  const mentions = extractMentions(text);
-  for (const mention of mentions) {
-    entities.push({
-      index: { start: mention.start, end: mention.end },
-      type: 'mention',
-      value: mention.handle,
-    });
+  for (const mention of extractMentions(text)) {
+    entities.push({ index: { start: mention.start, end: mention.end }, type: 'mention', value: mention.handle });
   }
 
-  // Extract hashtags
-  const hashtags = extractHashtags(text);
-  for (const hashtag of hashtags) {
-    entities.push({
-      index: { start: hashtag.start, end: hashtag.end },
-      type: 'tag',
-      value: hashtag.tag,
-    });
+  for (const hashtag of extractHashtags(text)) {
+    entities.push({ index: { start: hashtag.start, end: hashtag.end }, type: 'tag', value: hashtag.tag });
   }
 
   return { text, entities };
 }
 
-/**
- * Rate limiter for AT Protocol API calls
- */
 export class ATRateLimiter {
   private requests: number[] = [];
   private limit: number;
@@ -504,8 +333,6 @@ export class ATRateLimiter {
 
   async throttle(): Promise<void> {
     const now = Date.now();
-    
-    // Remove old requests
     this.requests = this.requests.filter((t) => now - t < this.windowMs);
 
     if (this.requests.length >= this.limit) {

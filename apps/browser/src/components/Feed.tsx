@@ -1,9 +1,3 @@
-/**
- * Feed Component
- * 
- * Renders a list of posts with pull-to-refresh.
- */
-
 import { h } from 'preact';
 import { useState, useEffect, useCallback } from 'preact/hooks';
 import type { SignedPost } from '../social/types.js';
@@ -39,14 +33,11 @@ export function Feed({ type = 'for-you', channelID, limit = 50 }: FeedProps) {
     try {
       setLoading(true);
       setError(null);
-      
-      let fetched: SignedPost[];
-      if (type === 'following') {
-        fetched = await getFollowingFeed(limit);
-      } else {
-        fetched = await getForYouFeed(limit);
-      }
-      
+
+      const fetched = type === 'following'
+        ? await getFollowingFeed(limit)
+        : await getForYouFeed(limit);
+
       setPosts(fetched);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load posts');
@@ -71,32 +62,27 @@ export function Feed({ type = 'for-you', channelID, limit = 50 }: FeedProps) {
     loadPosts();
   }, [loadPosts]);
 
-  // Pull-to-refresh handler
   useEffect(() => {
     let startY = 0;
     let currentY = 0;
-    
+
     const handleTouchStart = (e: TouchEvent) => {
-      if (window.scrollY === 0) {
-        startY = e.touches[0].clientY;
-      }
+      if (window.scrollY === 0) startY = e.touches[0].clientY;
     };
-    
+
     const handleTouchMove = (e: TouchEvent) => {
       if (startY > 0) {
         currentY = e.touches[0].clientY;
         const diff = currentY - startY;
-        if (diff > 100 && !refreshing) {
-          handleRefresh();
-        }
+        if (diff > 100 && !refreshing) handleRefresh();
         startY = 0;
         currentY = 0;
       }
     };
-    
+
     document.addEventListener('touchstart', handleTouchStart, { passive: true });
     document.addEventListener('touchmove', handleTouchMove, { passive: true });
-    
+
     return () => {
       document.removeEventListener('touchstart', handleTouchStart);
       document.removeEventListener('touchmove', handleTouchMove);
@@ -116,9 +102,7 @@ export function Feed({ type = 'for-you', channelID, limit = 50 }: FeedProps) {
     return (
       <div style={styles.error}>
         <p>{error}</p>
-        <button onClick={loadPosts} style={styles.retryBtn}>
-          Retry
-        </button>
+        <button onClick={loadPosts} style={styles.retryBtn}>Retry</button>
       </div>
     );
   }
@@ -139,7 +123,6 @@ export function Feed({ type = 'for-you', channelID, limit = 50 }: FeedProps) {
           <div style={styles.spinner}></div>
         </div>
       )}
-      
       {posts.map((post) => (
         <Post key={post.id} post={post} />
       ))}
@@ -147,13 +130,8 @@ export function Feed({ type = 'for-you', channelID, limit = 50 }: FeedProps) {
   );
 }
 
-// Add CSS animation for spinner
 if (typeof document !== 'undefined') {
   const style = document.createElement('style');
-  style.textContent = `
-    @keyframes spin {
-      to { transform: rotate(360deg); }
-    }
-  `;
+  style.textContent = `@keyframes spin { to { transform: rotate(360deg); } }`;
   document.head.appendChild(style);
 }

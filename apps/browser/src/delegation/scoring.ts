@@ -38,15 +38,13 @@ export function rankSupernodes(
 ): ScoredSupernode[] {
   const scored: ScoredSupernode[] = capabilities.map((cap) => {
     const health = healthMap.get(cap.peerID);
-    const stats = statsMap.get(cap.peerID) || {
+    const stats = statsMap.get(cap.peerID) ?? {
       successRate: health?.successRate ?? 0.5,
       avgLatencyMs: health?.avgLatencyMs ?? 1000,
       requestsServed24h: health?.requestsServed24h ?? 0,
     };
 
-    const score = scoreSupernode(cap, stats);
-
-    return { capability: cap, score, stats };
+    return { capability: cap, score: scoreSupernode(cap, stats), stats };
   });
 
   return scored.sort((a, b) => b.score - a.score);

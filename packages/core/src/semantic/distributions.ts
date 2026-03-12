@@ -23,7 +23,6 @@ export async function computeRelationalDistributions(
   for (const relation of channel.relations) {
     const embed = await model.embed(formatRelationForEmbedding(channel, relation));
     const weight = relation.weight ?? 1.0;
-
     distributions.push({ mu: embed, sigma: spread / weight, weight, tag: relation.tag });
   }
 

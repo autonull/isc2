@@ -1,38 +1,17 @@
-/**
- * Location representation for spatiotemporal matching.
- */
 export interface Location {
   lat: number;
   lon: number;
-  radius?: number; // in kilometers
+  radius?: number;
 }
 
-/**
- * Time window representation for spatiotemporal matching.
- */
 export interface TimeWindow {
-  start: number; // Unix timestamp
-  end: number; // Unix timestamp
+  start: number;
+  end: number;
 }
 
 const EARTH_RADIUS_KM = 6371;
 const toRad = (deg: number): number => (deg * Math.PI) / 180;
 
-/**
- * Computes the great-circle distance between two points on Earth using the Haversine formula.
- *
- * @param lat1 - Latitude of first point (degrees)
- * @param lon1 - Longitude of first point (degrees)
- * @param lat2 - Latitude of second point (degrees)
- * @param lon2 - Longitude of second point (degrees)
- * @returns Distance in kilometers
- *
- * @example
- * ```typescript
- * // Tokyo to Osaka
- * haversineDistance(35.6895, 139.6917, 34.6937, 135.5023); // ~403 km
- * ```
- */
 export function haversineDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
   const dLat = toRad(lat2 - lat1);
   const dLon = toRad(lon2 - lon1);
@@ -47,13 +26,6 @@ export function haversineDistance(lat1: number, lon1: number, lat2: number, lon2
 
 const DEFAULT_RADIUS_KM = 50;
 
-/**
- * Computes location overlap score between two locations.
- *
- * @param a - First location
- * @param b - Second location
- * @returns Overlap score in [0, 1], where 1 = identical, 0 = no overlap
- */
 export function locationOverlap(a: Location, b: Location): number {
   const distance = haversineDistance(a.lat, a.lon, b.lat, b.lon);
   const radiusA = a.radius ?? DEFAULT_RADIUS_KM;
@@ -66,13 +38,6 @@ export function locationOverlap(a: Location, b: Location): number {
   return Math.max(0, Math.min(1, 1 - distance / maxRadius));
 }
 
-/**
- * Computes time window overlap score.
- *
- * @param a - First time window
- * @param b - Second time window
- * @returns Overlap score in [0, 1], where 1 = identical, 0 = no overlap
- */
 export function timeOverlap(a: TimeWindow, b: TimeWindow): number {
   if (a.end <= b.start || b.end <= a.start) return 0;
 
@@ -87,16 +52,6 @@ export function timeOverlap(a: TimeWindow, b: TimeWindow): number {
   return totalDuration === 0 ? 1 : overlapDuration / totalDuration;
 }
 
-/**
- * Computes combined spatiotemporal similarity score.
- *
- * @param locationA - First location (optional)
- * @param locationB - Second location (optional)
- * @param timeA - First time window (optional)
- * @param timeB - Second time window (optional)
- * @param locationWeight - Weight for location similarity (default: 0.5)
- * @returns Combined spatiotemporal score in [0, 1]
- */
 export function spatiotemporalSimilarity(
   locationA?: Location,
   locationB?: Location,
@@ -113,13 +68,13 @@ export function spatiotemporalSimilarity(
   let totalWeight = 0;
 
   if (hasLoc) {
-    score += locationOverlap(locationA!, locationB!) * locationWeight;
+    score += locationOverlap(locationA, locationB) * locationWeight;
     totalWeight += locationWeight;
   }
 
   if (hasTime) {
     const timeWeight = 1 - locationWeight;
-    score += timeOverlap(timeA!, timeB!) * timeWeight;
+    score += timeOverlap(timeA, timeB) * timeWeight;
     totalWeight += timeWeight;
   }
 

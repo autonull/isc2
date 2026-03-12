@@ -1,13 +1,7 @@
-/**
- * Post Component
- * 
- * Renders a single post with interactions.
- */
-
 import { h } from 'preact';
 import { useState } from 'preact/hooks';
 import type { SignedPost } from '../social/types.js';
-import { likePost, repostPost, replyToPost, hasLiked } from '../social/index.js';
+import { likePost, repostPost, replyToPost } from '../social/index.js';
 
 interface PostProps {
   post: SignedPost;
@@ -53,15 +47,14 @@ export function Post({ post, showActions = true, onReply }: PostProps) {
     setReplyContent('');
     setShowReplyBox(false);
     setCounts((c) => ({ ...c, replies: c.replies + 1 }));
-    if (onReply) onReply(post.id);
+    onReply?.(post.id);
   };
 
   const formatDate = (timestamp: number) => {
     const date = new Date(timestamp);
-    const now = new Date();
-    const diff = now.getTime() - date.getTime();
+    const diff = Date.now() - date.getTime();
     const hours = Math.floor(diff / (1000 * 60 * 60));
-    
+
     if (hours < 1) return 'Just now';
     if (hours < 24) return `${hours}h ago`;
     return date.toLocaleDateString();
@@ -73,32 +66,29 @@ export function Post({ post, showActions = true, onReply }: PostProps) {
         <span style={styles.author}>{post.author.slice(0, 16)}...</span>
         <time style={styles.time}>{formatDate(post.timestamp)}</time>
       </header>
-      
+
       <p style={styles.content}>{post.content}</p>
-      
+
       {showActions && (
         <footer style={styles.footer}>
           <div style={styles.actions}>
-            <button 
+            <button
               onClick={handleLike}
-              style={{...styles.actionBtn, color: liked ? '#e0245e' : '#657786'}}
+              style={{ ...styles.actionBtn, color: liked ? '#e0245e' : '#657786' }}
               disabled={liked}
             >
               ♥ {counts.likes}
             </button>
-            
+
             <button onClick={handleRepost} style={styles.actionBtn}>
               ⟳ {counts.reposts}
             </button>
-            
-            <button 
-              onClick={() => setShowReplyBox(!showReplyBox)} 
-              style={styles.actionBtn}
-            >
+
+            <button onClick={() => setShowReplyBox(!showReplyBox)} style={styles.actionBtn}>
               💬 {counts.replies}
             </button>
           </div>
-          
+
           {showReplyBox && (
             <div style={styles.replyBox}>
               <textarea
@@ -108,9 +98,7 @@ export function Post({ post, showActions = true, onReply }: PostProps) {
                 style={styles.textarea}
                 rows={2}
               />
-              <button onClick={handleReply} style={styles.replyBtn}>
-                Reply
-              </button>
+              <button onClick={handleReply} style={styles.replyBtn}>Reply</button>
             </div>
           )}
         </footer>

@@ -43,9 +43,7 @@ export class HealthSelector {
             }
           }
         } catch {
-          if (cached) {
-            results.set(peerID, cached.health);
-          }
+          if (cached) results.set(peerID, cached.health);
         }
       })
     );
@@ -60,19 +58,16 @@ export class HealthSelector {
     if (health.successRate < 0 || health.successRate > 1) return false;
     if (health.avgLatencyMs < 0) return false;
     if (health.requestsServed24h < 0) return false;
-
     return true;
   }
 
   filterByHealth(healthMap: Map<string, DelegationHealth>): Map<string, DelegationHealth> {
     const filtered = new Map<string, DelegationHealth>();
-
     for (const [peerID, health] of healthMap) {
       if (health.successRate >= this.config.minSuccessRate) {
         filtered.set(peerID, health);
       }
     }
-
     return filtered;
   }
 
@@ -80,21 +75,10 @@ export class HealthSelector {
     capabilities: { peerID: string }[],
     healthMap: Map<string, DelegationHealth>
   ): string[] {
-    const healthy: string[] = [];
-
-    for (const cap of capabilities) {
+    return capabilities.filter((cap) => {
       const health = healthMap.get(cap.peerID);
-      if (!health) {
-        healthy.push(cap.peerID);
-        continue;
-      }
-
-      if (health.successRate >= this.config.minSuccessRate) {
-        healthy.push(cap.peerID);
-      }
-    }
-
-    return healthy;
+      return !health || health.successRate >= this.config.minSuccessRate;
+    }).map((cap) => cap.peerID);
   }
 
   clearCache(): void {

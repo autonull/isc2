@@ -1,9 +1,3 @@
-/**
- * Offline Action Queue
- * 
- * Queues actions when offline and syncs when connection is restored.
- */
-
 const OFFLINE_QUEUE_STORE = 'offline_queue';
 const SYNC_EVENT_TAG = 'sync-actions';
 
@@ -16,9 +10,6 @@ export interface OfflineAction {
   maxRetries: number;
 }
 
-/**
- * Add an action to the offline queue
- */
 export async function queueAction(action: Omit<OfflineAction, 'id' | 'timestamp' | 'retryCount' | 'maxRetries'>): Promise<OfflineAction> {
   const offlineAction: OfflineAction = {
     ...action,
@@ -36,7 +27,6 @@ export async function queueAction(action: Omit<OfflineAction, 'id' | 'timestamp'
     req.onerror = () => reject(req.error);
   });
 
-  // Request background sync if available
   if ('serviceWorker' in navigator && 'sync' in ServiceWorkerRegistration.prototype) {
     const registration = await navigator.serviceWorker.ready;
     try {
@@ -49,9 +39,6 @@ export async function queueAction(action: Omit<OfflineAction, 'id' | 'timestamp'
   return offlineAction;
 }
 
-/**
- * Get all queued actions
- */
 export async function getQueuedActions(): Promise<OfflineAction[]> {
   const db = await getQueueDB();
   return new Promise((resolve, reject) => {
@@ -62,17 +49,11 @@ export async function getQueuedActions(): Promise<OfflineAction[]> {
   });
 }
 
-/**
- * Get queued actions by type
- */
 export async function getQueuedActionsByType(type: OfflineAction['type']): Promise<OfflineAction[]> {
   const actions = await getQueuedActions();
   return actions.filter((a) => a.type === type);
 }
 
-/**
- * Remove an action from the queue
- */
 export async function removeAction(id: string): Promise<void> {
   const db = await getQueueDB();
   return new Promise((resolve, reject) => {
@@ -83,9 +64,6 @@ export async function removeAction(id: string): Promise<void> {
   });
 }
 
-/**
- * Clear all queued actions
- */
 export async function clearQueue(): Promise<void> {
   const db = await getQueueDB();
   return new Promise((resolve, reject) => {
@@ -96,9 +74,6 @@ export async function clearQueue(): Promise<void> {
   });
 }
 
-/**
- * Increment retry count for an action
- */
 export async function incrementRetry(id: string): Promise<OfflineAction | null> {
   const db = await getQueueDB();
   const action = await new Promise<OfflineAction | null>((resolve, reject) => {
@@ -109,9 +84,8 @@ export async function incrementRetry(id: string): Promise<OfflineAction | null> 
   });
 
   if (!action) return null;
-
   action.retryCount++;
-  
+
   if (action.retryCount >= action.maxRetries) {
     await removeAction(id);
     return null;
@@ -127,25 +101,15 @@ export async function incrementRetry(id: string): Promise<OfflineAction | null> 
   return action;
 }
 
-/**
- * Get queue count
- */
 export async function getQueueCount(): Promise<number> {
   const actions = await getQueuedActions();
   return actions.length;
 }
 
-/**
- * Check if there are pending actions
- */
 export async function hasPendingActions(): Promise<boolean> {
-  const count = await getQueueCount();
-  return count > 0;
+  return (await getQueueCount()) > 0;
 }
 
-/**
- * Process queued actions (called when coming back online)
- */
 export async function processQueue(processAction: (action: OfflineAction) => Promise<boolean>): Promise<{
   success: number;
   failed: number;
@@ -163,27 +127,18 @@ export async function processQueue(processAction: (action: OfflineAction) => Pro
         success++;
       } else {
         const updated = await incrementRetry(action.id);
-        if (updated) {
-          failed++;
-        }
+        if (updated) failed++;
       }
     } catch (err) {
       console.error('[OfflineQueue] Failed to process action:', action.id, err);
       const updated = await incrementRetry(action.id);
-      if (updated) {
-        failed++;
-      }
+      if (updated) failed++;
     }
   }
 
-  const remaining = await getQueueCount();
-
-  return { success, failed, remaining };
+  return { success, failed, remaining: await getQueueCount() };
 }
 
-/**
- * Database helper
- */
 async function getQueueDB(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
     const request = indexedDB.open('isc-offline-queue', 1);
