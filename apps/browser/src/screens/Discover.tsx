@@ -9,6 +9,7 @@ import { useState, useEffect, useCallback } from 'preact/hooks';
 import { channelManager } from '../channels/manager.js';
 import { getDHTClient, initializeDHT, type PeerInfo } from '../network/dht.js';
 import { lshHash, cosineSimilarity } from '@isc/core';
+import { getChatHandler, type ChatMessage } from '../chat/webrtc.js';
 import type { Channel } from '@isc/core';
 
 interface Match {
@@ -199,9 +200,63 @@ export function DiscoverScreen() {
     loadMatches();
   };
 
-  const handleDial = (match: Match) => {
-    // In production, this would initiate a WebRTC connection
-    alert(`Would dial peer ${match.peerId.slice(0, 8)}...\nSimilarity: ${(match.similarity * 100).toFixed(1)}%`);
+  const handleDial = async (match: Match) => {
+    try {
+      const dhtClient = getDHTClient();
+      const node = dhtClient.getNode();
+      
+      if (!node) {
+        alert('Not connected to network');
+        return;
+      }
+
+      const chatHandler = getChatHandler();
+      
+      // Register handler if not already registered
+      if (!chatHandler['registeredNode']) {
+        chatHandler.registerWithNode(node);
+      }
+      
+      // Send initial greeting
+      const greeting: ChatMessage = {
+        channelID: match.channelID,
+        msg: 'Hey, our thoughts are proximal!',
+        timestamp: Date.now(),
+        sender: 'me',
+      };
+      
+      await chatHandler.sendMessage(match.peerId, greeting, node);
+      
+      // Create conversation entry
+      const newConvo = {
+        peerId: match.peerId,
+        channelID: match.channelID,
+        lastMessage: greeting.msg,
+        lastMessageTime: greeting.timestamp,
+        unreadCount: 0,
+      };
+      
+      // Save to localStorage
+      const savedConvos = localStorage.getItem('isc-conversations');
+      const convos: any[] = savedConvos ? JSON.parse(savedConvos) : [];
+      const existing = convos.findIndex((c: any) => c.peerId === newConvo.peerId);
+      if (existing >= 0) {
+        convos[existing] = newConvo;
+      } else {
+        convos.unshift(newConvo);
+      }
+      localStorage.setItem('isc-conversations', JSON.stringify(convos));
+      
+      // Save initial message
+      const msgKey = 'isc-messages-' + match.peerId;
+      localStorage.setItem(msgKey, JSON.stringify([greeting]));
+      
+      console.log('[Discover] Started chat with:', match.peerId);
+      alert('Chat started with peer ' + match.peerId.slice(0, 8) + '!\n\nGo to the Chats tab to continue the conversation.');
+    } catch (err) {
+      console.error('[Discover] Failed to dial:', err);
+      alert('Failed to connect to peer: ' + (err as Error).message);
+    }
   };
 
   if (loading) {

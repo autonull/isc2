@@ -93,6 +93,13 @@ export class RealDHTClient {
     }
   }
 
+  /**
+   * Get the underlying libp2p node for protocol dialing
+   */
+  getNode(): Libp2p | null {
+    return this.node;
+  }
+
   async announce(key: string, value: Uint8Array, ttl?: number): Promise<void> {
     if (!this.dht) {
       throw new Error('DHT not initialized');
