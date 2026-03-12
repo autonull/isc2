@@ -31,8 +31,7 @@ export class BrowserStorage implements StorageAdapter {
   }
 
   private getStore(name: string, mode: IDBTransactionMode): IDBObjectStore | null {
-    if (!this.db) return null;
-    return this.db.transaction(name, mode).objectStore(name);
+    return this.db?.transaction(name, mode).objectStore(name) ?? null;
   }
 
   async get<T>(key: string): Promise<T | null> {

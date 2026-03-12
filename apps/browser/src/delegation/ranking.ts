@@ -1,12 +1,3 @@
-/**
- * Delegation Ranking Improvements
- *
- * Multi-factor scoring with uptime, success rate, latency,
- * geographic affinity, and load balancing.
- *
- * References: NEXT_STEPS.md#72-delegation-ranking-improvements
- */
-
 import { Config } from '@isc/core';
 
 export interface SupernodeRanking {
@@ -19,58 +10,39 @@ export interface SupernodeRanking {
 }
 
 export interface RankingComponents {
-  // Performance metrics (40% weight)
-  uptimeScore: number; // 0-1
-  successRateScore: number; // 0-1
-  latencyScore: number; // 0-1
-
-  // Reliability metrics (30% weight)
-  consistencyScore: number; // 0-1
-  failureRateScore: number; // 0-1
-
-  // Capacity metrics (20% weight)
-  loadScore: number; // 0-1 (inverse - lower load = higher score)
-  capacityScore: number; // 0-1
-
-  // Network metrics (10% weight)
-  geographicScore: number; // 0-1
-  networkQualityScore: number; // 0-1
+  uptimeScore: number;
+  successRateScore: number;
+  latencyScore: number;
+  consistencyScore: number;
+  failureRateScore: number;
+  loadScore: number;
+  capacityScore: number;
+  geographicScore: number;
+  networkQualityScore: number;
 }
 
 export interface SupernodeMetrics {
   peerID: string;
-
-  // Uptime tracking
   firstSeen: number;
   lastSeen: number;
   uptimePercent: number;
-
-  // Success/failure tracking
   totalRequests: number;
   successfulRequests: number;
   failedRequests: number;
   consecutiveFailures: number;
-
-  // Latency tracking
-  latencies: number[]; // Recent latencies in ms
+  latencies: number[];
   avgLatency: number;
   p50Latency: number;
   p95Latency: number;
   p99Latency: number;
-
-  // Load tracking
-  currentLoad: number; // Active requests
+  currentLoad: number;
   maxCapacity: number;
   loadPercent: number;
-
-  // Geographic info
   region?: string;
   country?: string;
-  latencyFromUs: number; // ms from current user
-
-  // Network quality
-  packetLoss: number; // 0-1
-  jitter: number; // ms
+  latencyFromUs: number;
+  packetLoss: number;
+  jitter: number;
 }
 
 export interface RankingWeights {
@@ -91,8 +63,8 @@ export interface RankingConfig {
   minSuccessRate: number;
   maxLatencyMs: number;
   maxLoadPercent: number;
-  decayFactor: number; // For exponential moving average
-  sampleSize: number; // Number of samples for statistics
+  decayFactor: number;
+  sampleSize: number;
 }
 
 const DEFAULT_CONFIG: RankingConfig = {
@@ -115,6 +87,54 @@ const DEFAULT_CONFIG: RankingConfig = {
   sampleSize: Config.delegation.sampleSize,
 };
 
+const SCORE_THRESHOLDS = {
+  uptime: [
+    { min: 99, score: 1.0 },
+    { min: 95, score: 0.9 },
+    { min: 90, score: 0.7 },
+    { min: 0, score: 0.5 },
+  ],
+  successRate: [
+    { min: 0.99, score: 1.0 },
+    { min: 0.95, score: 0.9 },
+    { min: 0.90, score: 0.7 },
+    { min: 0, score: 0.5 },
+  ],
+  latency: [
+    { max: 0.1, score: 1.0 },
+    { max: 0.25, score: 0.8 },
+    { max: 0.5, score: 0.6 },
+    { max: 0.75, score: 0.4 },
+    { max: Infinity, score: 0.2 },
+  ],
+  consistency: [
+    { max: 0.1, score: 1.0 },
+    { max: 0.2, score: 0.8 },
+    { max: 0.3, score: 0.6 },
+    { max: 0.5, score: 0.4 },
+    { max: Infinity, score: 0.2 },
+  ],
+  load: [
+    { max: 0.3, score: 1.0 },
+    { max: 0.5, score: 0.8 },
+    { max: 0.7, score: 0.6 },
+    { max: Infinity, score: 0.4 },
+  ],
+  capacity: [
+    { min: 1000, score: 1.0 },
+    { min: 500, score: 0.8 },
+    { min: 100, score: 0.6 },
+    { min: 0, score: 0.4 },
+  ],
+  consecutiveFailures: [
+    { max: 0, score: 1.0 },
+    { max: 1, score: 0.7 },
+    { max: 3, score: 0.5 },
+    { max: 5, score: 0.3 },
+    { max: Infinity, score: 0.1 },
+  ],
+};
+
 export class DelegationRanker {
   private metrics: Map<string, SupernodeMetrics> = new Map();
   private config: RankingConfig;
@@ -125,20 +145,14 @@ export class DelegationRanker {
     this.config = config;
   }
 
-  /**
-   * Set client location for geographic affinity
-   */
   setClientLocation(region?: string, country?: string): void {
     this.clientRegion = region;
     this.clientCountry = country;
   }
 
-  /**
-   * Update or create metrics for a supernode
-   */
   updateMetrics(peerID: string, update: Partial<SupernodeMetrics>): SupernodeMetrics {
     const existing = this.metrics.get(peerID);
-    
+
     const metrics: SupernodeMetrics = {
       peerID,
       firstSeen: existing?.firstSeen ?? Date.now(),
@@ -163,28 +177,18 @@ export class DelegationRanker {
       jitter: update.jitter ?? existing?.jitter ?? 0,
     };
 
-    // Trim latencies array to sample size
-    if (metrics.latencies.length > this.config.sampleSize) {
-      metrics.latencies = metrics.latencies.slice(-this.config.sampleSize);
-    }
+    metrics.latencies = metrics.latencies.slice(-this.config.sampleSize);
 
     this.metrics.set(peerID, metrics);
     return metrics;
   }
 
-  /**
-   * Record a request result for a supernode
-   */
-  recordRequest(
-    peerID: string,
-    latencyMs: number,
-    success: boolean
-  ): SupernodeMetrics {
+  recordRequest(peerID: string, latencyMs: number, success: boolean): SupernodeMetrics {
     const existing = this.metrics.get(peerID) ?? this.createDefaultMetrics(peerID);
-    
+
     existing.totalRequests++;
     existing.lastSeen = Date.now();
-    
+
     if (success) {
       existing.successfulRequests++;
       existing.consecutiveFailures = 0;
@@ -193,20 +197,11 @@ export class DelegationRanker {
       existing.consecutiveFailures++;
     }
 
-    // Add latency with exponential moving average
     const decay = this.config.decayFactor;
     existing.avgLatency = existing.avgLatency * (1 - decay) + latencyMs * decay;
-    existing.latencies.push(latencyMs);
-    
-    // Trim latencies
-    if (existing.latencies.length > this.config.sampleSize) {
-      existing.latencies = existing.latencies.slice(-this.config.sampleSize);
-    }
+    existing.latencies = [...existing.latencies, latencyMs].slice(-this.config.sampleSize);
 
-    // Recalculate percentiles
     this.recalculatePercentiles(existing);
-
-    // Update load
     if (!success) {
       existing.currentLoad = Math.max(0, existing.currentLoad - 1);
     }
@@ -215,9 +210,6 @@ export class DelegationRanker {
     return existing;
   }
 
-  /**
-   * Update load for a supernode
-   */
   updateLoad(peerID: string, delta: number): void {
     const metrics = this.metrics.get(peerID);
     if (!metrics) return;
@@ -226,28 +218,20 @@ export class DelegationRanker {
     metrics.loadPercent = (metrics.currentLoad / metrics.maxCapacity) * 100;
   }
 
-  /**
-   * Recalculate latency percentiles
-   */
   private recalculatePercentiles(metrics: SupernodeMetrics): void {
     if (metrics.latencies.length === 0) {
-      metrics.p50Latency = 0;
-      metrics.p95Latency = 0;
-      metrics.p99Latency = 0;
+      metrics.p50Latency = metrics.p95Latency = metrics.p99Latency = 0;
       return;
     }
 
     const sorted = [...metrics.latencies].sort((a, b) => a - b);
     const len = sorted.length;
-    
+
     metrics.p50Latency = sorted[Math.floor(len * 0.50)];
     metrics.p95Latency = sorted[Math.floor(len * 0.95)];
     metrics.p99Latency = sorted[Math.floor(len * 0.99)];
   }
 
-  /**
-   * Create default metrics for a new supernode
-   */
   private createDefaultMetrics(peerID: string): SupernodeMetrics {
     return {
       peerID,
@@ -272,147 +256,82 @@ export class DelegationRanker {
     };
   }
 
-  /**
-   * Calculate uptime score
-   */
+  private scoreFromThresholds(value: number, thresholds: Array<{ min?: number; max?: number; score: number }>): number {
+    for (const { min, max, score } of thresholds) {
+      if (min !== undefined && value >= min) return score;
+      if (max !== undefined && value <= max) return score;
+    }
+    return thresholds.at(-1)?.score ?? 0.5;
+  }
+
   private calculateUptimeScore(metrics: SupernodeMetrics): number {
-    if (metrics.uptimePercent >= 99) return 1.0;
-    if (metrics.uptimePercent >= 95) return 0.9;
-    if (metrics.uptimePercent >= 90) return 0.7;
-    if (metrics.uptimePercent >= this.config.minUptimePercent) return 0.5;
-    return 0.2;
+    return this.scoreFromThresholds(metrics.uptimePercent, SCORE_THRESHOLDS.uptime);
   }
 
-  /**
-   * Calculate success rate score
-   */
   private calculateSuccessRateScore(metrics: SupernodeMetrics): number {
-    if (metrics.totalRequests === 0) return 0.5; // Default for new nodes
-    
+    if (metrics.totalRequests === 0) return 0.5;
+
     const successRate = metrics.successfulRequests / metrics.totalRequests;
-    
-    if (successRate >= 0.99) return 1.0;
-    if (successRate >= 0.95) return 0.9;
-    if (successRate >= 0.90) return 0.7;
-    if (successRate >= this.config.minSuccessRate) return 0.5;
-    return 0.2;
+    return this.scoreFromThresholds(successRate, SCORE_THRESHOLDS.successRate);
   }
 
-  /**
-   * Calculate latency score
-   */
   private calculateLatencyScore(metrics: SupernodeMetrics): number {
     if (metrics.p95Latency === 0) return 0.5;
-    
+
     const ratio = metrics.p95Latency / this.config.maxLatencyMs;
-    
-    if (ratio <= 0.1) return 1.0;
-    if (ratio <= 0.25) return 0.8;
-    if (ratio <= 0.5) return 0.6;
-    if (ratio <= 0.75) return 0.4;
-    return 0.2;
+    return this.scoreFromThresholds(ratio, SCORE_THRESHOLDS.latency);
   }
 
-  /**
-   * Calculate consistency score (low variance in latency)
-   */
   private calculateConsistencyScore(metrics: SupernodeMetrics): number {
     if (metrics.latencies.length < 10) return 0.5;
-    
+
     const mean = metrics.avgLatency;
     const variance = metrics.latencies.reduce((sum, l) => sum + Math.pow(l - mean, 2), 0) / metrics.latencies.length;
-    const stdDev = Math.sqrt(variance);
-    const cv = stdDev / mean; // Coefficient of variation
-    
-    if (cv <= 0.1) return 1.0;
-    if (cv <= 0.2) return 0.8;
-    if (cv <= 0.3) return 0.6;
-    if (cv <= 0.5) return 0.4;
-    return 0.2;
+    const cv = Math.sqrt(variance) / mean;
+
+    return this.scoreFromThresholds(cv, SCORE_THRESHOLDS.consistency);
   }
 
-  /**
-   * Calculate failure rate score (penalize consecutive failures)
-   */
   private calculateFailureRateScore(metrics: SupernodeMetrics): number {
-    if (metrics.consecutiveFailures >= 10) return 0.1;
-    if (metrics.consecutiveFailures >= 5) return 0.3;
-    if (metrics.consecutiveFailures >= 3) return 0.5;
-    if (metrics.consecutiveFailures >= 1) return 0.7;
-    return 1.0;
+    return this.scoreFromThresholds(metrics.consecutiveFailures, SCORE_THRESHOLDS.consecutiveFailures);
   }
 
-  /**
-   * Calculate load score (inverse - lower load is better)
-   */
   private calculateLoadScore(metrics: SupernodeMetrics): number {
-    const loadRatio = metrics.loadPercent / 100;
-    
-    if (loadRatio <= 0.3) return 1.0;
-    if (loadRatio <= 0.5) return 0.8;
-    if (loadRatio <= 0.7) return 0.6;
-    if (loadRatio <= this.config.maxLoadPercent / 100) return 0.4;
-    return 0.1;
+    return this.scoreFromThresholds(metrics.loadPercent / 100, SCORE_THRESHOLDS.load);
   }
 
-  /**
-   * Calculate capacity score
-   */
   private calculateCapacityScore(metrics: SupernodeMetrics): number {
-    if (metrics.maxCapacity >= 1000) return 1.0;
-    if (metrics.maxCapacity >= 500) return 0.8;
-    if (metrics.maxCapacity >= 100) return 0.6;
-    return 0.4;
+    return this.scoreFromThresholds(metrics.maxCapacity, SCORE_THRESHOLDS.capacity);
   }
 
-  /**
-   * Calculate geographic affinity score
-   */
   private calculateGeographicScore(metrics: SupernodeMetrics): number {
     if (!this.clientRegion || !metrics.region) return 0.5;
-    
-    // Same country
-    if (this.clientCountry && metrics.country === this.clientCountry) {
-      return 1.0;
-    }
-    
-    // Same region
-    if (metrics.region === this.clientRegion) {
-      return 0.8;
-    }
-    
-    // Different region but low latency
-    if (metrics.latencyFromUs < 100) {
-      return 0.6;
-    }
-    
+    if (this.clientCountry && metrics.country === this.clientCountry) return 1.0;
+    if (metrics.region === this.clientRegion) return 0.8;
+    if (metrics.latencyFromUs < 100) return 0.6;
     return 0.3;
   }
 
-  /**
-   * Calculate network quality score
-   */
   private calculateNetworkQualityScore(metrics: SupernodeMetrics): number {
     const packetLossScore = 1 - metrics.packetLoss;
     const jitterScore = metrics.jitter < 10 ? 1.0 : metrics.jitter < 50 ? 0.7 : 0.4;
-    
     return (packetLossScore + jitterScore) / 2;
   }
 
-  /**
-   * Calculate overall ranking for a supernode
-   */
   rankSupernode(peerID: string): SupernodeRanking | null {
     const metrics = this.metrics.get(peerID);
     if (!metrics) return null;
 
-    // Check minimum requirements
-    if (metrics.uptimePercent < this.config.minUptimePercent) return null;
-    if (metrics.successfulRequests / metrics.totalRequests < this.config.minSuccessRate) return null;
-    if (metrics.loadPercent > this.config.maxLoadPercent) return null;
+    const successRate = metrics.totalRequests > 0 ? metrics.successfulRequests / metrics.totalRequests : 0;
+    if (
+      metrics.uptimePercent < this.config.minUptimePercent ||
+      successRate < this.config.minSuccessRate ||
+      metrics.loadPercent > this.config.maxLoadPercent
+    ) {
+      return null;
+    }
 
-    const weights = this.config.weights;
-
+    const { weights } = this.config;
     const components: RankingComponents = {
       uptimeScore: this.calculateUptimeScore(metrics),
       successRateScore: this.calculateSuccessRateScore(metrics),
@@ -436,36 +355,22 @@ export class DelegationRanker {
       components.geographicScore * weights.geographicWeight +
       components.networkQualityScore * weights.networkQualityWeight;
 
-    const geographicAffinity = components.geographicScore;
-    const loadFactor = 1 - components.loadScore; // Inverse
-
     return {
       peerID,
       overallScore,
       components,
-      geographicAffinity,
-      loadFactor,
-      rank: 0, // Will be set when ranking multiple nodes
+      geographicAffinity: components.geographicScore,
+      loadFactor: 1 - components.loadScore,
+      rank: 0,
     };
   }
 
-  /**
-   * Rank all known supernodes
-   */
   rankAll(): SupernodeRanking[] {
-    const rankings: SupernodeRanking[] = [];
+    const rankings = Array.from(this.metrics.keys())
+      .map((peerID) => this.rankSupernode(peerID))
+      .filter((r): r is SupernodeRanking => r !== null)
+      .sort((a, b) => b.overallScore - a.overallScore);
 
-    for (const peerID of this.metrics.keys()) {
-      const ranking = this.rankSupernode(peerID);
-      if (ranking) {
-        rankings.push(ranking);
-      }
-    }
-
-    // Sort by overall score descending
-    rankings.sort((a, b) => b.overallScore - a.overallScore);
-
-    // Assign ranks
     rankings.forEach((r, i) => {
       r.rank = i + 1;
     });
@@ -473,46 +378,27 @@ export class DelegationRanker {
     return rankings;
   }
 
-  /**
-   * Get top N supernodes for delegation
-   */
   getTopN(n: number): SupernodeRanking[] {
-    const rankings = this.rankAll();
-    return rankings.slice(0, n);
+    return this.rankAll().slice(0, n);
   }
 
-  /**
-   * Get best supernode for delegation
-   */
   getBest(): SupernodeRanking | null {
     const rankings = this.rankAll();
-    return rankings.length > 0 ? rankings[0] : null;
+    return rankings[0] ?? null;
   }
 
-  /**
-   * Get metrics for a supernode
-   */
   getMetrics(peerID: string): SupernodeMetrics | undefined {
     return this.metrics.get(peerID);
   }
 
-  /**
-   * Remove a supernode from tracking
-   */
   remove(peerID: string): void {
     this.metrics.delete(peerID);
   }
 
-  /**
-   * Clear all metrics
-   */
   clear(): void {
     this.metrics.clear();
   }
 
-  /**
-   * Get ranking statistics
-   */
   getStats(): {
     totalSupernodes: number;
     eligibleSupernodes: number;
@@ -521,7 +407,7 @@ export class DelegationRanker {
     avgSuccessRate: number;
   } {
     const rankings = this.rankAll();
-    
+
     if (rankings.length === 0) {
       return {
         totalSupernodes: this.metrics.size,
@@ -533,16 +419,15 @@ export class DelegationRanker {
     }
 
     const avgScore = rankings.reduce((sum, r) => sum + r.overallScore, 0) / rankings.length;
-    const avgLatency = rankings.reduce((sum, r) => {
-      const metrics = this.metrics.get(r.peerID);
-      return sum + (metrics?.p95Latency ?? 0);
-    }, 0) / rankings.length;
-    
-    const avgSuccessRate = rankings.reduce((sum, r) => {
-      const metrics = this.metrics.get(r.peerID);
-      if (!metrics || metrics.totalRequests === 0) return sum;
-      return sum + metrics.successfulRequests / metrics.totalRequests;
-    }, 0) / rankings.length;
+    const avgLatency =
+      rankings.reduce((sum, r) => sum + (this.metrics.get(r.peerID)?.p95Latency ?? 0), 0) / rankings.length;
+    const avgSuccessRate =
+      rankings.reduce((sum, r) => {
+        const metrics = this.metrics.get(r.peerID);
+        return metrics && metrics.totalRequests > 0
+          ? sum + metrics.successfulRequests / metrics.totalRequests
+          : sum;
+      }, 0) / rankings.length;
 
     return {
       totalSupernodes: this.metrics.size,
@@ -554,12 +439,6 @@ export class DelegationRanker {
   }
 }
 
-/**
- * Create ranker with default configuration
- */
-export function createDelegationRanker(
-  config?: Partial<RankingConfig>
-): DelegationRanker {
-  const finalConfig = { ...DEFAULT_CONFIG, ...config };
-  return new DelegationRanker(finalConfig);
+export function createDelegationRanker(config?: Partial<RankingConfig>): DelegationRanker {
+  return new DelegationRanker({ ...DEFAULT_CONFIG, ...config });
 }

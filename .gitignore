@@ -59,3 +59,8 @@ models/
 
 # Husky
 .husky/_/
+
+# Generated files in src/ (build artifacts should be in dist/)
+**/src/**/*.d.ts
+**/src/**/*.js
+!**/src/**/*.spec.d.ts
