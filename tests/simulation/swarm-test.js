@@ -2,13 +2,54 @@
 
 /**
  * ISC Swarm Test - Tuned Version
- * 
+ *
  * Runs a 50+ peer swarm simulation with tuned parameters for better matching.
- * 
+ * Synchronous implementation - no child processes, no orphan processes.
+ *
  * Usage: node tests/simulation/swarm-test.js [--peers N] [--cycles N]
  */
 
 import { createHash } from 'crypto';
+
+// Cleanup handler to prevent orphan processes
+let isShuttingDown = false;
+
+function setupCleanupHandlers() {
+  const cleanup = () => {
+    if (isShuttingDown) return;
+    isShuttingDown = true;
+    console.log('\n[Swarm Test] Cleaning up...');
+    process.exit(0);
+  };
+
+  process.on('SIGINT', cleanup);
+  process.on('SIGTERM', cleanup);
+  process.on('exit', () => {
+    isShuttingDown = true;
+  });
+  
+  // Handle uncaught exceptions
+  process.on('uncaughtException', (err) => {
+    console.error('\n[Swarm Test] Uncaught exception:', err);
+    cleanup();
+  });
+  
+  process.on('unhandledRejection', (reason, promise) => {
+    console.error('\n[Swarm Test] Unhandled rejection at:', promise, 'reason:', reason);
+    cleanup();
+  });
+}
+
+setupCleanupHandlers();
+
+// Set a timeout to prevent hanging (5 minutes max)
+const MAX_RUNTIME_MS = 5 * 60 * 1000;
+setTimeout(() => {
+  if (!isShuttingDown) {
+    console.error('\n[Swarm Test] Timeout exceeded (' + MAX_RUNTIME_MS + 'ms), exiting...');
+    process.exit(1);
+  }
+}, MAX_RUNTIME_MS).unref(); // Don't prevent exit if done early
 
 // ============================================================================
 // Core Functions

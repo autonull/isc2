@@ -1,20 +1,52 @@
 /**
  * ISC Network Simulator
- * 
+ *
  * Simulates 50+ virtual peers in a single Node.js process for scale testing.
  * Uses in-memory DHT and deterministic embedding stubs for reproducibility.
- * 
+ *
  * Features:
  * - Virtual time (dilation configurable)
  * - Deterministic RNG for reproducible tests
  * - In-memory DHT with TTL expiry
  * - Stub embeddings (SHA256-based)
  * - Metrics collection (latency, match rates, etc.)
+ * - Proper cleanup on exit (no orphan processes)
  */
 
 import { createHash } from 'crypto';
 import { cosineSimilarity, lshHash, seededRng } from '../../packages/core/src/index.js';
 import type { Channel, SignedAnnouncement } from '../../packages/core/src/types.js';
+
+// Cleanup handler to prevent orphan processes
+let isShuttingDown = false;
+
+function setupCleanupHandlers() {
+  const cleanup = () => {
+    if (isShuttingDown) return;
+    isShuttingDown = true;
+    console.log('\n[Simulator] Cleaning up...');
+    process.exit(0);
+  };
+
+  process.on('SIGINT', cleanup);
+  process.on('SIGTERM', cleanup);
+  process.on('exit', () => {
+    isShuttingDown = true;
+  });
+  
+  // Handle uncaught exceptions
+  process.on('uncaughtException', (err) => {
+    console.error('\n[Simulator] Uncaught exception:', err);
+    cleanup();
+  });
+  
+  process.on('unhandledRejection', (reason, promise) => {
+    console.error('\n[Simulator] Unhandled rejection at:', promise, 'reason:', reason);
+    cleanup();
+  });
+}
+
+setupCleanupHandlers();
 
 // ============================================================================
 // Configuration

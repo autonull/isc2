@@ -19,7 +19,8 @@
     "dev:browser": "turbo run dev --filter=@isc/apps/browser",
     "clean": "turbo run clean && rm -rf node_modules .turbo",
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md}\"",
-    "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,json,md}\""
+    "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,json,md}\"",
+    "cleanup": "bash scripts/cleanup.sh"
   },
   "devDependencies": {
     "@libp2p/interface": "^3.1.0",

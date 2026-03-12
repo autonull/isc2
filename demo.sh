@@ -4,6 +4,8 @@
 # Demonstrates the complete flow: init → create channel → announce → query → match
 #
 # Usage: ./demo.sh [--clean]
+#
+# Cleanup: Automatically cleans up on exit (SIGINT, SIGTERM, exit)
 
 set -e
 
@@ -17,6 +19,19 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m'
 
+# Cleanup function - always called on exit
+cleanup() {
+  if [ -d "$DEMO_DIR" ]; then
+    rm -rf "$DEMO_DIR" 2>/dev/null || true
+  fi
+  # Kill any background jobs
+  jobs -p 2>/dev/null | xargs -r kill 2>/dev/null || true
+}
+
+# Always cleanup on exit
+trap cleanup EXIT INT TERM
+
+# Helper functions
 step() {
   echo -e "\n${BLUE}═══════════════════════════════════════════════════════════${NC}"
   echo -e "${BLUE}  $1${NC}"
@@ -31,13 +46,11 @@ success() {
   echo -e "${GREEN}✓${NC} $1"
 }
 
-cleanup() {
-  if [ -d "$DEMO_DIR" ]; then
-    rm -rf "$DEMO_DIR"
-  fi
-}
-
-trap cleanup EXIT
+# Set timeout (3 minutes max for demo)
+TIMEOUT_SECONDS=180
+( sleep $TIMEOUT_SECONDS; echo "\n[Demo] Timeout exceeded, exiting..."; exit 1 ) &
+TIMEOUT_PID=$!
+trap 'kill $TIMEOUT_PID 2>/dev/null; cleanup' EXIT INT TERM
 
 # Check for --clean flag
 if [ "$1" = "--clean" ]; then

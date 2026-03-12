@@ -161,6 +161,23 @@ DEBUG=pw:api pnpm test:e2e
 isc announce status
 ```
 
+### Process Management
+
+**Kill stray processes:**
+```bash
+# Clean up any hanging turbo/node processes
+pnpm cleanup
+
+# Or run directly
+bash scripts/cleanup.sh
+```
+
+**Prevent hanging:**
+- All test scripts have cleanup handlers (SIGINT, SIGTERM, exit)
+- Swarm test has 5-minute timeout
+- Demo script has 3-minute timeout
+- Always use Ctrl+C to gracefully stop
+
 See [PROTOCOL.md](PROTOCOL.md) for complete protocol specification.
 
 ---
