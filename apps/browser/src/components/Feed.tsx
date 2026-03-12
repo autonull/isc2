@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback } from 'preact/hooks';
 import type { SignedPost } from '../social/types.js';
 import { Post } from './Post.js';
 import { getForYouFeed, getFollowingFeed, refreshFeed } from '../social/index.js';
+import { SkeletonPost } from './Skeleton.js';
 
 type FeedType = 'for-you' | 'following';
 
@@ -77,9 +78,29 @@ export function Feed({ type = 'for-you', channelID, limit = 50 }: FeedProps) {
     };
   }, [handleRefresh, refreshing]);
 
-  if (loading) return <div style={styles.loading}><div style={styles.spinner}></div><p>Loading posts...</p></div>;
+  if (loading) {
+    return (
+      <div style={styles.feed}>
+        {Array.from({ length: 3 }).map((_, i) => (
+          <SkeletonPost key={i} />
+        ))}
+      </div>
+    );
+  }
   if (error) return <div style={styles.error}><p>{error}</p><button onClick={loadPosts} style={styles.retryBtn}>Retry</button></div>;
-  if (posts.length === 0) return <div style={styles.empty}><p>No posts yet</p><p style={styles.emptySub}>Be the first to post!</p></div>;
+  if (posts.length === 0) return (
+    <div style={styles.empty}>
+      <div style={{ fontSize: '48px', marginBottom: '16px' }}>📝</div>
+      <p>No posts yet</p>
+      <p style={styles.emptySub}>Share your thoughts with the network!</p>
+      <button 
+        style={{ ...styles.retryBtn, marginTop: '16px' }} 
+        onClick={() => import('../router.js').then(({ navigate }) => navigate('compose'))}
+      >
+        Create Channel
+      </button>
+    </div>
+  );
 
   return (
     <div style={styles.feed}>

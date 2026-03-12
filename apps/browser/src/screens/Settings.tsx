@@ -7,6 +7,7 @@
 import { h } from 'preact';
 import { useState, useEffect } from 'preact/hooks';
 import { channelManager } from '../channels/manager.js';
+import { notificationService } from '../chat/notifications.js';
 import type { Channel } from '@isc/core';
 
 interface Settings {
@@ -83,6 +84,7 @@ export function SettingsScreen() {
   const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
   const [channels, setChannels] = useState<Channel[]>([]);
   const [activeChannel, setActiveChannel] = useState<Channel | null>(null);
+  const [notificationPermission, setNotificationPermission] = useState<NotificationPermission>('default');
 
   useEffect(() => {
     // Load settings
@@ -94,6 +96,9 @@ export function SettingsScreen() {
         // Use defaults
       }
     }
+
+    // Check notification permission
+    setNotificationPermission(Notification.permission);
 
     // Load channels
     channelManager.getAllChannels().then(chs => {
@@ -174,7 +179,45 @@ export function SettingsScreen() {
         {/* Privacy */}
         <div style={styles.section}>
           <h2 style={styles.sectionTitle}>Privacy</h2>
-          
+
+          <div style={styles.settingRow}>
+            <div>
+              <div style={styles.settingLabel}>Notifications</div>
+              <div style={styles.settingDesc}>
+                {notificationPermission === 'granted' ? 'Enabled' : notificationPermission === 'denied' ? 'Blocked in browser' : 'Request permission'}
+              </div>
+            </div>
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+              {notificationPermission === 'denied' && (
+                <button
+                  style={{ ...styles.button, ...styles.primaryBtn, padding: '6px 12px', fontSize: '12px' }}
+                  onClick={() => {
+                    notificationService.requestPermission().then(setNotificationPermission);
+                  }}
+                >
+                  Enable
+                </button>
+              )}
+              <Toggle
+                enabled={settings.notifications && notificationPermission === 'granted'}
+                onChange={(v) => {
+                  if (v && notificationPermission !== 'granted') {
+                    notificationService.requestPermission().then(perm => {
+                      setNotificationPermission(perm);
+                      if (perm === 'granted') {
+                        updateSetting('notifications', v);
+                        notificationService.setEnabled(true);
+                      }
+                    });
+                  } else {
+                    updateSetting('notifications', v);
+                    notificationService.setEnabled(v);
+                  }
+                }}
+              />
+            </div>
+          </div>
+
           <div style={styles.settingRow}>
             <div>
               <div style={styles.settingLabel}>Ephemeral Mode</div>

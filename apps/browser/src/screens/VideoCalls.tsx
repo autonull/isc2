@@ -157,6 +157,7 @@ export function VideoCallScreen() {
   const [callType, setCallType] = useState<'direct' | 'group'>('direct');
   const [recipient, setRecipient] = useState('');
   const [channelID, setChannelID] = useState('');
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     // Load active calls
@@ -176,6 +177,7 @@ export function VideoCallScreen() {
 
   const handleNewCall = async () => {
     try {
+      setError(null);
       const call = await createVideoCall(
         callType,
         callType === 'direct' ? recipient : undefined,
@@ -185,7 +187,9 @@ export function VideoCallScreen() {
       setShowNewCallModal(false);
     } catch (err) {
       console.error('Failed to create call:', err);
-      alert('Failed to create call: ' + (err as Error).message);
+      const errorMessage = err instanceof Error ? err.message : 'Failed to create call';
+      setError(errorMessage);
+      // Don't close modal on error so user can retry
     }
   };
 
@@ -248,6 +252,19 @@ export function VideoCallScreen() {
         <div style={styles.modal} onClick={() => setShowNewCallModal(false)}>
           <div style={styles.modalContent} onClick={(e) => e.stopPropagation()}>
             <h2 style={styles.modalTitle}>New Video Call</h2>
+
+            {error && (
+              <div style={{ 
+                background: '#fee', 
+                border: '1px solid #fcc', 
+                borderRadius: '8px', 
+                padding: '12px', 
+                marginBottom: '16px',
+                color: '#c00'
+              }}>
+                {error}
+              </div>
+            )}
 
             <div style={{ marginBottom: '16px' }}>
               <label style={{ color: '#999', display: 'block', marginBottom: '8px' }}>

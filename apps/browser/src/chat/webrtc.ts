@@ -1,6 +1,6 @@
 /**
  * Real WebRTC Chat Handler
- * 
+ *
  * No mocks - actual P2P chat via libp2p
  */
 
@@ -8,12 +8,30 @@ import type { Libp2p } from 'libp2p';
 import { fromString, toString } from 'uint8arrays';
 
 const PROTOCOL_CHAT = '/isc/chat/1.0';
+const MESSAGE_TIMEOUT = 10000; // 10 seconds for delivery confirmation
+
+export type MessageStatus = 'pending' | 'sent' | 'delivered' | 'failed';
 
 export interface ChatMessage {
   channelID: string;
   msg: string;
   timestamp: number;
   sender: string;
+  id?: string;
+  status?: MessageStatus;
+}
+
+export interface TypingIndicator {
+  channelID: string;
+  timestamp: number;
+  sender: string;
+}
+
+interface PendingMessage {
+  message: ChatMessage;
+  resolve: () => void;
+  reject: (error: Error) => void;
+  timeoutId: ReturnType<typeof setTimeout>;
 }
 
 export interface ChatHandler {
@@ -23,11 +41,56 @@ export interface ChatHandler {
 
 export class RealChatHandler implements ChatHandler {
   private onMessage?: (msg: ChatMessage) => void;
+  private onStatusUpdate?: (messageId: number, status: MessageStatus) => void;
+  private onTyping?: (indicator: TypingIndicator) => void;
   private activeStreams: Map<string, any> = new Map();
   private registeredNode: Libp2p | null = null;
+  private pendingMessages = new Map<number, PendingMessage>();
+  private messageCounter = 0;
+  private typingTimeouts = new Map<string, ReturnType<typeof setTimeout>>();
+  private lastTypingSent = new Map<string, number>();
+  private readonly TYPING_COOLDOWN = 2000; // 2s between typing events
+  private readonly TYPING_TIMEOUT = 3000; // 3s to clear typing indicator
 
   setOnMessage(callback: (msg: ChatMessage) => void): void {
     this.onMessage = callback;
+  }
+
+  setOnStatusUpdate(callback: (messageId: number, status: MessageStatus) => void): void {
+    this.onStatusUpdate = callback;
+  }
+
+  setOnTyping(callback: (indicator: TypingIndicator) => void): void {
+    this.onTyping = callback;
+  }
+
+  sendTypingIndicator(peerId: string, channelID: string, node: Libp2p): void {
+    const now = Date.now();
+    const lastSent = this.lastTypingSent.get(peerId) || 0;
+
+    // Debounce: only send if cooldown has passed
+    if (now - lastSent < this.TYPING_COOLDOWN) {
+      return;
+    }
+
+    this.lastTypingSent.set(peerId, now);
+
+    const indicator: TypingIndicator = {
+      channelID,
+      timestamp: now,
+      sender: 'me',
+    };
+
+    // Send typing indicator (fire and forget, don't wait)
+    (async () => {
+      try {
+        const stream: any = await node.dialProtocol(peerId as any, PROTOCOL_CHAT);
+        const encoded = fromString(JSON.stringify({ type: 'typing', ...indicator }), 'utf-8');
+        await (stream as any).sink([encoded]);
+      } catch (err) {
+        // Ignore errors for typing indicators
+      }
+    })();
   }
 
   /**
@@ -47,16 +110,52 @@ export class RealChatHandler implements ChatHandler {
       for await (const chunk of stream.source as AsyncIterable<Uint8Array>) {
         try {
           const data = JSON.parse(toString(chunk, 'utf-8'));
-          
+
+          // Check if it's a typing indicator
+          if (data.type === 'typing') {
+            const indicator: TypingIndicator = data;
+            console.log('[Chat] Received typing indicator from:', indicator.sender);
+            
+            if (this.onTyping) {
+              this.onTyping(indicator);
+            }
+            
+            // Clear existing timeout and set new one
+            const key = indicator.sender;
+            if (this.typingTimeouts.has(key)) {
+              clearTimeout(this.typingTimeouts.get(key));
+            }
+            
+            // Clear typing indicator after timeout
+            this.typingTimeouts.set(key, setTimeout(() => {
+              this.typingTimeouts.delete(key);
+              if (this.onTyping) {
+                this.onTyping({ ...indicator, timestamp: 0 }); // timestamp 0 means stopped typing
+              }
+            }, this.TYPING_TIMEOUT));
+            
+            continue;
+          }
+
           // Check if it's an acknowledgment
           if (data.ack) {
             console.log('[Chat] Received ack:', data.ack);
+            const pending = this.pendingMessages.get(data.ack);
+            if (pending) {
+              clearTimeout(pending.timeoutId);
+              this.pendingMessages.delete(data.ack);
+              pending.resolve();
+              // Update message status to delivered
+              if (this.onStatusUpdate) {
+                this.onStatusUpdate(data.ack, 'delivered');
+              }
+            }
             continue;
           }
-          
+
           const msg: ChatMessage = data;
           console.log('[Chat] Received:', msg);
-          
+
           if (this.onMessage) {
             this.onMessage(msg);
           }
@@ -74,20 +173,52 @@ export class RealChatHandler implements ChatHandler {
   }
 
   async sendMessage(peerId: string, message: ChatMessage, node: Libp2p): Promise<void> {
-    try {
-      // Dial peer
-      const stream: any = await node.dialProtocol(peerId as any, PROTOCOL_CHAT);
-      this.activeStreams.set(peerId, stream);
+    const messageId = ++this.messageCounter;
+    const messageWithId: ChatMessage = { ...message, id: String(messageId), status: 'pending' };
 
-      // Send message
-      const encoded = fromString(JSON.stringify(message), 'utf-8');
-      await (stream as any).sink([encoded]);
+    return new Promise((resolve, reject) => {
+      const timeoutId = setTimeout(() => {
+        this.pendingMessages.delete(messageId);
+        if (this.onStatusUpdate) {
+          this.onStatusUpdate(messageId, 'failed');
+        }
+        reject(new Error('Message delivery timeout'));
+      }, MESSAGE_TIMEOUT);
 
-      console.log('[Chat] Sent message to:', peerId);
-    } catch (err) {
-      console.error('[Chat] Failed to send message:', err);
-      throw err;
-    }
+      this.pendingMessages.set(messageId, {
+        message: messageWithId,
+        resolve,
+        reject,
+        timeoutId,
+      });
+
+      (async () => {
+        try {
+          // Dial peer
+          const stream: any = await node.dialProtocol(peerId as any, PROTOCOL_CHAT);
+          this.activeStreams.set(peerId, stream);
+
+          // Send message
+          const encoded = fromString(JSON.stringify(messageWithId), 'utf-8');
+          await (stream as any).sink([encoded]);
+
+          // Mark as sent (waiting for ack)
+          if (this.onStatusUpdate) {
+            this.onStatusUpdate(messageId, 'sent');
+          }
+
+          console.log('[Chat] Sent message to:', peerId);
+        } catch (err) {
+          clearTimeout(timeoutId);
+          this.pendingMessages.delete(messageId);
+          if (this.onStatusUpdate) {
+            this.onStatusUpdate(messageId, 'failed');
+          }
+          console.error('[Chat] Failed to send message:', err);
+          reject(err);
+        }
+      })();
+    });
   }
 
   async closeStream(peerId: string): Promise<void> {

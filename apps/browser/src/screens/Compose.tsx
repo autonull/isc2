@@ -8,6 +8,7 @@ import { channelManager } from '../channels/manager.js';
 import { getDHTClient, initializeDHT } from '../network/dht.js';
 import { lshHash } from '@isc/core';
 import { navigate } from '../router.js';
+import { embeddingService } from '../channels/embedding.js';
 
 interface RelationInput {
   tag: string;
@@ -54,6 +55,7 @@ export function ComposeScreen() {
   const [relationObject, setRelationObject] = useState('');
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
+  const [modelLoading, setModelLoading] = useState(false);
 
   const handleAddRelation = (tag: string) => {
     if (relations.length >= 5) {
@@ -107,17 +109,26 @@ export function ComposeScreen() {
 
       // Initialize DHT
       const dhtClient = await initializeDHT();
-      
-      // Compute channel vector (stub - in production would use transformers.js)
-      const encoder = new TextEncoder();
-      const hash = await crypto.subtle.digest('SHA-256', encoder.encode(description.trim()));
-      const hashBytes = new Uint8Array(hash);
-      const vec = Array.from({ length: 384 }, (_, i) => {
-        const byte = hashBytes[i % 32];
-        return (byte / 255) * 2 - 1;
-      });
-      const norm = Math.sqrt(vec.reduce((sum, v) => sum + v * v, 0));
-      const normalizedVec = vec.map(v => v / norm);
+
+      // Compute channel vector using real embedding model
+      setModelLoading(true);
+      let normalizedVec: number[];
+      try {
+        normalizedVec = await embeddingService.embed(description.trim());
+      } catch (err) {
+        console.warn('[Compose] Embedding failed, using fallback:', err);
+        // Fallback to stub embedding
+        const encoder = new TextEncoder();
+        const hash = await crypto.subtle.digest('SHA-256', encoder.encode(description.trim()));
+        const hashBytes = new Uint8Array(hash);
+        const vec = Array.from({ length: 384 }, (_, i) => {
+          const byte = hashBytes[i % 32];
+          return (byte / 255) * 2 - 1;
+        });
+        const norm = Math.sqrt(vec.reduce((sum, v) => sum + v * v, 0));
+        normalizedVec = vec.map(v => v / norm);
+      }
+      setModelLoading(false);
 
       // Generate LSH hashes
       const modelHash = 'XenovaallMiniLM'.slice(0, 12);
@@ -148,6 +159,7 @@ export function ComposeScreen() {
       // Navigate back to Now tab
       navigate('now');
     } catch (err) {
+      setModelLoading(false);
       setError('Failed to create channel: ' + (err as Error).message);
     } finally {
       setSaving(false);
@@ -162,11 +174,11 @@ export function ComposeScreen() {
         </button>
         <h1 style={styles.title}>New Channel</h1>
         <button
-          style={{ ...styles.button, ...styles.saveBtn, opacity: saving ? 0.5 : 1 }}
+          style={{ ...styles.button, ...styles.saveBtn, opacity: saving || modelLoading ? 0.5 : 1 }}
           onClick={handleSave}
-          disabled={saving}
+          disabled={saving || modelLoading}
         >
-          {saving ? 'Saving...' : 'Save'}
+          {modelLoading ? 'Loading Model...' : saving ? 'Saving...' : 'Save'}
         </button>
       </header>
 

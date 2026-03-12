@@ -48,6 +48,15 @@ export function App({ onReady }: AppProps) {
       setActiveChannel(active);
     });
 
+    // Listen for navigation events from notifications
+    const handleNavigateEvent = (e: Event) => {
+      const customEvent = e as CustomEvent<{ tab: string }>;
+      if (customEvent.detail?.tab) {
+        navigate(customEvent.detail.tab as Route);
+      }
+    };
+    window.addEventListener('isc-navigate', handleNavigateEvent as EventListener);
+
     // Cross-tab synchronization
     const handleStorageChange = (e: StorageEvent) => {
       if (e.key === 'isc-conversations' || e.key?.startsWith('isc-messages-')) {
@@ -69,6 +78,11 @@ export function App({ onReady }: AppProps) {
 
     const unsubscribe = router.onChange((newRoute) => {
       setRoute(newRoute);
+      
+      // Clear chat badge when navigating to chats tab
+      if (newRoute === 'chats') {
+        setBadges(prev => ({ ...prev, chats: 0 }));
+      }
     });
 
     const checkDesktop = () => {
@@ -82,6 +96,7 @@ export function App({ onReady }: AppProps) {
       unsubscribe();
       window.removeEventListener('resize', checkDesktop);
       window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('isc-navigate', handleNavigateEvent as EventListener);
     };
   }, []);
 

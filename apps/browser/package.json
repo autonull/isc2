@@ -26,6 +26,8 @@
     "@libp2p/webrtc": "^5.2.5",
     "@libp2p/websockets": "^10.1.5",
     "@libp2p/webtransport": "^6.0.14",
+    "@xenova/transformers": "^2.17.2",
+    "dompurify": "^3.1.6",
     "it-pipe": "^3.0.1",
     "libp2p": "^3.1.5",
     "preact": "^10.19.0",

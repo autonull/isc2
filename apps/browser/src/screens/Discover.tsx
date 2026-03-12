@@ -1,6 +1,6 @@
 /**
  * Discover Screen - Find Nearby Peers
- * 
+ *
  * REAL IMPLEMENTATION - Uses actual libp2p DHT
  */
 
@@ -11,6 +11,8 @@ import { getDHTClient, initializeDHT, type PeerInfo } from '../network/dht.js';
 import { lshHash, cosineSimilarity } from '@isc/core';
 import { getChatHandler, type ChatMessage } from '../chat/webrtc.js';
 import type { Channel } from '@isc/core';
+import { embeddingService } from '../channels/embedding.js';
+import { SkeletonMatch } from '../components/Skeleton.js';
 
 interface Match {
   peerId: string;
@@ -78,6 +80,7 @@ export function DiscoverScreen() {
   const [activeChannel, setActiveChannel] = useState<Channel | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [dhtReady, setDhtReady] = useState(false);
+  const [modelLoading, setModelLoading] = useState(false);
 
   const loadMatches = useCallback(async () => {
     setLoading(true);
@@ -179,17 +182,27 @@ export function DiscoverScreen() {
     }
   }, [dhtReady]);
 
-  // Compute channel vector (stub - in production would use transformers.js)
+  // Compute channel vector using real embedding model
   async function computeChannelVector(channel: Channel): Promise<number[]> {
-    const encoder = new TextEncoder();
-    const hash = await crypto.subtle.digest('SHA-256', encoder.encode(channel.description));
-    const hashBytes = new Uint8Array(hash);
-    const vec = Array.from({ length: 384 }, (_, i) => {
-      const byte = hashBytes[i % 32];
-      return (byte / 255) * 2 - 1;
-    });
-    const norm = Math.sqrt(vec.reduce((sum, v) => sum + v * v, 0));
-    return vec.map(v => v / norm);
+    setModelLoading(true);
+    try {
+      const vector = await embeddingService.embed(channel.description);
+      setModelLoading(false);
+      return vector;
+    } catch (err) {
+      console.warn('[Discover] Embedding failed, using fallback:', err);
+      setModelLoading(false);
+      // Fallback to stub embedding
+      const encoder = new TextEncoder();
+      const hash = await crypto.subtle.digest('SHA-256', encoder.encode(channel.description));
+      const hashBytes = new Uint8Array(hash);
+      const vec = Array.from({ length: 384 }, (_, i) => {
+        const byte = hashBytes[i % 32];
+        return (byte / 255) * 2 - 1;
+      });
+      const norm = Math.sqrt(vec.reduce((sum, v) => sum + v * v, 0));
+      return vec.map(v => v / norm);
+    }
   }
 
   useEffect(() => {
@@ -266,9 +279,10 @@ export function DiscoverScreen() {
           <h1 style={styles.title}>Discover</h1>
           <p style={styles.subtitle}>Finding nearby peers...</p>
         </header>
-        <div style={styles.loading}>
-          <div style={styles.spinner} />
-          <p style={{ marginTop: '16px' }}>Searching the network...</p>
+        <div style={styles.content}>
+          {Array.from({ length: 3 }).map((_, i) => (
+            <SkeletonMatch key={i} />
+          ))}
         </div>
       </div>
     );
@@ -305,7 +319,17 @@ export function DiscoverScreen() {
                 ? 'Try editing your channel description or wait for more peers to announce'
                 : 'Create a channel to start discovering peers'}
             </p>
-            <button style={styles.refreshBtn} onClick={handleRefresh}>Refresh</button>
+            <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', marginTop: '16px' }}>
+              <button 
+                style={{ ...styles.refreshBtn, margin: 0 }} 
+                onClick={() => {
+                  import('../router.js').then(({ navigate }) => navigate('compose'));
+                }}
+              >
+                Create Channel
+              </button>
+              <button style={styles.refreshBtn} onClick={handleRefresh}>Refresh</button>
+            </div>
           </div>
         )}
 

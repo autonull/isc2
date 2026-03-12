@@ -356,7 +356,29 @@ export async function getLocalMediaStream(
     video: finalSettings.videoEnabled ? VIDEO_QUALITY_CONSTRAINTS[finalSettings.videoQuality] : false,
   };
 
-  return navigator.mediaDevices.getUserMedia(constraints);
+  try {
+    return await navigator.mediaDevices.getUserMedia(constraints);
+  } catch (err) {
+    const error = err as Error & { name?: string };
+    
+    if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
+      throw new Error('Camera/microphone permission denied. Please enable permissions in browser settings.');
+    }
+    
+    if (error.name === 'NotFoundError' || error.name === 'DevicesNotFoundError') {
+      throw new Error('No camera or microphone found. Please connect a device and try again.');
+    }
+    
+    if (error.name === 'NotReadableError' || error.name === 'TrackStartError') {
+      throw new Error('Camera or microphone is already in use by another application.');
+    }
+    
+    if (error.name === 'OverconstrainedError') {
+      throw new Error('No device found matching specified constraints. Try lowering video quality.');
+    }
+    
+    throw new Error('Failed to access media devices: ' + error.message);
+  }
 }
 
 /**
