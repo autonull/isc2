@@ -16,13 +16,11 @@ let queueDb: IDBDatabase | null = null;
 
 async function getQueueDB(): Promise<IDBDatabase> {
   if (queueDb) return queueDb;
-
-  queueDb = await openDB('isc-offline-queue', 1, (db, _event) => {
+  queueDb = await openDB('isc-offline-queue', 1, (db) => {
     if (!db.objectStoreNames.contains(OFFLINE_QUEUE_STORE)) {
       db.createObjectStore(OFFLINE_QUEUE_STORE, { keyPath: 'id' });
     }
   });
-
   return queueDb;
 }
 
@@ -42,8 +40,8 @@ export async function queueAction(action: Omit<OfflineAction, 'id' | 'timestamp'
     const registration = await navigator.serviceWorker.ready;
     try {
       await (registration as any).sync.register(Config.offline.syncEventTag);
-    } catch (err) {
-      console.warn('[OfflineQueue] Background sync not available:', err);
+    } catch {
+      console.warn('[OfflineQueue] Background sync not available');
     }
   }
 
@@ -73,7 +71,6 @@ export async function clearQueue(): Promise<void> {
 export async function incrementRetry(id: string): Promise<OfflineAction | null> {
   const db = await getQueueDB();
   const action = await dbGet<OfflineAction>(db, OFFLINE_QUEUE_STORE, id);
-
   if (!action) return null;
   action.retryCount++;
 
@@ -114,8 +111,8 @@ export async function processQueue(processAction: (action: OfflineAction) => Pro
         const updated = await incrementRetry(action.id);
         if (updated) failed++;
       }
-    } catch (err) {
-      console.error('[OfflineQueue] Failed to process action:', action.id, err);
+    } catch {
+      console.error('[OfflineQueue] Failed to process action:', action.id);
       const updated = await incrementRetry(action.id);
       if (updated) failed++;
     }

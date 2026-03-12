@@ -52,9 +52,7 @@ export function Post({ post, showActions = true, onReply }: PostProps) {
 
   const formatDate = (timestamp: number) => {
     const date = new Date(timestamp);
-    const diff = Date.now() - date.getTime();
-    const hours = Math.floor(diff / (1000 * 60 * 60));
-
+    const hours = Math.floor((Date.now() - date.getTime()) / (1000 * 60 * 60));
     if (hours < 1) return 'Just now';
     if (hours < 24) return `${hours}h ago`;
     return date.toLocaleDateString();
@@ -66,38 +64,17 @@ export function Post({ post, showActions = true, onReply }: PostProps) {
         <span style={styles.author}>{post.author.slice(0, 16)}...</span>
         <time style={styles.time}>{formatDate(post.timestamp)}</time>
       </header>
-
       <p style={styles.content}>{post.content}</p>
-
       {showActions && (
         <footer style={styles.footer}>
           <div style={styles.actions}>
-            <button
-              onClick={handleLike}
-              style={{ ...styles.actionBtn, color: liked ? '#e0245e' : '#657786' }}
-              disabled={liked}
-            >
-              ♥ {counts.likes}
-            </button>
-
-            <button onClick={handleRepost} style={styles.actionBtn}>
-              ⟳ {counts.reposts}
-            </button>
-
-            <button onClick={() => setShowReplyBox(!showReplyBox)} style={styles.actionBtn}>
-              💬 {counts.replies}
-            </button>
+            <button onClick={handleLike} style={{ ...styles.actionBtn, color: liked ? '#e0245e' : '#657786' }} disabled={liked}>♥ {counts.likes}</button>
+            <button onClick={handleRepost} style={styles.actionBtn}>⟳ {counts.reposts}</button>
+            <button onClick={() => setShowReplyBox(!showReplyBox)} style={styles.actionBtn}>💬 {counts.replies}</button>
           </div>
-
           {showReplyBox && (
             <div style={styles.replyBox}>
-              <textarea
-                value={replyContent}
-                onInput={(e) => setReplyContent((e.target as HTMLTextAreaElement).value)}
-                placeholder="Write a reply..."
-                style={styles.textarea}
-                rows={2}
-              />
+              <textarea value={replyContent} onInput={(e) => setReplyContent((e.target as HTMLTextAreaElement).value)} placeholder="Write a reply..." style={styles.textarea} rows={2} />
               <button onClick={handleReply} style={styles.replyBtn}>Reply</button>
             </div>
           )}

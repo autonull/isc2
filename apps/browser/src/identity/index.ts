@@ -13,6 +13,7 @@ import { openDB, dbGet, dbPut, dbDelete } from '@isc/adapters';
 const DB_NAME = 'isc-identity';
 const DB_VERSION = 1;
 const STORE_NAME = 'keypairs';
+const DEFAULT_KEYPAIR_ID = 'default';
 
 export interface IdentityManager {
   keypair: CryptoKeyPair | null;
@@ -37,10 +38,7 @@ let identityState: IdentityManager = {
   isEncrypted: false,
 };
 
-const setIdentityState = (
-  keypair: CryptoKeyPair,
-  isEncrypted: boolean = false
-): IdentityManager => ({
+const setIdentityState = (keypair: CryptoKeyPair, isEncrypted: boolean = false): IdentityManager => ({
   keypair,
   publicKeyFingerprint: null,
   isInitialized: true,
@@ -52,13 +50,11 @@ class IndexedDBStore {
 
   private async getDB(): Promise<IDBDatabase> {
     if (this.db) return this.db;
-
-    this.db = await openDB(DB_NAME, DB_VERSION, (database, _event) => {
+    this.db = await openDB(DB_NAME, DB_VERSION, (database) => {
       if (!database.objectStoreNames.contains(STORE_NAME)) {
         database.createObjectStore(STORE_NAME, { keyPath: 'id' });
       }
     });
-
     return this.db;
   }
 
@@ -79,16 +75,13 @@ class IndexedDBStore {
 }
 
 const dbStore = new IndexedDBStore();
-const DEFAULT_KEYPAIR_ID = 'default';
 
 export async function initializeIdentity(passphrase?: string): Promise<IdentityManager> {
   const stored = await dbStore.get(DEFAULT_KEYPAIR_ID);
 
   if (stored) {
     if (stored.encryptedPrivateKey && stored.salt && stored.iterations) {
-      if (!passphrase) {
-        throw new Error('Passphrase required for encrypted identity');
-      }
+      if (!passphrase) throw new Error('Passphrase required for encrypted identity');
       try {
         const encrypted: EncryptedKeypair = {
           publicKey: stored.publicKey,
@@ -127,11 +120,7 @@ export async function initializeIdentity(passphrase?: string): Promise<IdentityM
     });
     identityState = setIdentityState(keypair, true);
   } else {
-    await dbStore.put({
-      id: DEFAULT_KEYPAIR_ID,
-      publicKey: exported.publicKey,
-      createdAt: Date.now(),
-    });
+    await dbStore.put({ id: DEFAULT_KEYPAIR_ID, publicKey: exported.publicKey, createdAt: Date.now() });
     identityState = setIdentityState(keypair, false);
   }
 
@@ -156,14 +145,10 @@ export const exportIdentity = async (): Promise<string> => {
   });
 };
 
-export async function importIdentity(
-  keypairJson: string,
-  passphrase?: string
-): Promise<IdentityManager> {
+export async function importIdentity(keypairJson: string, passphrase?: string): Promise<IdentityManager> {
   const { publicKey, privateKey } = JSON.parse(keypairJson);
   const pubKeyBytes = new Uint8Array(publicKey);
   const privKeyBytes = new Uint8Array(privateKey);
-
   const keypair = await importKeypair(pubKeyBytes, privKeyBytes);
 
   if (passphrase) {
@@ -178,11 +163,7 @@ export async function importIdentity(
     });
     identityState = setIdentityState(keypair, true);
   } else {
-    await dbStore.put({
-      id: DEFAULT_KEYPAIR_ID,
-      publicKey: pubKeyBytes,
-      createdAt: Date.now(),
-    });
+    await dbStore.put({ id: DEFAULT_KEYPAIR_ID, publicKey: pubKeyBytes, createdAt: Date.now() });
     identityState = setIdentityState(keypair, false);
   }
 
@@ -192,9 +173,6 @@ export async function importIdentity(
 
 export { validatePassphraseStrength };
 
-/**
- * Get the current peer ID (public key fingerprint)
- */
 export const getPeerID = async (): Promise<string> => {
   if (!identityState.publicKeyFingerprint) {
     identityState.publicKeyFingerprint = await formatKeyFingerprint(identityState.keypair!.publicKey);
@@ -202,25 +180,14 @@ export const getPeerID = async (): Promise<string> => {
   return identityState.publicKeyFingerprint;
 };
 
-/**
- * Get the current keypair
- */
 export const getKeypair = (): CryptoKeyPair | null => identityState.keypair;
 
-/**
- * Get the current public key in exportable format
- */
 export const getPublicKey = async (): Promise<Uint8Array> => {
-  if (!identityState.keypair) {
-    throw new Error('Identity not initialized');
-  }
+  if (!identityState.keypair) throw new Error('Identity not initialized');
   const exported = await exportKeypair(identityState.keypair);
   return exported.publicKey;
 };
 
-/**
- * Get public key for a peer from DHT
- */
 export const getPeerPublicKey = async (peerID: string): Promise<CryptoKey | null> => {
   const { DelegationClient } = await import('../delegation/fallback');
   const client = DelegationClient.getInstance();
@@ -232,21 +199,12 @@ export const getPeerPublicKey = async (peerID: string): Promise<CryptoKey | null
 
   try {
     const keyData = JSON.parse(new TextDecoder().decode(encoded[0]));
-    return crypto.subtle.importKey(
-      'raw',
-      new Uint8Array(keyData.data),
-      { name: 'Ed25519', namedCurve: 'Ed25519' },
-      false,
-      ['verify']
-    );
+    return crypto.subtle.importKey('raw', new Uint8Array(keyData.data), { name: 'Ed25519', namedCurve: 'Ed25519' }, false, ['verify']);
   } catch {
     return null;
   }
 };
 
-/**
- * Announce public key to DHT for discovery
- */
 export const announcePublicKey = async (): Promise<void> => {
   const { DelegationClient } = await import('../delegation/fallback');
   const client = DelegationClient.getInstance();
@@ -254,7 +212,6 @@ export const announcePublicKey = async (): Promise<void> => {
 
   const peerID = await getPeerID();
   const publicKey = await getPublicKey();
-
   const key = `/isc/identity/${peerID}/public-key`;
   const payload = JSON.stringify({ peerID, data: Array.from(publicKey) });
   await client.announce(key, new TextEncoder().encode(payload), 86400 * 30);

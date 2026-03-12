@@ -1,9 +1,3 @@
-/**
- * Compose Post Component
- * 
- * Allows users to create and post new content.
- */
-
 import { h } from 'preact';
 import { useState } from 'preact/hooks';
 import { createPost } from '../social/index.js';
@@ -41,18 +35,15 @@ export function ComposePost({ channel, onPost, onCancel }: ComposePostProps) {
 
   const handleSubmit = async (e: Event) => {
     e.preventDefault();
-    
     if (!canPost || !channel) return;
-    
     setPosting(true);
     setError(null);
-    
     try {
       const post = await createPost(content.trim(), channel.id);
       setContent('');
-      if (onPost) onPost(post.id);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to post');
+      onPost?.(post.id);
+    } catch {
+      setError('Failed to post');
     } finally {
       setPosting(false);
     }
@@ -61,55 +52,33 @@ export function ComposePost({ channel, onPost, onCancel }: ComposePostProps) {
   const handleCancel = () => {
     setContent('');
     setError(null);
-    if (onCancel) onCancel();
+    onCancel?.();
   };
 
   return (
     <form onSubmit={handleSubmit} style={styles.form}>
       <div style={styles.header}>
-        <span style={styles.channel}>
-          {channel ? `Posting in ${channel.name}` : 'Select a channel'}
-        </span>
-        {onCancel && (
-          <button type="button" onClick={handleCancel} style={styles.cancelBtn}>
-            ✕
-          </button>
-        )}
+        <span style={styles.channel}>{channel ? `Posting in ${channel.name}` : 'Select a channel'}</span>
+        {onCancel && <button type="button" onClick={handleCancel} style={styles.cancelBtn}>✕</button>}
       </div>
-      
       <textarea
         value={content}
         onInput={(e) => setContent((e.target as HTMLTextAreaElement).value)}
         placeholder="What's on your mind?"
-        style={{
-          ...styles.textarea,
-          borderColor: isOverLimit ? '#e0245e' : '#e1e8ed',
-        }}
+        style={{ ...styles.textarea, borderColor: isOverLimit ? '#e0245e' : '#e1e8ed' }}
         rows={4}
-        maxLength={MAX_LENGTH + 50} // Allow slight overflow for visual feedback
+        maxLength={MAX_LENGTH + 50}
         disabled={posting}
       />
-      
       <div style={styles.footer}>
         <div style={styles.counter}>
-          <span style={{
-            ...styles.counterText,
-            color: remaining < 20 ? (isOverLimit ? '#e0245e' : '#ffad1f') : '#657786',
-          }}>
-            {remaining}
-          </span>
+          <span style={{ ...styles.counterText, color: remaining < 20 ? (isOverLimit ? '#e0245e' : '#ffad1f') : '#657786' }}>{remaining}</span>
         </div>
-        
         {error && <span style={styles.error}>{error}</span>}
-        
         <button
           type="submit"
           disabled={!canPost || posting}
-          style={{
-            ...styles.postBtn,
-            opacity: canPost && !posting ? 1 : 0.5,
-            cursor: canPost && !posting ? 'pointer' : 'not-allowed',
-          }}
+          style={{ ...styles.postBtn, opacity: canPost && !posting ? 1 : 0.5, cursor: canPost && !posting ? 'pointer' : 'not-allowed' }}
         >
           {posting ? 'Posting...' : 'Post'}
         </button>

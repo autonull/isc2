@@ -31,9 +31,7 @@ export function TopNav({ activeTab, onTabClick, badges = {} }: TopNavProps) {
             >
               <span class="top-nav-tab-icon">{tab.icon}</span>
               <span class="top-nav-tab-label">{tab.label}</span>
-              {badges[tab.id] !== undefined && badges[tab.id] > 0 && (
-                <span class="top-nav-badge">{badges[tab.id]}</span>
-              )}
+              {badges[tab.id] !== undefined && badges[tab.id] > 0 && <span class="top-nav-badge">{badges[tab.id]}</span>}
             </button>
           ))}
         </div>

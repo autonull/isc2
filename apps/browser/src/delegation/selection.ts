@@ -23,42 +23,40 @@ export class HealthSelector {
   async fetchHealthMetrics(peerIDs: string[]): Promise<Map<string, DelegationHealth>> {
     const results = new Map<string, DelegationHealth>();
 
-    await Promise.all(
-      peerIDs.map(async (peerID) => {
-        const cached = this.healthCache.get(peerID);
-        if (cached && Date.now() - cached.timestamp < this.config.cacheTTL) {
-          results.set(peerID, cached.health);
-          return;
-        }
+    await Promise.all(peerIDs.map(async (peerID) => {
+      const cached = this.healthCache.get(peerID);
+      if (cached && Date.now() - cached.timestamp < this.config.cacheTTL) {
+        results.set(peerID, cached.health);
+        return;
+      }
 
-        try {
-          const entry = await this.config.dht.get(`/isc/health/${peerID}`);
-          if (entry) {
-            const decoder = new TextDecoder();
-            const health: DelegationHealth = JSON.parse(decoder.decode(entry));
-
-            if (this.isValidHealth(health)) {
-              this.healthCache.set(peerID, { health, timestamp: Date.now() });
-              results.set(peerID, health);
-            }
+      try {
+        const entry = await this.config.dht.get(`/isc/health/${peerID}`);
+        if (entry) {
+          const decoder = new TextDecoder();
+          const health: DelegationHealth = JSON.parse(decoder.decode(entry));
+          if (this.isValidHealth(health)) {
+            this.healthCache.set(peerID, { health, timestamp: Date.now() });
+            results.set(peerID, health);
           }
-        } catch {
-          if (cached) results.set(peerID, cached.health);
         }
-      })
-    );
+      } catch {
+        if (cached) results.set(peerID, cached.health);
+      }
+    }));
 
     return results;
   }
 
   private isValidHealth(health: DelegationHealth): boolean {
-    if (health.type !== 'delegation_health') return false;
-    if (!health.peerID || !health.signature) return false;
-    if (Date.now() - health.timestamp > this.config.cacheTTL) return false;
-    if (health.successRate < 0 || health.successRate > 1) return false;
-    if (health.avgLatencyMs < 0) return false;
-    if (health.requestsServed24h < 0) return false;
-    return true;
+    return health.type === 'delegation_health' &&
+      !!health.peerID &&
+      !!health.signature &&
+      Date.now() - health.timestamp < this.config.cacheTTL &&
+      health.successRate >= 0 &&
+      health.successRate <= 1 &&
+      health.avgLatencyMs >= 0 &&
+      health.requestsServed24h >= 0;
   }
 
   filterByHealth(healthMap: Map<string, DelegationHealth>): Map<string, DelegationHealth> {
@@ -71,10 +69,7 @@ export class HealthSelector {
     return filtered;
   }
 
-  getHealthyPeerIDs(
-    capabilities: { peerID: string }[],
-    healthMap: Map<string, DelegationHealth>
-  ): string[] {
+  getHealthyPeerIDs(capabilities: { peerID: string }[], healthMap: Map<string, DelegationHealth>): string[] {
     return capabilities.filter((cap) => {
       const health = healthMap.get(cap.peerID);
       return !health || health.successRate >= this.config.minSuccessRate;

@@ -21,8 +21,6 @@ export async function handleDelegateStream(stream: Stream): Promise<void> {
 }
 
 async function handleDelegateRequest(request: DelegateRequest): Promise<DelegateResponse> {
-  console.log('Processing delegate request:', request.requestID);
-
   return {
     type: 'delegate_response',
     requestID: request.requestID,

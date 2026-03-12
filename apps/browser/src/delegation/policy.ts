@@ -38,44 +38,23 @@ export class DelegationPolicyManager {
   }
 
   async getPolicy(channelID?: string): Promise<DelegationPolicy> {
-    if (!channelID) {
-      return this.defaultPolicy;
-    }
-
+    if (!channelID) return this.defaultPolicy;
     const override = await this.config.channelOverrides.get(channelID);
-    if (override) {
-      return override;
-    }
-
-    return this.defaultPolicy;
+    return override ?? this.defaultPolicy;
   }
 
-  async canDelegate(
-    service: 'embed' | 'ann_query' | 'sig_verify',
-    channelID?: string
-  ): Promise<boolean> {
+  async canDelegate(service: 'embed' | 'ann_query' | 'sig_verify', channelID?: string): Promise<boolean> {
     const policy = await this.getPolicy(channelID);
-
     switch (service) {
-      case 'embed':
-        return policy.allowEmbedDelegation;
-      case 'ann_query':
-        return policy.allowANNDelegation;
-      case 'sig_verify':
-        return policy.allowSigVerifyDelegation;
+      case 'embed': return policy.allowEmbedDelegation;
+      case 'ann_query': return policy.allowANNDelegation;
+      case 'sig_verify': return policy.allowSigVerifyDelegation;
     }
   }
 
-  async shouldDelegate(
-    channelID: string,
-    service: 'embed' | 'ann_query' | 'sig_verify'
-  ): Promise<boolean> {
+  async shouldDelegate(channelID: string, service: 'embed' | 'ann_query' | 'sig_verify'): Promise<boolean> {
     const policy = await this.getPolicy(channelID);
-
-    if (!policy.delegateOnlyChannels) {
-      return true;
-    }
-
+    if (!policy.delegateOnlyChannels) return true;
     return policy.allowedChannels.has(channelID);
   }
 
@@ -86,7 +65,6 @@ export class DelegationPolicyManager {
       ...policy,
       allowedChannels: policy.allowedChannels ?? current.allowedChannels,
     };
-
     await this.config.channelOverrides.set(channelID, merged);
     await this.config.storage.set(channelID, merged);
   }
@@ -109,20 +87,14 @@ export class DelegationPolicyManager {
     const policy = await this.getPolicy(channelID);
     const newAllowedChannels = new Set(policy.allowedChannels);
     newAllowedChannels.add(channelID);
-
-    await this.setChannelPolicy(channelID, {
-      allowedChannels: newAllowedChannels,
-    });
+    await this.setChannelPolicy(channelID, { allowedChannels: newAllowedChannels });
   }
 
   async removeAllowedChannel(channelID: string): Promise<void> {
     const policy = await this.getPolicy(channelID);
     const newAllowedChannels = new Set(policy.allowedChannels);
     newAllowedChannels.delete(channelID);
-
-    await this.setChannelPolicy(channelID, {
-      allowedChannels: newAllowedChannels,
-    });
+    await this.setChannelPolicy(channelID, { allowedChannels: newAllowedChannels });
   }
 
   getDefaultPolicy(): DelegationPolicy {
@@ -140,28 +112,27 @@ export function createMinimalPolicy(): DelegationPolicy {
   };
 }
 
-export function isChannelDescriptionSafe(text: string): boolean {
-  const forbiddenPatterns = [
-    /\b(password|passwd|secret)\s*[:=]\s*\S+/i,
-    /\b(api[_-]?key|token)\s*[:=]\s*\S+/i,
-    /BEGIN\s+(RSA\s+)?PRIVATE\s+KEY/i,
-    /BEGIN\s+CERTIFICATE/i,
-  ];
+const FORBIDDEN_PATTERNS = [
+  /\b(password|passwd|secret)\s*[:=]\s*\S+/i,
+  /\b(api[_-]?key|token)\s*[:=]\s*\S+/i,
+  /BEGIN\s+(RSA\s+)?PRIVATE\s+KEY/i,
+  /BEGIN\s+CERTIFICATE/i,
+];
 
-  return !forbiddenPatterns.some((pattern) => pattern.test(text));
+export function isChannelDescriptionSafe(text: string): boolean {
+  return !FORBIDDEN_PATTERNS.some((pattern) => pattern.test(text));
 }
 
-export function sanitizeForDelegation(text: string): string {
-  const sensitivePatterns = [
-    { pattern: /\b\d{3}[-.\s]?\d{3}[-.\s]?\d{4}\b/g, replacement: '[PHONE]' },
-    { pattern: /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/g, replacement: '[EMAIL]' },
-    { pattern: /\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b/g, replacement: '[IP]' },
-  ];
+const SENSITIVE_PATTERNS = [
+  { pattern: /\b\d{3}[-.\s]?\d{3}[-.\s]?\d{4}\b/g, replacement: '[PHONE]' },
+  { pattern: /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/g, replacement: '[EMAIL]' },
+  { pattern: /\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b/g, replacement: '[IP]' },
+];
 
+export function sanitizeForDelegation(text: string): string {
   let sanitized = text;
-  for (const { pattern, replacement } of sensitivePatterns) {
+  for (const { pattern, replacement } of SENSITIVE_PATTERNS) {
     sanitized = sanitized.replace(pattern, replacement);
   }
-
   return sanitized;
 }
