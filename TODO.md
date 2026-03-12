@@ -5,9 +5,11 @@
 >
 > **Document Status**: Living specification — update as implementation reveals new insights.
 >
-> **Last Updated**: March 11, 2026
+> **Last Updated**: March 12, 2026
 >
-> **Current Status**: Phase 0-4 ✅ COMPLETE | Phase 5 ✅ COMPLETE (PWA + Video) | Phase 6 🟡 NEXT
+> **Current Status**: Phase 0-5 ✅ COMPLETE | Phase 6-12 🟡 ACCELERATED MVP IN PROGRESS
+>
+> **Accelerated MVP Branch**: `accel-mvp-2026-03`
 >
 > **Cross-References**:
 >

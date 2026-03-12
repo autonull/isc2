@@ -1,140 +1,247 @@
+/**
+ * Compose Screen - Create/Edit Channel
+ */
+
 import { h } from 'preact';
 import { useState } from 'preact/hooks';
-import type { Relation } from '@isc/core';
+import { channelManager } from '../channels/manager.js';
+import { navigate } from '../router.js';
 
-interface ComposeScreenProps {
-  onSubmit: (data: ChannelFormData) => void;
-  onCancel: () => void;
-  initialData?: Partial<ChannelFormData>;
+interface RelationInput {
+  tag: string;
+  object: string;
 }
 
-export interface ChannelFormData {
-  name: string;
-  description: string;
-  spread: number;
-  relations: Relation[];
-}
+const RELATION_OPTIONS = [
+  { value: 'in_location', label: '📍 Location', placeholder: 'Where are you thinking this?' },
+  { value: 'during_time', label: '🕐 Time', placeholder: 'When is this relevant?' },
+  { value: 'with_mood', label: '💭 Mood', placeholder: 'What\'s the emotional context?' },
+  { value: 'under_domain', label: '🔬 Domain', placeholder: 'What field or discipline?' },
+  { value: 'causes_effect', label: '⚡ Causal', placeholder: 'What causes what?' },
+];
 
-export function ComposeScreen({ onSubmit, onCancel, initialData }: ComposeScreenProps) {
-  const [name, setName] = useState(initialData?.name || '');
-  const [description, setDescription] = useState(initialData?.description || '');
-  const [spread, setSpread] = useState(initialData?.spread ?? 0.1);
-  const [relations, setRelations] = useState<Relation[]>(initialData?.relations || []);
-  const [newRelationTag, setNewRelationTag] = useState('');
-  const [newRelationObject, setNewRelationObject] = useState('');
+const styles = {
+  screen: { display: 'flex', flexDirection: 'column' as const, height: '100%' },
+  header: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px', borderBottom: '1px solid #e1e8ed' } as const,
+  title: { fontSize: '18px', fontWeight: 'bold' as const, margin: 0 },
+  button: { padding: '8px 16px', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '14px', fontWeight: 'bold' as const } as const,
+  cancelBtn: { background: 'transparent', color: '#657786' } as const,
+  saveBtn: { background: '#1da1f2', color: 'white' } as const,
+  content: { flex: 1, padding: '16px', overflowY: 'auto' as const },
+  input: { width: '100%', padding: '12px', border: '1px solid #e1e8ed', borderRadius: '4px', fontSize: '16px', marginBottom: '16px', boxSizing: 'border-box' as const } as const,
+  textarea: { width: '100%', padding: '12px', border: '1px solid #e1e8ed', borderRadius: '4px', fontSize: '16px', minHeight: '120px', resize: 'vertical' as const, boxSizing: 'border-box' as const, fontFamily: 'inherit' } as const,
+  label: { display: 'block', fontSize: '14px', fontWeight: 'bold' as const, marginBottom: '8px', color: '#657786' } as const,
+  relationBtn: { display: 'inline-block', padding: '8px 12px', margin: '4px', background: '#f7f9fa', border: '1px solid #e1e8ed', borderRadius: '16px', cursor: 'pointer', fontSize: '14px' } as const,
+  relationBtnActive: { background: '#1da1f2', color: 'white', borderColor: '#1da1f2' } as const,
+  relationInput: { display: 'flex', gap: '8px', marginTop: '8px', marginBottom: '16px' } as const,
+  relationInputField: { flex: 1, padding: '8px', border: '1px solid #e1e8ed', borderRadius: '4px', fontSize: '14px' } as const,
+  removeBtn: { padding: '8px 12px', background: '#ff4444', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' } as const,
+  spreadContainer: { marginBottom: '16px' },
+  slider: { width: '100%' } as const,
+  sliderLabels: { display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: '#657786', marginTop: '4px' } as const,
+  error: { color: '#ff4444', fontSize: '14px', marginTop: '8px' } as const,
+  success: { color: '#17bf63', fontSize: '14px', marginTop: '8px' } as const,
+};
 
-  const handleSubmit = (e: Event) => {
-    e.preventDefault();
-    if (!name.trim()) return;
+export function ComposeScreen() {
+  const [name, setName] = useState('');
+  const [description, setDescription] = useState('');
+  const [spread, setSpread] = useState(0.15);
+  const [relations, setRelations] = useState<RelationInput[]>([]);
+  const [showRelationInput, setShowRelationInput] = useState<string | null>(null);
+  const [relationObject, setRelationObject] = useState('');
+  const [error, setError] = useState('');
+  const [saving, setSaving] = useState(false);
 
-    onSubmit({
-      name: name.trim(),
-      description: description.trim(),
-      spread,
-      relations,
-    });
+  const handleAddRelation = (tag: string) => {
+    if (relations.length >= 5) {
+      setError('Maximum 5 relations allowed');
+      return;
+    }
+    if (relations.some(r => r.tag === tag)) {
+      return; // Already added
+    }
+    setShowRelationInput(tag);
+    setRelationObject('');
   };
 
-  const addRelation = () => {
-    if (!newRelationTag.trim()) return;
-    setRelations([
-      ...relations,
-      { tag: newRelationTag.trim(), object: newRelationObject.trim() || undefined },
-    ]);
-    setNewRelationTag('');
-    setNewRelationObject('');
+  const handleSaveRelation = () => {
+    if (!showRelationInput || !relationObject.trim()) return;
+    setRelations([...relations, { tag: showRelationInput, object: relationObject.trim() }]);
+    setShowRelationInput(null);
+    setRelationObject('');
+    setError('');
   };
 
-  const removeRelation = (index: number) => {
-    setRelations(relations.filter((_, i) => i !== index));
+  const handleRemoveRelation = (tag: string) => {
+    setRelations(relations.filter(r => r.tag !== tag));
+  };
+
+  const handleSave = async () => {
+    if (!name.trim()) {
+      setError('Channel name is required');
+      return;
+    }
+    if (!description.trim()) {
+      setError('Description is required');
+      return;
+    }
+    if (description.trim().length < 10) {
+      setError('Description must be at least 10 characters');
+      return;
+    }
+
+    setSaving(true);
+    setError('');
+
+    try {
+      const channel = await channelManager.createChannel(
+        name.trim(),
+        description.trim(),
+        spread,
+        relations.map(r => ({ tag: r.tag, object: r.object, weight: 1.0 }))
+      );
+
+      // Activate the new channel
+      await channelManager.activateChannel(channel.id, []);
+
+      // Navigate back to Now tab
+      navigate('now');
+    } catch (err) {
+      setError('Failed to create channel: ' + (err as Error).message);
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
-    <div class="screen compose-screen">
-      <header class="screen-header">
-        <h1>{initialData ? 'Edit Channel' : 'New Channel'}</h1>
+    <div style={styles.screen}>
+      <header style={styles.header}>
+        <button style={{ ...styles.button, ...styles.cancelBtn }} onClick={() => navigate('now')}>
+          Cancel
+        </button>
+        <h1 style={styles.title}>New Channel</h1>
+        <button
+          style={{ ...styles.button, ...styles.saveBtn, opacity: saving ? 0.5 : 1 }}
+          onClick={handleSave}
+          disabled={saving}
+        >
+          {saving ? 'Saving...' : 'Save'}
+        </button>
       </header>
-      <form class="compose-form" onSubmit={handleSubmit}>
-        <div class="form-group">
-          <label for="name">Channel Name *</label>
-          <input
-            id="name"
-            type="text"
-            value={name}
-            onInput={(e) => setName((e.target as HTMLInputElement).value)}
-            placeholder="e.g., AI Ethics"
-            required
-          />
+
+      <div style={styles.content}>
+        <label style={styles.label}>Channel Name</label>
+        <input
+          type="text"
+          value={name}
+          onInput={(e) => setName((e.target as HTMLInputElement).value)}
+          placeholder="What are you thinking about?"
+          style={styles.input}
+          maxLength={50}
+        />
+
+        <label style={styles.label}>Description</label>
+        <textarea
+          value={description}
+          onInput={(e) => setDescription((e.target as HTMLTextAreaElement).value)}
+          placeholder="Describe your thoughts in detail..."
+          style={styles.textarea}
+          maxLength={500}
+        />
+        <div style={{ fontSize: '12px', color: '#657786', textAlign: 'right' }}>
+          {description.length}/500
         </div>
 
-        <div class="form-group">
-          <label for="description">Description</label>
-          <textarea
-            id="description"
-            value={description}
-            onInput={(e) => setDescription((e.target as HTMLTextAreaElement).value)}
-            placeholder="What is this channel about?"
-            rows={3}
-          />
-        </div>
-
-        <div class="form-group">
-          <label for="spread">Discovery Spread: {Math.round(spread * 100)}%</label>
+        <label style={styles.label}>How specific are you being?</label>
+        <div style={styles.spreadContainer}>
           <input
-            id="spread"
             type="range"
             min="0"
             max="0.3"
-            step="0.05"
+            step="0.01"
             value={spread}
             onInput={(e) => setSpread(parseFloat((e.target as HTMLInputElement).value))}
+            style={styles.slider}
           />
-          <span class="hint">Higher = discover more distant peers</span>
+          <div style={styles.sliderLabels}>
+            <span>Precise</span>
+            <span>Exploratory</span>
+          </div>
         </div>
 
-        <div class="form-group">
-          <label>Relations</label>
-          <div class="relations-list">
-            {relations.map((r, i) => (
-              <div key={i} class="relation-tag">
-                <span>
-                  {r.tag}
-                  {r.object ? `: ${r.object}` : ''}
+        <label style={styles.label}>Add Context (optional, max 5)</label>
+        <div style={{ marginBottom: '16px' }}>
+          {RELATION_OPTIONS.map((opt) => {
+            const isActive = relations.some(r => r.tag === opt.value);
+            const isEditing = showRelationInput === opt.value;
+            return (
+              <div key={opt.value}>
+                <button
+                  style={{
+                    ...styles.relationBtn,
+                    ...(isActive ? styles.relationBtnActive : {}),
+                  }}
+                  onClick={() => !isActive && handleAddRelation(opt.value)}
+                >
+                  {opt.label}
+                </button>
+                {isEditing && (
+                  <div style={styles.relationInput}>
+                    <input
+                      type="text"
+                      value={relationObject}
+                      onInput={(e) => setRelationObject((e.target as HTMLInputElement).value)}
+                      placeholder={opt.placeholder}
+                      style={styles.relationInputField}
+                      autoFocus
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') handleSaveRelation();
+                        if (e.key === 'Escape') {
+                          setShowRelationInput(null);
+                          setRelationObject('');
+                        }
+                      }}
+                    />
+                    <button style={styles.saveBtn as any} onClick={handleSaveRelation}>Add</button>
+                    <button
+                      style={{ ...styles.removeBtn, background: 'transparent', color: '#657786' }}
+                      onClick={() => {
+                        setShowRelationInput(null);
+                        setRelationObject('');
+                      }}
+                    >
+                      ✕
+                    </button>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+
+        {relations.length > 0 && (
+          <div>
+            <label style={styles.label}>Added Context</label>
+            {relations.map((r) => (
+              <div key={r.tag} style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                <span style={{ background: '#f7f9fa', padding: '4px 8px', borderRadius: '4px', fontSize: '14px' }}>
+                  {RELATION_OPTIONS.find(o => o.value === r.tag)?.label}
                 </span>
-                <button type="button" class="remove-btn" onClick={() => removeRelation(i)}>
-                  ✕
+                <span style={{ flex: 1, fontSize: '14px' }}>{r.object}</span>
+                <button
+                  style={{ ...styles.removeBtn, padding: '4px 8px', fontSize: '12px' }}
+                  onClick={() => handleRemoveRelation(r.tag)}
+                >
+                  Remove
                 </button>
               </div>
             ))}
           </div>
-          <div class="relation-input">
-            <input
-              type="text"
-              value={newRelationTag}
-              onInput={(e) => setNewRelationTag((e.target as HTMLInputElement).value)}
-              placeholder="tag (e.g., about)"
-            />
-            <input
-              type="text"
-              value={newRelationObject}
-              onInput={(e) => setNewRelationObject((e.target as HTMLInputElement).value)}
-              placeholder="object (optional)"
-            />
-            <button type="button" onClick={addRelation}>
-              Add
-            </button>
-          </div>
-        </div>
+        )}
 
-        <div class="form-actions">
-          <button type="button" class="cancel-btn" onClick={onCancel}>
-            Cancel
-          </button>
-          <button type="submit" class="submit-btn" disabled={!name.trim()}>
-            {initialData ? 'Save' : 'Create'}
-          </button>
-        </div>
-      </form>
+        {error && <div style={styles.error}>{error}</div>}
+      </div>
     </div>
   );
 }

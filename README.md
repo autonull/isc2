@@ -113,6 +113,54 @@ npx playwright test --project=chromium
 - PWA features (manifest, service worker, offline)
 - Accessibility (headings, labels, keyboard nav)
 
+### Troubleshooting
+
+**Build fails with TypeScript errors:**
+```bash
+# Clean and rebuild
+pnpm clean
+pnpm install
+pnpm build
+```
+
+**CLI commands not found:**
+```bash
+# Rebuild CLI
+cd apps/cli && pnpm build
+# Use full path
+node apps/cli/dist/index.js --help
+```
+
+**Browser app won't start:**
+```bash
+# Check Node version (requires 18+)
+node --version
+# Clear cache and reinstall
+rm -rf node_modules apps/browser/node_modules
+pnpm install
+```
+
+**Swarm test fails:**
+```bash
+# Increase timeout for slower machines
+node tests/simulation/swarm-test.js --peers=50 --cycles=5
+```
+
+**Playwright tests fail:**
+```bash
+# Install browsers
+npx playwright install
+# Run with debug output
+DEBUG=pw:api pnpm test:e2e
+```
+
+**Rate limit errors in CLI:**
+```bash
+# Wait 60 seconds for rate limit to reset
+# Or check status
+isc announce status
+```
+
 See [PROTOCOL.md](PROTOCOL.md) for complete protocol specification.
 
 ---

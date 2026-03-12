@@ -13,6 +13,8 @@ import { initConnectionMonitor, initSyncManager, isOnline } from './offline/inde
 import { NowScreen } from './screens/Now.js';
 import { FollowingScreen } from './screens/Following.js';
 import { VideoCallScreen } from './screens/VideoCalls.js';
+import { ComposeScreen } from './screens/Compose.js';
+import { DiscoverScreen } from './screens/Discover.js';
 
 interface AppProps {
   onReady?: () => void;
@@ -193,32 +195,6 @@ function Screen({ route }: { route: Route }) {
     default:
       return <NowScreen />;
   }
-}
-
-function DiscoverScreen() {
-  return (
-    <div class="screen discover-screen">
-      <header class="screen-header">
-        <h1>Discover</h1>
-      </header>
-      <div class="screen-content">
-        <p>Find nearby peers</p>
-      </div>
-    </div>
-  );
-}
-
-function ComposeScreen() {
-  return (
-    <div class="screen compose-screen">
-      <header class="screen-header">
-        <h1>New Channel</h1>
-      </header>
-      <div class="screen-content">
-        <p>Create a new channel</p>
-      </div>
-    </div>
-  );
 }
 
 function ChatsScreen() {
