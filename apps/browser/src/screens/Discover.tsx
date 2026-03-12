@@ -27,6 +27,14 @@ interface Match {
 
 const LOCAL_MODEL = 'Xenova/all-MiniLM-L6-v2';
 const SIMILARITY_THRESHOLD = 0.55;
+const QUERY_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
+interface QueryCacheEntry {
+  matches: Match[];
+  timestamp: number;
+}
+
+const queryCache = new Map<string, QueryCacheEntry>();
 
 const styles = {
   screen: { display: 'flex', flexDirection: 'column' as const, height: '100%' },
@@ -98,6 +106,16 @@ export function DiscoverScreen() {
         return;
       }
 
+      // Check cache first
+      const cacheKey = active.id;
+      const cached = queryCache.get(cacheKey);
+      if (cached && Date.now() - cached.timestamp < QUERY_CACHE_TTL) {
+        console.log('[Discover] Using cached matches');
+        setMatches(cached.matches);
+        setLoading(false);
+        return;
+      }
+
       // Initialize DHT if not ready
       if (!dhtReady) {
         try {
@@ -123,32 +141,33 @@ export function DiscoverScreen() {
       // Compute query vector from channel description
       const queryVec = await computeChannelVector(active);
       const modelHash = LOCAL_MODEL.replace(/[^a-zA-Z0-9]/g, '').slice(0, 12);
-      
+
       // Generate LSH hashes for query
       const hashes = lshHash(queryVec, modelHash, 20, 32);
-      
-      // Query DHT for each hash bucket
+
+      // Query DHT for each hash bucket IN PARALLEL
       const allMatches: Match[] = [];
       const seenPeers = new Set<string>();
-      
-      for (const hash of hashes.slice(0, 5)) {
+
+      // Parallel queries with Promise.all
+      const queryPromises = hashes.slice(0, 5).map(async (hash) => {
         const key = `/isc/announce/${modelHash}/${hash}`;
         const results = await dhtClient.query(key, 20);
         
         for (const data of results) {
           try {
             const decoded = JSON.parse(new TextDecoder().decode(data)) as PeerInfo;
-            
+
             // Filter by model compatibility
             if (!decoded.model.includes('all-MiniLM-L6')) continue;
-            
+
             // Filter self
             if (decoded.peerId === dhtClient.getPeerId()) continue;
-            
+
             // Deduplicate
             if (seenPeers.has(decoded.peerId)) continue;
             seenPeers.add(decoded.peerId);
-            
+
             // Compute similarity
             const sim = cosineSimilarity(queryVec, decoded.vec);
             if (sim >= SIMILARITY_THRESHOLD) {
@@ -167,13 +186,22 @@ export function DiscoverScreen() {
             // Skip invalid entries
           }
         }
-      }
-      
+      });
+
+      // Wait for all parallel queries to complete
+      await Promise.all(queryPromises);
+
       // Sort by similarity
       const sortedMatches = allMatches
         .sort((a, b) => b.similarity - a.similarity)
         .slice(0, 20);
-      
+
+      // Cache results
+      queryCache.set(cacheKey, {
+        matches: sortedMatches,
+        timestamp: Date.now(),
+      });
+
       setMatches(sortedMatches);
     } catch (err) {
       setError('Failed to load matches: ' + (err as Error).message);

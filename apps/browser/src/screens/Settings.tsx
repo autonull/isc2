@@ -8,6 +8,7 @@ import { h } from 'preact';
 import { useState, useEffect } from 'preact/hooks';
 import { channelManager } from '../channels/manager.js';
 import { notificationService } from '../chat/notifications.js';
+import { resetOnboarding } from '../screens/Onboarding.js';
 import type { Channel } from '@isc/core';
 
 interface Settings {
@@ -359,6 +360,15 @@ export function SettingsScreen() {
               No servers. No accounts. No surveillance.
             </p>
           </div>
+          <button
+            style={{ ...styles.button, ...styles.primaryBtn, marginTop: '16px' }}
+            onClick={() => {
+              resetOnboarding();
+              window.location.reload();
+            }}
+          >
+            🎓 Take Tour Again
+          </button>
         </div>
       </div>
     </div>

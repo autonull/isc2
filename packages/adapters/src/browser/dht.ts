@@ -173,13 +173,20 @@ export class DHTClient {
         ['verify']
       );
 
-      return await globalThis.crypto.subtle.verify(
+      const isValid = await globalThis.crypto.subtle.verify(
         { name: 'Ed25519' },
         key,
         announcement.signature.buffer as ArrayBuffer,
         payload
       );
-    } catch {
+
+      if (!isValid) {
+        console.warn('[DHT] Invalid signature from peer:', announcement.peerID);
+      }
+
+      return isValid;
+    } catch (err) {
+      console.error('[DHT] Verification error:', err);
       return false;
     }
   }

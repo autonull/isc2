@@ -1,6 +1,6 @@
 /**
  * Real libp2p DHT Client for Browser
- * 
+ *
  * No mocks - actual P2P networking with Kademlia DHT
  */
 
@@ -11,6 +11,7 @@ import { yamux } from '@chainsafe/libp2p-yamux';
 import { kadDHT } from '@libp2p/kad-dht';
 import { bootstrap } from '@libp2p/bootstrap';
 import type { Libp2p } from 'libp2p';
+import { checkQueryRate, checkAnnounceRate } from '../rateLimit.js';
 
 // Bootstrap peers (public libp2p relays)
 const BOOTSTRAP_PEERS = [
@@ -105,6 +106,19 @@ export class RealDHTClient {
       throw new Error('DHT not initialized');
     }
 
+    // Rate limit check
+    const peerId = this.getPeerId();
+    const rateCheck = checkAnnounceRate(peerId);
+    if (!rateCheck.allowed) {
+      const reason = rateCheck.blocked ? 'blocked' : 'rate limited';
+      console.warn('[DHT] Announce rejected:', reason, 'peer:', peerId);
+      throw new Error(
+        rateCheck.blocked 
+          ? `Announce blocked due to repeated violations. Try again in ${rateCheck.retryAfter}s`
+          : `Announce rate limit exceeded. Try again in ${rateCheck.retryAfter}s`
+      );
+    }
+
     const ttlToUse = ttl || this.config.announceTTL!;
     const expiresAt = Date.now() + ttlToUse * 1000;
 
@@ -132,9 +146,22 @@ export class RealDHTClient {
       throw new Error('DHT not initialized');
     }
 
+    // Rate limit check
+    const peerId = this.getPeerId();
+    const rateCheck = checkQueryRate(peerId);
+    if (!rateCheck.allowed) {
+      const reason = rateCheck.blocked ? 'blocked' : 'rate limited';
+      console.warn('[DHT] Query rejected:', reason, 'peer:', peerId);
+      throw new Error(
+        rateCheck.blocked 
+          ? `Query blocked due to repeated violations. Try again in ${rateCheck.retryAfter}s`
+          : `Query rate limit exceeded. Try again in ${rateCheck.retryAfter}s`
+      );
+    }
+
     try {
       const results: Uint8Array[] = [];
-      
+
       // Query DHT
       const keyBytes = new TextEncoder().encode(key);
       const result = await this.dht.get(keyBytes);

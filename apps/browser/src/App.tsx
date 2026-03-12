@@ -17,6 +17,7 @@ import { ComposeScreen } from './screens/Compose.js';
 import { DiscoverScreen } from './screens/Discover.js';
 import { ChatsScreen as ChatsScreenComponent } from './screens/Chats.js';
 import { SettingsScreen as SettingsScreenComponent } from './screens/Settings.js';
+import { Onboarding, isOnboardingComplete } from './screens/Onboarding.js';
 
 interface AppProps {
   onReady?: () => void;
@@ -33,6 +34,7 @@ export function App({ onReady }: AppProps) {
   });
   const [isDesktop, setIsDesktop] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [showOnboarding, setShowOnboarding] = useState(false);
 
   useEffect(() => {
     // Initialize offline-first features
@@ -41,6 +43,11 @@ export function App({ onReady }: AppProps) {
 
     initRouter();
     onReady?.();
+
+    // Check onboarding status
+    if (!isOnboardingComplete()) {
+      setShowOnboarding(true);
+    }
 
     channelManager.getAllChannels().then((chs) => {
       setChannels(chs);
@@ -171,6 +178,7 @@ export function App({ onReady }: AppProps) {
       {/* PWA Components */}
       {!isDesktop && <ConnectionStatusIndicator />}
       <PWAInstallPrompt />
+      {showOnboarding && <Onboarding onComplete={() => setShowOnboarding(false)} />}
     </div>
   );
 }

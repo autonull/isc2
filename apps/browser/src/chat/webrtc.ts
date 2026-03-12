@@ -6,9 +6,12 @@
 
 import type { Libp2p } from 'libp2p';
 import { fromString, toString } from 'uint8arrays';
+import { verifySignature, isPeerBlocked } from '../crypto/verifier.js';
+import { checkChatRate } from '../rateLimit.js';
 
 const PROTOCOL_CHAT = '/isc/chat/1.0';
 const MESSAGE_TIMEOUT = 10000; // 10 seconds for delivery confirmation
+const SIGNATURE_KEY_PREFIX = 'isc-pubkey-';
 
 export type MessageStatus = 'pending' | 'sent' | 'delivered' | 'failed';
 
@@ -19,6 +22,8 @@ export interface ChatMessage {
   sender: string;
   id?: string;
   status?: MessageStatus;
+  signature?: Uint8Array | string;
+  publicKey?: string;
 }
 
 export interface TypingIndicator {
@@ -94,6 +99,42 @@ export class RealChatHandler implements ChatHandler {
   }
 
   /**
+   * Get or cache public key for a peer
+   */
+  private async getPublicKey(peerId: string, publicKeyHex: string): Promise<CryptoKey> {
+    const cacheKey = SIGNATURE_KEY_PREFIX + peerId;
+    
+    // Try to get from localStorage cache
+    const cached = localStorage.getItem(cacheKey);
+    if (cached && cached === publicKeyHex) {
+      const keyData = this.hexToBytes(publicKeyHex);
+      return await this.importPublicKey(keyData);
+    }
+
+    // Import and cache new key
+    const keyData = this.hexToBytes(publicKeyHex);
+    const key = await this.importPublicKey(keyData);
+    localStorage.setItem(cacheKey, publicKeyHex);
+    return key;
+  }
+
+  private async importPublicKey(keyData: Uint8Array): Promise<CryptoKey> {
+    return await globalThis.crypto.subtle.importKey(
+      'raw',
+      keyData.buffer as ArrayBuffer,
+      { name: 'Ed25519' },
+      true,
+      ['verify']
+    );
+  }
+
+  private hexToBytes(hex: string): Uint8Array {
+    return Uint8Array.from({ length: hex.length / 2 }, (_, i) => 
+      parseInt(hex.slice(i * 2, i * 2 + 2), 16)
+    );
+  }
+
+  /**
    * Register this handler with libp2p node to receive incoming streams
    */
   registerWithNode(node: Libp2p): void {
@@ -156,6 +197,31 @@ export class RealChatHandler implements ChatHandler {
           const msg: ChatMessage = data;
           console.log('[Chat] Received:', msg);
 
+          // Verify signature if present
+          if (msg.signature && msg.publicKey) {
+            // Check if peer is blocked
+            if (isPeerBlocked(msg.sender)) {
+              console.warn('[Chat] Blocked peer message ignored:', msg.sender);
+              continue;
+            }
+
+            try {
+              // Get or create public key
+              let publicKey = await this.getPublicKey(msg.sender, msg.publicKey);
+              
+              // Verify signature
+              const result = await verifySignature(msg, publicKey, msg.sender);
+              
+              if (!result.valid) {
+                console.warn('[Chat] Invalid signature from:', msg.sender, result.reason);
+                continue; // Skip invalid messages
+              }
+            } catch (err) {
+              console.error('[Chat] Signature verification failed:', err);
+              // Still accept message but log warning
+            }
+          }
+
           if (this.onMessage) {
             this.onMessage(msg);
           }
@@ -173,6 +239,18 @@ export class RealChatHandler implements ChatHandler {
   }
 
   async sendMessage(peerId: string, message: ChatMessage, node: Libp2p): Promise<void> {
+    // Rate limit check
+    const rateCheck = checkChatRate(node.peerId.toString());
+    if (!rateCheck.allowed) {
+      const reason = rateCheck.blocked ? 'blocked' : 'rate limited';
+      console.warn('[Chat] Send rejected:', reason, 'peer:', node.peerId.toString());
+      throw new Error(
+        rateCheck.blocked 
+          ? `Chat blocked due to repeated violations. Try again in ${rateCheck.retryAfter}s`
+          : `Chat rate limit exceeded. Try again in ${rateCheck.retryAfter}s`
+      );
+    }
+
     const messageId = ++this.messageCounter;
     const messageWithId: ChatMessage = { ...message, id: String(messageId), status: 'pending' };
 
