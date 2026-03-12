@@ -15,6 +15,8 @@ import { FollowingScreen } from './screens/Following.js';
 import { VideoCallScreen } from './screens/VideoCalls.js';
 import { ComposeScreen } from './screens/Compose.js';
 import { DiscoverScreen } from './screens/Discover.js';
+import { ChatsScreen as ChatsScreenComponent } from './screens/Chats.js';
+import { SettingsScreen as SettingsScreenComponent } from './screens/Settings.js';
 
 interface AppProps {
   onReady?: () => void;
@@ -198,29 +200,11 @@ function Screen({ route }: { route: Route }) {
 }
 
 function ChatsScreen() {
-  return (
-    <div class="screen chats-screen">
-      <header class="screen-header">
-        <h1>Chats</h1>
-      </header>
-      <div class="screen-content">
-        <p>Your conversations</p>
-      </div>
-    </div>
-  );
+  return <ChatsScreenComponent />;
 }
 
 function SettingsScreen() {
-  return (
-    <div class="screen settings-screen">
-      <header class="screen-header">
-        <h1>Settings</h1>
-      </header>
-      <div class="screen-content">
-        <p>Configure your app</p>
-      </div>
-    </div>
-  );
+  return <SettingsScreenComponent />;
 }
 
 interface TabBarProps {
