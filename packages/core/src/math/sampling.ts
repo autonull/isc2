@@ -1,40 +1,19 @@
 import { seededRng } from './rng.js';
 import { normalize } from './cosine.js';
 
-/**
- * Samples n vectors from a multivariate normal distribution N(μ, σ²I).
- *
- * Each dimension is sampled independently from N(μᵢ, σ), then the
- * resulting vector is normalized to unit length.
- *
- * @param mu - Mean vector (μ)
- * @param sigma - Standard deviation (σ) for all dimensions
- * @param n - Number of samples to generate
- * @param rng - Optional custom RNG function (for deterministic tests)
- * @returns Array of n normalized sample vectors
- *
- * @example
- * ```typescript
- * const mu = [0.1, -0.2, 0.3, ...]; // 384-dim mean
- * const samples = sampleFromDistribution(mu, 0.1, 100);
- * // samples = [[...], [...], ...] (100 normalized vectors)
- * ```
- */
 export function sampleFromDistribution(
   mu: number[],
   sigma: number,
   n: number,
   rng?: () => number
 ): number[][] {
-  const random = rng || seededRng('default-sample-rng');
-  const samples: number[][] = [];
+  const random = rng ?? seededRng('default-sample-rng');
 
-  for (let s = 0; s < n; s++) {
-    const sample = new Array(mu.length);
+  return Array.from({ length: n }, () => {
+    const sample = new Array<number>(mu.length);
 
-    // Box-Muller transform for each dimension
     for (let i = 0; i < mu.length; i += 2) {
-      const u1 = random() || 1e-10; // Avoid log(0)
+      const u1 = random() ?? 1e-10;
       const u2 = random();
       const z0 = Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
       const z1 = Math.sqrt(-2 * Math.log(u1)) * Math.sin(2 * Math.PI * u2);
@@ -45,24 +24,14 @@ export function sampleFromDistribution(
       }
     }
 
-    // Normalize to unit vector
     try {
-      samples.push(normalize(sample));
+      return normalize(sample);
     } catch {
-      // If normalization fails (zero vector), use mu directly
-      samples.push(normalize(mu));
+      return normalize(mu);
     }
-  }
-
-  return samples;
+  });
 }
 
-/**
- * Computes the mean vector from a set of samples.
- *
- * @param samples - Array of vectors
- * @returns Mean vector
- */
 export function computeMean(samples: number[][]): number[] {
   if (samples.length === 0) {
     throw new Error('Cannot compute mean of empty sample set');
@@ -80,13 +49,6 @@ export function computeMean(samples: number[][]): number[] {
   return sum.map((v) => v / samples.length);
 }
 
-/**
- * Computes the standard deviation for each dimension.
- *
- * @param samples - Array of vectors
- * @param mean - Pre-computed mean vector
- * @returns Standard deviation vector
- */
 export function computeStdDev(samples: number[][], mean: number[]): number[] {
   if (samples.length === 0) {
     throw new Error('Cannot compute std dev of empty sample set');

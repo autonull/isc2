@@ -91,7 +91,6 @@ export function validatePassphraseStrength(passphrase: string): {
   else feedback.push('Use at least 8 characters');
 
   if (passphrase.length >= 12) score++;
-
   if (/[a-z]/.test(passphrase)) score++;
   else feedback.push('Add lowercase letters');
 
@@ -107,14 +106,10 @@ export function validatePassphraseStrength(passphrase: string): {
   return { score, feedback };
 }
 
-/**
- * Encrypt content using AES-GCM with a public key
- */
 export async function encrypt(content: string, publicKeyBytes: Uint8Array): Promise<Uint8Array> {
   const encoder = new TextEncoder();
   const data = encoder.encode(content);
 
-  // Import the public key
   const publicKey = await crypto.subtle.importKey(
     'raw',
     publicKeyBytes.buffer as ArrayBuffer,
@@ -130,20 +125,15 @@ export async function encrypt(content: string, publicKeyBytes: Uint8Array): Prom
     data.buffer as ArrayBuffer
   );
 
-  // Prepend IV to encrypted data
   const result = new Uint8Array(iv.length + encrypted.byteLength);
   result.set(iv);
   result.set(new Uint8Array(encrypted), iv.length);
   return result;
 }
 
-/**
- * Decrypt content using AES-GCM with a private key
- */
 export async function decrypt(encryptedData: Uint8Array, privateKeyBytes: Uint8Array): Promise<string> {
   const decoder = new TextDecoder();
 
-  // Import the private key
   const privateKey = await crypto.subtle.importKey(
     'raw',
     privateKeyBytes.buffer as ArrayBuffer,
@@ -152,7 +142,6 @@ export async function decrypt(encryptedData: Uint8Array, privateKeyBytes: Uint8A
     ['decrypt']
   );
 
-  // Extract IV and ciphertext
   const iv = encryptedData.slice(0, 12);
   const ciphertext = encryptedData.slice(12);
 

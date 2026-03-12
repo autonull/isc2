@@ -1,9 +1,3 @@
-/**
- * IndexedDB Helper Functions
- * 
- * Provides async/await wrappers for IndexedDB operations.
- */
-
 const DB_NAME = 'isc-social';
 const DB_VERSION = 1;
 
@@ -69,10 +63,7 @@ export async function dbGetAll<T>(store: string): Promise<T[]> {
   });
 }
 
-export async function dbPut<T>(
-  store: string,
-  value: T
-): Promise<void> {
+export async function dbPut<T>(store: string, value: T): Promise<void> {
   const database = await getDB();
   return new Promise((resolve, reject) => {
     const tx = database.transaction(store, 'readwrite');
@@ -92,10 +83,7 @@ export async function dbDelete(store: string, key: string): Promise<void> {
   });
 }
 
-export async function dbFilter<T>(
-  store: string,
-  predicate: (item: T) => boolean
-): Promise<T[]> {
+export async function dbFilter<T>(store: string, predicate: (item: T) => boolean): Promise<T[]> {
   const all = await dbGetAll<T>(store);
   return all.filter(predicate);
 }

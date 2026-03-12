@@ -17,6 +17,7 @@ export interface Relation {
   object?: string;
   weight?: number;
 }
+
 export interface Distribution {
   mu: number[];
   sigma: number;
@@ -74,6 +75,7 @@ export class DHTClient {
       keypair.privateKey,
       payload
     );
+
     const announcement: SignedAnnouncement = {
       peerID: this.getPeerId(),
       channelID: channel.id,
@@ -85,12 +87,13 @@ export class DHTClient {
     };
 
     const encoded = new TextEncoder().encode(JSON.stringify(announcement));
-    for (const hash of hashes)
+    for (const hash of hashes) {
       await this.config.network.announce(
         `/isc/announce/${this.config.modelHash}/${hash}`,
         encoded,
         announcement.ttl
       );
+    }
 
     this.activeChannels.add(channel.id);
     this.startAnnouncementLoop(channel, distributions);
@@ -108,10 +111,11 @@ export class DHTClient {
       for (const value of values) {
         try {
           const announcement = JSON.parse(new TextDecoder().decode(value)) as SignedAnnouncement;
-          if (await this.verifyAnnouncement(announcement))
+          if (await this.verifyAnnouncement(announcement)) {
             results.set(announcement.peerID + announcement.channelID, announcement);
+          }
         } catch {
-          /* skip invalid */
+          // skip invalid
         }
       }
     }
@@ -183,6 +187,7 @@ export class DHTClient {
   private getPeerId(): string {
     return (this.config.network as { getPeerId?: () => string }).getPeerId?.() ?? 'unknown';
   }
+
   private peerIdToBytes(peerId: string): Uint8Array {
     return Uint8Array.from({ length: 32 }, (_, i) => peerId.charCodeAt(i) || 0);
   }

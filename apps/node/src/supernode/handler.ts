@@ -207,12 +207,10 @@ export class SupernodeHandler {
   }
 
   getSuccessRate(): number {
-    if (this.metrics.totalRequests === 0) return 0;
-    return this.metrics.successfulRequests / this.metrics.totalRequests;
+    return this.metrics.totalRequests === 0 ? 0 : this.metrics.successfulRequests / this.metrics.totalRequests;
   }
 
   getAvgLatency(): number {
-    if (this.metrics.latencies.length === 0) return 0;
-    return this.metrics.latencies.reduce((a, b) => a + b, 0) / this.metrics.latencies.length;
+    return this.metrics.latencies.length === 0 ? 0 : this.metrics.latencies.reduce((a, b) => a + b, 0) / this.metrics.latencies.length;
   }
 }

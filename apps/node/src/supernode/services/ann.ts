@@ -17,7 +17,7 @@ export interface IndexStore {
 export class ANNService {
   private indexStore: IndexStore;
 
-  constructor(indexStore: IndexStore, _defaultK: number = 50) {
+  constructor(indexStore: IndexStore) {
     this.indexStore = indexStore;
   }
 
@@ -31,10 +31,7 @@ export class ANNService {
 
     const index = this.indexStore.get(req.modelHash);
     if (!index) {
-      const response: ANNQueryResponse = {
-        matches: [],
-        scores: [],
-      };
+      const response: ANNQueryResponse = { matches: [], scores: [] };
       return serializeServiceResponse('ann_query', response);
     }
 
