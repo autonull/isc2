@@ -1,525 +1,451 @@
 # ISC Architecture Documentation
 
-**Version**: 0.1.0  
-**Last Updated**: March 12, 2026
-
----
+> **System architecture and design decisions for ISC developers**
 
 ## Overview
 
-ISC (Internet Semantic Chat) is a decentralized, peer-to-peer social platform built on libp2p with semantic AI matching.
+ISC is a decentralized social platform built as a TypeScript monorepo. The architecture prioritizes:
+- **Browser-native**: All computation runs in the browser
+- **P2P networking**: libp2p for discovery and communication
+- **Semantic matching**: LLM embeddings for thought proximity
+- **Offline-first**: Works without network, syncs on reconnect
 
-### Core Principles
-
-1. **No servers** - Pure P2P via libp2p DHT
-2. **No accounts** - Cryptographic identity (Ed25519 keypairs)
-3. **Semantic matching** - Real AI embeddings (transformers.js)
-4. **Privacy-first** - Local storage, ephemeral by default
-5. **Progressive Enhancement** - Works on low-end devices
-
----
-
-## System Architecture
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│                        Browser (Preact)                      │
-│  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐   │
-│  │  Now     │  │ Discover │  │  Chats   │  │ Settings │   │
-│  │  Screen  │  │  Screen  │  │  Screen  │  │  Screen  │   │
-│  └────┬─────┘  └────┬─────┘  └────┬─────┘  └────┬─────┘   │
-│       │             │             │             │           │
-│  ┌────┴─────────────┴─────────────┴─────────────┴─────┐   │
-│  │              Application Layer                      │   │
-│  │  - Router  - State Mgmt  - Notifications           │   │
-│  └─────────────────────┬───────────────────────────────┘   │
-│                        │                                    │
-│  ┌─────────────────────┴───────────────────────────────┐   │
-│  │               Domain Layer                           │   │
-│  │  Channels  Chat  Video  Social  Crypto  Network     │   │
-│  └─────────────────────┬───────────────────────────────┘   │
-│                        │                                    │
-│  ┌─────────────────────┴───────────────────────────────┐   │
-│  │              Adapter Layer                           │   │
-│  │  Storage (IDB)  Model (Transformers)  Network (libp2p)│  │
-│  └───────────────────────────────────────────────────────┘   │
-└─────────────────────────────────────────────────────────────┘
-                              │
-         ┌────────────────────┼────────────────────┐
-         │                    │                    │
-    ┌────┴────┐         ┌────┴────┐         ┌────┴────┐
-    │  Peer 1 │         │  Peer 2 │         │  Peer 3 │
-    │ libp2p  │◄───────►│ libp2p  │◄───────►│ libp2p  │
-    │  DHT    │         │  DHT    │         │  DHT    │
-    └─────────┘  WebRTC └─────────┘  WebRTC └─────────┘
-```
-
----
-
-## Package Structure
+## Monorepo Structure
 
 ```
 isc2/
-├── apps/
-│   ├── browser/          # Preact web app (main client)
-│   ├── cli/              # Node.js CLI tool
-│   └── node/             # Node.js server (optional relay)
 ├── packages/
-│   ├── core/             # Shared types, crypto, utilities
-│   ├── protocol/         # Protocol definitions, constants
-│   └── adapters/         # Storage, network, model adapters
-└── docs/                 # Documentation
+│   ├── core/           # Environment-agnostic primitives
+│   ├── adapters/       # Browser/Node/CLI adapters
+│   └── protocol/       # P2P protocol handlers
+├── apps/
+│   ├── browser/        # PWA browser application
+│   ├── cli/            # Command-line interface
+│   └── node/           # Node.js application
+├── tests/
+│   ├── unit/           # Unit tests
+│   ├── e2e/            # End-to-end tests
+│   ├── integration/    # Integration tests
+│   └── benchmarks/     # Performance benchmarks
+└── docs/               # Documentation
 ```
 
----
+## Package Dependencies
 
-## Key Components
-
-### 1. Identity System (`apps/browser/src/identity/`)
-
-**Purpose**: Cryptographic identity management
-
-```typescript
-interface IdentityManager {
-  keypair: CryptoKeyPair | null;
-  publicKeyFingerprint: string | null;
-  isInitialized: boolean;
-}
+```
+@isc/core (no dependencies)
+    ↓
+@isc/adapters (depends on @isc/core)
+    ↓
+@isc/protocol (depends on @isc/core, @isc/adapters)
+    ↓
+apps/* (depend on all packages)
 ```
 
-**Features**:
-- Ed25519 keypair generation
-- Encrypted private key storage
-- Passphrase-based encryption (PBKDF2)
-- Peer ID derivation from public key
+## Core Architecture
 
-**Storage**: IndexedDB (`isc-identity`)
+### @isc/core
 
----
+Environment-agnostic primitives used across all platforms:
 
-### 2. Channel System (`apps/browser/src/channels/`)
+```
+src/
+├── crypto/           # Keypair, signing, encryption
+├── math/             # Cosine similarity, LSH, sampling
+├── semantic/         # Distribution computation, matching
+├── interop/          # AT Protocol, data portability
+├── config.ts         # Configuration management
+├── encoding.ts       # CBOR-like binary encoding
+├── errors.ts         # Error handling utilities
+├── types.ts          # TypeScript type definitions
+└── validators.ts     # Runtime validation
+```
 
-**Purpose**: Represent and manage thought channels
+**Key exports**:
+- `generateKeypair()`: Ed25519 keypair generation
+- `sign()`, `verify()`: Digital signatures
+- `cosineSimilarity()`: Vector similarity
+- `lshHash()`: Locality-sensitive hashing
+- `computeRelationalDistributions()`: Channel embeddings
+- `matchDistributions()`: Semantic matching
+
+### @isc/adapters
+
+Platform-specific implementations:
+
+```
+src/
+├── browser/
+│   ├── network.ts    # libp2p browser configuration
+│   ├── model.ts      # Embedding model adapter
+│   └── storage.ts    # IndexedDB helpers
+├── node/
+│   ├── network.ts    # libp2p node configuration
+│   └── storage.ts    # Filesystem storage
+└── shared/
+    └── utils.ts      # Cross-platform utilities
+```
+
+**Key abstractions**:
+- `DHTClient`: Unified DHT interface
+- `EmbeddingModelAdapter`: Model loading interface
+- `StorageAdapter`: Persistent storage interface
+
+### @isc/protocol
+
+P2P protocol handlers:
+
+```
+src/
+├── handlers/
+│   ├── chat.ts       # /isc/chat/1.0
+│   ├── announce.ts   # /isc/announce/1.0
+│   └── delegate.ts   # /isc/delegate/1.0
+├── constants.ts      # Protocol constants
+├── keys.ts           # DHT key schemas
+├── messages.ts       # Message type definitions
+└── rateLimit.ts      # Rate limiting
+```
+
+## Browser Application Architecture
+
+### Layered Architecture
+
+```
+┌─────────────────────────────────────────┐
+│           Screens (UI Layer)            │
+│  Now, Discover, Chats, Settings, etc.   │
+├─────────────────────────────────────────┤
+│         Components (Reusable UI)        │
+│  Feed, Post, MatchCard, VideoCallUI     │
+├─────────────────────────────────────────┤
+│         Domain Services (Logic)         │
+│  channels/, chat/, social/, video/      │
+├─────────────────────────────────────────┤
+│         Infrastructure (I/O)            │
+│  network/, db/, delegation/, crypto/    │
+├─────────────────────────────────────────┤
+│           Core Packages                 │
+│  @isc/core, @isc/adapters, @isc/protocol│
+└─────────────────────────────────────────┘
+```
+
+### Data Flow
+
+```
+User Action → Screen → Service → Infrastructure → Core → P2P Network
+                    ↓
+              localStorage/IndexedDB
+                    ↓
+              Cross-tab sync
+```
+
+### Key Services
+
+#### Channel Manager (`channels/manager.ts`)
+
+Manages channel CRUD operations:
+- Create, read, update, delete channels
+- Activate/deactivate channels
+- Announce to DHT on changes
+- Cross-tab synchronization
+
+#### Chat Handler (`chat/webrtc.ts`)
+
+Handles real-time messaging:
+- WebRTC connection management
+- Message signing and verification
+- Delivery acknowledgments
+- Typing indicators
+- Message notifications
+
+#### DHT Client (`network/dht.ts`)
+
+Manages P2P networking:
+- libp2p node initialization
+- DHT announcements and queries
+- Peer discovery
+- Rate limiting
+- Connection monitoring
+
+#### Delegation Client (`delegation/fallback.ts`)
+
+Handles supernode delegation:
+- Supernode discovery
+- Request encryption
+- Response verification
+- Fallback to local computation
+- Reputation tracking
+
+### State Management
+
+ISC uses a **lightweight state management** approach:
+
+1. **Component state**: `useState`, `useEffect` for local UI state
+2. **Service state**: Singleton services manage domain state
+3. **Persistent state**: localStorage/IndexedDB for durability
+4. **Cross-tab sync**: `storage` events for multi-tab consistency
+
+**No Redux/Zustand** — the app is small enough for direct state management.
+
+## Data Models
+
+### Channel
 
 ```typescript
 interface Channel {
-  id: string;
-  name: string;
-  description: string;
-  spread: number;        // Distribution spread (0.0-0.3)
-  relations: Relation[]; // Contextual relations
-  active: boolean;       // Currently announced to DHT
+  id: string;              // UUID
+  name: string;            // Display name
+  description: string;     // Semantic description
+  spread: number;          // Distribution fuzziness (0-0.3)
+  relations: Relation[];   // Contextual bindings (max 5)
+  active: boolean;         // Currently selected
+  createdAt: number;       // Unix timestamp
+  updatedAt: number;       // Unix timestamp
 }
 ```
 
-**Features**:
-- Local persistence (IndexedDB)
-- DHT announcement/withdrawal
-- Activation/deactivation
-- Forking and archiving
-
----
-
-### 3. Embedding Service (`apps/browser/src/channels/embedding.ts`)
-
-**Purpose**: Generate semantic embeddings for matching
+### Distribution
 
 ```typescript
-class EmbeddingService {
-  async load(modelId: string): Promise<void>;
-  async embed(text: string): Promise<number[]>;  // 384-dim vector
+interface Distribution {
+  type: 'root' | 'fused';
+  mu: number[];            // Mean vector (384-dim)
+  sigma: number;           // Standard deviation
+  tag?: string;            // Relation tag (for fused)
+  weight?: number;         // Relation weight (for fused)
 }
 ```
 
-**Implementation**:
-- Model: `Xenova/all-MiniLM-L6-v2` (via transformers.js)
-- Quantized for browser (~22MB download, ~200MB runtime)
-- Lazy loading with caching (5min TTL)
-- Fallback to SHA-256 stub if model fails
-
-**Usage**:
-```typescript
-const vector = await embeddingService.embed("AI ethics");
-// Returns: [0.023, -0.145, 0.892, ...] (384 floats)
-```
-
----
-
-### 4. DHT Client (`apps/browser/src/network/dht.ts`)
-
-**Purpose**: Distributed Hash Table for peer discovery
-
-```typescript
-class RealDHTClient {
-  announce(key: string, value: Uint8Array, ttl: number): Promise<void>;
-  query(key: string, count: number): Promise<Uint8Array[]>;
-}
-```
-
-**Protocol**:
-```
-/isc/announce/{modelHash}/{lshHash}
-```
-
-**Features**:
-- libp2p Kademlia DHT
-- LSH (Locality Sensitive Hashing) for proximity
-- Rate limiting (5 announces/min, 30 queries/min)
-- Signature verification on receive
-
----
-
-### 5. Chat Handler (`apps/browser/src/chat/webrtc.ts`)
-
-**Purpose**: Peer-to-peer messaging via WebRTC
+### Chat Message
 
 ```typescript
 interface ChatMessage {
-  channelID: string;
-  msg: string;
-  timestamp: number;
-  sender: string;
-  status?: 'pending' | 'sent' | 'delivered' | 'failed';
-  signature?: Uint8Array;
+  channelID: string;       // Associated channel
+  msg: string;             // Message content
+  timestamp: number;       // Unix timestamp
+  sender: 'me' | string;   // Sender identifier
+  id?: string;             // Local message ID
+  status?: MessageStatus;  // pending | sent | delivered | failed
 }
 ```
-
-**Flow**:
-1. Dial peer via libp2p (`/isc/chat/1.0`)
-2. Send message over stream
-3. Peer receives and verifies signature
-4. Peer sends acknowledgment
-5. Update status to "delivered"
-
-**Features**:
-- Delivery confirmations
-- Typing indicators (debounced, 2s cooldown)
-- Signature verification
-- Rate limiting (20 messages/hour)
-
----
-
-### 6. Video Call Handler (`apps/browser/src/video/handler.ts`)
-
-**Purpose**: WebRTC video calls
-
-```typescript
-interface VideoCall {
-  callID: string;
-  type: 'direct' | 'group';
-  participants: VideoParticipant[];
-  maxParticipants: number;
-}
-```
-
-**Features**:
-- Direct peer-to-peer WebRTC
-- Group calls via mesh topology
-- Screen sharing
-- Mute/video/screen controls
-- Permission error handling
-
----
-
-## Data Flow
-
-### Creating a Channel
-
-```
-User Input → Compose Screen → ChannelManager → IndexedDB
-                                      ↓
-                              EmbeddingService
-                                      ↓
-                              DHTClient.announce()
-                                      ↓
-                              libp2p DHT (multiple LSH buckets)
-```
-
-### Discovering Matches
-
-```
-Discover Screen → ChannelManager (get active channel)
-                        ↓
-              EmbeddingService.embed(description)
-                        ↓
-              LSH Hash (20 buckets)
-                        ↓
-              DHTClient.query() × 5 (parallel)
-                        ↓
-              Cosine Similarity Filter (≥0.55)
-                        ↓
-              Sorted Results → UI
-```
-
-### Sending a Chat Message
-
-```
-User Input → ChatsScreen → ChatHandler.sendMessage()
-                                ↓
-                        Rate Limit Check
-                                ↓
-                        Sign Message (Ed25519)
-                                ↓
-                        libp2p.dialProtocol()
-                                ↓
-                        WebRTC Stream → Peer
-                                ↓
-                        Peer Verifies Signature
-                                ↓
-                        Peer Sends Ack
-                                ↓
-                        Update Status → "delivered"
-```
-
----
 
 ## Security Architecture
 
-### 1. Cryptographic Identity
+### Cryptographic Primitives
 
-```
-┌─────────────────┐
-│  Ed25519 Keypair│
-└────────┬────────┘
-         │
-    ┌────┴────┐
-    │         │
-Private     Public
-Key         Key
-│           │
-│      ┌────┴────┐
-│      │  Peer   │
-│      │   ID    │
-│      └─────────┘
-│
-│  Encrypted with
-│  PBKDF2 + Passphrase
-│
-▼
-IndexedDB
-```
-
-### 2. Message Signing
+All cryptography uses Web Crypto API:
 
 ```typescript
-// Sign
-const payload = encode(message);
-const signature = await sign(payload, privateKey);
+// Keypair generation
+const keypair = await crypto.subtle.generateKey(
+  { name: 'Ed25519', namedCurve: 'Ed25519' },
+  true,
+  ['sign', 'verify']
+);
 
-// Verify
-const isValid = await verify(payload, signature, publicKey);
-```
+// Signing
+const signature = await crypto.subtle.sign(
+  'Ed25519',
+  privateKey,
+  encodedMessage
+);
 
-### 3. Rate Limiting
-
-| Action | Limit | Window | Consequence |
-|--------|-------|--------|-------------|
-| Announce | 5 | 1 min | Block after 3 violations |
-| Query | 30 | 1 min | Block after 3 violations |
-| Chat | 20 | 1 hour | Block after 3 violations |
-
-### 4. Content Sanitization
-
-```typescript
-// All user content sanitized before render
-const safe = sanitizeHTML(userContent);
-// Blocks: <script>, onclick, javascript:, etc.
-```
-
----
-
-## Performance Optimizations
-
-### 1. Embedding Cache
-
-```typescript
-// 5-minute TTL cache
-const cache = new Map<string, { vector: number[], timestamp: number }>();
-```
-
-### 2. LSH Bucket Parallelization
-
-```typescript
-// Query 5 buckets in parallel
-const results = await Promise.all(
-  hashes.slice(0, 5).map(hash => dht.query(key))
+// Verification
+const valid = await crypto.subtle.verify(
+  'Ed25519',
+  publicKey,
+  signature,
+  encodedMessage
 );
 ```
 
-### 3. Lazy Loading
+### Trust Model
+
+ISC operates in **Trusted Network Mode** (Phase 1):
+
+| Threat | Mitigation |
+|--------|------------|
+| Malicious peers | Signature verification, block/mute |
+| Spam | Rate limiting (5 announces/min) |
+| Sybil attacks | Social trust barrier |
+| NAT traversal | Circuit relay fallback |
+
+### Privacy Guarantees
+
+1. **No central data collection**: All data stored locally
+2. **Ephemeral announcements**: 5-minute TTL
+3. **E2E encryption**: WebRTC DTLS + Noise protocol
+4. **Minimal disclosure**: Only vectors announced, not raw text
+
+## Performance Optimizations
+
+### Bundle Size
+
+- **Lazy loading**: Transformers.js loaded on demand
+- **Code splitting**: Routes split into separate chunks
+- **Tree shaking**: Unused code eliminated
+- **Quantized models**: 22MB → 8MB with quantization
+
+### Caching Strategy
+
+| Layer | Data | TTL |
+|-------|------|-----|
+| L1 (Memory) | Active channels, recent matches | 30s |
+| L2 (IndexedDB) | All channels, conversations | Persistent |
+| L3 (DHT) | Network announcements | 5min |
+
+### Query Optimization
 
 ```typescript
-// Transformers.js loaded only when needed
-const { pipeline } = await import('@xenova/transformers');
+// Parallel LSH bucket queries
+const hashes = lshHash(vec, modelHash, 20, 32);
+const results = await Promise.all(
+  hashes.slice(0, 5).map(hash => dht.query(key(hash), 20))
+);
 ```
-
----
-
-## State Management
-
-### Local Storage Keys
-
-| Key | Purpose | Format |
-|-----|---------|--------|
-| `isc-identity` | Keypair storage | IndexedDB |
-| `isc-channels` | Channel data | IndexedDB |
-| `isc-conversations` | Chat list | localStorage |
-| `isc-messages-{peerId}` | Messages | localStorage |
-| `isc-settings` | User preferences | localStorage |
-
-### Cross-Tab Synchronization
-
-```typescript
-window.addEventListener('storage', (e) => {
-  if (e.key === 'isc-conversations') {
-    // Reload conversations
-  }
-});
-```
-
----
-
-## Network Topology
-
-```
-        ┌─────────┐
-        │  Relay  │ (Bootstrap peer)
-        └────┬────┘
-             │
-    ┌────────┼────────┐
-    │        │        │
-┌───┴───┐ ┌──┴──┐ ┌──┴──┐
-│Peer A │ │Peer B│ │Peer C│
-└───┬───┘ └──┬──┘ └──┬──┘
-    │        │       │
-    └────────┼───────┘
-         Direct P2P
-        (WebRTC)
-```
-
-**Bootstrap Peers**: Public libp2p relays for initial discovery
-
-**After Discovery**: Direct peer-to-peer communication
-
----
-
-## Error Handling
-
-### Graceful Degradation
-
-```typescript
-try {
-  vector = await embeddingService.embed(text);
-} catch {
-  // Fallback to stub embedding
-  vector = stubEmbed(text);
-}
-```
-
-### Retry Logic
-
-```typescript
-// Messages retry on failure
-if (status === 'failed') {
-  // Show retry button
-}
-```
-
-### Timeout Handling
-
-```typescript
-// 10-second delivery timeout
-const timeoutId = setTimeout(() => {
-  updateStatus('failed');
-}, MESSAGE_TIMEOUT);
-```
-
----
 
 ## Testing Strategy
 
-### Unit Tests (`tests/unit/`)
-- Crypto functions
-- Embedding service
-- Rate limiting
+### Test Pyramid
 
-### Integration Tests (`tests/integration/`)
-- DHT announce/query
-- Chat message flow
-- Channel lifecycle
+```
+        ╱╲
+       ╱  ╲      E2E Tests (Playwright)
+      ╱────╲
+     ╱      ╲    Integration Tests
+    ╱────────╲
+   ╱          ╲  Unit Tests (Vitest)
+  ╱────────────╲
+```
 
-### E2E Tests (`tests/e2e/`)
-- Complete user flows
-- Video call functionality
-- Cross-tab synchronization
+### Unit Tests
 
----
+- **Location**: `packages/*/tests/`, `apps/*/tests/`
+- **Framework**: Vitest
+- **Coverage**: Core logic, utilities, validators
+
+### E2E Tests
+
+- **Location**: `tests/e2e/`
+- **Framework**: Playwright
+- **Coverage**: Critical user flows
+
+### Integration Tests
+
+- **Location**: `tests/integration/`
+- **Focus**: P2P networking, DHT, delegation
 
 ## Deployment
 
-### PWA Configuration
+### Browser PWA
+
+Built with Vite, deployed as static files:
+
+```bash
+pnpm build
+# Output: apps/browser/dist/
+# Deploy to: GitHub Pages, Netlify, Vercel, IPFS
+```
+
+### PWA Features
+
+- **Service worker**: Offline caching
+- **Manifest**: Installable on all platforms
+- **Push notifications**: Browser-native notifications
+
+### Bootstrap Peers
+
+ISC requires bootstrap peers for initial discovery:
 
 ```typescript
-// vite-plugin-pwa
-{
-  workbox: {
-    globPatterns: ['**/*.{js,css,html,ico,png,svg}'],
-    runtimeCaching: [...]
-  }
-}
+const BOOTSTRAP_PEERS = [
+  '/dns4/relay.libp2p.io/tcp/443/wss/p2p/Qm...',
+  // Community-run relays
+];
 ```
 
-### Build Output
+## Development Workflow
 
-```
-dist/
-├── index.html           # Entry point
-├── manifest.webmanifest # PWA manifest
-├── sw.js                # Service worker
-└── assets/
-    ├── main-*.js        # App bundle (~660KB)
-    └── transformers-*.js # AI model (~823KB)
-```
+### Local Development
 
----
-
-## Future Enhancements
-
-### Planned
-- [ ] Onboarding flow for first-time users
-- [ ] Bundle size optimization (code splitting)
-- [ ] DHT query caching
-- [ ] Signature verification UI
-- [ ] Performance benchmarks
-
-### Under Consideration
-- [ ] Shamir's Secret Sharing for key backup
-- [ ] Ephemeral identities for sensitive conversations
-- [ ] IP protection via circuit relay
-- [ ] AT Protocol interop
-
----
-
-## Contributing
-
-See `docs/CONTRIBUTING.md` for guidelines.
-
-### Key Files to Know
-- `apps/browser/src/App.tsx` - Main app component
-- `apps/browser/src/router.ts` - Client-side routing
-- `packages/core/src/` - Shared utilities
-- `packages/adapters/src/browser/` - Browser-specific adapters
-
-### Development Setup
 ```bash
+# Install dependencies
 pnpm install
-pnpm dev:browser
+
+# Start dev server
+pnpm dev
+
+# Run tests
+pnpm test
+
+# Build for production
+pnpm build
+
+# Run E2E tests
+pnpm test:e2e
 ```
+
+### Code Style
+
+- **Linting**: ESLint with TypeScript
+- **Formatting**: Prettier
+- **Type checking**: TypeScript strict mode
+- **Git hooks**: Husky + lint-staged
+
+### Branch Strategy
+
+- `main`: Production-ready code
+- `develop`: Integration branch
+- `feature/*`: New features
+- `fix/*`: Bug fixes
+
+## Monitoring & Observability
+
+### Debug Logging
+
+Enable debug logging in Settings → Developer:
+
+```typescript
+console.log('[DHT] Announced:', key);
+console.log('[Chat] Received:', msg);
+console.log('[Embedding] Model loaded:', modelId);
+```
+
+### Metrics
+
+Track these metrics for performance monitoring:
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| Time-to-first-match | <15s | Discover tab load |
+| Message delivery latency | <2s | Send to ack |
+| Bundle size | <300KB | Build output |
+| Memory usage | <200MB | DevTools |
+
+## Future Architecture
+
+### Phase 2: Scale & Safety
+
+- **Reputation system**: Signed interaction history
+- **Relational embeddings**: Full compositional semantics
+- **Offline sync**: CRDT-based conflict resolution
+
+### Phase 3: Social Layer
+
+- **Posts & feeds**: DHT-stored social content
+- **Communities**: Shared channel distributions
+- **Audio spaces**: WebRTC mesh broadcasting
+
+### Phase 4: Ecosystem
+
+- **Mobile apps**: React Native / Flutter
+- **Protocol bridges**: AT Protocol, Nostr interop
+- **DAO governance**: Community-led upgrades
 
 ---
 
-## Support
-
-- **Issues**: GitHub Issues
-- **Discussions**: GitHub Discussions
-- **Documentation**: `docs/` folder
+**For more details, see:**
+- [PROTOCOL.md](../PROTOCOL.md) - P2P protocol specification
+- [SEMANTIC.md](../SEMANTIC.md) - Embedding model specification
+- [SECURITY.md](../SECURITY.md) - Threat model and security

@@ -182,10 +182,22 @@ export async function computeTrustScore(targetPeer: string): Promise<TrustScore>
 }
 
 export async function findTrustPaths(
-  _source: string,
-  _target: string,
-  _maxDepth: number = 3
+  source: string,
+  target: string,
+  maxDepth: number = 3
 ): Promise<TrustPath[]> {
+  // Edge case: source equals target
+  if (source === target) {
+    return [
+      {
+        source,
+        target,
+        hops: [],
+        depth: 0,
+        confidence: 1.0,
+      },
+    ];
+  }
   return [];
 }
 

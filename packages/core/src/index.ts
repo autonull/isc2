@@ -10,10 +10,13 @@
  * - Interoperability (AT Protocol, data portability)
  * - Configuration management
  * - Error handling utilities
+ * - Reputation system (Phase 2)
+ * - Stake signaling (Phase 2.2)
  */
 
 // Configuration
 export { Config } from './config.js';
+export * from './config/features.js';
 
 // Error handling
 export {
@@ -53,6 +56,15 @@ export * from './encoding.js';
 
 // Type definitions
 export * from './types.js';
+
+// Reputation system (Phase 2)
+export * from './reputation/index.js';
+
+// Stake signaling (Phase 2.2)
+export * from './stake/index.js';
+
+// Moderation courts (Phase 2.3)
+export * from './moderation/index.js';
 
 // Interoperability (Phase 9)
 export * from './interop/index.js';

@@ -1,46 +1,69 @@
-# ISC - Frequently Asked Questions
-
-**Version**: 0.1.0  
-**Last Updated**: March 12, 2026
-
----
+# ISC Frequently Asked Questions
 
 ## General Questions
 
 ### What is ISC?
 
-**ISC (Internet Semantic Chat)** is a decentralized, peer-to-peer social platform that connects you with people thinking similar thoughts. Unlike traditional social media:
+ISC (Internet Semantic Chat) is a fully decentralized, browser-only social platform that connects you with people thinking about similar concepts. Instead of matching by keywords or topics, ISC uses AI embeddings to understand the semantic meaning of your thoughts and finds people with proximal thinking — even if they use completely different words.
 
-- ❌ No accounts or signups
-- ❌ No central servers
-- ❌ No algorithms feeding you content
-- ❌ No tracking or data collection
-- ✅ Real semantic AI matching
-- ✅ Direct peer-to-peer communication
-- ✅ Complete privacy
+### How is ISC different from Twitter/X or other social networks?
+
+| Feature | Traditional Social Networks | ISC |
+|---------|---------------------------|-----|
+| **Identity** | Account-based with email/phone | Cryptographic keypair, no accounts |
+| **Discovery** | Algorithmic feed, keywords | Semantic similarity via embeddings |
+| **Storage** | Centralized servers | Your browser (localStorage/IndexedDB) |
+| **Privacy** | Data collection, ads | No tracking, no ads, E2E encrypted |
+| **Censorship** | Central moderation | Community-driven, opt-in filters |
+
+### Is ISC free?
+
+Yes, ISC is completely free and open source (MIT license). There are no premium features, no ads, and no data collection.
+
+### Do I need to create an account?
+
+No. ISC uses cryptographic keypairs generated locally in your browser. Your "identity" is your public key — no email, password, or phone number required.
 
 ---
+
+## Technical Questions
 
 ### How does semantic matching work?
 
-ISC uses **real AI embeddings** (specifically the `all-MiniLM-L6-v2` model) to understand the *meaning* of your thoughts, not just keywords.
+1. **Embedding**: Your channel description is converted to a 384-dimensional vector using a local AI model
+2. **LSH Hashing**: The vector is hashed using Locality-Sensitive Hashing for efficient lookup
+3. **DHT Query**: The hash is used to query the distributed hash table for similar vectors
+4. **Similarity Ranking**: Results are ranked by cosine similarity to find the closest matches
 
-**Example**:
-- Your thought: "AI ethics and machine learning morality"
-- Match: "Ethical implications of autonomous AI systems"
-- Result: **High similarity** (even with different words!)
+### What AI model does ISC use?
 
-The AI model runs entirely in your browser—no API calls, no data sent to servers.
+ISC uses `Xenova/all-MiniLM-L6-v2`, a sentence-transformers model that:
+- Runs entirely in your browser via WebAssembly
+- Produces 384-dimensional embeddings
+- Is quantized for efficiency (~22MB download)
+- Works offline after initial load
 
----
+### Where is my data stored?
 
-### Is ISC really free?
+All data is stored locally in your browser:
+- **Identity**: IndexedDB (optionally encrypted with passphrase)
+- **Channels**: IndexedDB
+- **Messages**: localStorage
+- **Settings**: localStorage
 
-**Yes, 100% free.** ISC is open-source software (MIT license) with:
-- No premium features
-- No subscriptions
-- No ads
-- No hidden costs
+Nothing is stored on central servers.
+
+### How does peer-to-peer communication work?
+
+ISC uses libp2p for P2P networking:
+1. **Discovery**: Kademlia DHT for peer discovery
+2. **Connection**: WebRTC for direct browser-to-browser connections
+3. **Encryption**: Noise protocol + DTLS for E2E encryption
+4. **Fallback**: Circuit relays for NAT traversal
+
+### What happens if the other person goes offline?
+
+Messages are queued locally and delivered when the peer reconnects. If they don't reconnect within the TTL (time-to-live), the message expires naturally.
 
 ---
 
@@ -48,337 +71,213 @@ The AI model runs entirely in your browser—no API calls, no data sent to serve
 
 ### Is my data private?
 
-**Yes.** ISC is designed with privacy as a core principle:
+Yes. ISC provides strong privacy guarantees:
+- No central servers collecting data
+- All embeddings computed locally
+- E2E encrypted chat via WebRTC
+- Ephemeral announcements (5-minute TTL)
+- No persistent profiles
 
-1. **No accounts** - No email, phone, or personal info required
-2. **Local identity** - Cryptographic keypair generated on your device
-3. **P2P communication** - Messages go directly peer-to-peer via WebRTC
-4. **No servers** - DHT (Distributed Hash Table) for discovery only
-5. **Ephemeral by default** - Messages don't persist indefinitely
+### Can someone trace messages back to me?
 
----
+Your cryptographic identity (public key) is visible to peers you interact with, but:
+- It's not linked to any real-world identity
+- It changes if you clear your browser data
+- Messages are not stored on any server
 
-### What data is stored?
+### What information is announced to the DHT?
 
-**Locally on your device**:
-- Your cryptographic identity (keypair)
-- Channels you create
-- Chat conversations (until cleared)
-- Cached AI model (~200MB)
+Only the following is announced:
+- Your peer ID (cryptographic identity)
+- Channel embedding vector (not the raw text)
+- Model version used
+- Timestamp and TTL
 
-**Not stored anywhere**:
-- Your personal information
-- Browsing history
-- Message metadata
-- IP addresses (beyond what's needed for P2P)
+The raw text of your channel description is **never** broadcast.
 
----
+### Can I be doxxed through ISC?
 
-### Can someone impersonate me?
+Risk is minimal if you follow best practices:
+- Don't include identifying information in channel descriptions
+- Be careful with location relations
+- Use the block/mute features if needed
+- Clear browser data to generate new identity
 
-**No.** Your identity is a cryptographic keypair:
-- Private key never leaves your device
-- All messages are signed with your key
-- Peers verify signatures before accepting messages
-- Impersonation is cryptographically infeasible
+### Is the code open source?
 
----
-
-### Is ISC secure?
-
-**Yes.** Security features include:
-
-1. **Signature verification** - All incoming data is verified
-2. **XSS protection** - User content is sanitized (DOMPurify)
-3. **Rate limiting** - Prevents spam and DoS attacks
-4. **Peer blocking** - Abusive peers are automatically blocked
-5. **Encrypted transport** - libp2p uses Noise protocol
-
----
-
-## Technical Questions
-
-### What browsers are supported?
-
-**Recommended**:
-- Chrome 90+
-- Firefox 88+
-- Edge 90+
-- Safari 15+
-
-**Required features**:
-- WebRTC (for peer-to-peer chat)
-- IndexedDB (for local storage)
-- Web Crypto API (for cryptography)
-- Service Workers (for PWA features)
-
----
-
-### Does ISC work offline?
-
-**Partially.** You can:
-- ✅ View cached channels and conversations
-- ✅ Create new channels (saved locally)
-- ❌ Discover new matches (requires DHT)
-- ❌ Send/receive messages (requires P2P connection)
-
-When you reconnect, your channels re-announce automatically.
-
----
-
-### How much data does ISC use?
-
-**Initial load**: ~1MB (app) + ~22MB (AI model, first time only)
-
-**Ongoing usage** (per hour of active use):
-- DHT queries: ~100KB
-- Chat messages: ~50KB (text only)
-- Video calls: ~500MB (varies by quality)
-
-**Data Saver mode** reduces AI model quality for slower connections.
-
----
-
-### Where are the bootstrap peers?
-
-ISC connects to public libp2p relay nodes:
-- `/dns4/relay.libp2p.io/tcp/443/wss/p2p/...`
-
-These are used only for initial peer discovery. After that, communication is direct peer-to-peer.
-
----
-
-### Can I self-host bootstrap peers?
-
-**Yes!** ISC uses standard libp2p protocols. To run your own bootstrap node:
-
-```bash
-# Example libp2p relay setup
-docker run -p 4001:4001 libp2p/relay
-```
-
-Then configure in `apps/browser/src/network/dht.ts`.
+Yes, ISC is fully open source under the MIT license. You can audit the code at any time.
 
 ---
 
 ## Usage Questions
 
-### How do I create a channel?
+### Why am I not finding any matches?
 
-1. Click **Compose** (➕)
-2. Enter a name and detailed description
-3. Adjust specificity if needed
-4. Add optional context (location, time, etc.)
-5. Click **Save**
+Possible reasons:
+1. **No peers online**: ISC is early-stage; try different times
+2. **Generic description**: Be more specific about your thinking
+3. **Model mismatch**: Ensure you're using the default model
+4. **Network issues**: Check your connection, refresh the page
 
-Your channel is now active and announced to the DHT!
+### How do I create multiple channels?
 
----
+1. Go to the **Compose** tab
+2. Create a new channel with a different name
+3. Switch between channels using the channel header (desktop) or channel switcher (mobile)
 
-### Why aren't I finding matches?
+Each channel maintains independent matches and conversations.
 
-**Common reasons**:
-1. **New network** - Few peers online currently
-2. **Vague description** - Be more specific and detailed
-3. **Niche topic** - Try broader terms
-4. **Offline** - Check your connection
+### Can I edit my channel after creating it?
 
-**Solutions**:
-- Edit your channel with a richer description
-- Try different specificity levels
-- Come back when more users are online
-- Share ISC with friends!
+Yes. Go to **Compose**, select the channel you want to edit, modify the description or relations, and save. The new embedding will be announced to the DHT within seconds.
 
----
+### How do I block someone?
 
-### How do I start a chat?
+1. Open the chat with the person
+2. Click the menu (⋮) in the chat header
+3. Select **Block User**
 
-1. Go to **Discover** tab
-2. Find a match with good similarity
-3. Click **Start Chat**
-4. Send a greeting: "Hey, our thoughts are proximal!"
-5. Wait for their response (they may be offline)
+Blocked users cannot message you or appear in your match results.
 
----
+### Can I use ISC offline?
 
-### What do the message status icons mean?
+Yes! ISC is offline-first:
+- Create channels offline
+- Draft messages offline
+- View cached matches and conversations
+- Actions sync automatically when you reconnect
 
-| Icon | Status | Meaning |
-|------|--------|---------|
-| ⏳ | Pending | Message is being sent |
-| ✓ | Sent | Delivered to network |
-| ✓✓ | Delivered | Received by peer (green) |
-| ⚠️ | Failed | Delivery failed, retry |
+### What are "relations" in channels?
 
----
+Relations add contextual binding to your channel:
+- `in_location`: Geographic or virtual location
+- `during_time`: Temporal context
+- `with_mood`: Emotional or tonal context
+- `under_domain`: Subject area or discipline
+- `causes_effect`: Causal relationships
+- And 5 more relation types
 
-### Can I delete my messages?
-
-**Yes and no**:
-- You can clear your local data (Settings → Data → Clear All)
-- But P2P means the other person may have a copy
-- Ephemeral mode auto-deletes after TTL (configurable)
+Relations create "fused distributions" that enable more nuanced matching.
 
 ---
+
+## Video Calls
 
 ### How do video calls work?
 
-Video calls use **WebRTC** for direct peer-to-peer video:
+Video calls use WebRTC for direct browser-to-browser video:
+1. **Signaling**: Call invitations via DHT
+2. **Connection**: Direct WebRTC peer connection
+3. **Media**: Encrypted video/audio streams
+4. **Controls**: Mute, video toggle, screen sharing
 
-1. Create a call from Video tab
-2. Send invitation to peer (direct or group)
-3. Peer accepts
-4. WebRTC establishes direct connection
-5. Video/audio streams directly between peers
+### Why is my video not working?
 
-**No servers relay your video!**
+Common issues:
+- **Permissions**: Grant camera/microphone access in browser
+- **In use**: Another app may be using the camera
+- **Hardware**: Check if camera is connected and working
+- **Browser**: Try a different browser (Chrome recommended)
+
+### How many people can join a video call?
+
+Maximum 8 participants per call. For larger groups, consider creating a community audio space.
+
+### Is video call quality adjustable?
+
+Yes. Go to **Settings** → **Video** and select:
+- **Low**: 480p, 15fps (best for slow connections)
+- **Medium**: 720p, 30fps (default)
+- **High**: 1080p, 30fps (best quality, more bandwidth)
 
 ---
 
 ## Troubleshooting
 
-### "Model loading takes forever"
+### The app won't load
 
-**First-time download**: The AI model is ~22MB and downloads on first use.
+1. Clear browser cache: `Ctrl+Shift+Delete` → Clear cache
+2. Try incognito/private mode
+3. Check browser console for errors (`F12`)
+4. Ensure JavaScript is enabled
+5. Try a different browser
 
-**Solutions**:
-- Wait (should complete in <30s on broadband)
-- Check your connection
-- Subsequent loads use cache (<3s)
+### Messages aren't sending
 
----
-
-### "Camera/microphone permission denied"
-
-**Browser blocked access**:
-
-**Fix**:
-1. Click the 🔒 icon in address bar
-2. Site settings → Camera/Microphone → Allow
+1. Check network connection
+2. Verify peer is still online
 3. Refresh the page
+4. Check browser console for errors
 
-**Still not working?**
-- Close other apps using camera
-- Check OS-level permissions
-- Try a different browser
+### Matches aren't appearing
 
----
+1. Create a more specific channel description
+2. Wait a few minutes for DHT propagation
+3. Refresh the Discover tab
+4. Check if DHT is connected (Settings → Network)
 
-### "Messages not sending"
+### Video calls fail to connect
 
-**Possible causes**:
-- Peer is offline
-- Network connection lost
-- Rate limit exceeded
+1. Grant camera/microphone permissions
+2. Check firewall settings (WebRTC ports)
+3. Try with a different peer
+4. Check browser console for WebRTC errors
 
-**Solutions**:
-- Check your connection
-- Wait a few minutes (rate limits reset)
-- Try refreshing the page
+### The app is slow
 
----
-
-### "App crashes/freezes"
-
-**Try these**:
-1. Refresh the page
-2. Clear browser cache
-3. Try a different browser
-4. Check console for errors (F12)
-
-**Still broken?** Report a bug on GitHub!
+1. Close unused channels
+2. Clear message history (Settings → Data)
+3. Lower video quality (Settings → Video)
+4. Reduce number of open tabs
 
 ---
 
-## Account & Identity
+## Development Questions
 
-### I lost my identity. Can I recover it?
+### How can I contribute?
 
-**No.** Your identity is stored locally:
-- If you clear browser data, it's gone
-- No account = no recovery
-- This is by design for privacy
+ISC is open source! Ways to contribute:
+- **Code**: Submit PRs on GitHub
+- **Documentation**: Improve docs
+- **Testing**: Report bugs, write tests
+- **Community**: Help other users
 
-**Tip**: Export your data regularly (Settings → Data → Export).
+### Can I self-host ISC?
 
----
+Yes! ISC can be deployed anywhere static files are served:
+- GitHub Pages
+- Netlify
+- Vercel
+- IPFS
+- Your own server
 
-### Can I have multiple identities?
+See `docs/DEPLOYMENT.md` for deployment instructions.
 
-**Yes!** Clear your data and start fresh, or:
-- Use different browsers
-- Use incognito/private mode
-- Use browser profiles
+### How do I run a supernode?
 
----
+Supernodes assist low-power devices with computation:
+1. Have a high-tier device (4+ cores, 4+ GB RAM)
+2. Run the browser app with `?supernode=true`
+3. Keep the tab open to advertise capabilities
+4. Earn reputation for helping peers
 
-### Can I change my peer ID?
+### What's the roadmap?
 
-**No.** Your peer ID is derived from your cryptographic keypair. To get a new one:
-1. Clear all data
-2. Reload the app
-3. New keypair is generated
-
----
-
-## Development
-
-### Is ISC open-source?
-
-**Yes!** MIT license. Find us on GitHub.
-
-### Can I contribute?
-
-**Absolutely!** We welcome:
-- Bug reports
-- Feature requests
-- Code contributions
-- Documentation improvements
-
-See `docs/CONTRIBUTING.md` for guidelines.
-
----
-
-### How do I run ISC locally?
-
-```bash
-# Clone the repo
-git clone https://github.com/your-org/isc2.git
-cd isc2
-
-# Install dependencies
-pnpm install
-
-# Run development server
-pnpm dev:browser
-
-# Open http://localhost:5173
-```
-
-See `README.md` for full setup instructions.
-
----
-
-## Legal
-
-### What license is ISC under?
-
-**MIT License** - Free to use, modify, and distribute.
-
-### Who is responsible for user content?
-
-**No one.** ISC is a protocol, not a platform:
-- No central server hosts content
-- Users are responsible for their own content
-- Content is ephemeral and peer-to-peer
+See [ROADMAP.md](../ROADMAP.md) for the complete development timeline:
+- **Phase 1** (Q1-Q2 2026): Core reliability
+- **Phase 2** (Q3-Q4 2026): Scale & safety
+- **Phase 3** (2027): Social layer
+- **Phase 4** (2028+): Ecosystem
 
 ---
 
 ## Still Have Questions?
 
-Check out:
-- `GETTING_STARTED.md` - User guide
-- `docs/ARCHITECTURE.md` - Technical details
-- `docs/CONTRIBUTING.md` - How to contribute
+- **Documentation**: Browse [docs/](../docs/)
+- **Issues**: Report bugs on GitHub
+- **Discussions**: Ask questions in GitHub Discussions
+- **Security**: Report vulnerabilities via security@isc.example
 
-Or reach out via GitHub issues!
+---
+
+**ISC routes by semantic geometry, not topic labels.**
