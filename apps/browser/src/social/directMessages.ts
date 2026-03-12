@@ -9,8 +9,28 @@ import { sign, encode, decode, encrypt, decrypt } from '@isc/core';
 import type { Signature } from '@isc/core';
 import { getPeerID, getKeypair, getPeerPublicKey, getPublicKey } from '../identity/index.js';
 import { DelegationClient } from '../delegation/fallback.js';
+import { openDB, dbGet, dbGetAll, dbPut, dbDelete } from '@isc/adapters';
 
-const DEFAULT_TTL = 86400 * 30; // 30 days
+const DEFAULT_TTL = 86400 * 30;
+const DB_NAME = 'isc-dms';
+const DB_VERSION = 1;
+
+let dmDb: IDBDatabase | null = null;
+
+async function getDMDB(): Promise<IDBDatabase> {
+  if (dmDb) return dmDb;
+
+  dmDb = await openDB(DB_NAME, DB_VERSION, (db, _event) => {
+    if (!db.objectStoreNames.contains('dms')) {
+      db.createObjectStore('dms', { keyPath: 'id' });
+    }
+    if (!db.objectStoreNames.contains('group_dms')) {
+      db.createObjectStore('group_dms', { keyPath: 'groupID' });
+    }
+  });
+
+  return dmDb;
+}
 
 /**
  * Direct message structure
@@ -219,21 +239,15 @@ export async function leaveGroupDM(groupID: string): Promise<void> {
 export async function getDMs(peerID: string, limit: number = 50): Promise<DirectMessage[]> {
   const myID = await getPeerID();
   const db = await getDMDB();
+  const all = await dbGetAll<DirectMessage>(db, 'dms');
 
-  return new Promise((resolve) => {
-    const req = db.transaction('dms', 'readonly').objectStore('dms').getAll();
-    req.onsuccess = () => {
-      const all = req.result || [];
-      const conversation = all.filter(
-        (dm: DirectMessage) =>
-          (dm.sender === myID && dm.recipient === peerID) ||
-          (dm.sender === peerID && dm.recipient === myID)
-      );
-      conversation.sort((a: DirectMessage, b: DirectMessage) => b.timestamp - a.timestamp);
-      resolve(conversation.slice(0, limit));
-    };
-    req.onerror = () => resolve([]);
-  });
+  const conversation = all.filter(
+    (dm) =>
+      (dm.sender === myID && dm.recipient === peerID) ||
+      (dm.sender === peerID && dm.recipient === myID)
+  );
+  conversation.sort((a, b) => b.timestamp - a.timestamp);
+  return conversation.slice(0, limit);
 }
 
 /**
@@ -244,40 +258,32 @@ export async function getConversations(): Promise<
 > {
   const myID = await getPeerID();
   const db = await getDMDB();
+  const all = await dbGetAll<DirectMessage>(db, 'dms');
 
-  return new Promise((resolve) => {
-    const req = db.transaction('dms', 'readonly').objectStore('dms').getAll();
-    req.onsuccess = () => {
-      const all = req.result || [];
-      const peerMessages = new Map<string, DirectMessage[]>();
-      for (const dm of all) {
-        if (!dm.groupID) {
-          const peer = dm.sender === myID ? dm.recipient : dm.sender;
-          if (!peerMessages.has(peer)) {
-            peerMessages.set(peer, []);
-          }
-          peerMessages.get(peer)!.push(dm);
-        }
+  const peerMessages = new Map<string, DirectMessage[]>();
+  for (const dm of all) {
+    if (!dm.groupID) {
+      const peer = dm.sender === myID ? dm.recipient : dm.sender;
+      if (!peerMessages.has(peer)) {
+        peerMessages.set(peer, []);
       }
+      peerMessages.get(peer)!.push(dm);
+    }
+  }
 
-      const conversations = Array.from(peerMessages.entries()).map(([peerID, messages]) => {
-        messages.sort((a, b) => b.timestamp - a.timestamp);
-        const unread = messages.filter(
-          (dm) => dm.sender === peerID && !dm.read
-        ).length;
+  const conversations = Array.from(peerMessages.entries()).map(([peerID, messages]) => {
+    messages.sort((a, b) => b.timestamp - a.timestamp);
+    const unread = messages.filter((dm) => dm.sender === peerID && !dm.read).length;
 
-        return {
-          peerID,
-          lastMessage: messages[0],
-          unread,
-        };
-      });
-
-      conversations.sort((a, b) => b.lastMessage.timestamp - a.lastMessage.timestamp);
-      resolve(conversations);
+    return {
+      peerID,
+      lastMessage: messages[0],
+      unread,
     };
-    req.onerror = () => resolve([]);
   });
+
+  conversations.sort((a, b) => b.lastMessage.timestamp - a.lastMessage.timestamp);
+  return conversations;
 }
 
 /**
@@ -286,15 +292,8 @@ export async function getConversations(): Promise<
 export async function getGroupDMs(): Promise<GroupDM[]> {
   const myID = await getPeerID();
   const db = await getDMDB();
-
-  return new Promise((resolve) => {
-    const req = db.transaction('group_dms', 'readonly').objectStore('group_dms').getAll();
-    req.onsuccess = () => {
-      const all = req.result || [];
-      resolve(all.filter((g: GroupDM) => g.members.includes(myID)));
-    };
-    req.onerror = () => resolve([]);
-  });
+  const all = await dbGetAll<GroupDM>(db, 'group_dms');
+  return all.filter((g) => g.members.includes(myID));
 }
 
 /**
@@ -302,11 +301,7 @@ export async function getGroupDMs(): Promise<GroupDM[]> {
  */
 export async function getGroupDM(groupID: string): Promise<GroupDM | null> {
   const db = await getDMDB();
-  return new Promise((resolve) => {
-    const req = db.transaction('group_dms', 'readonly').objectStore('group_dms').get(groupID);
-    req.onsuccess = () => resolve(req.result || null);
-    req.onerror = () => resolve(null);
-  });
+  return dbGet<GroupDM>(db, 'group_dms', groupID);
 }
 
 /**
@@ -325,21 +320,11 @@ export async function decryptDM(dm: DirectMessage): Promise<string> {
  */
 export async function markAsRead(dmID: string): Promise<void> {
   const db = await getDMDB();
-  return new Promise((resolve, reject) => {
-    const req = db.transaction('dms', 'readonly').objectStore('dms').get(dmID);
-    req.onsuccess = () => {
-      const dm = req.result;
-      if (dm) {
-        dm.read = true;
-        const putReq = db.transaction('dms', 'readwrite').objectStore('dms').put(dm);
-        putReq.onsuccess = () => resolve();
-        putReq.onerror = () => reject(putReq.error);
-      } else {
-        resolve();
-      }
-    };
-    req.onerror = () => reject(req.error);
-  });
+  const dm = await dbGet<DirectMessage>(db, 'dms', dmID);
+  if (dm) {
+    dm.read = true;
+    await dbPut(db, 'dms', dm);
+  }
 }
 
 /**
@@ -348,33 +333,14 @@ export async function markAsRead(dmID: string): Promise<void> {
 export async function markAllAsRead(peerID: string): Promise<void> {
   const myID = await getPeerID();
   const db = await getDMDB();
+  const all = await dbGetAll<DirectMessage>(db, 'dms');
 
-  return new Promise((resolve, reject) => {
-    const req = db.transaction('dms', 'readonly').objectStore('dms').getAll();
-    req.onsuccess = () => {
-      const all = req.result || [];
-      const tx = db.transaction('dms', 'readwrite');
-      const store = tx.objectStore('dms');
-      
-      let completed = 0;
-      for (const dm of all) {
-        if (dm.sender === peerID && dm.recipient === myID && !dm.read) {
-          dm.read = true;
-          const putReq = store.put(dm);
-          putReq.onsuccess = () => {
-            completed++;
-            if (completed >= all.filter((d: DirectMessage) => d.sender === peerID && d.recipient === myID && !d.read).length) {
-              resolve();
-            }
-          };
-        } else {
-          completed++;
-        }
-      }
-      if (completed >= all.length) resolve();
-    };
-    req.onerror = () => reject(req.error);
-  });
+  for (const dm of all) {
+    if (dm.sender === peerID && dm.recipient === myID && !dm.read) {
+      dm.read = true;
+      await dbPut(db, 'dms', dm);
+    }
+  }
 }
 
 /**
@@ -383,18 +349,8 @@ export async function markAllAsRead(peerID: string): Promise<void> {
 export async function getUnreadCount(peerID: string): Promise<number> {
   const myID = await getPeerID();
   const db = await getDMDB();
-
-  return new Promise((resolve) => {
-    const req = db.transaction('dms', 'readonly').objectStore('dms').getAll();
-    req.onsuccess = () => {
-      const all = req.result || [];
-      const count = all.filter(
-        (dm: DirectMessage) => dm.sender === peerID && dm.recipient === myID && !dm.read
-      ).length;
-      resolve(count);
-    };
-    req.onerror = () => resolve(0);
-  });
+  const all = await dbGetAll<DirectMessage>(db, 'dms');
+  return all.filter((dm) => dm.sender === peerID && dm.recipient === myID && !dm.read).length;
 }
 
 /**
@@ -402,11 +358,7 @@ export async function getUnreadCount(peerID: string): Promise<number> {
  */
 export async function deleteDM(dmID: string): Promise<void> {
   const db = await getDMDB();
-  return new Promise((resolve, reject) => {
-    const req = db.transaction('dms', 'readwrite').objectStore('dms').delete(dmID);
-    req.onsuccess = () => resolve();
-    req.onerror = () => reject(req.error);
-  });
+  await dbDelete(db, 'dms', dmID);
 }
 
 // ============================================================================
@@ -415,20 +367,12 @@ export async function deleteDM(dmID: string): Promise<void> {
 
 async function storeDM(dm: DirectMessage): Promise<void> {
   const db = await getDMDB();
-  return new Promise((resolve, reject) => {
-    const req = db.transaction('dms', 'readwrite').objectStore('dms').put(dm);
-    req.onsuccess = () => resolve();
-    req.onerror = () => reject(req.error);
-  });
+  await dbPut(db, 'dms', dm);
 }
 
 async function storeGroupDM(group: GroupDM): Promise<void> {
   const db = await getDMDB();
-  return new Promise((resolve, reject) => {
-    const req = db.transaction('group_dms', 'readwrite').objectStore('group_dms').put(group);
-    req.onsuccess = () => resolve();
-    req.onerror = () => reject(req.error);
-  });
+  await dbPut(db, 'group_dms', group);
 }
 
 async function deliverDM(dm: DirectMessage): Promise<void> {
@@ -459,22 +403,4 @@ async function notifyGroupEvent(
     const key = `/isc/group_dm/${memberID}/${group.groupID}`;
     await client.announce(key, encode(event), DEFAULT_TTL);
   }
-}
-
-async function getDMDB(): Promise<IDBDatabase> {
-  return new Promise((resolve, reject) => {
-    const request = indexedDB.open('isc-dms', 1);
-    request.onerror = () => reject(request.error);
-    request.onsuccess = () => resolve(request.result);
-    request.onupgradeneeded = (event) => {
-      const db = (event.target as IDBOpenDBRequest).result;
-
-      if (!db.objectStoreNames.contains('dms')) {
-        db.createObjectStore('dms', { keyPath: 'id' });
-      }
-      if (!db.objectStoreNames.contains('group_dms')) {
-        db.createObjectStore('group_dms', { keyPath: 'groupID' });
-      }
-    };
-  });
 }

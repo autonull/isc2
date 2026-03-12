@@ -1,4 +1,4 @@
-import { sign, encode, cosineSimilarity } from '@isc/core';
+import { sign, encode, cosineSimilarity, Config, Validators } from '@isc/core';
 import type { FollowSubscription, ProfileSummary } from './types.js';
 import { getPeerID, getKeypair, getPeerPublicKey } from '../identity/index.js';
 import { DelegationClient } from '../delegation/fallback.js';
@@ -8,16 +8,6 @@ const FOLLOWS_STORE = 'follows';
 const INTERACTIONS_STORE = 'interactions';
 const PROFILES_STORE = 'profiles';
 const DEFAULT_TTL = 86400 * 30;
-const DEFAULT_HALF_LIFE_DAYS = 30;
-
-const INTERACTION_WEIGHTS: Record<string, number> = {
-  follow: 5,
-  like: 1,
-  repost: 3,
-  reply: 2,
-  quote: 2,
-  mutual_follow: 10,
-};
 
 export interface Interaction {
   type: string;
@@ -67,18 +57,16 @@ export interface BridgeProfile {
 export async function followUser(followee: string): Promise<void> {
   const follower = await getPeerID();
   const keypair = getKeypair();
+  Validators.keypair(keypair);
 
-  if (!keypair) {
-    throw new Error('Identity not initialized');
-  }
-
+  const { follow } = Config.social.reputation.interactionWeights;
   const followEvent = { follower, followee, timestamp: Date.now() };
   const payload = encode(followEvent);
   const signature = await sign(payload, keypair.privateKey);
 
   const subscription: FollowSubscription = { followee, since: Date.now() };
   await dbPut(FOLLOWS_STORE, subscription);
-  await recordInteraction(followee, 'follow', INTERACTION_WEIGHTS.follow);
+  await recordInteraction(followee, 'follow', follow);
 
   const client = DelegationClient.getInstance();
   if (client) {
@@ -121,13 +109,14 @@ export async function getFollowingCount(peerID: string): Promise<number> {
 export async function recordInteraction(
   peerID: string,
   type: string,
-  weight: number = 1
+  weight?: number
 ): Promise<void> {
+  const { interactionWeights } = Config.social.reputation;
   const interaction: Interaction = {
     type,
     peerID,
     timestamp: Date.now(),
-    weight: weight || INTERACTION_WEIGHTS[type] || 1,
+    weight: weight ?? interactionWeights[type as keyof typeof interactionWeights] ?? 1,
   };
 
   const id = `interaction_${crypto.randomUUID()}`;
@@ -148,7 +137,7 @@ export function applyDecay(interaction: Interaction, halfLifeDays: number): numb
 
 export async function computeReputation(
   peerID: string,
-  halfLifeDays: number = DEFAULT_HALF_LIFE_DAYS
+  halfLifeDays: number = Config.social.reputation.halfLifeDays
 ): Promise<ReputationResult> {
   const interactions = await getInteractionHistory(peerID);
   const decayedInteractions = interactions.map((i) => ({

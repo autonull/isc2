@@ -8,7 +8,36 @@
  * - Encoding utilities (CBOR-like binary encoding)
  * - Type definitions
  * - Interoperability (AT Protocol, data portability)
+ * - Configuration management
+ * - Error handling utilities
  */
+
+// Configuration
+export { Config } from './config.js';
+
+// Error handling
+export {
+  AppError,
+  ErrorCodes,
+  safeAsync,
+  tryAsync,
+  logAndRethrow,
+  logAndDefault,
+  isRecoverable,
+  getErrorCode,
+  createError,
+  withErrorHandling,
+} from './errors.js';
+
+// Validators
+export {
+  Validators,
+  isDefined,
+  isNonEmptyArray,
+  isValidNumber,
+  assert,
+  requireValue,
+} from './validators.js';
 
 // Mathematical functions
 export * from './math/index.js';

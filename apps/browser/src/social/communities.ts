@@ -1,6 +1,6 @@
 /**
  * Communities Service
- * 
+ *
  * Handles shared channels, co-editing, and semantic neighborhoods.
  * References: SOCIAL.md#communities
  */
@@ -9,9 +9,26 @@ import { sign, encode, verify, cosineSimilarity, lshHash } from '@isc/core';
 import type { Channel, Signature } from '@isc/core';
 import { getPeerID, getKeypair } from '../identity';
 import { getChannel, updateChannel } from '../channels/manager';
+import { openDB, dbGet, dbGetAll, dbPut } from '@isc/adapters';
 
 /** Default TTL for community channels */
-const DEFAULT_COMMUNITY_TTL = 86400 * 7; // 7 days
+const DEFAULT_COMMUNITY_TTL = 86400 * 7;
+const DB_NAME = 'isc-communities';
+const DB_VERSION = 1;
+
+let communitiesDb: IDBDatabase | null = null;
+
+async function getIndexedDB(): Promise<IDBDatabase> {
+  if (communitiesDb) return communitiesDb;
+
+  communitiesDb = await openDB(DB_NAME, DB_VERSION, (db, _event) => {
+    if (!db.objectStoreNames.contains('communities')) {
+      db.createObjectStore('communities', { keyPath: 'channelID' });
+    }
+  });
+
+  return communitiesDb;
+}
 
 /**
  * Community channel with shared editing permissions
@@ -250,11 +267,7 @@ export async function updateCommunityChannel(
 export async function getCommunity(channelID: string): Promise<CommunityChannel | null> {
   try {
     const db = await getIndexedDB();
-    return new Promise((resolve, reject) => {
-      const req = db.transaction('communities', 'readonly').objectStore('communities').get(channelID);
-      req.onsuccess = () => resolve(req.result || null);
-      req.onerror = () => resolve(null);
-    });
+    return dbGet<CommunityChannel>(db, 'communities', channelID);
   } catch {
     return null;
   }
@@ -267,14 +280,8 @@ export async function getUserCommunities(): Promise<CommunityChannel[]> {
   const peerID = await getPeerID();
   try {
     const db = await getIndexedDB();
-    return new Promise((resolve) => {
-      const req = db.transaction('communities', 'readonly').objectStore('communities').getAll();
-      req.onsuccess = () => {
-        const all = req.result || [];
-        resolve(all.filter((c: CommunityChannel) => c.members.includes(peerID)));
-      };
-      req.onerror = () => resolve([]);
-    });
+    const all = await dbGetAll<CommunityChannel>(db, 'communities');
+    return all.filter((c) => c.members.includes(peerID));
   } catch {
     return [];
   }
@@ -289,22 +296,15 @@ export async function queryCommunitiesByEmbedding(
 ): Promise<CommunityChannel[]> {
   try {
     const db = await getIndexedDB();
-    return new Promise((resolve) => {
-      const req = db.transaction('communities', 'readonly').objectStore('communities').getAll();
-      req.onsuccess = () => {
-        const all = req.result || [];
-        const scored = all
-          .map((c: CommunityChannel) => ({
-            community: c,
-            score: cosineSimilarity(embedding, c.embedding),
-          }))
-          .sort((a, b) => b.score - a.score)
-          .slice(0, limit)
-          .map(s => s.community);
-        resolve(scored);
-      };
-      req.onerror = () => resolve([]);
-    });
+    const all = await dbGetAll<CommunityChannel>(db, 'communities');
+    return all
+      .map((c) => ({
+        community: c,
+        score: cosineSimilarity(embedding, c.embedding),
+      }))
+      .sort((a, b) => b.score - a.score)
+      .slice(0, limit)
+      .map((s) => s.community);
   } catch {
     return [];
   }
@@ -353,21 +353,13 @@ export async function computeSemanticNeighborhood(
 // Local storage helpers
 async function storeCommunity(community: CommunityChannel): Promise<void> {
   const db = await getIndexedDB();
-  return new Promise((resolve, reject) => {
-    const req = db.transaction('communities', 'readwrite').objectStore('communities').put(community);
-    req.onsuccess = () => resolve();
-    req.onerror = () => reject(req.error);
-  });
+  await dbPut(db, 'communities', community);
 }
 
 async function getAllCommunities(): Promise<CommunityChannel[]> {
   try {
     const db = await getIndexedDB();
-    return new Promise((resolve) => {
-      const req = db.transaction('communities', 'readonly').objectStore('communities').getAll();
-      req.onsuccess = () => resolve(req.result || []);
-      req.onerror = () => resolve([]);
-    });
+    return dbGetAll<CommunityChannel>(db, 'communities');
   } catch {
     return [];
   }
@@ -394,18 +386,4 @@ async function announceCommunity(community: CommunityChannel): Promise<void> {
       DEFAULT_COMMUNITY_TTL
     );
   }
-}
-
-async function getIndexedDB(): Promise<IDBDatabase> {
-  return new Promise((resolve, reject) => {
-    const request = indexedDB.open('isc-communities', 1);
-    request.onerror = () => reject(request.error);
-    request.onsuccess = () => resolve(request.result);
-    request.onupgradeneeded = (event) => {
-      const db = (event.target as IDBOpenDBRequest).result;
-      if (!db.objectStoreNames.contains('communities')) {
-        db.createObjectStore('communities', { keyPath: 'channelID' });
-      }
-    };
-  });
 }

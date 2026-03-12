@@ -1,4 +1,5 @@
 import type { DelegateCapability, DelegationHealth } from '@isc/protocol/messages';
+import { Config } from '@isc/core';
 
 export interface SupernodeStats {
   successRate: number;
@@ -13,10 +14,7 @@ export interface ScoredSupernode {
 }
 
 export function scoreSupernode(cap: DelegateCapability, stats: SupernodeStats): number {
-  const uptimeWeight = 0.4;
-  const successRateWeight = 0.3;
-  const throughputWeight = 0.2;
-  const rateLimitWeight = 0.1;
+  const { uptimeWeight, successRateWeight, throughputWeight, rateLimitWeight } = Config.scoring;
 
   const uptimeScore = cap.uptime;
   const successRateScore = stats.successRate;
@@ -36,7 +34,7 @@ export function rankSupernodes(
   healthMap: Map<string, DelegationHealth>,
   statsMap: Map<string, SupernodeStats>
 ): ScoredSupernode[] {
-  const scored: ScoredSupernode[] = capabilities.map((cap) => {
+  const scored = capabilities.map((cap) => {
     const health = healthMap.get(cap.peerID);
     const stats = statsMap.get(cap.peerID) ?? {
       successRate: health?.successRate ?? 0.5,
@@ -52,14 +50,14 @@ export function rankSupernodes(
 
 export function filterHealthySupernodes(
   scored: ScoredSupernode[],
-  minSuccessRate: number = 0.85
+  minSuccessRate: number = Config.scoring.minSuccessRate
 ): ScoredSupernode[] {
   return scored.filter((s) => s.stats.successRate >= minSuccessRate);
 }
 
 export function selectTopSupernodes(
   scored: ScoredSupernode[],
-  count: number = 3
+  count: number = Config.scoring.topSupernodesCount
 ): ScoredSupernode[] {
   return scored.slice(0, count);
 }

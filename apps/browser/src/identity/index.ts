@@ -8,6 +8,7 @@ import {
   validatePassphraseStrength,
   type EncryptedKeypair,
 } from '@isc/core';
+import { openDB, dbGet, dbPut, dbDelete } from '@isc/adapters';
 
 const DB_NAME = 'isc-identity';
 const DB_VERSION = 1;
@@ -52,50 +53,28 @@ class IndexedDBStore {
   private async getDB(): Promise<IDBDatabase> {
     if (this.db) return this.db;
 
-    return new Promise((resolve, reject) => {
-      const request = indexedDB.open(DB_NAME, DB_VERSION);
-      request.onerror = () => reject(request.error);
-      request.onsuccess = () => {
-        this.db = request.result;
-        resolve(this.db);
-      };
-      request.onupgradeneeded = (event) => {
-        const db = (event.target as IDBOpenDBRequest).result;
-        if (!db.objectStoreNames.contains(STORE_NAME)) {
-          db.createObjectStore(STORE_NAME, { keyPath: 'id' });
-        }
-      };
+    this.db = await openDB(DB_NAME, DB_VERSION, (database, _event) => {
+      if (!database.objectStoreNames.contains(STORE_NAME)) {
+        database.createObjectStore(STORE_NAME, { keyPath: 'id' });
+      }
     });
+
+    return this.db;
   }
 
   async get(id: string): Promise<StoredKeypair | null> {
     const db = await this.getDB();
-    return new Promise((resolve, reject) => {
-      const tx = db.transaction(STORE_NAME, 'readonly');
-      const request = tx.objectStore(STORE_NAME).get(id);
-      request.onsuccess = () => resolve(request.result ?? null);
-      request.onerror = () => reject(request.error);
-    });
+    return dbGet<StoredKeypair>(db, STORE_NAME, id);
   }
 
   async put(data: StoredKeypair): Promise<void> {
     const db = await this.getDB();
-    return new Promise((resolve, reject) => {
-      const tx = db.transaction(STORE_NAME, 'readwrite');
-      const request = tx.objectStore(STORE_NAME).put(data);
-      request.onsuccess = () => resolve();
-      request.onerror = () => reject(request.error);
-    });
+    await dbPut(db, STORE_NAME, data);
   }
 
   async delete(id: string): Promise<void> {
     const db = await this.getDB();
-    return new Promise((resolve, reject) => {
-      const tx = db.transaction(STORE_NAME, 'readwrite');
-      const request = tx.objectStore(STORE_NAME).delete(id);
-      request.onsuccess = () => resolve();
-      request.onerror = () => reject(request.error);
-    });
+    await dbDelete(db, STORE_NAME, id);
   }
 }
 

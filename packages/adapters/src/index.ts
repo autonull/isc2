@@ -10,3 +10,17 @@ export { BrowserStorage } from './browser/storage.js';
 export { NodeTierDetector } from './node/tier.js';
 export { NodeStorage } from './node/storage.js';
 export { wordHash, hammingDistance } from './shared/wordHash.js';
+export {
+  dbTransaction,
+  dbGet,
+  dbGetAll,
+  dbPut,
+  dbDelete,
+  dbClear,
+  dbKeys,
+  dbAdd,
+  dbCount,
+  dbFilter,
+  openDB,
+  createStoreIfNotExists,
+} from './shared/db.js';

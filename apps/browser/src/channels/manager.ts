@@ -1,5 +1,5 @@
 import type { Channel, Relation } from '@isc/core';
-import { DHTClient } from '@isc/adapters';
+import { DHTClient, openDB, dbGet, dbGetAll, dbPut, dbDelete } from '@isc/adapters';
 
 const MAX_ACTIVE_CHANNELS = 5;
 const DB_NAME = 'isc-channels';
@@ -19,59 +19,33 @@ class IndexedDBChannelStore implements ChannelStore {
   private async getDB(): Promise<IDBDatabase> {
     if (this.db) return this.db;
 
-    return new Promise((resolve, reject) => {
-      const request = indexedDB.open(DB_NAME, DB_VERSION);
-      request.onerror = () => reject(request.error);
-      request.onsuccess = () => {
-        this.db = request.result;
-        resolve(this.db);
-      };
-      request.onupgradeneeded = (event) => {
-        const db = (event.target as IDBOpenDBRequest).result;
-        if (!db.objectStoreNames.contains('channels'))
-          db.createObjectStore('channels', { keyPath: 'id' });
-      };
+    this.db = await openDB(DB_NAME, DB_VERSION, (database, _event) => {
+      if (!database.objectStoreNames.contains('channels')) {
+        database.createObjectStore('channels', { keyPath: 'id' });
+      }
     });
+
+    return this.db;
   }
 
   async getAll(): Promise<Channel[]> {
     const db = await this.getDB();
-    return new Promise((resolve, reject) => {
-      const tx = db.transaction('channels', 'readonly');
-      const request = tx.objectStore('channels').getAll();
-      request.onsuccess = () => resolve(request.result);
-      request.onerror = () => reject(request.error);
-    });
+    return dbGetAll<Channel>(db, 'channels');
   }
 
   async get(id: string): Promise<Channel | null> {
     const db = await this.getDB();
-    return new Promise((resolve, reject) => {
-      const tx = db.transaction('channels', 'readonly');
-      const request = tx.objectStore('channels').get(id);
-      request.onsuccess = () => resolve(request.result ?? null);
-      request.onerror = () => reject(request.error);
-    });
+    return dbGet<Channel>(db, 'channels', id);
   }
 
   async save(channel: Channel): Promise<void> {
     const db = await this.getDB();
-    return new Promise((resolve, reject) => {
-      const tx = db.transaction('channels', 'readwrite');
-      const request = tx.objectStore('channels').put(channel);
-      request.onsuccess = () => resolve();
-      request.onerror = () => reject(request.error);
-    });
+    await dbPut(db, 'channels', channel);
   }
 
   async delete(id: string): Promise<void> {
     const db = await this.getDB();
-    return new Promise((resolve, reject) => {
-      const tx = db.transaction('channels', 'readwrite');
-      const request = tx.objectStore('channels').delete(id);
-      request.onsuccess = () => resolve();
-      request.onerror = () => reject(request.error);
-    });
+    await dbDelete(db, 'channels', id);
   }
 }
 

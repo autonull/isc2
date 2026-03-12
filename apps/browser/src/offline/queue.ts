@@ -1,5 +1,7 @@
+import { openDB, dbAdd, dbGet, dbGetAll, dbDelete, dbClear, dbPut, dbTransaction } from '@isc/adapters';
+import { Config } from '@isc/core';
+
 const OFFLINE_QUEUE_STORE = 'offline_queue';
-const SYNC_EVENT_TAG = 'sync-actions';
 
 export interface OfflineAction {
   id: string;
@@ -10,27 +12,36 @@ export interface OfflineAction {
   maxRetries: number;
 }
 
+let queueDb: IDBDatabase | null = null;
+
+async function getQueueDB(): Promise<IDBDatabase> {
+  if (queueDb) return queueDb;
+
+  queueDb = await openDB('isc-offline-queue', 1, (db, _event) => {
+    if (!db.objectStoreNames.contains(OFFLINE_QUEUE_STORE)) {
+      db.createObjectStore(OFFLINE_QUEUE_STORE, { keyPath: 'id' });
+    }
+  });
+
+  return queueDb;
+}
+
 export async function queueAction(action: Omit<OfflineAction, 'id' | 'timestamp' | 'retryCount' | 'maxRetries'>): Promise<OfflineAction> {
   const offlineAction: OfflineAction = {
     ...action,
     id: `action_${crypto.randomUUID()}`,
     timestamp: Date.now(),
     retryCount: 0,
-    maxRetries: 5,
+    maxRetries: Config.offline.maxRetries,
   };
 
   const db = await getQueueDB();
-  await new Promise<void>((resolve, reject) => {
-    const tx = db.transaction(OFFLINE_QUEUE_STORE, 'readwrite');
-    const req = tx.objectStore(OFFLINE_QUEUE_STORE).add(offlineAction);
-    req.onsuccess = () => resolve();
-    req.onerror = () => reject(req.error);
-  });
+  await dbAdd(db, OFFLINE_QUEUE_STORE, offlineAction);
 
   if ('serviceWorker' in navigator && 'sync' in ServiceWorkerRegistration.prototype) {
     const registration = await navigator.serviceWorker.ready;
     try {
-      await (registration as any).sync.register(SYNC_EVENT_TAG);
+      await (registration as any).sync.register(Config.offline.syncEventTag);
     } catch (err) {
       console.warn('[OfflineQueue] Background sync not available:', err);
     }
@@ -41,12 +52,7 @@ export async function queueAction(action: Omit<OfflineAction, 'id' | 'timestamp'
 
 export async function getQueuedActions(): Promise<OfflineAction[]> {
   const db = await getQueueDB();
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(OFFLINE_QUEUE_STORE, 'readonly');
-    const req = tx.objectStore(OFFLINE_QUEUE_STORE).getAll();
-    req.onsuccess = () => resolve(req.result || []);
-    req.onerror = () => reject(req.error);
-  });
+  return dbGetAll(db, OFFLINE_QUEUE_STORE);
 }
 
 export async function getQueuedActionsByType(type: OfflineAction['type']): Promise<OfflineAction[]> {
@@ -56,32 +62,17 @@ export async function getQueuedActionsByType(type: OfflineAction['type']): Promi
 
 export async function removeAction(id: string): Promise<void> {
   const db = await getQueueDB();
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(OFFLINE_QUEUE_STORE, 'readwrite');
-    const req = tx.objectStore(OFFLINE_QUEUE_STORE).delete(id);
-    req.onsuccess = () => resolve();
-    req.onerror = () => reject(req.error);
-  });
+  await dbDelete(db, OFFLINE_QUEUE_STORE, id);
 }
 
 export async function clearQueue(): Promise<void> {
   const db = await getQueueDB();
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(OFFLINE_QUEUE_STORE, 'readwrite');
-    const req = tx.objectStore(OFFLINE_QUEUE_STORE).clear();
-    req.onsuccess = () => resolve();
-    req.onerror = () => reject(req.error);
-  });
+  await dbClear(db, OFFLINE_QUEUE_STORE);
 }
 
 export async function incrementRetry(id: string): Promise<OfflineAction | null> {
   const db = await getQueueDB();
-  const action = await new Promise<OfflineAction | null>((resolve, reject) => {
-    const tx = db.transaction(OFFLINE_QUEUE_STORE, 'readonly');
-    const req = tx.objectStore(OFFLINE_QUEUE_STORE).get(id);
-    req.onsuccess = () => resolve(req.result || null);
-    req.onerror = () => reject(req.error);
-  });
+  const action = await dbGet<OfflineAction>(db, OFFLINE_QUEUE_STORE, id);
 
   if (!action) return null;
   action.retryCount++;
@@ -91,13 +82,7 @@ export async function incrementRetry(id: string): Promise<OfflineAction | null> 
     return null;
   }
 
-  await new Promise<void>((resolve, reject) => {
-    const tx = db.transaction(OFFLINE_QUEUE_STORE, 'readwrite');
-    const req = tx.objectStore(OFFLINE_QUEUE_STORE).put(action);
-    req.onsuccess = () => resolve();
-    req.onerror = () => reject(req.error);
-  });
-
+  await dbPut(db, OFFLINE_QUEUE_STORE, action);
   return action;
 }
 
@@ -137,18 +122,4 @@ export async function processQueue(processAction: (action: OfflineAction) => Pro
   }
 
   return { success, failed, remaining: await getQueueCount() };
-}
-
-async function getQueueDB(): Promise<IDBDatabase> {
-  return new Promise((resolve, reject) => {
-    const request = indexedDB.open('isc-offline-queue', 1);
-    request.onerror = () => reject(request.error);
-    request.onsuccess = () => resolve(request.result);
-    request.onupgradeneeded = (event) => {
-      const db = (event.target as IDBOpenDBRequest).result;
-      if (!db.objectStoreNames.contains(OFFLINE_QUEUE_STORE)) {
-        db.createObjectStore(OFFLINE_QUEUE_STORE, { keyPath: 'id' });
-      }
-    };
-  });
 }

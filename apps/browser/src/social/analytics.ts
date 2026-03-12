@@ -6,6 +6,30 @@
 
 import type { SignedPost } from './types.js';
 import { getInteractionCounts } from './interactions.js';
+import { openDB, dbGet, dbGetAll, dbPut, dbDelete } from '@isc/adapters';
+
+const DB_NAME = 'isc-analytics';
+const DB_VERSION = 1;
+
+let analyticsDb: IDBDatabase | null = null;
+
+async function getAnalyticsDB(): Promise<IDBDatabase> {
+  if (analyticsDb) return analyticsDb;
+
+  analyticsDb = await openDB(DB_NAME, DB_VERSION, (db, _event) => {
+    if (!db.objectStoreNames.contains('views')) {
+      db.createObjectStore('views', { keyPath: 'postId' });
+    }
+    if (!db.objectStoreNames.contains('impressions')) {
+      db.createObjectStore('impressions', { keyPath: ['postId', 'timestamp'] });
+    }
+    if (!db.objectStoreNames.contains('posts')) {
+      db.createObjectStore('posts', { keyPath: 'id' });
+    }
+  });
+
+  return analyticsDb;
+}
 
 /**
  * Engagement metrics for a post
@@ -20,42 +44,30 @@ export interface EngagementMetrics {
   lastUpdated: number;
 }
 
+interface ViewRecord {
+  postId: string;
+  count: number;
+  lastView: number;
+}
+
 /**
  * Track a view for a post
  */
 export async function trackView(postId: string): Promise<void> {
   const db = await getAnalyticsDB();
-
-  const existing = await new Promise<any>((resolve, reject) => {
-    const req = db.transaction('views', 'readonly').objectStore('views').get(postId);
-    req.onsuccess = () => resolve(req.result);
-    req.onerror = () => reject(req.error);
-  });
+  const existing = await dbGet<ViewRecord>(db, 'views', postId);
   const now = Date.now();
 
   if (existing) {
-    const lastView = existing.lastView as number;
-    if (now - lastView < 60000) {
+    if (now - existing.lastView < 60000) {
       return;
     }
 
-    existing.count = (existing.count as number) + 1;
+    existing.count += 1;
     existing.lastView = now;
-    await new Promise<void>((resolve, reject) => {
-      const req = db.transaction('views', 'readwrite').objectStore('views').put(existing);
-      req.onsuccess = () => resolve();
-      req.onerror = () => reject(req.error);
-    });
+    await dbPut(db, 'views', existing);
   } else {
-    await new Promise<void>((resolve, reject) => {
-      const req = db.transaction('views', 'readwrite').objectStore('views').put({
-        postId,
-        count: 1,
-        lastView: now,
-      });
-      req.onsuccess = () => resolve();
-      req.onerror = () => reject(req.error);
-    });
+    await dbPut(db, 'views', { postId, count: 1, lastView: now });
   }
 }
 
@@ -64,13 +76,8 @@ export async function trackView(postId: string): Promise<void> {
  */
 export async function getMetrics(postId: string): Promise<EngagementMetrics> {
   const db = await getAnalyticsDB();
-
-  const viewRecord = await new Promise<any>((resolve, reject) => {
-    const req = db.transaction('views', 'readonly').objectStore('views').get(postId);
-    req.onsuccess = () => resolve(req.result);
-    req.onerror = () => reject(req.error);
-  });
-  const views = viewRecord ? (viewRecord.count as number) : 0;
+  const viewRecord = await dbGet<ViewRecord>(db, 'views', postId);
+  const views = viewRecord?.count ?? 0;
 
   const interactions = await getInteractionCounts(postId);
 
@@ -88,7 +95,9 @@ export async function getMetrics(postId: string): Promise<EngagementMetrics> {
 /**
  * Get aggregate metrics for multiple posts
  */
-export async function getAggregateMetrics(postIds: string[]): Promise<Map<string, EngagementMetrics>> {
+export async function getAggregateMetrics(
+  postIds: string[]
+): Promise<Map<string, EngagementMetrics>> {
   const metrics = new Map<string, EngagementMetrics>();
 
   const results = await Promise.all(postIds.map((id) => getMetrics(id)));
@@ -110,11 +119,7 @@ export async function getTopPostsByEngagement(limit: number = 10): Promise<
   }>
 > {
   const db = await getAnalyticsDB();
-  const allPosts = await new Promise<SignedPost[]>((resolve, reject) => {
-    const req = db.transaction('posts', 'readonly').objectStore('posts').getAll();
-    req.onsuccess = () => resolve(req.result);
-    req.onerror = () => reject(req.error);
-  });
+  const allPosts = await dbGetAll<SignedPost>(db, 'posts');
 
   const scored = await Promise.all(
     allPosts.map(async (post) => {
@@ -143,16 +148,12 @@ export async function getTopPostsByViews(limit: number = 10): Promise<
   }>
 > {
   const db = await getAnalyticsDB();
-  const views = await new Promise<any[]>((resolve, reject) => {
-    const req = db.transaction('views', 'readonly').objectStore('views').getAll();
-    req.onsuccess = () => resolve(req.result);
-    req.onerror = () => reject(req.error);
-  });
+  const views = await dbGetAll<ViewRecord>(db, 'views');
 
   const sorted = views.sort((a, b) => b.count - a.count);
 
   const results = await Promise.all(
-    sorted.slice(0, limit).map(async (v: { postId: string }) => {
+    sorted.slice(0, limit).map(async (v) => {
       const metrics = await getMetrics(v.postId);
       return {
         postId: v.postId,
@@ -170,15 +171,10 @@ export async function getTopPostsByViews(limit: number = 10): Promise<
  */
 export async function trackImpression(postId: string, position: number): Promise<void> {
   const db = await getAnalyticsDB();
-
-  await new Promise<void>((resolve, reject) => {
-    const req = db.transaction('impressions', 'readwrite').objectStore('impressions').put({
-      postId,
-      position,
-      timestamp: Date.now(),
-    });
-    req.onsuccess = () => resolve();
-    req.onerror = () => reject(req.error);
+  await dbPut(db, 'impressions', {
+    postId,
+    position,
+    timestamp: Date.now(),
   });
 }
 
@@ -187,30 +183,21 @@ export async function trackImpression(postId: string, position: number): Promise
  */
 export async function getCTR(postId: string): Promise<number> {
   const db = await getAnalyticsDB();
-
-  const impressions = await new Promise<any[]>((resolve, reject) => {
-    const req = db.transaction('impressions', 'readonly').objectStore('impressions').getAll();
-    req.onsuccess = () => resolve(req.result);
-    req.onerror = () => reject(req.error);
-  });
+  const impressions = await dbGetAll<{ postId: string }>(db, 'impressions');
   const impressionCount = impressions.filter((i) => i.postId === postId).length;
 
-  const viewRecord = await new Promise<any>((resolve, reject) => {
-    const req = db.transaction('views', 'readonly').objectStore('views').get(postId);
-    req.onsuccess = () => resolve(req.result);
-    req.onerror = () => reject(req.error);
-  });
-  const viewCount = viewRecord ? (viewRecord.count as number) : 0;
+  const viewRecord = await dbGet<ViewRecord>(db, 'views', postId);
+  const viewCount = viewRecord?.count ?? 0;
 
-  if (impressionCount === 0) return 0;
-
-  return viewCount / impressionCount;
+  return impressionCount > 0 ? viewCount / impressionCount : 0;
 }
 
 /**
  * Get user engagement summary
  */
-export async function getUserEngagementSummary(peerID: string): Promise<{
+export async function getUserEngagementSummary(
+  userId: string
+): Promise<{
   totalPosts: number;
   totalViews: number;
   totalLikes: number;
@@ -218,28 +205,22 @@ export async function getUserEngagementSummary(peerID: string): Promise<{
   totalReplies: number;
   avgEngagementRate: number;
 }> {
-  const { getPostsByAuthor } = await import('./posts.js');
-  const posts = await getPostsByAuthor(peerID);
+  const db = await getAnalyticsDB();
+  const allPosts = await dbGetAll<SignedPost>(db, 'posts');
+  const userPosts = allPosts.filter((p) => p.author === userId);
 
-  const metrics = await getAggregateMetrics(posts.map((p) => p.id));
+  const metrics = await Promise.all(userPosts.map((p) => getMetrics(p.id)));
 
-  let totalViews = 0;
-  let totalLikes = 0;
-  let totalReposts = 0;
-  let totalReplies = 0;
-
-  for (const [, m] of metrics) {
-    totalViews += m.views;
-    totalLikes += m.likes;
-    totalReposts += m.reposts;
-    totalReplies += m.replies;
-  }
+  const totalViews = metrics.reduce((sum, m) => sum + m.views, 0);
+  const totalLikes = metrics.reduce((sum, m) => sum + m.likes, 0);
+  const totalReposts = metrics.reduce((sum, m) => sum + m.reposts, 0);
+  const totalReplies = metrics.reduce((sum, m) => sum + m.replies, 0);
 
   const totalEngagement = totalLikes + totalReposts + totalReplies;
-  const avgEngagementRate = posts.length > 0 ? totalEngagement / posts.length : 0;
+  const avgEngagementRate = totalViews > 0 ? totalEngagement / totalViews : 0;
 
   return {
-    totalPosts: posts.length,
+    totalPosts: userPosts.length,
     totalViews,
     totalLikes,
     totalReposts,
@@ -249,62 +230,32 @@ export async function getUserEngagementSummary(peerID: string): Promise<{
 }
 
 /**
+ * Register a post for analytics tracking
+ */
+export async function registerPost(post: SignedPost): Promise<void> {
+  const db = await getAnalyticsDB();
+  await dbPut(db, 'posts', post);
+}
+
+/**
  * Clear old analytics data (older than specified days)
  */
 export async function clearOldAnalytics(days: number = 30): Promise<void> {
   const db = await getAnalyticsDB();
   const cutoff = Date.now() - days * 24 * 60 * 60 * 1000;
 
-  const impressions = await new Promise<any[]>((resolve, reject) => {
-    const req = db.transaction('impressions', 'readonly').objectStore('impressions').getAll();
-    req.onsuccess = () => resolve(req.result);
-    req.onerror = () => reject(req.error);
-  });
+  const impressions = await dbGetAll<{ postId: string; timestamp: number }>(db, 'impressions');
+  const oldImpressions = impressions.filter((i) => i.timestamp < cutoff);
 
-  for (const imp of impressions) {
-    if ((imp.timestamp as number) < cutoff) {
-      await new Promise<void>((resolve, reject) => {
-        const req = db.transaction('impressions', 'readwrite').objectStore('impressions').delete(imp.postId);
-        req.onsuccess = () => resolve();
-        req.onerror = () => reject(req.error);
-      });
-    }
-  }
-}
+  if (oldImpressions.length === 0) return;
 
-/**
- * Register a post for analytics tracking
- */
-export async function registerPost(post: SignedPost): Promise<void> {
-  const db = await getAnalyticsDB();
+  // Use raw transaction for compound key deletion
   await new Promise<void>((resolve, reject) => {
-    const req = db.transaction('posts', 'readwrite').objectStore('posts').put(post);
-    req.onsuccess = () => resolve();
-    req.onerror = () => reject(req.error);
-  });
-}
-
-// ============================================================================
-// Database Helpers
-// ============================================================================
-
-async function getAnalyticsDB(): Promise<IDBDatabase> {
-  return new Promise((resolve, reject) => {
-    const request = indexedDB.open('isc-analytics', 1);
-    request.onerror = () => reject(request.error);
-    request.onsuccess = () => resolve(request.result);
-    request.onupgradeneeded = (event) => {
-      const db = (event.target as IDBOpenDBRequest).result;
-
-      if (!db.objectStoreNames.contains('views')) {
-        db.createObjectStore('views', { keyPath: 'postId' });
-      }
-      if (!db.objectStoreNames.contains('impressions')) {
-        db.createObjectStore('impressions', { keyPath: ['postId', 'timestamp'] });
-      }
-      if (!db.objectStoreNames.contains('posts')) {
-        db.createObjectStore('posts', { keyPath: 'id' });
-      }
-    };
+    const tx = db.transaction('impressions', 'readwrite');
+    for (const impression of oldImpressions) {
+      tx.objectStore('impressions').delete([impression.postId, impression.timestamp]);
+    }
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
   });
 }

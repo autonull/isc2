@@ -1,18 +1,5 @@
-/**
- * Ephemeral Identity System
- *
- * Throwaway keypairs for privacy-preserving interactions.
- * Useful for sensitive conversations, temporary accounts, and
- * reducing linkability across interactions.
- *
- * References: NEXT_STEPS.md#81-ephemeral-identity
- */
-
 import { generateKeypair, exportKeypair, importKeypair, type Keypair } from './keypair.js';
 
-/**
- * Ephemeral identity with metadata
- */
 export interface EphemeralIdentity {
   id: string;
   keypair: Keypair;
@@ -21,32 +8,22 @@ export interface EphemeralIdentity {
   expiresAt?: number;
   maxUses?: number;
   usedCount: number;
-  parentIdentity?: string; // Link to main identity for recovery
+  parentIdentity?: string;
   metadata?: Record<string, unknown>;
 }
 
-/**
- * Ephemeral identity configuration
- */
 export interface EphemeralConfig {
-  // Lifetime settings
   defaultLifetimeHours: number;
   maxLifetimeHours: number;
-  
-  // Usage limits
   defaultMaxUses: number;
-  
-  // Purpose types
   allowedPurposes: string[];
-  
-  // Security
   requireParentSignature: boolean;
   autoDeleteOnExpire: boolean;
 }
 
 const DEFAULT_CONFIG: EphemeralConfig = {
   defaultLifetimeHours: 24,
-  maxLifetimeHours: 168, // 1 week
+  maxLifetimeHours: 168,
   defaultMaxUses: 100,
   allowedPurposes: [
     'anonymous_post',
@@ -60,9 +37,6 @@ const DEFAULT_CONFIG: EphemeralConfig = {
   autoDeleteOnExpire: true,
 };
 
-/**
- * Create a new ephemeral identity
- */
 export async function createEphemeralIdentity(
   purpose: string,
   config: EphemeralConfig = DEFAULT_CONFIG,
@@ -73,22 +47,19 @@ export async function createEphemeralIdentity(
     metadata?: Record<string, unknown>;
   }
 ): Promise<EphemeralIdentity> {
-  // Validate purpose
   if (!config.allowedPurposes.includes(purpose)) {
     throw new Error(`Invalid purpose: ${purpose}. Allowed: ${config.allowedPurposes.join(', ')}`);
   }
 
-  // Validate lifetime
   const lifetimeHours = options?.lifetimeHours ?? config.defaultLifetimeHours;
   if (lifetimeHours > config.maxLifetimeHours) {
     throw new Error(`Lifetime exceeds maximum: ${config.maxLifetimeHours} hours`);
   }
 
-  // Generate keypair
   const keypair = await generateKeypair();
-
   const now = Date.now();
-  const identity: EphemeralIdentity = {
+
+  return {
     id: `ephemeral_${crypto.randomUUID()}`,
     keypair,
     purpose,
@@ -99,64 +70,31 @@ export async function createEphemeralIdentity(
     parentIdentity: options?.parentIdentity,
     metadata: options?.metadata,
   };
-
-  return identity;
 }
 
-/**
- * Check if ephemeral identity is still valid
- */
 export function isEphemeralIdentityValid(identity: EphemeralIdentity): boolean {
   const now = Date.now();
-
-  // Check expiration
-  if (identity.expiresAt && now > identity.expiresAt) {
-    return false;
-  }
-
-  // Check usage limit
-  if (identity.maxUses && identity.usedCount >= identity.maxUses) {
-    return false;
-  }
-
+  if (identity.expiresAt && now > identity.expiresAt) return false;
+  if (identity.maxUses && identity.usedCount >= identity.maxUses) return false;
   return true;
 }
 
-/**
- * Use ephemeral identity (increments usage count)
- */
 export function useEphemeralIdentity(identity: EphemeralIdentity): boolean {
-  if (!isEphemeralIdentityValid(identity)) {
-    return false;
-  }
-
+  if (!isEphemeralIdentityValid(identity)) return false;
   identity.usedCount++;
   return true;
 }
 
-/**
- * Get remaining uses for ephemeral identity
- */
 export function getRemainingUses(identity: EphemeralIdentity): number {
-  if (!identity.maxUses) {
-    return Infinity;
-  }
+  if (!identity.maxUses) return Infinity;
   return Math.max(0, identity.maxUses - identity.usedCount);
 }
 
-/**
- * Get remaining lifetime in milliseconds
- */
 export function getRemainingLifetime(identity: EphemeralIdentity): number {
-  if (!identity.expiresAt) {
-    return Infinity;
-  }
+  if (!identity.expiresAt) return Infinity;
   return Math.max(0, identity.expiresAt - Date.now());
 }
 
-/**
- * Export ephemeral identity for backup
- */
 export async function exportEphemeralIdentity(
   identity: EphemeralIdentity,
   _passphrase?: string
@@ -177,15 +115,11 @@ export async function exportEphemeralIdentity(
   };
 }
 
-/**
- * Import ephemeral identity from backup
- */
 export async function importEphemeralIdentity(
   data: object,
   _passphrase?: string
 ): Promise<EphemeralIdentity> {
   const decryptedData = data as Record<string, unknown>;
-
   const publicKey = new Uint8Array(decryptedData.publicKey as number[]);
   const privateKey = new Uint8Array(decryptedData.privateKey as number[]);
   const keypair = await importKeypair(publicKey, privateKey);
@@ -203,9 +137,6 @@ export async function importEphemeralIdentity(
   };
 }
 
-/**
- * Rotate ephemeral identity (create new one with same purpose)
- */
 export async function rotateEphemeralIdentity(
   oldIdentity: EphemeralIdentity,
   config: EphemeralConfig = DEFAULT_CONFIG
@@ -216,9 +147,6 @@ export async function rotateEphemeralIdentity(
   });
 }
 
-/**
- * Batch create ephemeral identities for pre-generation
- */
 export async function createEphemeralIdentitiesBatch(
   purpose: string,
   count: number,
@@ -229,19 +157,13 @@ export async function createEphemeralIdentitiesBatch(
     parentIdentity?: string;
   }
 ): Promise<EphemeralIdentity[]> {
-  const identities: EphemeralIdentity[] = [];
-
-  for (let i = 0; i < count; i++) {
-    const identity = await createEphemeralIdentity(purpose, config, options);
-    identities.push(identity);
-  }
-
-  return identities;
+  return Promise.all(
+    Array.from({ length: count }, () =>
+      createEphemeralIdentity(purpose, config, options)
+    )
+  );
 }
 
-/**
- * Get identity statistics
- */
 export function getEphemeralStats(identities: EphemeralIdentity[]): {
   total: number;
   valid: number;
@@ -258,10 +180,8 @@ export function getEphemeralStats(identities: EphemeralIdentity[]): {
   };
 
   for (const identity of identities) {
-    // Count by purpose
     stats.byPurpose[identity.purpose] = (stats.byPurpose[identity.purpose] || 0) + 1;
 
-    // Check status
     if (!identity.expiresAt || Date.now() <= identity.expiresAt) {
       if (!identity.maxUses || identity.usedCount < identity.maxUses) {
         stats.valid++;
@@ -276,36 +196,25 @@ export function getEphemeralStats(identities: EphemeralIdentity[]): {
   return stats;
 }
 
-/**
- * Clean up expired identities
- */
 export function cleanupExpiredIdentities(
   identities: EphemeralIdentity[]
 ): EphemeralIdentity[] {
   return identities.filter(isEphemeralIdentityValid);
 }
 
-/**
- * Derive ephemeral identity from parent with context
- */
 export async function deriveEphemeralIdentity(
   parentKeypair: Keypair,
   context: string,
   purpose: string,
   config: EphemeralConfig = DEFAULT_CONFIG
 ): Promise<EphemeralIdentity> {
-  // Generate deterministic seed from parent key and context
   const encoder = new TextEncoder();
   const contextData = encoder.encode(context);
-
-  // In production, would use HKDF or similar KDF
-  // For now, use simple hash-based derivation
   await crypto.subtle.digest('SHA-256', contextData);
 
-  // Generate new keypair (in production, would derive deterministically)
   const keypair = await generateKeypair();
-
   const now = Date.now();
+
   return {
     id: `derived_${crypto.randomUUID()}`,
     keypair,

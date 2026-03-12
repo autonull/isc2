@@ -7,6 +7,8 @@
  * References: NEXT_STEPS.md#72-delegation-ranking-improvements
  */
 
+import { Config } from '@isc/core';
+
 export interface SupernodeRanking {
   peerID: string;
   overallScore: number;
@@ -21,15 +23,15 @@ export interface RankingComponents {
   uptimeScore: number; // 0-1
   successRateScore: number; // 0-1
   latencyScore: number; // 0-1
-  
+
   // Reliability metrics (30% weight)
   consistencyScore: number; // 0-1
   failureRateScore: number; // 0-1
-  
+
   // Capacity metrics (20% weight)
   loadScore: number; // 0-1 (inverse - lower load = higher score)
   capacityScore: number; // 0-1
-  
+
   // Network metrics (10% weight)
   geographicScore: number; // 0-1
   networkQualityScore: number; // 0-1
@@ -37,35 +39,35 @@ export interface RankingComponents {
 
 export interface SupernodeMetrics {
   peerID: string;
-  
+
   // Uptime tracking
   firstSeen: number;
   lastSeen: number;
   uptimePercent: number;
-  
+
   // Success/failure tracking
   totalRequests: number;
   successfulRequests: number;
   failedRequests: number;
   consecutiveFailures: number;
-  
+
   // Latency tracking
   latencies: number[]; // Recent latencies in ms
   avgLatency: number;
   p50Latency: number;
   p95Latency: number;
   p99Latency: number;
-  
+
   // Load tracking
   currentLoad: number; // Active requests
   maxCapacity: number;
   loadPercent: number;
-  
+
   // Geographic info
   region?: string;
   country?: string;
   latencyFromUs: number; // ms from current user
-  
+
   // Network quality
   packetLoss: number; // 0-1
   jitter: number; // ms
@@ -93,26 +95,24 @@ export interface RankingConfig {
   sampleSize: number; // Number of samples for statistics
 }
 
-const DEFAULT_WEIGHTS: RankingWeights = {
-  uptimeWeight: 0.15,
-  successRateWeight: 0.15,
-  latencyWeight: 0.10,
-  consistencyWeight: 0.15,
-  failureRateWeight: 0.15,
-  loadWeight: 0.10,
-  capacityWeight: 0.10,
-  geographicWeight: 0.05,
-  networkQualityWeight: 0.05,
-};
-
 const DEFAULT_CONFIG: RankingConfig = {
-  weights: DEFAULT_WEIGHTS,
-  minUptimePercent: 90,
-  minSuccessRate: 0.80,
-  maxLatencyMs: 2000,
-  maxLoadPercent: 90,
-  decayFactor: 0.1,
-  sampleSize: 100,
+  weights: {
+    uptimeWeight: Config.delegation.weights.uptime,
+    successRateWeight: Config.delegation.weights.successRate,
+    latencyWeight: Config.delegation.weights.latency,
+    consistencyWeight: Config.delegation.weights.consistency,
+    failureRateWeight: Config.delegation.weights.failureRate,
+    loadWeight: Config.delegation.weights.load,
+    capacityWeight: Config.delegation.weights.capacity,
+    geographicWeight: Config.delegation.weights.geographic,
+    networkQualityWeight: Config.delegation.weights.networkQuality,
+  },
+  minUptimePercent: Config.delegation.minUptimePercent,
+  minSuccessRate: Config.delegation.minSuccessRate,
+  maxLatencyMs: Config.delegation.maxLatencyMs,
+  maxLoadPercent: Config.delegation.maxLoadPercent,
+  decayFactor: Config.delegation.decayFactor,
+  sampleSize: Config.delegation.sampleSize,
 };
 
 export class DelegationRanker {

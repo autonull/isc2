@@ -120,41 +120,22 @@ export class DelegationClient {
   }
 
   private async processRequest(request: DelegateRequest): Promise<DelegateResponse> {
-    const supernodes = await this.getEligibleSupernodes();
+    const supernodes = await this.selectSupernodes();
 
     for (const supernode of supernodes) {
-      if (this.isBlocked(supernode.capability.peerID)) continue;
-
-      try {
-        const response = await this.sendToSupernode(supernode, request);
-
-        const isValid = await verifyDelegationResponse(
-          response,
-          request.requestID,
-          this.config.localModel,
-          supernode.capability.peerID as unknown as Uint8Array
-        );
-
-        if (isValid) {
-          this.recordSupernodeSuccess(supernode.capability.peerID);
-          this.stats.supernodeSuccesses++;
-          return response;
-        }
-      } catch (err) {
-        console.warn(`Supernode ${supernode.capability.peerID} failed:`, err);
-        this.recordSupernodeFailure(supernode.capability.peerID);
-      }
+      const response = await this.trySupernode(supernode, request);
+      if (response) return response;
     }
 
     this.stats.localFallbacks++;
     return this.handleLocally(request);
   }
 
-  private async getEligibleSupernodes(): Promise<ScoredSupernode[]> {
+  private async selectSupernodes(): Promise<ScoredSupernode[]> {
     const capabilities = await this.config.discovery.discoverSupernodes();
-    const eligibleWithoutHealth = capabilities.filter((c) => !this.isBlocked(c.peerID));
+    const eligible = capabilities.filter((c) => !this.isBlocked(c.peerID));
 
-    const peerIDs = eligibleWithoutHealth.map((c) => c.peerID);
+    const peerIDs = eligible.map((c) => c.peerID);
     const healthMap = await this.config.healthSelector.fetchHealthMetrics(peerIDs);
 
     const statsMap = new Map<string, SupernodeStats>();
@@ -166,10 +147,34 @@ export class DelegationClient {
       });
     }
 
-    return rankSupernodes(eligibleWithoutHealth, healthMap, statsMap).slice(
-      0,
-      this.config.maxSupernodes
-    );
+    return rankSupernodes(eligible, healthMap, statsMap).slice(0, this.config.maxSupernodes);
+  }
+
+  private async trySupernode(
+    supernode: ScoredSupernode,
+    request: DelegateRequest
+  ): Promise<DelegateResponse | null> {
+    try {
+      const response = await this.sendToSupernode(supernode, request);
+
+      const isValid = await verifyDelegationResponse(
+        response,
+        request.requestID,
+        this.config.localModel,
+        supernode.capability.peerID as unknown as Uint8Array
+      );
+
+      if (isValid) {
+        this.recordSupernodeSuccess(supernode.capability.peerID);
+        this.stats.supernodeSuccesses++;
+        return response;
+      }
+    } catch (err) {
+      console.warn(`Supernode ${supernode.capability.peerID} failed:`, err);
+    }
+
+    this.recordSupernodeFailure(supernode.capability.peerID);
+    return null;
   }
 
   private async sendToSupernode(
@@ -192,47 +197,13 @@ export class DelegationClient {
   }
 
   private async handleLocally(request: DelegateRequest): Promise<DelegateResponse> {
-    const payload = request.payload;
-
-    let resultPayload: Uint8Array;
-    switch (request.service) {
-      case 'embed': {
-        const decoder = new TextDecoder();
-        const req = JSON.parse(decoder.decode(payload));
-        const embedding = await this.config.localHandler.handleEmbed(req.text, req.model);
-        const encoder = new TextEncoder();
-        resultPayload = encoder.encode(
-          JSON.stringify({
-            embedding,
-            model: req.model,
-            norm: Math.sqrt(embedding.reduce((s, v) => s + v * v, 0)),
-          })
-        );
-        break;
-      }
-      case 'ann_query': {
-        const decoder = new TextDecoder();
-        const req = JSON.parse(decoder.decode(payload));
-        const matches = await this.config.localHandler.handleANN(req.query, req.k, req.modelHash);
-        const encoder = new TextEncoder();
-        resultPayload = encoder.encode(JSON.stringify({ matches, scores: [] }));
-        break;
-      }
-      case 'sig_verify': {
-        const decoder = new TextDecoder();
-        const req = JSON.parse(decoder.decode(payload));
-        const valid = await this.config.localHandler.handleSigVerify(
-          req.payload,
-          req.signature,
-          req.publicKey
-        );
-        const encoder = new TextEncoder();
-        resultPayload = encoder.encode(JSON.stringify({ valid }));
-        break;
-      }
-      default:
-        throw new Error('Unknown service');
+    const handler = this.serviceHandlers[request.service];
+    if (!handler) {
+      throw new Error(`Unknown service: ${request.service}`);
     }
+
+    const result = await handler(request.payload);
+    const resultPayload = this.encodeResult(result);
 
     return {
       type: 'delegate_response',
@@ -243,6 +214,42 @@ export class DelegationClient {
       timestamp: Date.now(),
       signature: new Uint8Array(),
     };
+  }
+
+  private serviceHandlers: Record<string, (payload: Uint8Array) => Promise<object>> = {
+    embed: async (payload) => {
+      const req = this.decodePayload<{ text: string; model: string }>(payload);
+      const embedding = await this.config.localHandler.handleEmbed(req.text, req.model);
+      return {
+        embedding,
+        model: req.model,
+        norm: Math.sqrt(embedding.reduce((s, v) => s + v * v, 0)),
+      };
+    },
+    ann_query: async (payload) => {
+      const req = this.decodePayload<{ query: number[]; k: number; modelHash: string }>(payload);
+      const matches = await this.config.localHandler.handleANN(req.query, req.k, req.modelHash);
+      return { matches, scores: [] };
+    },
+    sig_verify: async (payload) => {
+      const req = this.decodePayload<{ payload: Uint8Array; signature: Uint8Array; publicKey: Uint8Array }>(payload);
+      const valid = await this.config.localHandler.handleSigVerify(
+        req.payload,
+        req.signature,
+        req.publicKey
+      );
+      return { valid };
+    },
+  };
+
+  private decodePayload<T>(payload: Uint8Array): T {
+    const decoder = new TextDecoder();
+    return JSON.parse(decoder.decode(payload));
+  }
+
+  private encodeResult(result: object): Uint8Array {
+    const encoder = new TextEncoder();
+    return encoder.encode(JSON.stringify(result));
   }
 
   private isBlocked(peerID: string): boolean {

@@ -21,6 +21,7 @@ export {
 } from './encryption.js';
 
 // Phase 8: Advanced Cryptography
+// @internal - Advanced features not yet in active use
 export {
   // Ephemeral identities
   createEphemeralIdentity,

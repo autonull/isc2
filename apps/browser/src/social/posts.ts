@@ -1,11 +1,10 @@
-import { sign, encode, verify, decode } from '@isc/core';
+import { sign, encode, verify, decode, Config, Validators } from '@isc/core';
 import type { SignedPost } from './types.js';
 import { getPeerID, getKeypair, getPeerPublicKey, announcePublicKey } from '../identity/index.js';
 import { DelegationClient } from '../delegation/fallback.js';
 import { dbGet, dbGetAll, dbPut, dbFilter } from '../db/helpers.js';
 
 const POSTS_STORE = 'posts';
-const DEFAULT_TTL = 86400 * 7;
 
 export async function createPost(
   content: string,
@@ -13,10 +12,7 @@ export async function createPost(
 ): Promise<SignedPost> {
   const peerID = await getPeerID();
   const keypair = getKeypair();
-
-  if (!keypair) {
-    throw new Error('Identity not initialized');
-  }
+  Validators.keypair(keypair);
 
   const post: Omit<SignedPost, 'signature'> = {
     id: `post_${crypto.randomUUID()}`,
@@ -35,7 +31,7 @@ export async function createPost(
   const client = DelegationClient.getInstance();
   if (client) {
     const key = `/isc/post/${channelID}/${signedPost.id}`;
-    await client.announce(key, encode(signedPost), DEFAULT_TTL);
+    await client.announce(key, encode(signedPost), Config.social.posts.defaultTtlSeconds);
   }
 
   await announcePublicKey();
