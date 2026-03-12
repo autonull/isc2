@@ -1,6 +1,6 @@
-import { sign, encode, cosineSimilarity, Config, Validators, type Signature } from '@isc/core';
+import { sign, encode, Config, Validators, type Signature } from '@isc/core';
 import type { FollowSubscription, ProfileSummary } from './types.js';
-import { getPeerID, getKeypair, getPeerPublicKey } from '../identity/index.js';
+import { getPeerID, getKeypair } from '../identity/index.js';
 import { DelegationClient } from '../delegation/fallback.js';
 import { dbGet, dbGetAll, dbPut, dbDelete, dbFilter } from '../db/helpers.js';
 
@@ -33,14 +33,6 @@ export interface TrustScore {
   total: number;
 }
 
-export interface TrustPath {
-  source: string;
-  target: string;
-  hops: string[];
-  depth: number;
-  confidence: number;
-}
-
 export interface FollowSuggestion {
   peerID: string;
   score: number;
@@ -62,8 +54,7 @@ async function announceFollowEvent(
 ): Promise<void> {
   const client = DelegationClient.getInstance();
   if (client) {
-    const key = `/isc/follow/${follower}/${followee}`;
-    await client.announce(key, encode({ ...event, signature }), DEFAULT_TTL);
+    await client.announce(`/isc/follow/${follower}/${followee}`, encode({ ...event, signature }), DEFAULT_TTL);
   }
 }
 
@@ -76,9 +67,11 @@ export async function followUser(followee: string): Promise<void> {
   const timestamp = Date.now();
   const signature = await sign(encode({ follower, followee, timestamp }), keypair.privateKey);
 
-  await dbPut(FOLLOWS_STORE, { followee, since: timestamp } as FollowSubscription);
-  await recordInteraction(followee, 'follow', follow);
-  await announceFollowEvent(follower, followee, { follower, followee, timestamp }, signature);
+  await Promise.all([
+    dbPut(FOLLOWS_STORE, { followee, since: timestamp } as FollowSubscription),
+    recordInteraction(followee, 'follow', follow),
+    announceFollowEvent(follower, followee, { follower, followee, timestamp }, signature),
+  ]);
 }
 
 export async function unfollowUser(followee: string): Promise<void> {
@@ -87,8 +80,7 @@ export async function unfollowUser(followee: string): Promise<void> {
   const client = DelegationClient.getInstance();
   if (client) {
     const follower = await getPeerID();
-    const key = `/isc/follow/${follower}/${followee}`;
-    await client.announce(key, new Uint8Array(), 0);
+    await client.announce(`/isc/follow/${follower}/${followee}`, new Uint8Array(), 0);
   }
 }
 
@@ -98,8 +90,7 @@ export async function getFollowees(): Promise<string[]> {
 }
 
 export async function isFollowing(followee: string): Promise<boolean> {
-  const subscription = await dbGet<FollowSubscription>(FOLLOWS_STORE, followee);
-  return subscription !== null;
+  return (await dbGet<FollowSubscription>(FOLLOWS_STORE, followee)) !== null;
 }
 
 export async function getFollowerCount(peerID: string): Promise<number> {
@@ -118,14 +109,13 @@ export async function recordInteraction(
   weight?: number
 ): Promise<void> {
   const { interactionWeights } = Config.social.reputation;
-  const interaction: Interaction = {
+  await dbPut(INTERACTIONS_STORE, {
     type,
     peerID,
     timestamp: Date.now(),
     weight: weight ?? interactionWeights[type as keyof typeof interactionWeights] ?? 1,
-  };
-
-  await dbPut(INTERACTIONS_STORE, { ...interaction, id: `interaction_${crypto.randomUUID()}` });
+    id: `interaction_${crypto.randomUUID()}`,
+  });
 }
 
 export async function getInteractionHistory(peerID: string): Promise<Interaction[]> {
@@ -134,7 +124,7 @@ export async function getInteractionHistory(peerID: string): Promise<Interaction
 
 export function applyDecay(interaction: Interaction, halfLifeDays: number): number {
   const ageDays = (Date.now() - interaction.timestamp) / (1000 * 60 * 60 * 24);
-  return interaction.weight * Math.pow(0.5, ageDays / halfLifeDays);
+  return interaction.weight * 0.5 ** (ageDays / halfLifeDays);
 }
 
 export async function computeReputation(
@@ -149,13 +139,12 @@ export async function computeReputation(
 
   const baseScore = decayedInteractions.reduce((sum, i) => sum + i.decayedWeight, 0);
   const followees = await getFollowees();
-  const mutualFollows = followees.filter((f) => isFollowing(f)).length;
+  const mutualFollows = (await Promise.all(followees.map(isFollowing))).filter(Boolean).length;
   const mutualFollowBonus = Math.min(mutualFollows * 0.05, 0.4);
-  const normalizedScore = Math.log2(baseScore + 1) / 10;
 
   return {
     peerID,
-    score: Math.min(normalizedScore + mutualFollowBonus, 1.0),
+    score: Math.min(Math.log2(baseScore + 1) / 10 + mutualFollowBonus, 1.0),
     halfLifeDays,
     mutualFollows,
     interactionHistory: interactions,
@@ -185,18 +174,9 @@ export async function findTrustPaths(
   source: string,
   target: string,
   maxDepth: number = 3
-): Promise<TrustPath[]> {
-  // Edge case: source equals target
+): Promise<Array<{ source: string; target: string; hops: string[]; depth: number; confidence: number }>> {
   if (source === target) {
-    return [
-      {
-        source,
-        target,
-        hops: [],
-        depth: 0,
-        confidence: 1.0,
-      },
-    ];
+    return [{ source, target, hops: [], depth: 0, confidence: 1.0 }];
   }
   return [];
 }

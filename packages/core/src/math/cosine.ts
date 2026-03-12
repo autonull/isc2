@@ -5,21 +5,13 @@ export function cosineSimilarity(a: number[], b: number[]): number {
 
   if (a.length === 0) return 0;
 
-  let dotProduct = 0;
-  let normA = 0;
-  let normB = 0;
-
-  for (let i = 0; i < a.length; i++) {
-    const ai = a[i];
-    const bi = b[i];
-    dotProduct += ai * bi;
-    normA += ai * ai;
-    normB += bi * bi;
-  }
+  const dotProduct = a.reduce((sum, ai, i) => sum + ai * b[i], 0);
+  const normA = Math.sqrt(a.reduce((sum, v) => sum + v * v, 0));
+  const normB = Math.sqrt(b.reduce((sum, v) => sum + v * v, 0));
 
   if (normA === 0 || normB === 0) return 0;
 
-  return dotProduct / (Math.sqrt(normA) * Math.sqrt(normB));
+  return dotProduct / (normA * normB);
 }
 
 export function squaredEuclideanDistance(a: number[], b: number[]): number {
@@ -27,20 +19,14 @@ export function squaredEuclideanDistance(a: number[], b: number[]): number {
     throw new Error(`Vector length mismatch: ${a.length} !== ${b.length}`);
   }
 
-  let distance = 0;
-  for (let i = 0; i < a.length; i++) {
-    const diff = a[i] - b[i];
-    distance += diff * diff;
-  }
-  return distance;
+  return a.reduce((sum, ai, i) => {
+    const diff = ai - b[i];
+    return sum + diff * diff;
+  }, 0);
 }
 
 export function normalize(vector: number[]): number[] {
-  let norm = 0;
-  for (let i = 0; i < vector.length; i++) {
-    norm += vector[i] * vector[i];
-  }
-  norm = Math.sqrt(norm);
+  const norm = Math.sqrt(vector.reduce((sum, v) => sum + v * v, 0));
 
   if (norm === 0) {
     throw new Error('Cannot normalize a zero vector');
