@@ -184,3 +184,10 @@ export const updateChannel = (
   id: string,
   updates: Partial<Omit<Channel, 'id' | 'createdAt'>>
 ): Promise<Channel | null> => channelManager.updateChannel(id, updates);
+
+export const getAllChannels = (): Promise<Channel[]> => channelManager.getAllChannels();
+
+export const getActiveChannel = async (): Promise<Channel | null> => {
+  const channels = await channelManager.getAllChannels();
+  return channels.find(c => c.active) || channels[0] || null;
+};

@@ -19,6 +19,7 @@ import { configCommands } from './commands/config.js';
 import { announceCommands } from './commands/announce.js';
 import { queryCommands } from './commands/query.js';
 import { supernodeCommands } from './commands/supernode.js';
+import { initCommand } from './commands/init.js';
 import type { CLIConfig } from './config.js';
 
 const VERSION = '0.1.0';
@@ -52,6 +53,7 @@ function main(): void {
   announceCommands(program);
   queryCommands(program);
   supernodeCommands(program);
+  initCommand(program);
 
   program.parse(process.argv);
 
