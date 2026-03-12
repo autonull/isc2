@@ -85,6 +85,34 @@ node tests/simulation/swarm-test.js --peers=100 --cycles=15
 # ✓ Avg matches/peer >= 1
 ```
 
+### E2E Browser Tests
+
+```bash
+# Install Playwright browsers
+npx playwright install
+
+# Run E2E tests (starts dev server automatically)
+pnpm test:e2e
+
+# Run specific test file
+npx playwright test tests/e2e/core-flows.spec.ts
+
+# Run with UI mode
+npx playwright test --ui
+
+# Run specific browser
+npx playwright test --project=chromium
+```
+
+**Test Coverage:**
+- Channel management (create, switch, edit)
+- Semantic matching (match list, similarity scores)
+- Chat flows (open panel, send message)
+- Posts & feed (create, like, reply, repost)
+- Navigation (tab switching)
+- PWA features (manifest, service worker, offline)
+- Accessibility (headings, labels, keyboard nav)
+
 See [PROTOCOL.md](PROTOCOL.md) for complete protocol specification.
 
 ---
