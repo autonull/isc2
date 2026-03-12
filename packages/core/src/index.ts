@@ -66,5 +66,8 @@ export * from './stake/index.js';
 // Moderation courts (Phase 2.3)
 export * from './moderation/index.js';
 
+// Hierarchical DHT (Phase 2.4)
+export * from './dht/index.js';
+
 // Interoperability (Phase 9)
 export * from './interop/index.js';
