@@ -8,17 +8,11 @@ export class NodeModel implements EmbeddingModelAdapter {
   private modelId: string | null = null;
   private isLoadedFlag = false;
   private session: any = null;
-  private options: Required<NodeModelOptions>;
 
-  constructor(options: NodeModelOptions = {}) {
-    this.options = {
-      maxBatchSize: options.maxBatchSize ?? 32,
-    };
-  }
+  constructor(private options: Required<NodeModelOptions> = { maxBatchSize: 32 }) {}
 
   async load(modelId: string): Promise<void> {
     this.modelId = modelId;
-
     const ort = await import('onnxruntime-node');
     this.session = await ort.InferenceSession.create(modelId);
     this.isLoadedFlag = true;
@@ -31,13 +25,9 @@ export class NodeModel implements EmbeddingModelAdapter {
 
     const tokens = this.tokenize(text);
     const inputTensor = this.tokensToTensor(tokens);
-
-    const feeds: Record<string, any> = {};
-    feeds[this.session.inputNames[0]] = inputTensor;
-
+    const feeds: Record<string, any> = { [this.session.inputNames[0]]: inputTensor };
     const results = await this.session.run(feeds);
     const outputTensor = results[this.session.outputNames[0]];
-
     const embedding = Array.from(outputTensor.data as Float32Array).slice(0, 384);
     return this.normalize(embedding);
   }
@@ -58,9 +48,7 @@ export class NodeModel implements EmbeddingModelAdapter {
 
   private tokenize(text: string): number[] {
     const words = text.toLowerCase().split(/\s+/).filter((w) => w.length > 0);
-    const maxTokens = 512;
-    const tokens = words.slice(0, maxTokens);
-    return tokens.map((w) => this.hashToId(w));
+    return words.slice(0, 512).map((w) => this.hashToId(w));
   }
 
   private hashToId(word: string): number {
@@ -76,12 +64,7 @@ export class NodeModel implements EmbeddingModelAdapter {
     const tensorData = new Float32Array(tokens.length + 1);
     tensorData[0] = tokens.length;
     tokens.forEach((t, i) => (tensorData[i + 1] = t));
-
-    return new ort.InferenceSession.Tensor({
-      data: tensorData,
-      dims: [1, tokens.length + 1],
-      type: 'int64',
-    });
+    return new ort.InferenceSession.Tensor({ data: tensorData, dims: [1, tokens.length + 1], type: 'int64' });
   }
 
   private normalize(embedding: number[]): number[] {
@@ -101,7 +84,6 @@ export class NodeModel implements EmbeddingModelAdapter {
         results.push(await this.embed(text));
       }
     }
-
     return results;
   }
 }

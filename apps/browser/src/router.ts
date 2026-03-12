@@ -2,9 +2,11 @@ export type Route = 'now' | 'following' | 'discover' | 'compose' | 'chats' | 'se
 
 type RouteChangeCallback = (route: Route) => void;
 
+const VALID_ROUTES: Route[] = ['now', 'following', 'discover', 'compose', 'chats', 'settings', 'video'];
+
 class Router {
   private currentRoute: Route = 'now';
-  private listeners: Set<RouteChangeCallback> = new Set();
+  private listeners = new Set<RouteChangeCallback>();
   private params: Record<string, string> = {};
 
   get route(): Route {
@@ -29,8 +31,7 @@ class Router {
 
   getRouteFromHash(): Route {
     const hash = window.location.hash.slice(2) || 'now';
-    const validRoutes: Route[] = ['now', 'following', 'discover', 'compose', 'chats', 'settings', 'video'];
-    return validRoutes.includes(hash as Route) ? (hash as Route) : 'now';
+    return VALID_ROUTES.includes(hash as Route) ? (hash as Route) : 'now';
   }
 
   init(): void {

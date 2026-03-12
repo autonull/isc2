@@ -4,16 +4,10 @@ async function main() {
   console.log('ISC Browser App starting...');
 
   const identity = await initializeIdentity();
+  const fingerprint = identity.isInitialized ? identity.publicKeyFingerprint : (await initializeIdentity()).publicKeyFingerprint;
 
-  if (identity.isInitialized) {
-    console.log('Identity initialized:', identity.publicKeyFingerprint);
-    updateUI(identity.publicKeyFingerprint);
-  } else {
-    console.log('No identity found, generating new one...');
-    const newIdentity = await initializeIdentity();
-    console.log('New identity created:', newIdentity.publicKeyFingerprint);
-    updateUI(newIdentity.publicKeyFingerprint);
-  }
+  console.log(`Identity initialized: ${fingerprint}`);
+  updateUI(fingerprint);
 }
 
 function updateUI(fingerprint: string | null) {

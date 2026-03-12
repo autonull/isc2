@@ -1,4 +1,4 @@
-import { sign, encode } from '@isc/core';
+import { sign, encode, type Signature } from '@isc/core';
 import type { LikeEvent, RepostEvent, ReplyEvent, QuoteEvent } from './types.js';
 import { getPeerID, getKeypair } from '../identity/index.js';
 import { DelegationClient } from '../delegation/fallback.js';
@@ -10,32 +10,40 @@ const REPLIES_STORE = 'replies';
 const QUOTES_STORE = 'quotes';
 const DEFAULT_TTL = 86400 * 30;
 
-export async function likePost(postID: string): Promise<LikeEvent> {
-  const liker = await getPeerID();
+async function createAndAnnounceEvent<T extends { id: string; signature: Signature }>(
+  payload: Omit<T, 'signature'>,
+  store: string,
+  dhtKey: string
+): Promise<T> {
   const keypair = getKeypair();
-
   if (!keypair) throw new Error('Identity not initialized');
 
-  const like: Omit<LikeEvent, 'signature'> = {
-    id: `like_${crypto.randomUUID()}`,
-    liker,
-    postID,
-    timestamp: Date.now(),
-  };
+  const signature = await sign(encode(payload), keypair.privateKey);
+  const event = { ...payload, signature } as T;
 
-  const payload = encode(like);
-  const signature = await sign(payload, keypair.privateKey);
-  const signedLike: LikeEvent = { ...like, signature };
-
-  await dbPut(LIKES_STORE, signedLike);
+  await dbPut(store, event);
 
   const client = DelegationClient.getInstance();
   if (client) {
-    const key = `/isc/like/${postID}/${liker}`;
-    await client.announce(key, encode(signedLike), DEFAULT_TTL);
+    await client.announce(dhtKey, encode(event), DEFAULT_TTL);
   }
 
-  return signedLike;
+  return event;
+}
+
+export async function likePost(postID: string): Promise<LikeEvent> {
+  const liker = await getPeerID();
+
+  return createAndAnnounceEvent<LikeEvent>(
+    {
+      id: `like_${crypto.randomUUID()}`,
+      liker,
+      postID,
+      timestamp: Date.now(),
+    },
+    LIKES_STORE,
+    `/isc/like/${postID}/${liker}`
+  );
 }
 
 export async function unlikePost(postID: string): Promise<void> {
@@ -64,30 +72,17 @@ export async function hasLiked(postID: string): Promise<boolean> {
 
 export async function repostPost(postID: string): Promise<RepostEvent> {
   const reposter = await getPeerID();
-  const keypair = getKeypair();
 
-  if (!keypair) throw new Error('Identity not initialized');
-
-  const repost: Omit<RepostEvent, 'signature'> = {
-    id: `repost_${crypto.randomUUID()}`,
-    reposter,
-    postID,
-    timestamp: Date.now(),
-  };
-
-  const payload = encode(repost);
-  const signature = await sign(payload, keypair.privateKey);
-  const signedRepost: RepostEvent = { ...repost, signature };
-
-  await dbPut(REPOSTS_STORE, signedRepost);
-
-  const client = DelegationClient.getInstance();
-  if (client) {
-    const key = `/isc/repost/${postID}/${reposter}`;
-    await client.announce(key, encode(signedRepost), DEFAULT_TTL);
-  }
-
-  return signedRepost;
+  return createAndAnnounceEvent<RepostEvent>(
+    {
+      id: `repost_${crypto.randomUUID()}`,
+      reposter,
+      postID,
+      timestamp: Date.now(),
+    },
+    REPOSTS_STORE,
+    `/isc/repost/${postID}/${reposter}`
+  );
 }
 
 export async function replyToPost(
@@ -96,32 +91,19 @@ export async function replyToPost(
   channelID: string
 ): Promise<ReplyEvent> {
   const author = await getPeerID();
-  const keypair = getKeypair();
 
-  if (!keypair) throw new Error('Identity not initialized');
-
-  const reply: Omit<ReplyEvent, 'signature'> = {
-    id: `reply_${crypto.randomUUID()}`,
-    parentID,
-    author,
-    content,
-    channelID,
-    timestamp: Date.now(),
-  };
-
-  const payload = encode(reply);
-  const signature = await sign(payload, keypair.privateKey);
-  const signedReply: ReplyEvent = { ...reply, signature };
-
-  await dbPut(REPLIES_STORE, signedReply);
-
-  const client = DelegationClient.getInstance();
-  if (client) {
-    const key = `/isc/reply/${parentID}/${signedReply.id}`;
-    await client.announce(key, encode(signedReply), DEFAULT_TTL);
-  }
-
-  return signedReply;
+  return createAndAnnounceEvent<ReplyEvent>(
+    {
+      id: `reply_${crypto.randomUUID()}`,
+      parentID,
+      author,
+      content,
+      channelID,
+      timestamp: Date.now(),
+    },
+    REPLIES_STORE,
+    `/isc/reply/${parentID}/${author}`
+  );
 }
 
 export async function getReplies(parentID: string): Promise<ReplyEvent[]> {
@@ -134,32 +116,19 @@ export async function quotePost(
   channelID: string
 ): Promise<QuoteEvent> {
   const quoter = await getPeerID();
-  const keypair = getKeypair();
 
-  if (!keypair) throw new Error('Identity not initialized');
-
-  const quote: Omit<QuoteEvent, 'signature'> = {
-    id: `quote_${crypto.randomUUID()}`,
-    quoter,
-    postID,
-    content,
-    channelID,
-    timestamp: Date.now(),
-  };
-
-  const payload = encode(quote);
-  const signature = await sign(payload, keypair.privateKey);
-  const signedQuote: QuoteEvent = { ...quote, signature };
-
-  await dbPut(QUOTES_STORE, signedQuote);
-
-  const client = DelegationClient.getInstance();
-  if (client) {
-    const key = `/isc/quote/${postID}/${quoter}`;
-    await client.announce(key, encode(signedQuote), DEFAULT_TTL);
-  }
-
-  return signedQuote;
+  return createAndAnnounceEvent<QuoteEvent>(
+    {
+      id: `quote_${crypto.randomUUID()}`,
+      quoter,
+      postID,
+      content,
+      channelID,
+      timestamp: Date.now(),
+    },
+    QUOTES_STORE,
+    `/isc/quote/${postID}/${quoter}`
+  );
 }
 
 export async function getInteractionCounts(postID: string): Promise<{

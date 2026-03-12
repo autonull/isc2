@@ -1,9 +1,6 @@
 import { TierDetector, Tier, DeviceCapabilities } from '../interfaces/tier.js';
 
-const nav = navigator as Navigator & {
-  deviceMemory?: number;
-  connection?: Record<string, unknown>;
-};
+const nav = navigator as Navigator & { deviceMemory?: number; connection?: Record<string, unknown> };
 
 export class BrowserTierDetector implements TierDetector {
   async detect(): Promise<Tier> {
@@ -25,9 +22,7 @@ export class BrowserTierDetector implements TierDetector {
     const conn = nav.connection;
     if (!conn) return 'unknown';
     const effectiveType = (conn as { effectiveType?: string }).effectiveType;
-    return effectiveType === '2g' || effectiveType === '3g' || effectiveType === '4g'
-      ? effectiveType
-      : 'unknown';
+    return effectiveType === '2g' || effectiveType === '3g' || effectiveType === '4g' ? effectiveType : 'unknown';
   }
 
   private getSaveData(): boolean {

@@ -8,14 +8,14 @@ interface ChannelHeaderProps {
   onEditClick?: () => void;
 }
 
+const formatRelation = (tag: string, object?: string) => (object ? `${tag}: ${object}` : tag);
+
 export function ChannelHeader({
   channel,
   matchCount = 0,
   onSwitchClick,
   onEditClick,
 }: ChannelHeaderProps) {
-  const formatRelation = (tag: string, object?: string) => (object ? `${tag}: ${object}` : tag);
-
   return (
     <header class="channel-header">
       <div class="channel-title-row">
@@ -55,6 +55,28 @@ interface ChannelSwitcherProps {
   onDelete?: (channelId: string) => void;
 }
 
+const handleSwipeAction = (
+  channelId: string,
+  action: 'edit' | 'archive' | 'delete',
+  handlers: {
+    onEdit?: (channelId: string) => void;
+    onArchive?: (channelId: string) => void;
+    onDelete?: (channelId: string) => void;
+  }
+) => {
+  switch (action) {
+    case 'edit':
+      handlers.onEdit?.(channelId);
+      break;
+    case 'archive':
+      handlers.onArchive?.(channelId);
+      break;
+    case 'delete':
+      handlers.onDelete?.(channelId);
+      break;
+  }
+};
+
 export function ChannelSwitcher({
   channels,
   activeChannelId,
@@ -63,20 +85,6 @@ export function ChannelSwitcher({
   onArchive,
   onDelete,
 }: ChannelSwitcherProps) {
-  const handleSwipeAction = (channelId: string, action: 'edit' | 'archive' | 'delete') => {
-    switch (action) {
-      case 'edit':
-        onEdit?.(channelId);
-        break;
-      case 'archive':
-        onArchive?.(channelId);
-        break;
-      case 'delete':
-        onDelete?.(channelId);
-        break;
-    }
-  };
-
   return (
     <div class="channel-switcher">
       <div class="switcher-header">
@@ -98,7 +106,7 @@ export function ChannelSwitcher({
                 class="swipe-action"
                 onClick={(e) => {
                   e.stopPropagation();
-                  handleSwipeAction(channel.id, 'edit');
+                  handleSwipeAction(channel.id, 'edit', { onEdit });
                 }}
               >
                 Edit
@@ -107,7 +115,7 @@ export function ChannelSwitcher({
                 class="swipe-action"
                 onClick={(e) => {
                   e.stopPropagation();
-                  handleSwipeAction(channel.id, 'archive');
+                  handleSwipeAction(channel.id, 'archive', { onArchive });
                 }}
               >
                 Archive
@@ -116,7 +124,7 @@ export function ChannelSwitcher({
                 class="swipe-action delete"
                 onClick={(e) => {
                   e.stopPropagation();
-                  handleSwipeAction(channel.id, 'delete');
+                  handleSwipeAction(channel.id, 'delete', { onDelete });
                 }}
               >
                 Delete

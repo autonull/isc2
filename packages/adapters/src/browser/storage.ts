@@ -2,11 +2,9 @@ import type { StorageAdapter } from '../interfaces/storage.js';
 
 const DB_NAME = 'isc-db';
 const DB_VERSION = 1;
-
 const STORES = ['keypairs', 'channels', 'posts', 'settings'] as const;
-
 const LOCAL_STORAGE_PREFIX = 'isc_';
-const LOCAL_STORAGE_LIMIT = 5 * 1024 * 1024; // 5MB
+const LOCAL_STORAGE_LIMIT = 5 * 1024 * 1024;
 
 export class BrowserStorage implements StorageAdapter {
   private db: IDBDatabase | null = null;
@@ -14,19 +12,15 @@ export class BrowserStorage implements StorageAdapter {
 
   async init(): Promise<void> {
     if (this.db) return;
-
     return new Promise((resolve, reject) => {
       const request = indexedDB.open(DB_NAME, DB_VERSION);
-
       request.onerror = () => reject(request.error);
       request.onsuccess = () => {
         this.db = request.result;
         resolve();
       };
-
       request.onupgradeneeded = (event) => {
         const db = (event.target as IDBOpenDBRequest).result;
-
         STORES.forEach((store) => {
           if (!db.objectStoreNames.contains(store)) {
             db.createObjectStore(store, { keyPath: 'id' });
@@ -38,30 +32,22 @@ export class BrowserStorage implements StorageAdapter {
 
   private getStore(name: string, mode: IDBTransactionMode): IDBObjectStore | null {
     if (!this.db) return null;
-    const transaction = this.db.transaction(name, mode);
-    return transaction.objectStore(name);
+    return this.db.transaction(name, mode).objectStore(name);
   }
 
   async get<T>(key: string): Promise<T | null> {
     await this.init();
 
-    // Try IndexedDB first
-    const stores: typeof STORES = STORES;
-    for (const storeName of stores) {
+    for (const storeName of STORES) {
       const store = this.getStore(storeName, 'readonly');
       if (!store) continue;
-
       return new Promise((resolve) => {
         const request = store.get(key);
-        request.onsuccess = () => {
-          const result = request.result;
-          resolve(result ? (result.data as T) : null);
-        };
+        request.onsuccess = () => resolve(request.result ? (request.result.data as T) : null);
         request.onerror = () => resolve(null);
       });
     }
 
-    // Fallback to localStorage
     const lsValue = this.localStorageFallback.get(`${LOCAL_STORAGE_PREFIX}${key}`);
     if (lsValue) {
       try {
@@ -70,17 +56,13 @@ export class BrowserStorage implements StorageAdapter {
         return null;
       }
     }
-
     return null;
   }
 
   async set<T>(key: string, value: T): Promise<void> {
     await this.init();
-
-    // Determine store based on key prefix
     const storeName = this.determineStore(key);
 
-    // Try IndexedDB first
     if (this.db) {
       const store = this.getStore(storeName, 'readwrite');
       if (store) {
@@ -92,7 +74,6 @@ export class BrowserStorage implements StorageAdapter {
       }
     }
 
-    // Fallback to localStorage for small data
     const serialized = JSON.stringify(value);
     const totalSize = this.estimateLocalStorageSize() + serialized.length;
 
@@ -110,9 +91,7 @@ export class BrowserStorage implements StorageAdapter {
 
   async delete(key: string): Promise<void> {
     await this.init();
-
-    const storeName = this.determineStore(key);
-    const store = this.getStore(storeName, 'readwrite');
+    const store = this.getStore(this.determineStore(key), 'readwrite');
 
     if (store) {
       return new Promise((resolve, reject) => {
@@ -122,7 +101,6 @@ export class BrowserStorage implements StorageAdapter {
       });
     }
 
-    // Also delete from localStorage
     this.localStorageFallback.delete(`${LOCAL_STORAGE_PREFIX}${key}`);
     try {
       localStorage.removeItem(`${LOCAL_STORAGE_PREFIX}${key}`);
@@ -133,19 +111,15 @@ export class BrowserStorage implements StorageAdapter {
 
   async *keys(prefix?: string): AsyncIterable<string> {
     await this.init();
-
-    const stores: typeof STORES = STORES;
     const seen = new Set<string>();
 
-    for (const storeName of stores) {
+    for (const storeName of STORES) {
       const store = this.getStore(storeName, 'readonly');
       if (!store) continue;
 
       const keys = await new Promise<string[]>((resolve) => {
         const request = store.getAllKeys();
-        request.onsuccess = () => {
-          resolve(request.result as string[]);
-        };
+        request.onsuccess = () => resolve(request.result as string[]);
         request.onerror = () => resolve([]);
       });
 
@@ -157,7 +131,6 @@ export class BrowserStorage implements StorageAdapter {
       }
     }
 
-    // Also yield localStorage keys
     for (let i = 0; i < localStorage.length; i++) {
       const key = localStorage.key(i);
       if (key?.startsWith(LOCAL_STORAGE_PREFIX)) {
@@ -172,15 +145,10 @@ export class BrowserStorage implements StorageAdapter {
 
   async clear(): Promise<void> {
     await this.init();
-
-    const stores: typeof STORES = STORES;
-    for (const storeName of stores) {
+    for (const storeName of STORES) {
       const store = this.getStore(storeName, 'readwrite');
-      if (store) {
-        store.clear();
-      }
+      if (store) store.clear();
     }
-
     this.localStorageFallback.clear();
     try {
       localStorage.clear();
@@ -202,9 +170,7 @@ export class BrowserStorage implements StorageAdapter {
       const key = localStorage.key(i);
       if (key) {
         const value = localStorage.getItem(key);
-        if (value) {
-          size += key.length + value.length;
-        }
+        if (value) size += key.length + value.length;
       }
     }
     return size;

@@ -1,4 +1,4 @@
-import { sign, encode, cosineSimilarity, Config, Validators } from '@isc/core';
+import { sign, encode, cosineSimilarity, Config, Validators, type Signature } from '@isc/core';
 import type { FollowSubscription, ProfileSummary } from './types.js';
 import { getPeerID, getKeypair, getPeerPublicKey } from '../identity/index.js';
 import { DelegationClient } from '../delegation/fallback.js';
@@ -54,25 +54,31 @@ export interface BridgeProfile {
   communities: string[];
 }
 
+async function announceFollowEvent(
+  follower: string,
+  followee: string,
+  event: object,
+  signature: Signature
+): Promise<void> {
+  const client = DelegationClient.getInstance();
+  if (client) {
+    const key = `/isc/follow/${follower}/${followee}`;
+    await client.announce(key, encode({ ...event, signature }), DEFAULT_TTL);
+  }
+}
+
 export async function followUser(followee: string): Promise<void> {
   const follower = await getPeerID();
   const keypair = getKeypair();
   Validators.keypair(keypair);
 
   const { follow } = Config.social.reputation.interactionWeights;
-  const followEvent = { follower, followee, timestamp: Date.now() };
-  const payload = encode(followEvent);
-  const signature = await sign(payload, keypair.privateKey);
+  const timestamp = Date.now();
+  const signature = await sign(encode({ follower, followee, timestamp }), keypair.privateKey);
 
-  const subscription: FollowSubscription = { followee, since: Date.now() };
-  await dbPut(FOLLOWS_STORE, subscription);
+  await dbPut(FOLLOWS_STORE, { followee, since: timestamp } as FollowSubscription);
   await recordInteraction(followee, 'follow', follow);
-
-  const client = DelegationClient.getInstance();
-  if (client) {
-    const key = `/isc/follow/${follower}/${followee}`;
-    await client.announce(key, encode({ ...followEvent, signature }), DEFAULT_TTL);
-  }
+  await announceFollowEvent(follower, followee, { follower, followee, timestamp }, signature);
 }
 
 export async function unfollowUser(followee: string): Promise<void> {
@@ -119,8 +125,7 @@ export async function recordInteraction(
     weight: weight ?? interactionWeights[type as keyof typeof interactionWeights] ?? 1,
   };
 
-  const id = `interaction_${crypto.randomUUID()}`;
-  await dbPut(INTERACTIONS_STORE, { ...interaction, id });
+  await dbPut(INTERACTIONS_STORE, { ...interaction, id: `interaction_${crypto.randomUUID()}` });
 }
 
 export async function getInteractionHistory(peerID: string): Promise<Interaction[]> {
@@ -128,11 +133,8 @@ export async function getInteractionHistory(peerID: string): Promise<Interaction
 }
 
 export function applyDecay(interaction: Interaction, halfLifeDays: number): number {
-  const now = Date.now();
-  const ageMs = now - interaction.timestamp;
-  const ageDays = ageMs / (1000 * 60 * 60 * 24);
-  const decay = Math.pow(0.5, ageDays / halfLifeDays);
-  return interaction.weight * decay;
+  const ageDays = (Date.now() - interaction.timestamp) / (1000 * 60 * 60 * 24);
+  return interaction.weight * Math.pow(0.5, ageDays / halfLifeDays);
 }
 
 export async function computeReputation(
@@ -150,11 +152,10 @@ export async function computeReputation(
   const mutualFollows = followees.filter((f) => isFollowing(f)).length;
   const mutualFollowBonus = Math.min(mutualFollows * 0.05, 0.4);
   const normalizedScore = Math.log2(baseScore + 1) / 10;
-  const cappedScore = Math.min(normalizedScore + mutualFollowBonus, 1.0);
 
   return {
     peerID,
-    score: cappedScore,
+    score: Math.min(normalizedScore + mutualFollowBonus, 1.0),
     halfLifeDays,
     mutualFollows,
     interactionHistory: interactions,
@@ -163,7 +164,6 @@ export async function computeReputation(
 }
 
 export async function computeTrustScore(targetPeer: string): Promise<TrustScore> {
-  const myID = await getPeerID();
   const following = await isFollowing(targetPeer);
   const directTrust = following ? 0.5 : 0;
 
@@ -171,32 +171,32 @@ export async function computeTrustScore(targetPeer: string): Promise<TrustScore>
   const indirectCount = followees.filter((f) => f !== targetPeer).length;
   const indirectTrust = Math.min(indirectCount * 0.03, 0.3);
   const mutualFollowBonus = following ? 0.2 : 0;
-  const sybilCap = 0.3;
-  const total = Math.min(directTrust + indirectTrust + mutualFollowBonus, 1.0);
 
-  return { directTrust, indirectTrust, mutualFollowBonus, sybilCap, total };
+  return {
+    directTrust,
+    indirectTrust,
+    mutualFollowBonus,
+    sybilCap: 0.3,
+    total: Math.min(directTrust + indirectTrust + mutualFollowBonus, 1.0),
+  };
 }
 
 export async function findTrustPaths(
-  source: string,
-  target: string,
-  maxDepth: number = 3
+  _source: string,
+  _target: string,
+  _maxDepth: number = 3
 ): Promise<TrustPath[]> {
-  if (source === target) {
-    return [{ source, target, hops: [], depth: 0, confidence: 1.0 }];
-  }
   return [];
 }
 
 export async function getWoTSuggestedFollows(
-  limit: number = 10,
-  minTrustScore: number = 0.3
+  _limit: number = 10,
+  _minTrustScore: number = 0.3
 ): Promise<FollowSuggestion[]> {
-  await getFollowees();
   return [];
 }
 
-export async function getBridgeSuggestions(limit: number = 5): Promise<BridgeProfile[]> {
+export async function getBridgeSuggestions(_limit: number = 5): Promise<BridgeProfile[]> {
   return [];
 }
 
@@ -204,8 +204,10 @@ export async function getProfile(peerID: string): Promise<ProfileSummary | null>
   const profile = await dbGet<ProfileSummary>(PROFILES_STORE, peerID);
   if (profile) return profile;
 
-  const followerCount = await getFollowerCount(peerID);
-  const followingCount = await getFollowingCount(peerID);
+  const [followerCount, followingCount] = await Promise.all([
+    getFollowerCount(peerID),
+    getFollowingCount(peerID),
+  ]);
 
   return {
     peerID,
@@ -225,12 +227,9 @@ export function applyChaosMode(embedding: number[], chaosLevel: number): number[
 
   const perturbed = embedding.map((v) => v + (Math.random() - 0.5) * 2 * chaosLevel);
   const norm = Math.sqrt(perturbed.reduce((sum, v) => sum + v * v, 0));
-  if (norm === 0) return embedding;
-
-  return perturbed.map((v) => v / norm);
+  return norm === 0 ? embedding : perturbed.map((v) => v / norm);
 }
 
-export async function getSuggestedFollows(limit: number = 10): Promise<string[]> {
-  await getFollowees();
+export async function getSuggestedFollows(_limit: number = 10): Promise<string[]> {
   return [];
 }

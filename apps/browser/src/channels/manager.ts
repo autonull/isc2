@@ -18,13 +18,11 @@ class IndexedDBChannelStore implements ChannelStore {
 
   private async getDB(): Promise<IDBDatabase> {
     if (this.db) return this.db;
-
-    this.db = await openDB(DB_NAME, DB_VERSION, (database, _event) => {
+    this.db = await openDB(DB_NAME, DB_VERSION, (database) => {
       if (!database.objectStoreNames.contains('channels')) {
         database.createObjectStore('channels', { keyPath: 'id' });
       }
     });
-
     return this.db;
   }
 
@@ -91,6 +89,7 @@ export class ChannelManager {
   async getChannel(id: string): Promise<Channel | null> {
     return this.store.get(id);
   }
+
   async getAllChannels(): Promise<Channel[]> {
     return this.store.getAll();
   }
@@ -106,7 +105,9 @@ export class ChannelManager {
     if (updates.relations) updated.relations = updates.relations.slice(0, MAX_RELATIONS);
 
     await this.store.save(updated);
-    if (this.activeChannels.has(id) && this.dhtClient) await this.dhtClient.deactivateChannel(id);
+    if (this.activeChannels.has(id) && this.dhtClient) {
+      await this.dhtClient.deactivateChannel(id);
+    }
     return updated;
   }
 
@@ -125,8 +126,9 @@ export class ChannelManager {
     const channel = await this.store.get(id);
     if (!channel) throw new Error(`Channel ${id} not found`);
     if (this.activeChannels.has(id)) return;
-    if (this.activeChannels.size >= MAX_ACTIVE_CHANNELS)
+    if (this.activeChannels.size >= MAX_ACTIVE_CHANNELS) {
       throw new Error(`Maximum ${MAX_ACTIVE_CHANNELS} active channels allowed`);
+    }
     if (!this.dhtClient) throw new Error('DHT client not configured');
 
     await this.dhtClient.announceChannel(channel, distributions);
@@ -138,6 +140,7 @@ export class ChannelManager {
     if (!this.activeChannels.has(id)) return;
     if (this.dhtClient) await this.dhtClient.deactivateChannel(id);
     this.activeChannels.delete(id);
+
     const channel = await this.store.get(id);
     if (channel) await this.store.save({ ...channel, active: false, updatedAt: Date.now() });
   }
@@ -145,6 +148,7 @@ export class ChannelManager {
   async forkChannel(id: string): Promise<Channel | null> {
     const original = await this.store.get(id);
     if (!original) return null;
+
     const forked: Channel = {
       ...original,
       id: `ch_${crypto.randomUUID()}`,
@@ -166,6 +170,7 @@ export class ChannelManager {
   getActiveChannelCount(): number {
     return this.activeChannels.size;
   }
+
   isActive(id: string): boolean {
     return this.activeChannels.has(id);
   }
@@ -173,14 +178,8 @@ export class ChannelManager {
 
 export const channelManager = new ChannelManager();
 
-/**
- * Convenience function to get a channel by ID
- */
 export const getChannel = (id: string): Promise<Channel | null> => channelManager.getChannel(id);
 
-/**
- * Convenience function to update a channel
- */
 export const updateChannel = (
   id: string,
   updates: Partial<Omit<Channel, 'id' | 'createdAt'>>

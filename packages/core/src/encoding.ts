@@ -1,17 +1,18 @@
 const encoder = new TextEncoder();
 const decoder = new TextDecoder();
 
+interface EncodedUint8Array {
+  __type: 'Uint8Array';
+  data: number[];
+}
+
 export function encode(obj: unknown): Uint8Array {
-  const json = JSON.stringify(obj, (_key, value) =>
-    value instanceof Uint8Array ? { __type: 'Uint8Array', data: Array.from(value) } : value
-  );
+  const json = JSON.stringify(obj, replacer);
   return encoder.encode(json);
 }
 
 export function decode(data: Uint8Array): unknown {
-  return JSON.parse(decoder.decode(data), (_key, value) =>
-    value?.__type === 'Uint8Array' ? new Uint8Array(value.data) : value
-  );
+  return JSON.parse(decoder.decode(data), reviver);
 }
 
 export function decodeAs<T>(data: Uint8Array): T {
@@ -21,9 +22,17 @@ export function decodeAs<T>(data: Uint8Array): T {
 export const encodeString = (str: string): Uint8Array => encoder.encode(str);
 export const decodeString = (data: Uint8Array): string => decoder.decode(data);
 
-/**
- * Generate a UUID v4 string
- */
+function replacer(_key: string, value: unknown): unknown {
+  return value instanceof Uint8Array
+    ? { __type: 'Uint8Array' as const, data: Array.from(value) }
+    : value;
+}
+
+function reviver(_key: string, value: unknown): unknown {
+  const obj = value as EncodedUint8Array | null;
+  return obj?.__type === 'Uint8Array' ? new Uint8Array(obj.data) : value;
+}
+
 export function generateUUID(): string {
   const bytes = crypto.getRandomValues(new Uint8Array(16));
   bytes[6] = (bytes[6] & 0x0f) | 0x40;

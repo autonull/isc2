@@ -16,40 +16,43 @@ export interface TrendingTopic {
   channelID: string;
 }
 
+function calculateEngagement(interactions: {
+  likes: number;
+  reposts: number;
+  replies: number;
+  quotes: number;
+}): number {
+  const { weights } = Config.social.trending;
+  return (
+    interactions.likes * weights.likes +
+    interactions.reposts * weights.reposts +
+    interactions.replies * weights.replies +
+    interactions.quotes * weights.quotes
+  );
+}
+
 export function calculateTrendingScore(
   post: SignedPost,
   interactions: { likes: number; reposts: number; replies: number; quotes: number }
 ): number {
-  const age = Date.now() - post.timestamp;
-  const ageHours = age / (1000 * 60 * 60);
-
-  const { weights } = Config.social.trending;
-  const engagement =
-    interactions.likes * weights.likes +
-    interactions.reposts * weights.reposts +
-    interactions.replies * weights.replies +
-    interactions.quotes * weights.quotes;
+  const ageHours = (Date.now() - post.timestamp) / (1000 * 60 * 60);
+  const engagement = calculateEngagement(interactions);
 
   if (engagement < Config.social.trending.minEngagement) return 0;
-
   return engagement / Math.pow(ageHours + 2, 1.5);
+}
+
+async function scorePost(post: SignedPost): Promise<RankedPost> {
+  const interactions = await getInteractionCounts(post.id);
+  const score = calculateTrendingScore(post, interactions);
+  const engagementCount = interactions.likes + interactions.reposts + interactions.replies + interactions.quotes;
+
+  return { ...post, trendingScore: score, engagementCount };
 }
 
 export async function getTrendingPosts(limit: number = 20): Promise<RankedPost[]> {
   const allPosts = await getAllPosts();
-
-  const scored = await Promise.all(
-    allPosts.map(async (post) => {
-      const interactions = await getInteractionCounts(post.id);
-      const score = calculateTrendingScore(post, interactions);
-
-      return {
-        ...post,
-        trendingScore: score,
-        engagementCount: interactions.likes + interactions.reposts + interactions.replies + interactions.quotes,
-      };
-    })
-  );
+  const scored = await Promise.all(allPosts.map(scorePost));
 
   return scored
     .filter((p) => p.trendingScore > 0)
@@ -57,24 +60,9 @@ export async function getTrendingPosts(limit: number = 20): Promise<RankedPost[]
     .slice(0, limit);
 }
 
-export async function getTrendingPostsForChannel(
-  channelID: string,
-  limit: number = 20
-): Promise<RankedPost[]> {
+export async function getTrendingPostsForChannel(channelID: string, limit: number = 20): Promise<RankedPost[]> {
   const channelPosts = await getPostsByChannel(channelID);
-
-  const scored = await Promise.all(
-    channelPosts.map(async (post) => {
-      const interactions = await getInteractionCounts(post.id);
-      const score = calculateTrendingScore(post, interactions);
-
-      return {
-        ...post,
-        trendingScore: score,
-        engagementCount: interactions.likes + interactions.reposts + interactions.replies + interactions.quotes,
-      };
-    })
-  );
+  const scored = await Promise.all(channelPosts.map(scorePost));
 
   return scored
     .filter((p) => p.trendingScore > 0)
@@ -85,19 +73,12 @@ export async function getTrendingPostsForChannel(
 export async function getHotPosts(limit: number = 20): Promise<RankedPost[]> {
   const allPosts = await getAllPosts();
   const oneHourAgo = Date.now() - 3600 * 1000;
-
   const recentPosts = allPosts.filter((p) => p.timestamp > oneHourAgo);
 
   const scored = await Promise.all(
     recentPosts.map(async (post) => {
-      const interactions = await getInteractionCounts(post.id);
-      const score = calculateTrendingScore(post, interactions);
-
-      return {
-        ...post,
-        trendingScore: score * 2,
-        engagementCount: interactions.likes + interactions.reposts + interactions.replies + interactions.quotes,
-      };
+      const ranked = await scorePost(post);
+      return { ...ranked, trendingScore: ranked.trendingScore * 2 };
     })
   );
 
@@ -107,12 +88,8 @@ export async function getHotPosts(limit: number = 20): Promise<RankedPost[]> {
     .slice(0, limit);
 }
 
-export async function getExploreFeed(
-  chaosLevel: number = 0.2,
-  limit: number = 30
-): Promise<RankedPost[]> {
+export async function getExploreFeed(chaosLevel: number = 0.2, limit: number = 30): Promise<RankedPost[]> {
   const trending = await getTrendingPosts(limit * 2);
-
   if (chaosLevel <= 0) return trending.slice(0, limit);
 
   const channelCounts = new Map<string, number>();
@@ -147,11 +124,7 @@ export async function getExploreFeed(
 
 export async function getTrendingTopics(limit: number = 10): Promise<TrendingTopic[]> {
   const trending = await getTrendingPosts(limit * 3);
-
-  const topicMap = new Map<
-    string,
-    { posts: RankedPost[]; totalEngagement: number; preview: string }
-  >();
+  const topicMap = new Map<string, { posts: RankedPost[]; totalEngagement: number; preview: string }>();
 
   for (const post of trending) {
     const topicKey = post.content.slice(0, 50).toLowerCase().trim();
@@ -191,19 +164,7 @@ export async function getFollowingFeed(limit: number = 50): Promise<RankedPost[]
 
   const allPosts = await getAllPosts();
   const followingPosts = allPosts.filter((p) => followees.includes(p.author));
-
-  const scored = await Promise.all(
-    followingPosts.map(async (post) => {
-      const interactions = await getInteractionCounts(post.id);
-      const score = calculateTrendingScore(post, interactions);
-
-      return {
-        ...post,
-        trendingScore: score,
-        engagementCount: interactions.likes + interactions.reposts + interactions.replies + interactions.quotes,
-      };
-    })
-  );
+  const scored = await Promise.all(followingPosts.map(scorePost));
 
   return scored
     .filter((p) => p.trendingScore > 0)

@@ -1,20 +1,9 @@
-/**
- * Centralized Configuration Management
- *
- * All application configuration constants in one place.
- */
-
 export const Config = {
   social: {
     trending: {
       timeDecayHalfLifeMs: 3600 * 1000,
       minEngagement: 3,
-      weights: {
-        likes: 1,
-        reposts: 2,
-        replies: 3,
-        quotes: 2,
-      },
+      weights: { likes: 1, reposts: 2, replies: 3, quotes: 2 },
     },
     reputation: {
       halfLifeDays: 30,
@@ -27,12 +16,8 @@ export const Config = {
         mutualFollow: 10,
       },
     },
-    posts: {
-      defaultTtlSeconds: 86400 * 7,
-    },
-    follows: {
-      defaultTtlSeconds: 86400 * 30,
-    },
+    posts: { defaultTtlSeconds: 86400 * 7 },
+    follows: { defaultTtlSeconds: 86400 * 30 },
   },
 
   delegation: {
@@ -75,9 +60,7 @@ export const Config = {
   },
 
   crypto: {
-    shamir: {
-      minThreshold: 1,
-    },
+    shamir: { minThreshold: 1 },
   },
 
   network: {
@@ -87,14 +70,8 @@ export const Config = {
   },
 
   ui: {
-    feed: {
-      defaultLimit: 20,
-      maxLimit: 100,
-    },
-    chaosLevel: {
-      default: 0.2,
-      max: 1.0,
-    },
+    feed: { defaultLimit: 20, maxLimit: 100 },
+    chaosLevel: { default: 0.2, max: 1.0 },
   },
 };
 

@@ -2,9 +2,6 @@ import { cosineSimilarity } from '../math/cosine.js';
 import { Distribution, Relation } from '../types.js';
 import { locationOverlap, timeOverlap, Location, TimeWindow } from './spatiotemporal.js';
 
-/**
- * Relational matching configuration.
- */
 export interface MatchConfig {
   rootWeight: number;
   fusedWeight: number;
@@ -53,30 +50,6 @@ function spatiotemporalBonus(relA: Relation, relB: Relation): number {
   return 1.0;
 }
 
-/**
- * Computes relational match score between two sets of distributions.
- *
- * Uses bipartite best-match alignment across root and fused distributions,
- * with bonuses for tag matching and spatiotemporal overlap.
- *
- * @param myDists - My channel distributions (root + fused)
- * @param peerDists - Peer channel distributions (root + fused)
- * @param config - Optional matching configuration
- * @returns Match score in [0, 1], filtered to 0 if below minSimilarity
- *
- * @example
- * ```typescript
- * const myDists = [
- *   { mu: [...], sigma: 0.1, tag: 'root', weight: 1.0 },
- *   { mu: [...], sigma: 0.15, tag: 'in_location', weight: 1.2 }
- * ];
- * const peerDists = [
- *   { mu: [...], sigma: 0.1, tag: 'root', weight: 1.0 },
- *   { mu: [...], sigma: 0.12, tag: 'in_location', weight: 1.2 }
- * ];
- * const score = relationalMatch(myDists, peerDists);
- * ```
- */
 export function relationalMatch(
   myDists: Distribution[],
   peerDists: Distribution[],
@@ -117,18 +90,18 @@ export function relationalMatch(
 
         const peerDist = peerFused[j];
         const sim = cosineSimilarity(myDist.mu, peerDist.mu);
-        let bonus =
+        const bonus =
           myDist.tag && peerDist.tag && myDist.tag === peerDist.tag ? cfg.tagMatchBonus : 1.0;
 
         const myRel: Relation = { tag: myDist.tag || '', weight: myDist.weight };
         const peerRel: Relation = { tag: peerDist.tag || '', weight: peerDist.weight };
-        bonus *= spatiotemporalBonus(myRel, peerRel);
+        const combinedBonus = bonus * spatiotemporalBonus(myRel, peerRel);
 
-        const weightedSim = sim * bonus;
+        const weightedSim = sim * combinedBonus;
         if (weightedSim > bestSim) {
           bestSim = weightedSim;
           bestPeerIdx = j;
-          bestBonus = bonus;
+          bestBonus = combinedBonus;
         }
       }
 
@@ -153,25 +126,10 @@ export function relationalMatch(
   return Math.max(0, Math.min(1, normalizedScore));
 }
 
-/**
- * Computes simple cosine similarity between distribution means.
- *
- * @param a - First distribution
- * @param b - Second distribution
- * @returns Cosine similarity in [-1, 1]
- */
 export function distributionSimilarity(a: Distribution, b: Distribution): number {
   return cosineSimilarity(a.mu, b.mu);
 }
 
-/**
- * Ranks peer distributions against my distributions.
- *
- * @param myDists - My distributions
- * @param candidates - Array of peer distribution sets
- * @param config - Optional matching configuration
- * @returns Sorted array of { peerIndex, score } pairs (descending by score)
- */
 export function rankCandidates(
   myDists: Distribution[],
   candidates: Distribution[][],

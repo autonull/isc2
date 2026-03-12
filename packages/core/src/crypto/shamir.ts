@@ -4,10 +4,7 @@ export interface SecretShare {
   y: Uint8Array;
   threshold: number;
   total: number;
-  metadata?: {
-    createdAt: number;
-    purpose?: string;
-  };
+  metadata?: { createdAt: number; purpose?: string };
 }
 
 export interface ShamirConfig {
@@ -17,12 +14,7 @@ export interface ShamirConfig {
 }
 
 const DEFAULT_PRIME = 257;
-
-const DEFAULT_CONFIG: ShamirConfig = {
-  prime: DEFAULT_PRIME,
-  defaultThreshold: 3,
-  defaultTotal: 5,
-};
+const DEFAULT_CONFIG: ShamirConfig = { prime: DEFAULT_PRIME, defaultThreshold: 3, defaultTotal: 5 };
 
 function evaluatePolynomial(coefficients: number[], x: number, prime: number): number {
   let result = 0;
@@ -42,10 +34,7 @@ function generatePolynomial(secret: number, degree: number, prime: number): numb
 
 function splitByte(byte: number, threshold: number, total: number, prime: number): { x: number; y: number }[] {
   const polynomial = generatePolynomial(byte, threshold - 1, prime);
-  return Array.from({ length: total }, (_, i) => ({
-    x: i + 1,
-    y: evaluatePolynomial(polynomial, i + 1, prime),
-  }));
+  return Array.from({ length: total }, (_, i) => ({ x: i + 1, y: evaluatePolynomial(polynomial, i + 1, prime) }));
 }
 
 function lagrangeInterpolate(shares: { x: number; y: number }[], prime: number): number {
@@ -108,10 +97,7 @@ export function splitSecret(
   return shares;
 }
 
-export function reconstructSecret(
-  shares: SecretShare[],
-  config: ShamirConfig = DEFAULT_CONFIG
-): Uint8Array {
+export function reconstructSecret(shares: SecretShare[], config: ShamirConfig = DEFAULT_CONFIG): Uint8Array {
   if (shares.length === 0) throw new Error('No shares provided');
 
   const threshold = shares[0].threshold;
@@ -138,14 +124,7 @@ export function reconstructSecret(
 }
 
 export function exportShare(share: SecretShare): object {
-  return {
-    id: share.id,
-    x: share.x,
-    y: Array.from(share.y),
-    threshold: share.threshold,
-    total: share.total,
-    metadata: share.metadata,
-  };
+  return { id: share.id, x: share.x, y: Array.from(share.y), threshold: share.threshold, total: share.total, metadata: share.metadata };
 }
 
 export function importShare(data: object): SecretShare {
@@ -223,20 +202,11 @@ export function recoverKeyFromBackup(shares: SecretShare[]): Uint8Array {
 
 export function generateRecoveryCodes(shares: SecretShare[]): string[] {
   return shares.map((share) => {
-    const yHex = Array.from(share.y)
-      .map((b) => b.toString(16).padStart(2, '0'))
-      .join('');
+    const yHex = Array.from(share.y).map((b) => b.toString(16).padStart(2, '0')).join('');
     return `ISC-${share.id.toString().padStart(2, '0')}-${share.threshold}-${share.total}-${yHex.slice(0, 16)}...`;
   });
 }
 
 export function verifyShareIntegrity(share: SecretShare): boolean {
-  return (
-    share.id > 0 &&
-    share.id <= share.total &&
-    share.x > 0 &&
-    share.x <= share.total &&
-    share.y.length > 0 &&
-    share.threshold <= share.total
-  );
+  return share.id > 0 && share.id <= share.total && share.x > 0 && share.x <= share.total && share.y.length > 0 && share.threshold <= share.total;
 }

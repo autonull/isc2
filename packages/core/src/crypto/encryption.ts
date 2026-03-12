@@ -23,12 +23,7 @@ export async function deriveKeyFromPassphrase(
   );
 
   return globalThis.crypto.subtle.deriveKey(
-    {
-      name: 'PBKDF2',
-      salt: salt.buffer as ArrayBuffer,
-      iterations,
-      hash: 'SHA-256',
-    },
+    { name: 'PBKDF2', salt: salt.buffer as ArrayBuffer, iterations, hash: 'SHA-256' },
     passphraseKey,
     { name: 'AES-GCM', length: 256 },
     false,
@@ -36,10 +31,7 @@ export async function deriveKeyFromPassphrase(
   );
 }
 
-export async function encryptPrivateKey(
-  privateKey: Uint8Array,
-  passphrase: string
-): Promise<EncryptedKeypair> {
+export async function encryptPrivateKey(privateKey: Uint8Array, passphrase: string): Promise<EncryptedKeypair> {
   const salt = globalThis.crypto.getRandomValues(new Uint8Array(SALT_LENGTH));
   const key = await deriveKeyFromPassphrase(passphrase, salt);
   const iv = globalThis.crypto.getRandomValues(new Uint8Array(12));
@@ -54,20 +46,11 @@ export async function encryptPrivateKey(
   encryptedPrivateKey.set(iv);
   encryptedPrivateKey.set(new Uint8Array(encrypted), iv.length);
 
-  return {
-    publicKey: new Uint8Array(0),
-    encryptedPrivateKey,
-    salt,
-    iterations: PBKDF2_ITERATIONS,
-  };
+  return { publicKey: new Uint8Array(0), encryptedPrivateKey, salt, iterations: PBKDF2_ITERATIONS };
 }
 
-export async function decryptPrivateKey(
-  encrypted: EncryptedKeypair,
-  passphrase: string
-): Promise<Uint8Array> {
+export async function decryptPrivateKey(encrypted: EncryptedKeypair, passphrase: string): Promise<Uint8Array> {
   const key = await deriveKeyFromPassphrase(passphrase, encrypted.salt, encrypted.iterations);
-
   const iv = encrypted.encryptedPrivateKey.slice(0, 12);
   const ciphertext = encrypted.encryptedPrivateKey.slice(12);
 
@@ -80,10 +63,7 @@ export async function decryptPrivateKey(
   return new Uint8Array(decrypted);
 }
 
-export function validatePassphraseStrength(passphrase: string): {
-  score: number;
-  feedback: string[];
-} {
+export function validatePassphraseStrength(passphrase: string): { score: number; feedback: string[] } {
   const feedback: string[] = [];
   let score = 0;
 
@@ -132,7 +112,8 @@ export async function encrypt(content: string, publicKeyBytes: Uint8Array): Prom
 }
 
 export async function decrypt(encryptedData: Uint8Array, privateKeyBytes: Uint8Array): Promise<string> {
-  const decoder = new TextDecoder();
+  const iv = encryptedData.slice(0, 12);
+  const ciphertext = encryptedData.slice(12);
 
   const privateKey = await crypto.subtle.importKey(
     'raw',
@@ -142,14 +123,11 @@ export async function decrypt(encryptedData: Uint8Array, privateKeyBytes: Uint8A
     ['decrypt']
   );
 
-  const iv = encryptedData.slice(0, 12);
-  const ciphertext = encryptedData.slice(12);
-
   const decrypted = await crypto.subtle.decrypt(
     { name: 'AES-GCM', iv: iv.buffer as ArrayBuffer, tagLength: 128 },
     privateKey,
     ciphertext.buffer as ArrayBuffer
   );
 
-  return decoder.decode(decrypted);
+  return new TextDecoder().decode(decrypted);
 }

@@ -10,11 +10,6 @@ export class NodeTierDetector implements TierDetector {
     const cpuCores = os.cpus().length;
     const memoryGB = os.totalmem() / 1024 / 1024 / 1024;
 
-    return {
-      cpuCores,
-      memoryGB,
-      networkType: '4g',
-      saveData: false,
-    };
+    return { cpuCores, memoryGB, networkType: '4g', saveData: false };
   }
 }

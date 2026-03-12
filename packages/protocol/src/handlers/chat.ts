@@ -18,10 +18,9 @@ const encoder = new TextEncoder();
 const decoder = new TextDecoder();
 
 export class ChatHandler {
-  private config: ChatHandlerConfig;
   private keepaliveTimers = new Map<string, number>();
 
-  constructor(config: ChatHandlerConfig) {
+  constructor(private config: ChatHandlerConfig) {
     this.config = { messageTimeout: 30000, ...config };
   }
 
@@ -33,21 +32,14 @@ export class ChatHandler {
         const message = JSON.parse(decoder.decode(chunk)) as ChatMessage;
 
         if (!(await this.validateMessage(message))) {
-          await this.sendError(stream, {
-            code: 'INVALID_SIGNATURE',
-            message: 'Message signature verification failed',
-          });
+          await this.sendError(stream, { code: 'INVALID_SIGNATURE', message: 'Message signature verification failed' });
           continue;
         }
 
         this.config.onMessage(message, peerId);
 
         const ack = { type: 'ack', timestamp: message.timestamp, receivedAt: Date.now() };
-        await stream.sink({
-          [Symbol.asyncIterator]: async function* () {
-            yield encoder.encode(JSON.stringify(ack));
-          },
-        });
+        await stream.sink({ [Symbol.asyncIterator]: async function* () { yield encoder.encode(JSON.stringify(ack)); } });
       }
     } catch (error) {
       if (this.isTimeoutError(error)) {
@@ -68,72 +60,36 @@ export class ChatHandler {
     const keypair = await this.config.getSigningKey();
     const timestamp = Date.now();
     const payload = JSON.stringify({ channelID: channelId, msg: message, timestamp });
-    const signature = await globalThis.crypto.subtle.sign(
-      { name: 'Ed25519' },
-      keypair.privateKey,
-      encoder.encode(payload)
-    );
+    const signature = await globalThis.crypto.subtle.sign({ name: 'Ed25519' }, keypair.privateKey, encoder.encode(payload));
 
-    const chatMessage: ChatMessage = {
-      channelID: channelId,
-      msg: message,
-      timestamp,
-      signature: new Uint8Array(signature),
-    };
+    const chatMessage: ChatMessage = { channelID: channelId, msg: message, timestamp, signature: new Uint8Array(signature) };
     const stream = await dial(peerId, PROTOCOL_CHAT);
 
-    await stream.sink({
-      [Symbol.asyncIterator]: async function* () {
-        yield encoder.encode(JSON.stringify(chatMessage));
-      },
-    });
+    await stream.sink({ [Symbol.asyncIterator]: async function* () { yield encoder.encode(JSON.stringify(chatMessage)); } });
 
     return stream;
   }
 
   private async validateMessage(message: ChatMessage): Promise<boolean> {
     try {
-      const payload = JSON.stringify({
-        channelID: message.channelID,
-        msg: message.msg,
-        timestamp: message.timestamp,
-      });
+      const payload = JSON.stringify({ channelID: message.channelID, msg: message.msg, timestamp: message.timestamp });
       const peerIdBytes = this.derivePublicKeyFromPeerId(message.signature);
-      const publicKey = await globalThis.crypto.subtle.importKey(
-        'raw',
-        peerIdBytes.buffer as ArrayBuffer,
-        { name: 'Ed25519' },
-        true,
-        ['verify']
-      );
+      const publicKey = await globalThis.crypto.subtle.importKey('raw', peerIdBytes.buffer as ArrayBuffer, { name: 'Ed25519' }, true, ['verify']);
 
-      return await globalThis.crypto.subtle.verify(
-        { name: 'Ed25519' },
-        publicKey,
-        message.signature.buffer as ArrayBuffer,
-        encoder.encode(payload)
-      );
+      return await globalThis.crypto.subtle.verify({ name: 'Ed25519' }, publicKey, message.signature.buffer as ArrayBuffer, encoder.encode(payload));
     } catch {
       return false;
     }
   }
 
   private async sendError(stream: Stream, error: ChatError): Promise<void> {
-    await stream.sink({
-      [Symbol.asyncIterator]: async function* () {
-        yield encoder.encode(JSON.stringify({ type: 'error', ...error }));
-      },
-    });
+    await stream.sink({ [Symbol.asyncIterator]: async function* () { yield encoder.encode(JSON.stringify({ type: 'error', ...error })); } });
   }
 
   private startKeepalive(peerId: string, stream: Stream): void {
     const interval = setInterval(async () => {
       try {
-        await stream.sink({
-          [Symbol.asyncIterator]: async function* () {
-            yield encoder.encode(JSON.stringify({ type: 'ping' }));
-          },
-        });
+        await stream.sink({ [Symbol.asyncIterator]: async function* () { yield encoder.encode(JSON.stringify({ type: 'ping' })); } });
       } catch {
         this.stopKeepalive(peerId);
       }

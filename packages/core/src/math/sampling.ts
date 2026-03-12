@@ -13,7 +13,7 @@ export function sampleFromDistribution(
     const sample = new Array<number>(mu.length);
 
     for (let i = 0; i < mu.length; i += 2) {
-      const u1 = random() ?? 1e-10;
+      const u1 = random() || 1e-10;
       const u2 = random();
       const z0 = Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
       const z1 = Math.sqrt(-2 * Math.log(u1)) * Math.sin(2 * Math.PI * u2);
@@ -38,12 +38,12 @@ export function computeMean(samples: number[][]): number[] {
   }
 
   const dimensions = samples[0].length;
-  const sum = new Array(dimensions).fill(0);
+  const sum = new Array<number>(dimensions).fill(0);
 
   for (const sample of samples) {
-    sample.forEach((v, i) => {
-      sum[i] += v;
-    });
+    for (let i = 0; i < dimensions; i++) {
+      sum[i] += sample[i];
+    }
   }
 
   return sum.map((v) => v / samples.length);
@@ -55,13 +55,13 @@ export function computeStdDev(samples: number[][], mean: number[]): number[] {
   }
 
   const dimensions = samples[0].length;
-  const variance = new Array(dimensions).fill(0);
+  const variance = new Array<number>(dimensions).fill(0);
 
   for (const sample of samples) {
-    sample.forEach((v, i) => {
-      const diff = v - mean[i];
+    for (let i = 0; i < dimensions; i++) {
+      const diff = sample[i] - mean[i];
       variance[i] += diff * diff;
-    });
+    }
   }
 
   return variance.map((v) => Math.sqrt(v / samples.length));

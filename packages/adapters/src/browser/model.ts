@@ -16,8 +16,7 @@ export class BrowserModel implements EmbeddingModelAdapter {
 
     let hash = 0;
     for (let i = 0; i < text.length; i++) {
-      const char = text.charCodeAt(i);
-      hash = ((hash << 5) - hash + char) | 0;
+      hash = ((hash << 5) - hash + text.charCodeAt(i)) | 0;
     }
 
     const seed = Math.abs(hash);
@@ -26,10 +25,7 @@ export class BrowserModel implements EmbeddingModelAdapter {
       return x - Math.floor(x);
     };
 
-    const mockEmbed = Array.from(
-      { length: EMBEDDING_DIM },
-      (_, i) => random() * 2 - 1 + Math.sin(i * 0.1) * 0.3
-    );
+    const mockEmbed = Array.from({ length: EMBEDDING_DIM }, (_, i) => random() * 2 - 1 + Math.sin(i * 0.1) * 0.3);
     const norm = Math.sqrt(mockEmbed.reduce((sum, x) => sum + x * x, 0));
     return mockEmbed.map((x) => x / norm);
   }
@@ -38,9 +34,11 @@ export class BrowserModel implements EmbeddingModelAdapter {
     this.isLoadedFlag = false;
     this.modelId = null;
   }
+
   isLoaded(): boolean {
     return this.isLoadedFlag;
   }
+
   getModelId(): string | null {
     return this.modelId;
   }

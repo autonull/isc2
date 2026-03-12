@@ -11,20 +11,22 @@ export interface TimeWindow {
 
 const EARTH_RADIUS_KM = 6371;
 const toRad = (deg: number): number => (deg * Math.PI) / 180;
+const DEFAULT_RADIUS_KM = 50;
 
 export function haversineDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
   const dLat = toRad(lat2 - lat1);
   const dLon = toRad(lon2 - lon1);
+  const lat1Rad = toRad(lat1);
+  const lat2Rad = toRad(lat2);
+
   const sinDLat2 = Math.sin(dLat / 2) ** 2;
   const sinDLon2 = Math.sin(dLon / 2) ** 2;
 
-  const a = sinDLat2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * sinDLon2;
+  const a = sinDLat2 + Math.cos(lat1Rad) * Math.cos(lat2Rad) * sinDLon2;
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 
   return EARTH_RADIUS_KM * c;
 }
-
-const DEFAULT_RADIUS_KM = 50;
 
 export function locationOverlap(a: Location, b: Location): number {
   const distance = haversineDistance(a.lat, a.lon, b.lat, b.lon);
@@ -59,8 +61,8 @@ export function spatiotemporalSimilarity(
   timeB?: TimeWindow,
   locationWeight: number = 0.5
 ): number {
-  const hasLoc = locationA && locationB;
-  const hasTime = timeA && timeB;
+  const hasLoc = !!locationA && !!locationB;
+  const hasTime = !!timeA && !!timeB;
 
   if (!hasLoc && !hasTime) return 0;
 

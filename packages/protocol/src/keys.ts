@@ -1,4 +1,4 @@
-const DHT_KEYS = {
+export const DHT_KEYS = {
   ANNOUNCE: (modelHash: string, lshHash: string) => `/isc/announce/${modelHash}/${lshHash}`,
   DELEGATE: (peerID: string) => `/isc/delegate/${peerID}`,
   MUTE: (peerID: string) => `/isc/mute/${peerID}`,
@@ -10,6 +10,4 @@ const DHT_KEYS = {
   PROFILE: (peerID: string) => `/isc/profile/channels/${peerID}`,
   FOLLOW: (peerID: string) => `/isc/follow/${peerID}`,
   TRENDING: (modelHash: string) => `/isc/trending/${modelHash}`,
-};
-
-export { DHT_KEYS };
+} as const;

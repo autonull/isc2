@@ -18,8 +18,13 @@ export const RATE_LIMITS: Record<RateLimitScope, RateLimitConfig> = {
   delegate_response: { limit: 10, windowMs: 60_000 },
 };
 
+interface RateLimitWindow {
+  count: number;
+  resetAt: number;
+}
+
 export class RateLimiter {
-  private windows = new Map<string, { count: number; resetAt: number }>();
+  private windows = new Map<string, RateLimitWindow>();
 
   check(scope: RateLimitScope): boolean {
     const config = RATE_LIMITS[scope];
@@ -29,13 +34,15 @@ export class RateLimiter {
     return this._check(scope, config.limit, config.windowMs);
   }
 
-  _check(scope: string, limit: number, windowMs: number): boolean {
+  private _check(scope: string, limit: number, windowMs: number): boolean {
     const now = Date.now();
     const window = this.windows.get(scope);
+
     if (!window || now >= window.resetAt) {
       this.windows.set(scope, { count: 1, resetAt: now + windowMs });
       return true;
     }
+
     if (window.count >= limit) return false;
     window.count++;
     return true;
@@ -47,13 +54,11 @@ export class RateLimiter {
 
   getRemainingTime(scope: RateLimitScope): number {
     const window = this.windows.get(scope);
-    if (!window) return 0;
-    return Math.max(0, window.resetAt - Date.now());
+    return window ? Math.max(0, window.resetAt - Date.now()) : 0;
   }
 
   getCount(scope: RateLimitScope): number {
-    const window = this.windows.get(scope);
-    return window?.count ?? 0;
+    return this.windows.get(scope)?.count ?? 0;
   }
 
   clear(): void {

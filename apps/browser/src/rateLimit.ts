@@ -17,9 +17,8 @@ class MemoryStorage implements RateLimitStorage {
 
   async get(key: string): Promise<RateLimitWindow | null> {
     const window = this.store.get(key);
-    if (!window) return null;
-    if (Date.now() >= window.resetAt) {
-      this.store.delete(key);
+    if (!window || Date.now() >= window.resetAt) {
+      if (window) this.store.delete(key);
       return null;
     }
     return window;
@@ -31,12 +30,9 @@ class MemoryStorage implements RateLimitStorage {
 }
 
 export class RateLimiter {
-  private storage: RateLimitStorage;
   private windows = new Map<string, RateLimitWindow>();
 
-  constructor(config: RateLimitConfig = {}) {
-    this.storage = config.storage ?? new MemoryStorage();
-  }
+  constructor(private storage: RateLimitStorage = new MemoryStorage()) {}
 
   async check(scope: string, limit: number, windowMs: number): Promise<boolean> {
     const now = Date.now();
@@ -58,15 +54,13 @@ export class RateLimiter {
 
   async getRemaining(scope: string, limit: number): Promise<number> {
     const window = this.windows.get(scope);
-    if (!window) return limit;
-    if (Date.now() >= window.resetAt) return limit;
+    if (!window || Date.now() >= window.resetAt) return limit;
     return Math.max(0, limit - window.count);
   }
 
   async getResetTime(scope: string): Promise<number | null> {
     const window = this.windows.get(scope);
-    if (!window) return null;
-    if (Date.now() >= window.resetAt) return null;
+    if (!window || Date.now() >= window.resetAt) return null;
     return window.resetAt;
   }
 

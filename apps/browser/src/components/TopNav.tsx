@@ -7,7 +7,7 @@ interface TopNavProps {
   badges?: Record<string, number>;
 }
 
-const tabs = [
+const TABS: Array<{ id: Route; label: string; icon: string; special?: boolean }> = [
   { id: 'now', label: 'Now', icon: '🏠' },
   { id: 'discover', label: 'Discover', icon: '📡' },
   { id: 'video', label: 'Video', icon: '📹' },
@@ -22,12 +22,10 @@ export function TopNav({ activeTab, onTabClick, badges = {} }: TopNavProps) {
       <div class="top-nav-container">
         <div class="top-nav-brand">ISC</div>
         <div class="top-nav-tabs">
-          {tabs.map((tab) => (
+          {TABS.map((tab) => (
             <button
               key={tab.id}
-              class={`top-nav-tab ${tab.special ? 'compose' : ''} ${
-                activeTab === tab.id ? 'active' : ''
-              }`}
+              class={`top-nav-tab ${tab.special ? 'compose' : ''} ${activeTab === tab.id ? 'active' : ''}`}
               onClick={() => onTabClick(tab.id as Route)}
               aria-current={activeTab === tab.id ? 'page' : undefined}
             >
@@ -40,12 +38,8 @@ export function TopNav({ activeTab, onTabClick, badges = {} }: TopNavProps) {
           ))}
         </div>
         <div class="top-nav-actions">
-          <button class="top-nav-btn" aria-label="Notifications">
-            🔔
-          </button>
-          <button class="top-nav-btn" aria-label="Menu">
-            ☰
-          </button>
+          <button class="top-nav-btn" aria-label="Notifications">🔔</button>
+          <button class="top-nav-btn" aria-label="Menu">☰</button>
         </div>
       </div>
     </nav>

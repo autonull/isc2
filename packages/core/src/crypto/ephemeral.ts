@@ -25,14 +25,7 @@ const DEFAULT_CONFIG: EphemeralConfig = {
   defaultLifetimeHours: 24,
   maxLifetimeHours: 168,
   defaultMaxUses: 100,
-  allowedPurposes: [
-    'anonymous_post',
-    'private_message',
-    'temporary_channel',
-    'one_time_vote',
-    'sensitive_discussion',
-    'test_account',
-  ],
+  allowedPurposes: ['anonymous_post', 'private_message', 'temporary_channel', 'one_time_vote', 'sensitive_discussion', 'test_account'],
   requireParentSignature: false,
   autoDeleteOnExpire: true,
 };
@@ -40,12 +33,7 @@ const DEFAULT_CONFIG: EphemeralConfig = {
 export async function createEphemeralIdentity(
   purpose: string,
   config: EphemeralConfig = DEFAULT_CONFIG,
-  options?: {
-    lifetimeHours?: number;
-    maxUses?: number;
-    parentIdentity?: string;
-    metadata?: Record<string, unknown>;
-  }
+  options?: { lifetimeHours?: number; maxUses?: number; parentIdentity?: string; metadata?: Record<string, unknown> }
 ): Promise<EphemeralIdentity> {
   if (!config.allowedPurposes.includes(purpose)) {
     throw new Error(`Invalid purpose: ${purpose}. Allowed: ${config.allowedPurposes.join(', ')}`);
@@ -86,21 +74,15 @@ export function useEphemeralIdentity(identity: EphemeralIdentity): boolean {
 }
 
 export function getRemainingUses(identity: EphemeralIdentity): number {
-  if (!identity.maxUses) return Infinity;
-  return Math.max(0, identity.maxUses - identity.usedCount);
+  return identity.maxUses ? Math.max(0, identity.maxUses - identity.usedCount) : Infinity;
 }
 
 export function getRemainingLifetime(identity: EphemeralIdentity): number {
-  if (!identity.expiresAt) return Infinity;
-  return Math.max(0, identity.expiresAt - Date.now());
+  return identity.expiresAt ? Math.max(0, identity.expiresAt - Date.now()) : Infinity;
 }
 
-export async function exportEphemeralIdentity(
-  identity: EphemeralIdentity,
-  _passphrase?: string
-): Promise<object> {
+export async function exportEphemeralIdentity(identity: EphemeralIdentity): Promise<object> {
   const exported = await exportKeypair(identity.keypair);
-
   return {
     id: identity.id,
     purpose: identity.purpose,
@@ -115,25 +97,22 @@ export async function exportEphemeralIdentity(
   };
 }
 
-export async function importEphemeralIdentity(
-  data: object,
-  _passphrase?: string
-): Promise<EphemeralIdentity> {
-  const decryptedData = data as Record<string, unknown>;
-  const publicKey = new Uint8Array(decryptedData.publicKey as number[]);
-  const privateKey = new Uint8Array(decryptedData.privateKey as number[]);
+export async function importEphemeralIdentity(data: object): Promise<EphemeralIdentity> {
+  const d = data as Record<string, unknown>;
+  const publicKey = new Uint8Array(d.publicKey as number[]);
+  const privateKey = new Uint8Array(d.privateKey as number[]);
   const keypair = await importKeypair(publicKey, privateKey);
 
   return {
-    id: decryptedData.id as string,
+    id: d.id as string,
     keypair,
-    purpose: decryptedData.purpose as string,
-    createdAt: decryptedData.createdAt as number,
-    expiresAt: decryptedData.expiresAt as number | undefined,
-    maxUses: decryptedData.maxUses as number | undefined,
-    usedCount: decryptedData.usedCount as number,
-    parentIdentity: decryptedData.parentIdentity as string | undefined,
-    metadata: decryptedData.metadata as Record<string, unknown> | undefined,
+    purpose: d.purpose as string,
+    createdAt: d.createdAt as number,
+    expiresAt: d.expiresAt as number | undefined,
+    maxUses: d.maxUses as number | undefined,
+    usedCount: d.usedCount as number,
+    parentIdentity: d.parentIdentity as string | undefined,
+    metadata: d.metadata as Record<string, unknown> | undefined,
   };
 }
 
@@ -151,17 +130,9 @@ export async function createEphemeralIdentitiesBatch(
   purpose: string,
   count: number,
   config: EphemeralConfig = DEFAULT_CONFIG,
-  options?: {
-    lifetimeHours?: number;
-    maxUses?: number;
-    parentIdentity?: string;
-  }
+  options?: { lifetimeHours?: number; maxUses?: number; parentIdentity?: string }
 ): Promise<EphemeralIdentity[]> {
-  return Promise.all(
-    Array.from({ length: count }, () =>
-      createEphemeralIdentity(purpose, config, options)
-    )
-  );
+  return Promise.all(Array.from({ length: count }, () => createEphemeralIdentity(purpose, config, options)));
 }
 
 export function getEphemeralStats(identities: EphemeralIdentity[]): {
@@ -171,13 +142,7 @@ export function getEphemeralStats(identities: EphemeralIdentity[]): {
   exhausted: number;
   byPurpose: Record<string, number>;
 } {
-  const stats = {
-    total: identities.length,
-    valid: 0,
-    expired: 0,
-    exhausted: 0,
-    byPurpose: {} as Record<string, number>,
-  };
+  const stats = { total: identities.length, valid: 0, expired: 0, exhausted: 0, byPurpose: {} as Record<string, number> };
 
   for (const identity of identities) {
     stats.byPurpose[identity.purpose] = (stats.byPurpose[identity.purpose] || 0) + 1;
@@ -196,9 +161,7 @@ export function getEphemeralStats(identities: EphemeralIdentity[]): {
   return stats;
 }
 
-export function cleanupExpiredIdentities(
-  identities: EphemeralIdentity[]
-): EphemeralIdentity[] {
+export function cleanupExpiredIdentities(identities: EphemeralIdentity[]): EphemeralIdentity[] {
   return identities.filter(isEphemeralIdentityValid);
 }
 
@@ -232,8 +195,5 @@ async function formatKeyFingerprint(publicKey: CryptoKey): Promise<string> {
   const keyData = await crypto.subtle.exportKey('raw', publicKey);
   const hashBuffer = await crypto.subtle.digest('SHA-256', keyData);
   const hashArray = new Uint8Array(hashBuffer);
-  return Array.from(hashArray)
-    .map((b) => b.toString(16).padStart(2, '0'))
-    .join('')
-    .slice(0, 16);
+  return Array.from(hashArray).map((b) => b.toString(16).padStart(2, '0')).join('').slice(0, 16);
 }

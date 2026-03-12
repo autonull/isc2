@@ -1,12 +1,6 @@
-/**
- * Analytics & Engagement Tracking Service
- *
- * Tracks post views, engagement metrics, and analytics.
- */
-
 import type { SignedPost } from './types.js';
 import { getInteractionCounts } from './interactions.js';
-import { openDB, dbGet, dbGetAll, dbPut, dbDelete } from '@isc/adapters';
+import { openDB, dbGet, dbGetAll, dbPut } from '@isc/adapters';
 
 const DB_NAME = 'isc-analytics';
 const DB_VERSION = 1;
@@ -16,7 +10,7 @@ let analyticsDb: IDBDatabase | null = null;
 async function getAnalyticsDB(): Promise<IDBDatabase> {
   if (analyticsDb) return analyticsDb;
 
-  analyticsDb = await openDB(DB_NAME, DB_VERSION, (db, _event) => {
+  analyticsDb = await openDB(DB_NAME, DB_VERSION, (db) => {
     if (!db.objectStoreNames.contains('views')) {
       db.createObjectStore('views', { keyPath: 'postId' });
     }
@@ -31,9 +25,6 @@ async function getAnalyticsDB(): Promise<IDBDatabase> {
   return analyticsDb;
 }
 
-/**
- * Engagement metrics for a post
- */
 export interface EngagementMetrics {
   postId: string;
   views: number;
@@ -50,19 +41,13 @@ interface ViewRecord {
   lastView: number;
 }
 
-/**
- * Track a view for a post
- */
 export async function trackView(postId: string): Promise<void> {
   const db = await getAnalyticsDB();
   const existing = await dbGet<ViewRecord>(db, 'views', postId);
   const now = Date.now();
 
   if (existing) {
-    if (now - existing.lastView < 60000) {
-      return;
-    }
-
+    if (now - existing.lastView < 60000) return;
     existing.count += 1;
     existing.lastView = now;
     await dbPut(db, 'views', existing);
@@ -71,14 +56,10 @@ export async function trackView(postId: string): Promise<void> {
   }
 }
 
-/**
- * Get engagement metrics for a post
- */
 export async function getMetrics(postId: string): Promise<EngagementMetrics> {
   const db = await getAnalyticsDB();
   const viewRecord = await dbGet<ViewRecord>(db, 'views', postId);
   const views = viewRecord?.count ?? 0;
-
   const interactions = await getInteractionCounts(postId);
 
   return {
@@ -92,31 +73,19 @@ export async function getMetrics(postId: string): Promise<EngagementMetrics> {
   };
 }
 
-/**
- * Get aggregate metrics for multiple posts
- */
 export async function getAggregateMetrics(
   postIds: string[]
 ): Promise<Map<string, EngagementMetrics>> {
   const metrics = new Map<string, EngagementMetrics>();
-
   const results = await Promise.all(postIds.map((id) => getMetrics(id)));
   for (const result of results) {
     metrics.set(result.postId, result);
   }
-
   return metrics;
 }
 
-/**
- * Get top posts by engagement
- */
 export async function getTopPostsByEngagement(limit: number = 10): Promise<
-  Array<{
-    postId: string;
-    totalEngagement: number;
-    metrics: EngagementMetrics;
-  }>
+  Array<{ postId: string; totalEngagement: number; metrics: EngagementMetrics }>
 > {
   const db = await getAnalyticsDB();
   const allPosts = await dbGetAll<SignedPost>(db, 'posts');
@@ -125,79 +94,45 @@ export async function getTopPostsByEngagement(limit: number = 10): Promise<
     allPosts.map(async (post) => {
       const metrics = await getMetrics(post.id);
       const totalEngagement = metrics.likes + metrics.reposts + metrics.replies + metrics.quotes;
-
-      return {
-        postId: post.id,
-        totalEngagement,
-        metrics,
-      };
+      return { postId: post.id, totalEngagement, metrics };
     })
   );
 
   return scored.sort((a, b) => b.totalEngagement - a.totalEngagement).slice(0, limit);
 }
 
-/**
- * Get top posts by views
- */
 export async function getTopPostsByViews(limit: number = 10): Promise<
-  Array<{
-    postId: string;
-    views: number;
-    metrics: EngagementMetrics;
-  }>
+  Array<{ postId: string; views: number; metrics: EngagementMetrics }>
 > {
   const db = await getAnalyticsDB();
   const views = await dbGetAll<ViewRecord>(db, 'views');
-
   const sorted = views.sort((a, b) => b.count - a.count);
 
   const results = await Promise.all(
     sorted.slice(0, limit).map(async (v) => {
       const metrics = await getMetrics(v.postId);
-      return {
-        postId: v.postId,
-        views: metrics.views,
-        metrics,
-      };
+      return { postId: v.postId, views: metrics.views, metrics };
     })
   );
 
   return results;
 }
 
-/**
- * Track impression (post shown in feed)
- */
 export async function trackImpression(postId: string, position: number): Promise<void> {
   const db = await getAnalyticsDB();
-  await dbPut(db, 'impressions', {
-    postId,
-    position,
-    timestamp: Date.now(),
-  });
+  await dbPut(db, 'impressions', { postId, position, timestamp: Date.now() });
 }
 
-/**
- * Get click-through rate for a post
- */
 export async function getCTR(postId: string): Promise<number> {
   const db = await getAnalyticsDB();
   const impressions = await dbGetAll<{ postId: string }>(db, 'impressions');
   const impressionCount = impressions.filter((i) => i.postId === postId).length;
-
   const viewRecord = await dbGet<ViewRecord>(db, 'views', postId);
   const viewCount = viewRecord?.count ?? 0;
-
   return impressionCount > 0 ? viewCount / impressionCount : 0;
 }
 
-/**
- * Get user engagement summary
- */
-export async function getUserEngagementSummary(
-  userId: string
-): Promise<{
+export async function getUserEngagementSummary(userId: string): Promise<{
   totalPosts: number;
   totalViews: number;
   totalLikes: number;
@@ -208,14 +143,12 @@ export async function getUserEngagementSummary(
   const db = await getAnalyticsDB();
   const allPosts = await dbGetAll<SignedPost>(db, 'posts');
   const userPosts = allPosts.filter((p) => p.author === userId);
-
   const metrics = await Promise.all(userPosts.map((p) => getMetrics(p.id)));
 
   const totalViews = metrics.reduce((sum, m) => sum + m.views, 0);
   const totalLikes = metrics.reduce((sum, m) => sum + m.likes, 0);
   const totalReposts = metrics.reduce((sum, m) => sum + m.reposts, 0);
   const totalReplies = metrics.reduce((sum, m) => sum + m.replies, 0);
-
   const totalEngagement = totalLikes + totalReposts + totalReplies;
   const avgEngagementRate = totalViews > 0 ? totalEngagement / totalViews : 0;
 
@@ -229,27 +162,19 @@ export async function getUserEngagementSummary(
   };
 }
 
-/**
- * Register a post for analytics tracking
- */
 export async function registerPost(post: SignedPost): Promise<void> {
   const db = await getAnalyticsDB();
   await dbPut(db, 'posts', post);
 }
 
-/**
- * Clear old analytics data (older than specified days)
- */
 export async function clearOldAnalytics(days: number = 30): Promise<void> {
   const db = await getAnalyticsDB();
   const cutoff = Date.now() - days * 24 * 60 * 60 * 1000;
 
   const impressions = await dbGetAll<{ postId: string; timestamp: number }>(db, 'impressions');
   const oldImpressions = impressions.filter((i) => i.timestamp < cutoff);
-
   if (oldImpressions.length === 0) return;
 
-  // Use raw transaction for compound key deletion
   await new Promise<void>((resolve, reject) => {
     const tx = db.transaction('impressions', 'readwrite');
     for (const impression of oldImpressions) {
