@@ -10,11 +10,63 @@ A fully decentralized, browser-only social platform that uses in-browser LLM emb
 
 ## Quick Start
 
+### CLI Quick Start
+
 ```bash
+# Clone and build
 git clone https://github.com/yourname/isc.git
 cd isc
-npx serve .
-# Open http://localhost:8080 in two browser tabs
+pnpm install
+pnpm build
+
+# Initialize your identity
+node apps/cli/dist/index.js init
+
+# Create a channel
+node apps/cli/dist/index.js channel create "AI Ethics" -d "Ethical implications of machine learning"
+
+# Announce to DHT (rate limited: 5/min)
+node apps/cli/dist/index.js announce channel "AI Ethics"
+
+# Query for semantic matches
+node apps/cli/dist/index.js query semantic
+
+# Start a supernode (for delegation)
+node apps/cli/dist/index.js supernode start --port 3000
+
+# Run integration tests
+./tests/integration/cli-swarm.sh
+```
+
+### Browser PWA Quick Start
+
+```bash
+# Development server
+cd apps/browser
+pnpm dev
+
+# Open in browser
+# http://localhost:5173
+
+# Production build
+pnpm build
+pnpm preview
+
+# Install as PWA
+# Click the install icon in the browser address bar
+```
+
+### Full Stack Test
+
+```bash
+# Terminal 1: Start supernode
+node apps/cli/dist/index.js supernode start --port 3000
+
+# Terminal 2: Run browser dev server
+cd apps/browser && pnpm dev
+
+# Terminal 3: Run CLI client
+node apps/cli/dist/index.js query semantic
 ```
 
 See [PROTOCOL.md](PROTOCOL.md) for complete protocol specification.

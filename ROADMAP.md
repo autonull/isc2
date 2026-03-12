@@ -6,6 +6,111 @@
 
 ---
 
+## ACCELERATED MVP PATH (2026-03)
+
+**Branch**: `accel-mvp-2026-03`
+
+**Goal**: Reach usable MVP state where real users can run CLI/server mode, browser PWA, post content, and delegate compute.
+
+### Sequential Checklist (Execute in Order)
+
+#### CLI First (Week 1-2)
+- [ ] **CLI: Implement `announce-channel` command with rate limits**
+  - File: `apps/cli/src/commands/announce.ts`
+  - Success: Can announce channel to DHT, rate limited to 5/min
+  - Test: `tests/integration/cli-announce.test.ts`
+
+- [ ] **CLI: Implement `query-semantic` command for peer matching**
+  - File: `apps/cli/src/commands/query.ts`
+  - Success: Queries DHT, returns ranked matches with similarity scores
+  - Test: `tests/integration/cli-query.test.ts`
+
+- [ ] **CLI: Implement `supernode-start` command with delegation**
+  - File: `apps/cli/src/commands/supernode.ts`
+  - Success: Starts supernode, handles delegation requests (max 10 concurrent)
+  - Test: `tests/integration/supernode-delegation.test.ts`
+
+- [ ] **CLI: Add `init` command for identity + config setup**
+  - File: `apps/cli/src/commands/init.ts`
+  - Success: Generates ed25519 keypair, creates config file
+  - Test: `tests/unit/cli-init.test.ts`
+
+- [ ] **CLI Integration Test Script**
+  - File: `tests/integration/cli-swarm.sh`
+  - Success: Spawns 3-5 nodes, verifies matches propagate in <30s
+  - Metric: All nodes see each other within 2 refresh cycles
+
+#### Browser Matching (Week 3-4)
+- [ ] **Browser: 3-pane layout per ui.md**
+  - Files: `apps/browser/src/screens/Now.tsx`, `apps/browser/src/components/MatchList.tsx`, `apps/browser/src/components/ChatPanel.tsx`
+  - Success: Matches displayed with signal bars, chat panel slides up
+  - Test: Playwright E2E `tests/e2e/browser-matching.spec.ts`
+
+- [ ] **Browser: Optimistic updates + PWA manifest**
+  - Files: `apps/browser/src/lib/optimistic.ts`, `apps/browser/public/manifest.webmanifest`
+  - Success: UI updates immediately, installable on mobile
+  - Test: Lighthouse PWA score >90
+
+- [ ] **Browser: Delegation UI toggle + fallback**
+  - Files: `apps/browser/src/settings/DelegationSettings.tsx`, `apps/browser/src/delegation/fallback.ts`
+  - Success: Low-tier peers can request delegation, fallback to local model
+  - Test: `tests/e2e/delegation-flow.spec.ts`
+
+- [ ] **Browser: Client-side rate limits + signing**
+  - Files: `apps/browser/src/lib/rateLimit.ts`, `apps/browser/src/crypto/signing.ts`
+  - Success: Enforces 5 announces/min, all payloads signed
+  - Test: `tests/unit/browser-rate-limit.test.ts`
+
+#### Social Basics (Week 5-6)
+- [ ] **Posts: 280-char posts with optional IPFS media link**
+  - Files: `apps/browser/src/social/posts.ts`, `apps/cli/src/commands/post.ts`
+  - Success: Can create post, stored in DHT with TTL=24h
+  - Test: `tests/integration/post-create.test.ts`
+
+- [ ] **Feed: Semantic "For You" via ANN on embeddings**
+  - Files: `apps/browser/src/social/feed.ts`, `apps/cli/src/commands/feed.ts`
+  - Success: Ranked posts by similarity to active channel
+  - Test: `tests/integration/feed-ranking.test.ts`
+
+- [ ] **Reactions: Like/reply/quote (fused-vector quoting)**
+  - Files: `apps/browser/src/social/interactions.ts`
+  - Success: Like announces to DHT, reply threads, quote embeds original
+  - Test: `tests/integration/interactions.test.ts`
+
+- [ ] **Profiles: Simple profiles (mean vector from channels)**
+  - Files: `apps/browser/src/social/profile.ts`
+  - Success: Profile shows aggregated channel distributions
+  - Test: `tests/integration/profile-aggregation.test.ts`
+
+#### Protocol Validation (Week 7)
+- [ ] **Self-interop: Simulate mixed-version peers within this repo**
+  - File: `tests/simulation/mixed-version.test.ts`
+  - Success: v1.0 and v1.1 peers coexist, model mismatch handled
+  - Metric: No crashes, graceful degradation
+
+- [ ] **Scale test: 50+ virtual peers swarm**
+  - File: `tests/simulation/swarm-50.test.ts`
+  - Success: DHT stabilizes, <10s median first-match time
+  - Metric: Connection failure rate <15%
+
+- [ ] **Security validation: Rate limits, signatures, encryption**
+  - Files: `tests/security/rate-limit-enforcement.test.ts`, `tests/security/signature-verification.test.ts`
+  - Success: All security properties hold under load
+  - Metric: 0 signature bypasses, 0 rate limit escapes
+
+### Success Metrics
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| Time-to-first-match (High tier) | <15s | CLI integration test |
+| Time-to-first-match (Low tier) | <30s | Browser E2E |
+| Delegation avg latency | <1000ms | Supernode monitor |
+| Connection failure rate | <15% | Swarm simulation |
+| Rate limit enforcement | 100% | Security tests |
+| Signature verification | 0 false positives | Crypto tests |
+
+---
+
 ## Overview
 
 ISC is being developed in phases, starting with core reliability in trusted networks and evolving toward a full-featured decentralized social platform for public participation.
@@ -22,14 +127,14 @@ ISC is being developed in phases, starting with core reliability in trusted netw
 
 | Feature | Status | Priority |
 |---|---|---|
-| MVP — single-channel semantic matching + 1:1 WebRTC chat | 🔲 | P0 |
-| Basic multi-channel UI — create, switch, manage multiple channels | 🔲 | P0 |
-| Supernode delegation protocol + capability advertisement | 🔲 | P0 |
-| Layered anti-spam (rate limits only) | 🔲 | P0 |
-| Model version negotiation + compatibility shards | 🔲 | P1 |
-| Device tier auto-detection + delegate mode UI | 🔲 | P1 |
-| Threat model validation + security audit (community) | 🔲 | P1 |
-| NAT traversal improvements (circuit relay pool) | 🔲 | P2 |
+| MVP — single-channel semantic matching + 1:1 WebRTC chat | [x] | P0 |
+| Basic multi-channel UI — create, switch, manage multiple channels | [x] | P0 |
+| Supernode delegation protocol + capability advertisement | [x] | P0 |
+| Layered anti-spam (rate limits only) | [x] | P0 |
+| Model version negotiation + compatibility shards | [x] | P1 |
+| Device tier auto-detection + delegate mode UI | [x] | P1 |
+| Threat model validation + security audit (community) | [ ] | P1 |
+| NAT traversal improvements (circuit relay pool) | [ ] | P2 |
 
 ### Success Criteria
 
@@ -64,13 +169,13 @@ ISC is being developed in phases, starting with core reliability in trusted netw
 
 | Feature | Status | Priority |
 |---|---|---|
-| Relational embeddings — cross-channel semantic composition | 🔲 | P0 |
-| Reputation system + signed moderation events | 🔲 | P0 |
-| Offline-first: queue + background sync | 🔲 | P1 |
-| Delegation health metrics + supernode ranking | 🔲 | P1 |
-| PWA — installable on mobile, offline-capable shell | 🔲 | P1 |
-| IPFS deployment — zero-infra hosting | 🔲 | P2 |
-| Community model registry + migration tooling | 🔲 | P2 |
+| Relational embeddings — cross-channel semantic composition | [x] | P0 |
+| Reputation system + signed moderation events | [ ] | P0 |
+| Offline-first: queue + background sync | [ ] | P1 |
+| Delegation health metrics + supernode ranking | [ ] | P1 |
+| PWA — installable on mobile, offline-capable shell | [x] | P1 |
+| IPFS deployment — zero-infra hosting | [ ] | P2 |
+| Community model registry + migration tooling | [ ] | P2 |
 
 ### Success Criteria
 
@@ -102,15 +207,15 @@ ISC is being developed in phases, starting with core reliability in trusted netw
 
 | Feature | Status | Priority |
 |---|---|---|
-| Posts & semantic feeds ("For You" + "Following") | 🔲 | P0 |
-| Reactions (likes, reposts, replies, quotes) | 🔲 | P0 |
-| Profiles & follow / Web of Trust | 🔲 | P0 |
-| Communities — shared channel distributions | 🔲 | P1 |
-| Audio Spaces (WebRTC mesh audio) | 🔲 | P1 |
-| Video calls (WebRTC, parity with X) | 🔲 | P1 |
-| Chaos mode — random perturbation for serendipity | 🔲 | P2 |
-| Crypto tipping / Lightning Network (opt-in) | 🔲 | P2 |
-| Optional vector reveal — user can consent to reveal vector for enhanced matching | 🔲 | P3 |
+| Posts & semantic feeds ("For You" + "Following") | [ ] | P0 |
+| Reactions (likes, reposts, replies, quotes) | [ ] | P0 |
+| Profiles & follow / Web of Trust | [ ] | P0 |
+| Communities — shared channel distributions | [ ] | P1 |
+| Audio Spaces (WebRTC mesh audio) | [ ] | P1 |
+| Video calls (WebRTC, parity with X) | [x] | P1 |
+| Chaos mode — random perturbation for serendipity | [ ] | P2 |
+| Crypto tipping / Lightning Network (opt-in) | [ ] | P2 |
+| Optional vector reveal — user can consent to reveal vector for enhanced matching | [ ] | P3 |
 
 ### Success Criteria
 
@@ -141,12 +246,12 @@ ISC is being developed in phases, starting with core reliability in trusted netw
 
 | Feature | Status | Priority |
 |---|---|---|
-| AT Protocol / Bluesky interop | 🔲 | P1 |
-| Mobile native apps (React Native / Flutter) | 🔲 | P1 |
-| Advanced moderation tools (community courts) | 🔲 | P2 |
-| DAO governance for protocol upgrades | 🔲 | P2 |
-| ZK proximity proofs — prove sim > threshold without revealing vector | 🔲 | P3 |
-| Enterprise deployment options (private instances) | 🔲 | P3 |
+| AT Protocol / Bluesky interop | [ ] | P1 |
+| Mobile native apps (React Native / Flutter) | [ ] | P1 |
+| Advanced moderation tools (community courts) | [ ] | P2 |
+| DAO governance for protocol upgrades | [ ] | P2 |
+| ZK proximity proofs — prove sim > threshold without revealing vector | [ ] | P3 |
+| Enterprise deployment options (private instances) | [ ] | P3 |
 
 ### Success Criteria
 
@@ -155,6 +260,20 @@ ISC is being developed in phases, starting with core reliability in trusted netw
 | Platform diversity | 3+ form factors (browser, mobile, desktop) |
 | Interoperability | 2+ external protocol bridges |
 | Governance | Community-led protocol upgrades |
+
+---
+
+## Protocol Validation Criteria
+
+Before marking Phase 1 complete, validate:
+
+- [ ] **Self-interop**: Simulate mixed-version peers within this repo (v1.0, v1.1)
+- [ ] **Rate limit enforcement**: 5 announces/min strictly enforced across all clients
+- [ ] **Signature verification**: All announcements verified, invalid signatures discarded
+- [ ] **Model mismatch handling**: Peers with different models silently filtered
+- [ ] **NAT traversal**: Direct connection → STUN → TURN → Circuit relay fallback chain
+- [ ] **Delegation encryption**: All requests E2E encrypted, responses signed
+- [ ] **TTL expiry**: Announcements expire naturally, no manual cleanup required
 
 ---
 
@@ -356,6 +475,7 @@ Rate limits enforced at client and supernode level. See [PROTOCOL.md](PROTOCOL.m
 | Date | Change |
 |---|---|
 | 2026-03-09 | Initial roadmap created |
+| 2026-03-12 | Accelerated MVP path added; Phase 1 items updated based on code presence |
 | TBD | Phase 1 complete |
 | TBD | Phase 2 complete |
 | TBD | Phase 3 complete |

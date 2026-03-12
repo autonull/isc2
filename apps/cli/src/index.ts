@@ -16,6 +16,9 @@ import { dmCommands } from './commands/dm.js';
 import { callCommands } from './commands/call.js';
 import { statusCommand } from './commands/status.js';
 import { configCommands } from './commands/config.js';
+import { announceCommands } from './commands/announce.js';
+import { queryCommands } from './commands/query.js';
+import { supernodeCommands } from './commands/supernode.js';
 import type { CLIConfig } from './config.js';
 
 const VERSION = '0.1.0';
@@ -46,6 +49,9 @@ function main(): void {
   callCommands(program);
   statusCommand(program);
   configCommands(program);
+  announceCommands(program);
+  queryCommands(program);
+  supernodeCommands(program);
 
   program.parse(process.argv);
 
