@@ -141,8 +141,21 @@ export function ChatsScreen() {
     };
     registerHandler();
 
+    // Cross-tab sync for conversations
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === CONVERSATIONS_KEY && e.newValue) {
+        const convos: Conversation[] = JSON.parse(e.newValue);
+        setConversations(convos.sort((a, b) => (b.lastMessageTime || 0) - (a.lastMessageTime || 0)));
+      }
+      if (e.key?.startsWith(MESSAGES_KEY_PREFIX) && e.newValue && activeChat) {
+        const msgs: ChatMessage[] = JSON.parse(e.newValue);
+        setMessages(msgs);
+      }
+    };
+    window.addEventListener('storage', handleStorageChange);
+
     return () => {
-      // Don't close all streams on unmount, just this screen
+      window.removeEventListener('storage', handleStorageChange);
     };
   }, [activeChat?.peerId, saveMessages]);
 

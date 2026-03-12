@@ -38,7 +38,7 @@ export function App({ onReady }: AppProps) {
     // Initialize offline-first features
     initConnectionMonitor();
     initSyncManager();
-    
+
     initRouter();
     onReady?.();
 
@@ -47,6 +47,25 @@ export function App({ onReady }: AppProps) {
       const active = chs.find((c) => c.active) || null;
       setActiveChannel(active);
     });
+
+    // Cross-tab synchronization
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'isc-conversations' || e.key?.startsWith('isc-messages-')) {
+        // Reload conversations/messages if changed in another tab
+        console.log('[App] Storage changed in another tab:', e.key);
+        // Could trigger a reload or emit event for components to refresh
+      }
+      if (e.key === 'isc-channels') {
+        // Reload channels
+        channelManager.getAllChannels().then((chs) => {
+          setChannels(chs);
+          const active = chs.find((c) => c.active) || null;
+          setActiveChannel(active);
+        });
+      }
+    };
+
+    window.addEventListener('storage', handleStorageChange);
 
     const unsubscribe = router.onChange((newRoute) => {
       setRoute(newRoute);
@@ -62,6 +81,7 @@ export function App({ onReady }: AppProps) {
     return () => {
       unsubscribe();
       window.removeEventListener('resize', checkDesktop);
+      window.removeEventListener('storage', handleStorageChange);
     };
   }, []);
 
