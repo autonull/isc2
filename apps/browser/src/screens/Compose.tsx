@@ -5,6 +5,8 @@
 import { h } from 'preact';
 import { useState } from 'preact/hooks';
 import { channelManager } from '../channels/manager.js';
+import { getDHTClient, initializeDHT } from '../network/dht.js';
+import { lshHash } from '@isc/core';
 import { navigate } from '../router.js';
 
 interface RelationInput {
@@ -95,6 +97,7 @@ export function ComposeScreen() {
     setError('');
 
     try {
+      // Create channel locally
       const channel = await channelManager.createChannel(
         name.trim(),
         description.trim(),
@@ -102,8 +105,45 @@ export function ComposeScreen() {
         relations.map(r => ({ tag: r.tag, object: r.object, weight: 1.0 }))
       );
 
-      // Activate the new channel
-      await channelManager.activateChannel(channel.id, []);
+      // Initialize DHT
+      const dhtClient = await initializeDHT();
+      
+      // Compute channel vector (stub - in production would use transformers.js)
+      const encoder = new TextEncoder();
+      const hash = await crypto.subtle.digest('SHA-256', encoder.encode(description.trim()));
+      const hashBytes = new Uint8Array(hash);
+      const vec = Array.from({ length: 384 }, (_, i) => {
+        const byte = hashBytes[i % 32];
+        return (byte / 255) * 2 - 1;
+      });
+      const norm = Math.sqrt(vec.reduce((sum, v) => sum + v * v, 0));
+      const normalizedVec = vec.map(v => v / norm);
+
+      // Generate LSH hashes
+      const modelHash = 'XenovaallMiniLM'.slice(0, 12);
+      const hashes = lshHash(normalizedVec, modelHash, 20, 32);
+
+      // Create announcement payload
+      const announcement = {
+        peerId: dhtClient.getPeerId(),
+        channelID: channel.id,
+        model: 'Xenova/all-MiniLM-L6-v2',
+        vec: normalizedVec,
+        ttl: 300,
+        updatedAt: Date.now(),
+      };
+
+      // Announce to DHT (announce to multiple hash buckets)
+      const encoded = new TextEncoder().encode(JSON.stringify(announcement));
+      for (const hash of hashes.slice(0, 5)) {
+        const key = `/isc/announce/${modelHash}/${hash}`;
+        await dhtClient.announce(key, encoded, 300);
+      }
+
+      console.log('[Compose] Channel announced to DHT:', channel.id);
+
+      // Activate the channel locally
+      await channelManager.activateChannel(channel.id, [{ mu: normalizedVec, sigma: spread }]);
 
       // Navigate back to Now tab
       navigate('now');
