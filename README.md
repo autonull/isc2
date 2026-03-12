@@ -69,6 +69,22 @@ cd apps/browser && pnpm dev
 node apps/cli/dist/index.js query semantic
 ```
 
+### Swarm Scale Test
+
+```bash
+# Run 50-peer swarm simulation
+node tests/simulation/swarm-test.js --peers=50 --cycles=10
+
+# Run 100-peer scale test
+node tests/simulation/swarm-test.js --peers=100 --cycles=15
+
+# Expected output (50 peers):
+# ✓ Match rate > 50%
+# ✓ Avg similarity >= 0.70
+# ✓ DHT entries > 0
+# ✓ Avg matches/peer >= 1
+```
+
 See [PROTOCOL.md](PROTOCOL.md) for complete protocol specification.
 
 ---
