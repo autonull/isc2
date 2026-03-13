@@ -71,3 +71,9 @@ export * from './dht/index.js';
 
 // Interoperability (Phase 9)
 export * from './interop/index.js';
+
+// Social layer
+export * from './social/index.js';
+
+// Channel management
+export * from './channels/index.js';

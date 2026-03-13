@@ -1,0 +1,60 @@
+/**
+ * ISC Social Layer
+ *
+ * Environment-agnostic social protocol implementation.
+ * Provides posts, feeds, follows, and reputation system.
+ */
+
+// Types
+export * from './types.js';
+
+// Posts
+export {
+  createPost,
+  verifyPost,
+  verifyPosts,
+  discoverPosts,
+  deletePost,
+  PostService,
+  type PostStorage,
+  type IdentityProvider,
+  type PostNetwork,
+} from './posts.js';
+
+// Feeds
+export {
+  getForYouFeed,
+  getFollowingFeed,
+  getExploreFeed,
+  getChannelFeed,
+  getTrendingPosts,
+  getSimilarPosts,
+  FeedService,
+  type FeedProvider,
+} from './feeds.js';
+
+// Graph (follows & reputation)
+export {
+  followUser,
+  unfollowUser,
+  getFollowees,
+  isFollowing,
+  getFollowerCount,
+  getFollowingCount,
+  recordInteraction,
+  getInteractionHistory,
+  applyDecay,
+  computeReputation,
+  computeTrustScore,
+  getSuggestedFollows,
+  getInteractionBasedSuggestions,
+  getAllFollowSuggestions,
+  GraphService,
+  type GraphStorage,
+  type GraphIdentity,
+  type GraphNetwork,
+  type FollowSuggestion,
+} from './graph.js';
+
+// Version
+export const SOCIAL_VERSION = '1.0.0';
