@@ -18,21 +18,15 @@ import { discoverStyles as styles } from './styles/Discover.css.js';
 import type { Match } from './types/discover.js';
 import { getChatHandler } from '../../chat/webrtc.js';
 import { getDHTClient } from '../../network/dht.js';
-import { navigate } from '../../router.js';
+import { useNavigation } from '@isc/navigation';
 
 export function DiscoverScreen() {
+  const { navigate } = useNavigation();
   const [dialError, setDialError] = useState<string | null>(null);
   const [dialSuccess, setDialSuccess] = useState<string | null>(null);
 
-  const {
-    matches,
-    loading,
-    error,
-    activeChannel,
-    modelStatus,
-    loadMatches,
-    refreshMatches,
-  } = usePeerDiscovery();
+  const { matches, loading, error, activeChannel, modelStatus, loadMatches, refreshMatches } =
+    usePeerDiscovery();
 
   const { filteredMatches, groupedMatches } = usePeerFiltering(matches);
   const { scoredMatches } = useMatchScoring(matches);
@@ -77,9 +71,7 @@ export function DiscoverScreen() {
 
       const savedConvos = localStorage.getItem('isc-conversations');
       const convos = savedConvos ? JSON.parse(savedConvos) : [];
-      const existing = convos.findIndex(
-        (c: any) => c.peerId === newConvo.peerId
-      );
+      const existing = convos.findIndex((c: any) => c.peerId === newConvo.peerId);
       if (existing >= 0) {
         convos[existing] = newConvo;
       } else {
@@ -126,39 +118,61 @@ export function DiscoverScreen() {
           </p>
         </div>
         {modelStatus === 'ready' && (
-          <span style={{ fontSize: '12px', color: '#17bf63', background: '#d4edda', padding: '4px 8px', borderRadius: '4px' }}>
+          <span
+            style={{
+              fontSize: '12px',
+              color: '#17bf63',
+              background: '#d4edda',
+              padding: '4px 8px',
+              borderRadius: '4px',
+            }}
+          >
             ✓ Real embeddings
           </span>
         )}
         {modelStatus === 'fallback' && (
-          <span style={{ fontSize: '12px', color: '#856404', background: '#fff3cd', padding: '4px 8px', borderRadius: '4px' }}>
+          <span
+            style={{
+              fontSize: '12px',
+              color: '#856404',
+              background: '#fff3cd',
+              padding: '4px 8px',
+              borderRadius: '4px',
+            }}
+          >
             ⚠️ Fallback mode
           </span>
         )}
       </header>
 
       {dialError && (
-        <div style={{
-          background: '#ef4444',
-          color: 'white',
-          padding: '12px 16px',
-          margin: '0 16px 8px',
-          borderRadius: '4px',
-          fontSize: '14px',
-        }} role="alert">
+        <div
+          style={{
+            background: '#ef4444',
+            color: 'white',
+            padding: '12px 16px',
+            margin: '0 16px 8px',
+            borderRadius: '4px',
+            fontSize: '14px',
+          }}
+          role="alert"
+        >
           {dialError}
         </div>
       )}
 
       {dialSuccess && (
-        <div style={{
-          background: '#17bf63',
-          color: 'white',
-          padding: '12px 16px',
-          margin: '0 16px 8px',
-          borderRadius: '4px',
-          fontSize: '14px',
-        }} role="status">
+        <div
+          style={{
+            background: '#17bf63',
+            color: 'white',
+            padding: '12px 16px',
+            margin: '0 16px 8px',
+            borderRadius: '4px',
+            fontSize: '14px',
+          }}
+          role="status"
+        >
           {dialSuccess}
         </div>
       )}
@@ -169,9 +183,7 @@ export function DiscoverScreen() {
             icon="⚠️"
             title="Connection Error"
             message={error}
-            actions={[
-              { label: 'Try Again', onClick: refreshMatches, primary: true },
-            ]}
+            actions={[{ label: 'Try Again', onClick: refreshMatches, primary: true }]}
           />
         )}
 
@@ -187,7 +199,7 @@ export function DiscoverScreen() {
             actions={[
               {
                 label: 'Create Channel',
-                onClick: () => navigate('now'),
+                onClick: () => navigate({ name: 'compose', path: '/compose' }),
                 primary: true,
               },
               { label: 'Refresh', onClick: refreshMatches },
@@ -201,37 +213,22 @@ export function DiscoverScreen() {
 
             {groupedMatches.VERY_CLOSE.length > 0 && (
               <div style={styles.section}>
-                <h2 style={styles.sectionTitle}>
-                  Very Close ({groupedMatches.VERY_CLOSE.length})
-                </h2>
-                <PeerList
-                  matches={groupedMatches.VERY_CLOSE}
-                  onDial={handleDial}
-                />
+                <h2 style={styles.sectionTitle}>Very Close ({groupedMatches.VERY_CLOSE.length})</h2>
+                <PeerList matches={groupedMatches.VERY_CLOSE} onDial={handleDial} />
               </div>
             )}
 
             {groupedMatches.NEARBY.length > 0 && (
               <div style={styles.section}>
-                <h2 style={styles.sectionTitle}>
-                  Nearby ({groupedMatches.NEARBY.length})
-                </h2>
-                <PeerList
-                  matches={groupedMatches.NEARBY}
-                  onDial={handleDial}
-                />
+                <h2 style={styles.sectionTitle}>Nearby ({groupedMatches.NEARBY.length})</h2>
+                <PeerList matches={groupedMatches.NEARBY} onDial={handleDial} />
               </div>
             )}
 
             {groupedMatches.ORBITING.length > 0 && (
               <div style={styles.section}>
-                <h2 style={styles.sectionTitle}>
-                  Orbiting ({groupedMatches.ORBITING.length})
-                </h2>
-                <PeerList
-                  matches={groupedMatches.ORBITING}
-                  onDial={handleDial}
-                />
+                <h2 style={styles.sectionTitle}>Orbiting ({groupedMatches.ORBITING.length})</h2>
+                <PeerList matches={groupedMatches.ORBITING} onDial={handleDial} />
               </div>
             )}
           </>

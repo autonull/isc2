@@ -43,12 +43,7 @@ export function Onboarding({ onComplete }: OnboardingProps) {
     );
   }
 
-  return (
-    <DiscoverStep
-      onComplete={handleComplete}
-      onBack={() => setStep(1)}
-    />
-  );
+  return <DiscoverStep onComplete={handleComplete} onBack={() => setStep(1)} />;
 }
 
 // Re-export utility functions
@@ -56,6 +51,5 @@ export { isOnboardingComplete, resetOnboarding } from './hooks/useOnboardingProg
 
 // Navigate to discover screen
 async function navigateToDiscover() {
-  const { navigate } = await import('../../router.js');
-  navigate('discover');
+  window.dispatchEvent(new CustomEvent('isc-navigate', { detail: { tab: 'discover' } }));
 }

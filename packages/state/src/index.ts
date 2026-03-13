@@ -128,6 +128,13 @@ export {
   CompositeSync,
   createSync,
 } from './sync.js';
+export {
+  // Browser storage adapters
+  BrowserStorage,
+  IndexedDBStorage,
+  StorageObserver,
+  createBrowserStorage,
+} from './adapters/browser.js';
 export type {
   // Types
   AppState,

@@ -65,7 +65,7 @@ export function App({ onReady }: AppProps) {
     const handleNavigateEvent = (e: Event) => {
       const customEvent = e as CustomEvent<{ tab: string }>;
       if (customEvent.detail?.tab) {
-        navigate(customEvent.detail.tab as Route);
+        navigate({ name: customEvent.detail.tab, path: `/${customEvent.detail.tab}` });
       }
     };
     window.addEventListener('isc-navigate', handleNavigateEvent as EventListener);
@@ -87,11 +87,7 @@ export function App({ onReady }: AppProps) {
     window.addEventListener('storage', handleStorageChange);
 
     // Listen to navigation events for badge clearing
-    const unsubscribe = useCurrentRoute().subscribe?.((event) => {
-      if (event.to.name === 'chats') {
-        setBadges((prev) => ({ ...prev, chats: 0 }));
-      }
-    });
+    // (handled in handleNavigateEvent - clears chats badge when navigating to 'chats')
 
     const checkDesktop = () => {
       setIsDesktop(window.innerWidth >= 768);
@@ -101,7 +97,6 @@ export function App({ onReady }: AppProps) {
     window.addEventListener('resize', checkDesktop);
 
     return () => {
-      unsubscribe?.();
       window.removeEventListener('resize', checkDesktop);
       window.removeEventListener('storage', handleStorageChange);
       window.removeEventListener('isc-navigate', handleNavigateEvent as EventListener);
@@ -129,7 +124,7 @@ export function App({ onReady }: AppProps) {
   });
 
   const handleTabClick = (tabId: Route) => {
-    navigate(tabId);
+    navigate({ name: tabId, path: `/${tabId}` });
   };
 
   const handleChannelSwitch = () => {
@@ -158,7 +153,7 @@ export function App({ onReady }: AppProps) {
             channel={activeChannel}
             matchCount={badges.now}
             onSwitchClick={handleChannelSwitch}
-            onEditClick={() => navigate('compose')}
+            onEditClick={() => navigate({ name: 'compose', path: '/compose' })}
           />
         )}
         {showChannelSwitcher && (

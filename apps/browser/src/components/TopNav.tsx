@@ -1,5 +1,5 @@
 import { h } from 'preact';
-import type { Route } from '../router.js';
+import type { Route } from '../types.js';
 
 interface TopNavProps {
   activeTab: Route;
@@ -31,13 +31,19 @@ export function TopNav({ activeTab, onTabClick, badges = {} }: TopNavProps) {
             >
               <span class="top-nav-tab-icon">{tab.icon}</span>
               <span class="top-nav-tab-label">{tab.label}</span>
-              {badges[tab.id] !== undefined && badges[tab.id] > 0 && <span class="top-nav-badge">{badges[tab.id]}</span>}
+              {badges[tab.id] !== undefined && badges[tab.id] > 0 && (
+                <span class="top-nav-badge">{badges[tab.id]}</span>
+              )}
             </button>
           ))}
         </div>
         <div class="top-nav-actions">
-          <button class="top-nav-btn" aria-label="Notifications">🔔</button>
-          <button class="top-nav-btn" aria-label="Menu">☰</button>
+          <button class="top-nav-btn" aria-label="Notifications">
+            🔔
+          </button>
+          <button class="top-nav-btn" aria-label="Menu">
+            ☰
+          </button>
         </div>
       </div>
     </nav>

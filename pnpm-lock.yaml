@@ -96,9 +96,21 @@ importers:
       '@isc/core':
         specifier: workspace:*
         version: link:../../packages/core
+      '@isc/forms':
+        specifier: workspace:*
+        version: link:../../packages/forms
+      '@isc/navigation':
+        specifier: workspace:*
+        version: link:../../packages/navigation
       '@isc/protocol':
         specifier: workspace:*
         version: link:../../packages/protocol
+      '@isc/state':
+        specifier: workspace:*
+        version: link:../../packages/state
+      '@isc/ui':
+        specifier: workspace:*
+        version: link:../../packages/ui
       '@libp2p/bootstrap':
         specifier: ^12.0.13
         version: 12.0.13

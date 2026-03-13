@@ -4,7 +4,7 @@
  * History API-based navigation for web browsers.
  */
 
-import type { Navigator, Route, NavigationListener, NavigationEvent } from '../types.js';
+import type { Navigator, Route, NavigationListener } from '../types.js';
 
 /**
  * Browser navigator using History API

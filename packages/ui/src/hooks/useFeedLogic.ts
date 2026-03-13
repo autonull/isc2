@@ -12,9 +12,17 @@ import { getForYouFeed, getFollowingFeed } from '@isc/core';
  * Feed logic options
  */
 export interface UseFeedLogicOptions {
+  provider: {
+    getAllPosts: () => Promise<SignedPost[]>;
+    getPostsByChannel: (channelID: string) => Promise<SignedPost[]>;
+    getFollowees?: () => Promise<string[]>;
+    getActiveChannel?: () => Promise<{
+      id: string;
+      distributions?: Array<{ mu: number[]; sigma: number }>;
+    } | null>;
+  };
   type: 'for-you' | 'following';
   limit?: number;
-  pullToRefresh?: boolean;
 }
 
 /**
@@ -34,9 +42,9 @@ export interface UseFeedLogicReturn {
  * Use feed logic hook
  */
 export function useFeedLogic({
+  provider,
   type,
   limit = 50,
-  pullToRefresh = false,
 }: UseFeedLogicOptions): UseFeedLogicReturn {
   const [posts, setPosts] = useState<SignedPost[]>([]);
   const [loading, setLoading] = useState(true);
@@ -52,8 +60,8 @@ export function useFeedLogic({
 
         const fetched =
           type === 'following'
-            ? await getFollowingFeed(limit)
-            : await getForYouFeed(limit);
+            ? await getFollowingFeed(provider, limit)
+            : await getForYouFeed(provider, limit);
 
         setPosts(isRefresh ? fetched : [...posts, ...fetched]);
         setHasMore(fetched.length === limit);
@@ -66,7 +74,7 @@ export function useFeedLogic({
         setLoading(false);
       }
     },
-    [type, limit, posts]
+    [type, limit, posts, provider]
   );
 
   const refresh = useCallback(async (): Promise<void> => {

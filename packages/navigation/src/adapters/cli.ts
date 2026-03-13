@@ -4,7 +4,7 @@
  * In-memory navigation for CLI applications.
  */
 
-import type { Navigator, Route, NavigationListener } from '../types.js';
+import type { Navigator, Route, NavigationListener, NavigationEvent } from '../types.js';
 
 /**
  * CLI navigator using in-memory state
@@ -74,10 +74,10 @@ export class CliNavigator implements Navigator {
     return this.future.length > 0;
   }
 
-  private notify(type: string, from: Route | null, to: Route): void {
+  private notify(type: NavigationEvent['type'], from: Route | null, to: Route): void {
     this.listeners.forEach((listener) =>
       listener({
-        type: type as NavigationListener['type'],
+        type,
         from,
         to,
         timestamp: Date.now(),
