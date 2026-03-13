@@ -1,347 +1,144 @@
-export interface RelayCandidate {
-  peerID: string;
-  multiaddr: string;
-  type: 'circuit' | 'turn' | 'stun';
-  latency: number;
-  successRate: number;
-  lastUsed?: number;
-  usageCount: number;
-  qualityScore: number;
-}
+/**
+ * NAT Traversal & Relay Management
+ *
+ * Manages relay selection, connection quality tracking, and ICE server configuration.
+ *
+ * Facade module re-exporting relay functionality.
+ */
 
-export interface TURNConfig {
-  urls: string[];
-  username?: string;
-  credential?: string;
-}
+export type {
+  RelayCandidate,
+  TURNConfig,
+  STUNConfig,
+  ConnectionQuality,
+  NATTraversalConfig,
+  RelayPoolStats,
+  ConnectionQualityStats,
+  RelayType,
+} from './relay/types/relay.js';
 
-export interface STUNConfig {
-  urls: string[];
-}
+export {
+  RELAY_CONFIG,
+  QUALITY_WEIGHTS,
+  RELAY_SCORE_WEIGHTS,
+  RELAY_CONSTANTS,
+  DEFAULT_TURN_SERVERS,
+  DEFAULT_STUN_SERVERS,
+} from './relay/config/relayConfig.js';
 
-export interface ConnectionQuality {
-  peerID: string;
-  score: number;
-  latency: number;
-  packetLoss: number;
-  jitter: number;
-  bandwidth: number;
-  stability: number;
-  lastUpdated: number;
-}
+export type { RelaySelectionStrategy } from './relay/strategies/RelaySelectionStrategy.js';
+export { QualityBasedRelayStrategy } from './relay/strategies/QualityBasedRelayStrategy.js';
 
-export interface NATTraversalConfig {
-  maxRelayPoolSize: number;
-  minRelays: number;
-  relayRefreshInterval: number;
-  connectionTimeout: number;
-  maxRetries: number;
-  retryBackoff: number;
-  minQualityScore: number;
-  degradedQualityScore: number;
-  turnServers: TURNConfig[];
-  stunServers: STUNConfig[];
-  latencyWeight: number;
-  successRateWeight: number;
-  stabilityWeight: number;
-}
+export { RelayPoolManager } from './relay/services/RelayPoolManager.js';
+export { ConnectionQualityTracker } from './relay/services/ConnectionQualityTracker.js';
+export { ICEServerManager } from './relay/services/ICEServerManager.js';
+export { NATTraversalManagerService } from './relay/services/NATTraversalManagerService.js';
 
-const DEFAULT_CONFIG: NATTraversalConfig = {
-  maxRelayPoolSize: 20,
-  minRelays: 3,
-  relayRefreshInterval: 60000,
-  connectionTimeout: 5000,
-  maxRetries: 3,
-  retryBackoff: 1000,
-  minQualityScore: 0.3,
-  degradedQualityScore: 0.6,
-  turnServers: [],
-  stunServers: [
-    { urls: ['stun:stun.l.google.com:19302'] },
-    { urls: ['stun:stun1.l.google.com:19302'] },
-  ],
-  latencyWeight: 0.4,
-  successRateWeight: 0.4,
-  stabilityWeight: 0.2,
-};
+export {
+  calculateConnectionQuality,
+  calculateRelayQualityScore,
+  smoothValue,
+  isAcceptable,
+  isDegraded,
+} from './relay/utils/qualityCalculator.js';
+
+// Re-export for backward compatibility
+import type {
+  RelayCandidate,
+  NATTraversalConfig,
+  ConnectionQuality,
+  RelayPoolStats,
+  ConnectionQualityStats,
+  TURNConfig,
+} from './relay/types/relay.js';
+import { RELAY_CONFIG } from './relay/config/relayConfig.js';
+import { NATTraversalManagerService } from './relay/services/NATTraversalManagerService.js';
+import { calculateConnectionQuality as calcConnectionQuality } from './relay/utils/qualityCalculator.js';
 
 export class NATTraversalManager {
-  private config: NATTraversalConfig;
-  private relayPool: Map<string, RelayCandidate> = new Map();
-  private connectionQualities: Map<string, ConnectionQuality> = new Map();
-  private activeConnections: Set<string> = new Set();
-  private preferredRelay?: RelayCandidate;
-  private refreshTimer?: ReturnType<typeof setInterval>;
+  private service: NATTraversalManagerService;
 
   constructor(config: Partial<NATTraversalConfig> = {}) {
-    this.config = { ...DEFAULT_CONFIG, ...config };
+    this.service = new NATTraversalManagerService(config);
   }
 
   start(): void {
-    this.refreshRelayPool();
-    this.refreshTimer = setInterval(() => this.refreshRelayPool(), this.config.relayRefreshInterval);
+    this.service.start();
   }
 
   stop(): void {
-    if (this.refreshTimer) {
-      clearInterval(this.refreshTimer);
-      this.refreshTimer = undefined;
-    }
+    this.service.stop();
   }
 
   addRelay(relay: RelayCandidate): void {
-    if (this.relayPool.size >= this.config.maxRelayPoolSize) {
-      const lowest = this.getLowestQualityRelay();
-      if (lowest && lowest.qualityScore < relay.qualityScore) {
-        this.relayPool.delete(lowest.peerID);
-      } else {
-        return;
-      }
-    }
-
-    this.relayPool.set(relay.peerID, relay);
-    this.updatePreferredRelay();
+    this.service.addRelay(relay);
   }
 
   removeRelay(peerID: string): void {
-    this.relayPool.delete(peerID);
-    if (this.preferredRelay?.peerID === peerID) {
-      this.updatePreferredRelay();
-    }
+    this.service.removeRelay(peerID);
   }
 
   updateRelayStats(peerID: string, success: boolean, latency?: number): void {
-    const relay = this.relayPool.get(peerID);
-    if (!relay) return;
-
-    relay.usageCount++;
-    relay.lastUsed = Date.now();
-
-    if (latency !== undefined) {
-      relay.latency = relay.latency * 0.8 + latency * 0.2;
-    }
-
-    const targetSuccess = success ? 1 : 0;
-    relay.successRate = relay.successRate * 0.9 + targetSuccess * 0.1;
-    relay.qualityScore = this.calculateRelayQualityScore(relay);
-
-    this.relayPool.set(peerID, relay);
-    this.updatePreferredRelay();
-  }
-
-  private calculateRelayQualityScore(relay: RelayCandidate): number {
-    const { latencyWeight, successRateWeight, stabilityWeight } = this.config;
-    const latencyScore = Math.max(0, 1 - relay.latency / 1000);
-    const successScore = relay.successRate;
-    const stabilityScore = relay.usageCount > 10 ? 0.9 : relay.usageCount / 10;
-
-    return latencyScore * latencyWeight + successScore * successRateWeight + stabilityScore * stabilityWeight;
+    this.service.updateRelayStats(peerID, success, latency);
   }
 
   getBestRelay(): RelayCandidate | undefined {
-    this.updatePreferredRelay();
-    return this.preferredRelay;
+    return this.service.getBestRelay();
   }
 
   getTopRelays(n: number): RelayCandidate[] {
-    return Array.from(this.relayPool.values())
-      .sort((a, b) => b.qualityScore - a.qualityScore)
-      .slice(0, n);
-  }
-
-  private getLowestQualityRelay(): RelayCandidate | undefined {
-    let lowest: RelayCandidate | undefined;
-    for (const relay of this.relayPool.values()) {
-      if (!lowest || relay.qualityScore < lowest.qualityScore) {
-        lowest = relay;
-      }
-    }
-    return lowest;
-  }
-
-  private updatePreferredRelay(): void {
-    const candidates = this.getTopRelays(3);
-    if (candidates.length === 0) {
-      this.preferredRelay = undefined;
-      return;
-    }
-
-    const now = Date.now();
-    const oneMinuteAgo = now - 60000;
-
-    for (const candidate of candidates) {
-      if (!candidate.lastUsed || candidate.lastUsed < oneMinuteAgo) {
-        this.preferredRelay = candidate;
-        return;
-      }
-    }
-
-    this.preferredRelay = candidates[0];
-  }
-
-  private refreshRelayPool(): void {
-    const now = Date.now();
-    const oneHourAgo = now - 3600000;
-
-    for (const [peerID, relay] of this.relayPool.entries()) {
-      if (relay.usageCount === 0 && relay.lastUsed && relay.lastUsed < oneHourAgo) {
-        this.relayPool.delete(peerID);
-      }
-    }
-
-    if (this.relayPool.size < this.config.minRelays) {
-      console.log(`Relay pool below minimum: ${this.relayPool.size}/${this.config.minRelays}`);
-    }
+    return this.service.getTopRelays(n);
   }
 
   recordConnectionQuality(quality: ConnectionQuality): void {
-    const existing = this.connectionQualities.get(quality.peerID);
-
-    if (existing) {
-      existing.score = existing.score * 0.7 + quality.score * 0.3;
-      existing.latency = existing.latency * 0.7 + quality.latency * 0.3;
-      existing.packetLoss = existing.packetLoss * 0.7 + quality.packetLoss * 0.3;
-      existing.jitter = existing.jitter * 0.7 + quality.jitter * 0.3;
-      existing.bandwidth = existing.bandwidth * 0.7 + quality.bandwidth * 0.3;
-      existing.stability = existing.stability * 0.8 + quality.stability * 0.2;
-      existing.lastUpdated = Date.now();
-    } else {
-      this.connectionQualities.set(quality.peerID, {
-        ...quality,
-        stability: quality.score,
-      });
-    }
+    this.service.recordConnectionQuality(quality);
   }
 
   getConnectionQuality(peerID: string): ConnectionQuality | undefined {
-    return this.connectionQualities.get(peerID);
+    return this.service.getConnectionQuality(peerID);
   }
 
   isConnectionAcceptable(peerID: string): boolean {
-    const quality = this.connectionQualities.get(peerID);
-    return !quality || quality.score >= this.config.minQualityScore;
+    return this.service.isConnectionAcceptable(peerID);
   }
 
   isConnectionDegraded(peerID: string): boolean {
-    const quality = this.connectionQualities.get(peerID);
-    return quality ? quality.score < this.config.degradedQualityScore : false;
+    return this.service.isConnectionDegraded(peerID);
   }
 
   getICEServers(): RTCIceServer[] {
-    const servers: RTCIceServer[] = [];
-    for (const stun of this.config.stunServers) {
-      servers.push({ urls: stun.urls });
-    }
-    for (const turn of this.config.turnServers) {
-      servers.push({ urls: turn.urls, username: turn.username, credential: turn.credential });
-    }
-    return servers;
+    return this.service.getICEServers();
   }
 
   addTurnServer(turn: TURNConfig): void {
-    this.config.turnServers.push(turn);
+    this.service.addTurnServer(turn);
   }
 
   markConnectionActive(peerID: string): void {
-    this.activeConnections.add(peerID);
+    this.service.markConnectionActive(peerID);
   }
 
   markConnectionInactive(peerID: string): void {
-    this.activeConnections.delete(peerID);
+    this.service.markConnectionInactive(peerID);
   }
 
   getActiveConnectionCount(): number {
-    return this.activeConnections.size;
+    return this.service.getActiveConnectionCount();
   }
 
-  getRelayPoolStats(): {
-    totalRelays: number;
-    circuitRelays: number;
-    turnRelays: number;
-    stunRelays: number;
-    avgQualityScore: number;
-    avgLatency: number;
-    avgSuccessRate: number;
-  } {
-    const relays = Array.from(this.relayPool.values());
-    if (relays.length === 0) {
-      return {
-        totalRelays: 0,
-        circuitRelays: 0,
-        turnRelays: 0,
-        stunRelays: 0,
-        avgQualityScore: 0,
-        avgLatency: 0,
-        avgSuccessRate: 0,
-      };
-    }
-
-    return {
-      totalRelays: relays.length,
-      circuitRelays: relays.filter((r) => r.type === 'circuit').length,
-      turnRelays: relays.filter((r) => r.type === 'turn').length,
-      stunRelays: relays.filter((r) => r.type === 'stun').length,
-      avgQualityScore: relays.reduce((sum, r) => sum + r.qualityScore, 0) / relays.length,
-      avgLatency: relays.reduce((sum, r) => sum + r.latency, 0) / relays.length,
-      avgSuccessRate: relays.reduce((sum, r) => sum + r.successRate, 0) / relays.length,
-    };
+  getRelayPoolStats(): RelayPoolStats {
+    return this.service.getRelayPoolStats();
   }
 
-  getConnectionQualityStats(): {
-    totalConnections: number;
-    activeConnections: number;
-    avgScore: number;
-    avgLatency: number;
-    avgPacketLoss: number;
-    acceptableConnections: number;
-    degradedConnections: number;
-  } {
-    const qualities = Array.from(this.connectionQualities.values());
-    if (qualities.length === 0) {
-      return {
-        totalConnections: 0,
-        activeConnections: this.activeConnections.size,
-        avgScore: 0,
-        avgLatency: 0,
-        avgPacketLoss: 0,
-        acceptableConnections: 0,
-        degradedConnections: 0,
-      };
-    }
-
-    return {
-      totalConnections: qualities.length,
-      activeConnections: this.activeConnections.size,
-      avgScore: qualities.reduce((sum, q) => sum + q.score, 0) / qualities.length,
-      avgLatency: qualities.reduce((sum, q) => sum + q.latency, 0) / qualities.length,
-      avgPacketLoss: qualities.reduce((sum, q) => sum + q.packetLoss, 0) / qualities.length,
-      acceptableConnections: qualities.filter((q) => q.score >= this.config.minQualityScore).length,
-      degradedConnections: qualities.filter((q) => q.score < this.config.degradedQualityScore).length,
-    };
+  getConnectionQualityStats(): ConnectionQualityStats {
+    return this.service.getConnectionQualityStats();
   }
 
   clear(): void {
-    this.relayPool.clear();
-    this.connectionQualities.clear();
-    this.activeConnections.clear();
-    this.preferredRelay = undefined;
+    this.service.clear();
   }
 }
 
 export function createNATTraversalManager(config?: Partial<NATTraversalConfig>): NATTraversalManager {
   return new NATTraversalManager(config);
-}
-
-export function calculateConnectionQuality(
-  latency: number,
-  packetLoss: number,
-  jitter: number,
-  bandwidth: number
-): number {
-  const latencyScore = Math.max(0, 1 - latency / 500);
-  const packetLossScore = Math.max(0, 1 - packetLoss * 10);
-  const jitterScore = Math.max(0, 1 - jitter / 100);
-  const bandwidthScore = Math.min(1, bandwidth / 1000);
-
-  return latencyScore * 0.35 + packetLossScore * 0.35 + jitterScore * 0.15 + bandwidthScore * 0.15;
 }
