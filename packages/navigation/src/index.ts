@@ -10,6 +10,14 @@ export {
   MemoryNavigator,
 } from './navigator.js';
 export {
+  BrowserNavigator,
+  createBrowserNavigator,
+} from './adapters/browser.js';
+export {
+  CliNavigator,
+  createCliNavigator,
+} from './adapters/cli.js';
+export {
   WebNavigator,
   createWebNavigator,
 } from './adapters/web.js';

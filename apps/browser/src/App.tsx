@@ -1,7 +1,6 @@
 import { h, Fragment } from 'preact';
 import { useState, useEffect } from 'preact/hooks';
-import { router, currentRoute, navigate, initRouter } from './router.js';
-import type { Route } from './router.js';
+import { useCurrentRoute, useNavigation } from '@isc/navigation';
 import { ErrorBoundary } from './components/ErrorBoundary.js';
 import { ChannelHeader } from './components/ChannelHeader.js';
 import { TopNav } from './components/TopNav.js';
@@ -23,12 +22,14 @@ import { loggers } from './utils/logger.js';
 
 const logger = loggers.app;
 
+type Route = 'now' | 'following' | 'discover' | 'compose' | 'chats' | 'settings' | 'video';
+
 interface AppProps {
   onReady?: () => void;
 }
 
 export function App({ onReady }: AppProps) {
-  const [route, setRoute] = useState<Route>(currentRoute());
+  const { currentRoute: navRoute, navigate } = useNavigation();
   const [channels, setChannels] = useState<Channel[]>([]);
   const [activeChannel, setActiveChannel] = useState<Channel | null>(null);
   const [showChannelSwitcher, setShowChannelSwitcher] = useState(false);
@@ -40,12 +41,13 @@ export function App({ onReady }: AppProps) {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
 
+  const route: Route = (navRoute?.name as Route) || 'now';
+
   useEffect(() => {
     // Initialize offline-first features
     initConnectionMonitor();
     initSyncManager();
 
-    initRouter();
     onReady?.();
 
     // Check onboarding status
@@ -71,12 +73,9 @@ export function App({ onReady }: AppProps) {
     // Cross-tab synchronization
     const handleStorageChange = (e: StorageEvent) => {
       if (e.key === 'isc-conversations' || e.key?.startsWith('isc-messages-')) {
-        // Reload conversations/messages if changed in another tab
         logger.debug('Storage changed in another tab', { key: e.key });
-        // Could trigger a reload or emit event for components to refresh
       }
       if (e.key === 'isc-channels') {
-        // Reload channels
         channelManager.getAllChannels().then((chs) => {
           setChannels(chs);
           const active = chs.find((c) => c.active) || null;
@@ -87,12 +86,10 @@ export function App({ onReady }: AppProps) {
 
     window.addEventListener('storage', handleStorageChange);
 
-    const unsubscribe = router.onChange((newRoute) => {
-      setRoute(newRoute);
-      
-      // Clear chat badge when navigating to chats tab
-      if (newRoute === 'chats') {
-        setBadges(prev => ({ ...prev, chats: 0 }));
+    // Listen to navigation events for badge clearing
+    const unsubscribe = useCurrentRoute().subscribe?.((event) => {
+      if (event.to.name === 'chats') {
+        setBadges((prev) => ({ ...prev, chats: 0 }));
       }
     });
 
@@ -104,7 +101,7 @@ export function App({ onReady }: AppProps) {
     window.addEventListener('resize', checkDesktop);
 
     return () => {
-      unsubscribe();
+      unsubscribe?.();
       window.removeEventListener('resize', checkDesktop);
       window.removeEventListener('storage', handleStorageChange);
       window.removeEventListener('isc-navigate', handleNavigateEvent as EventListener);

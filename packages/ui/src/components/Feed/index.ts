@@ -12,3 +12,4 @@ export {
   FeedItem,
   type FeedProps,
 } from './Feed.js';
+export { FeedHeadless, type FeedHeadlessProps } from './FeedHeadless.js';

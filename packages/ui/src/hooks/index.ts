@@ -24,6 +24,11 @@ export {
 } from './useAppState.js';
 export { useFeed, type FeedOptions, type UseFeedReturn } from './useFeed.js';
 export {
+  useFeedLogic,
+  type UseFeedLogicOptions,
+  type UseFeedLogicReturn,
+} from './useFeedLogic.js';
+export {
   useChannel,
   useActiveChannel as useActiveChannelHook,
   useChannels as useChannelsHook,
