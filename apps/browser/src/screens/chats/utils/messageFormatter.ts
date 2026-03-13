@@ -43,3 +43,18 @@ export function getMessageStatusColor(status?: MessageStatus): string {
       return '#657786';
   }
 }
+
+export function getMessageStatusText(status?: MessageStatus): string {
+  switch (status) {
+    case 'pending':
+      return 'Sending...';
+    case 'sent':
+      return 'Sent';
+    case 'delivered':
+      return 'Delivered';
+    case 'failed':
+      return 'Failed to send';
+    default:
+      return '';
+  }
+}

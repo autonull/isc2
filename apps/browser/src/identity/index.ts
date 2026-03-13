@@ -216,3 +216,18 @@ export const announcePublicKey = async (): Promise<void> => {
   const payload = JSON.stringify({ peerID, data: Array.from(publicKey) });
   await client.announce(key, new TextEncoder().encode(payload), 86400 * 30);
 };
+
+// Re-export embedding service for convenience
+export {
+  EmbeddingService,
+  loadEmbeddingModel,
+  getModel,
+  isModelLoaded,
+  isModelLoading,
+  getLoadProgress,
+  computeEmbedding,
+  computeEmbeddings,
+  unloadModel,
+  clearCache,
+  getCacheStats,
+} from './embedding-service.js';

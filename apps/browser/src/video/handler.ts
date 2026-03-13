@@ -28,7 +28,44 @@ const MEDIA_ERROR_MESSAGES: Record<string, string> = {
   NotReadableError: 'Camera or microphone is already in use by another application.',
   TrackStartError: 'Camera or microphone is already in use by another application.',
   OverconstrainedError: 'No device found matching specified constraints. Try lowering video quality.',
+  AbortError: 'Media request aborted. Please try again.',
+  NotSupportedError: 'Media constraints not supported by this browser.',
+  TypeError: 'Invalid media constraints specified.',
+  SecurityError: 'Security restriction prevented media access.',
 };
+
+/**
+ * Video call error types
+ */
+export class VideoCallError extends Error {
+  constructor(
+    message: string,
+    public code: 'PERMISSION_DENIED' | 'DEVICE_NOT_FOUND' | 'IN_USE' | 'CONSTRAINT_ERROR' | 'NETWORK_ERROR' | 'UNKNOWN'
+  ) {
+    super(message);
+    this.name = 'VideoCallError';
+  }
+
+  static fromMediaError(error: Error & { name?: string }): VideoCallError {
+    const errorName = error.name || 'UnknownError';
+    
+    switch (errorName) {
+      case 'NotAllowedError':
+      case 'PermissionDeniedError':
+        return new VideoCallError(MEDIA_ERROR_MESSAGES[errorName], 'PERMISSION_DENIED');
+      case 'NotFoundError':
+      case 'DevicesNotFoundError':
+        return new VideoCallError(MEDIA_ERROR_MESSAGES[errorName], 'DEVICE_NOT_FOUND');
+      case 'NotReadableError':
+      case 'TrackStartError':
+        return new VideoCallError(MEDIA_ERROR_MESSAGES[errorName], 'IN_USE');
+      case 'OverconstrainedError':
+        return new VideoCallError(MEDIA_ERROR_MESSAGES[errorName], 'CONSTRAINT_ERROR');
+      default:
+        return new VideoCallError(`Media access failed: ${error.message}`, 'UNKNOWN');
+    }
+  }
+}
 
 async function signAndSend(message: VideoCallMessage, key: string, ttl: number): Promise<void> {
   const keypair = getKeypair();
@@ -86,7 +123,7 @@ export async function createVideoCall(
   const initiator = await getPeerID();
   const keypair = getKeypair();
 
-  if (!keypair) throw new Error('Identity not initialized');
+  if (!keypair) throw new VideoCallError('Identity not initialized. Please refresh the page.', 'UNKNOWN');
 
   const call: VideoCall = {
     callID: `call_${crypto.randomUUID()}`,
@@ -106,14 +143,37 @@ export async function createVideoCall(
     maxParticipants: settings.maxParticipants || MAX_PARTICIPANTS,
   };
 
-  const stream = await getLocalMediaStream(settings);
-  localStreams.set(call.callID, stream);
-  activeCalls.set(call.callID, call);
+  try {
+    const stream = await getLocalMediaStream(settings);
+    localStreams.set(call.callID, stream);
+    activeCalls.set(call.callID, call);
+  } catch (err) {
+    if (err instanceof VideoCallError) throw err;
+    throw new VideoCallError(`Failed to initialize media: ${(err as Error).message}`, 'UNKNOWN');
+  }
 
   if (type === 'direct' && recipient) {
-    await sendCallInvitation(call, recipient);
+    try {
+      await sendCallInvitation(call, recipient);
+    } catch (err) {
+      // Clean up stream if invitation fails
+      const stream = localStreams.get(call.callID);
+      if (stream) stream.getTracks().forEach(track => track.stop());
+      localStreams.delete(call.callID);
+      activeCalls.delete(call.callID);
+      throw new VideoCallError('Failed to send call invitation. Check your network connection.', 'NETWORK_ERROR');
+    }
   } else if (type === 'group' && channelID) {
-    await announceGroupCall(call, channelID);
+    try {
+      await announceGroupCall(call, channelID);
+    } catch (err) {
+      // Clean up stream if announcement fails
+      const stream = localStreams.get(call.callID);
+      if (stream) stream.getTracks().forEach(track => track.stop());
+      localStreams.delete(call.callID);
+      activeCalls.delete(call.callID);
+      throw new VideoCallError('Failed to announce group call. Check your network connection.', 'NETWORK_ERROR');
+    }
   }
 
   return call;
@@ -326,8 +386,7 @@ export async function getLocalMediaStream(settings: Partial<VideoCallSettings> =
     return await navigator.mediaDevices.getUserMedia(constraints);
   } catch (err) {
     const error = err as Error & { name?: string };
-    const message = MEDIA_ERROR_MESSAGES[error.name] ?? `Failed to access media devices: ${error.message}`;
-    throw new Error(message);
+    throw VideoCallError.fromMediaError(error);
   }
 }
 

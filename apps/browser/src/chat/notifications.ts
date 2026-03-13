@@ -1,5 +1,5 @@
 /**
- * Notification Service - Browser notifications for new messages
+ * Notification Service - Browser notifications for new messages and matches
  */
 
 const NOTIFICATION_PERMISSION_KEY = 'isc-notification-permission';
@@ -11,6 +11,7 @@ export interface NotificationService {
   isEnabled(): boolean;
   setEnabled(enabled: boolean): void;
   showMessage(peerId: string, message: string): void;
+  showMatchNotification(matchCount: number, topMatchSimilarity: number): void;
   clearBadge(): void;
   setBadgeCount(count: number): void;
 }
@@ -18,6 +19,8 @@ export interface NotificationService {
 class BrowserNotificationService implements NotificationService {
   private badgeCount = 0;
   private enabled = true;
+  private lastNotificationTime = new Map<string, number>();
+  private readonly NOTIFICATION_COOLDOWN = 60000; // 1 minute between same type notifications
 
   constructor() {
     // Load saved preference
@@ -66,8 +69,11 @@ class BrowserNotificationService implements NotificationService {
     localStorage.setItem(NOTIFICATION_PREF_KEY, String(enabled));
   }
 
+  /**
+   * Show notification for new message
+   */
   showMessage(peerId: string, message: string): void {
-    if (!this.isEnabled()) {
+    if (!this.shouldShowNotification('message')) {
       return;
     }
 
@@ -76,21 +82,86 @@ class BrowserNotificationService implements NotificationService {
       return;
     }
 
+    this.showNotification({
+      title: 'New Message',
+      body: `Peer ${peerId.slice(0, 8)}...: ${message.slice(0, 100)}`,
+      tag: 'isc-message',
+      icon: '/favicon.ico',
+    });
+  }
+
+  /**
+   * Show notification for new matches found
+   */
+  showMatchNotification(matchCount: number, topMatchSimilarity: number): void {
+    if (!this.shouldShowNotification('match')) {
+      return;
+    }
+
+    // Don't show notification if tab is focused
+    if (document.visibilityState === 'visible' && document.hasFocus()) {
+      return;
+    }
+
+    const similarityLabel = topMatchSimilarity >= 0.85 ? 'Very Close' :
+                           topMatchSimilarity >= 0.70 ? 'Nearby' : 'Orbiting';
+
+    this.showNotification({
+      title: 'New Matches Found',
+      body: `${matchCount} new peer${matchCount !== 1 ? 's' : ''} discovered! Top match: ${similarityLabel} (${Math.round(topMatchSimilarity * 100)}%)`,
+      tag: 'isc-match',
+      icon: '/favicon.ico',
+    });
+  }
+
+  /**
+   * Check if notification should be shown (rate limiting)
+   */
+  private shouldShowNotification(type: string): boolean {
+    if (!this.isEnabled()) {
+      return false;
+    }
+
+    const now = Date.now();
+    const lastTime = this.lastNotificationTime.get(type) || 0;
+
+    if (now - lastTime < this.NOTIFICATION_COOLDOWN) {
+      return false; // Rate limit
+    }
+
+    this.lastNotificationTime.set(type, now);
+    return true;
+  }
+
+  /**
+   * Show browser notification
+   */
+  private showNotification(options: {
+    title: string;
+    body: string;
+    tag: string;
+    icon?: string;
+  }): void {
     try {
-      const notification = new Notification('New Message', {
-        body: `Peer ${peerId.slice(0, 8)}...: ${message.slice(0, 100)}`,
-        icon: '/favicon.ico',
+      const notification = new Notification(options.title, {
+        body: options.body,
+        icon: options.icon,
         badge: '/favicon.ico',
-        tag: 'isc-message',
+        tag: options.tag,
         requireInteraction: false,
       });
 
-      // Click notification to focus window
+      // Click notification to focus window and navigate
       notification.onclick = () => {
         window.focus();
         notification.close();
-        // Navigate to chats - custom event for app to handle
-        window.dispatchEvent(new CustomEvent('isc-navigate', { detail: { tab: 'chats' } }));
+        
+        // Navigate based on notification type
+        if (options.tag === 'isc-message') {
+          window.dispatchEvent(new CustomEvent('isc-navigate', { detail: { tab: 'chats' } }));
+        } else if (options.tag === 'isc-match') {
+          window.dispatchEvent(new CustomEvent('isc-navigate', { detail: { tab: 'discover' } }));
+        }
       };
 
       // Auto-close after 5 seconds

@@ -2,6 +2,7 @@ import { h } from 'preact';
 import { useState, useEffect, useRef } from 'preact/hooks';
 import type { VideoCall, VideoParticipant, VideoCallStats } from '../video/types.js';
 import { leaveVideoCall, toggleMute, toggleVideo, startScreenShare, stopScreenShare, getCallStats } from '../video/handler.js';
+import type { VideoCallError } from '../video/handler.js';
 
 const styles = {
   container: { position: 'fixed' as const, inset: 0, background: '#1a1a2e', zIndex: 1000, display: 'flex', flexDirection: 'column' as const } as const,
@@ -19,6 +20,8 @@ const styles = {
   screenShareButton: { background: '#3498db', color: 'white' } as const,
   participantCount: { position: 'absolute' as const, top: '16px', left: '16px', color: 'white', fontSize: '14px', background: 'rgba(0,0,0,0.6)', padding: '8px 12px', borderRadius: '8px' } as const,
   callDuration: { position: 'absolute' as const, top: '16px', right: '16px', color: 'white', fontSize: '14px', background: 'rgba(0,0,0,0.6)', padding: '8px 12px', borderRadius: '8px' } as const,
+  errorBanner: { background: '#e74c3c', color: 'white', padding: '12px 16px', textAlign: 'center' as const, fontSize: '14px' } as const,
+  connectionWarning: { background: '#f39c12', color: 'white', padding: '8px 16px', textAlign: 'center' as const, fontSize: '12px' } as const,
 };
 
 interface VideoCallUIProps {
@@ -32,6 +35,8 @@ export function VideoCallUI({ call, onEnd }: VideoCallUIProps) {
   const [isVideoOff, setIsVideoOff] = useState(false);
   const [isScreenSharing, setIsScreenSharing] = useState(false);
   const [duration, setDuration] = useState(0);
+  const [error, setError] = useState<string | null>(null);
+  const [connectionQuality, setConnectionQuality] = useState<'good' | 'poor' | 'offline'>('good');
   const videoRefs = useRef<Map<string, HTMLVideoElement>>(new Map());
 
   useEffect(() => {
@@ -41,13 +46,69 @@ export function VideoCallUI({ call, onEnd }: VideoCallUIProps) {
 
   useEffect(() => { setParticipants(call.participants); }, [call.participants]);
 
-  const handleMute = async () => { const muted = await toggleMute(call.callID); setIsMuted(muted); };
-  const handleVideo = async () => { const off = await toggleVideo(call.callID); setIsVideoOff(off); };
-  const handleScreenShare = async () => {
-    if (isScreenSharing) { await stopScreenShare(call.callID); setIsScreenSharing(false); }
-    else { await startScreenShare(call.callID); setIsScreenSharing(true); }
+  // Monitor connection quality
+  useEffect(() => {
+    const updateConnectionQuality = () => {
+      if (!navigator.onLine) {
+        setConnectionQuality('offline');
+      } else {
+        setConnectionQuality('good');
+      }
+    };
+
+    updateConnectionQuality();
+    window.addEventListener('online', updateConnectionQuality);
+    window.addEventListener('offline', updateConnectionQuality);
+
+    return () => {
+      window.removeEventListener('online', updateConnectionQuality);
+      window.removeEventListener('offline', updateConnectionQuality);
+    };
+  }, []);
+
+  const handleMute = async () => {
+    try {
+      const muted = await toggleMute(call.callID);
+      setIsMuted(muted);
+    } catch (err) {
+      setError((err as Error).message);
+    }
   };
-  const handleEnd = async () => { await leaveVideoCall(call.callID); onEnd?.(); };
+
+  const handleVideo = async () => {
+    try {
+      const off = await toggleVideo(call.callID);
+      setIsVideoOff(off);
+    } catch (err) {
+      setError((err as Error).message);
+    }
+  };
+
+  const handleScreenShare = async () => {
+    try {
+      if (isScreenSharing) {
+        await stopScreenShare(call.callID);
+        setIsScreenSharing(false);
+      } else {
+        await startScreenShare(call.callID);
+        setIsScreenSharing(true);
+      }
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to start screen sharing';
+      setError(errorMessage);
+    }
+  };
+
+  const handleEnd = async () => {
+    try {
+      await leaveVideoCall(call.callID);
+      onEnd?.();
+    } catch (err) {
+      setError((err as Error).message);
+    }
+  };
+
+  const dismissError = () => setError(null);
 
   const formatDuration = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -56,27 +117,101 @@ export function VideoCallUI({ call, onEnd }: VideoCallUIProps) {
   };
 
   return (
-    <div style={styles.container}>
-      <div style={styles.participantCount}>{participants.length} / {call.maxParticipants} participants</div>
-      <div style={styles.callDuration}>{formatDuration(duration)}</div>
+    <div style={styles.container} data-testid="video-call-container">
+      {error && (
+        <div style={styles.errorBanner} data-testid="call-error">
+          ⚠️ {error}
+          <button
+            onClick={dismissError}
+            style={{ marginLeft: '12px', background: 'transparent', border: '1px solid white', color: 'white', padding: '4px 8px', borderRadius: '4px', cursor: 'pointer' }}
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
+
+      {connectionQuality === 'offline' && (
+        <div style={styles.connectionWarning}>
+          📡 You're offline. Call controls will work locally but won't reach other participants.
+        </div>
+      )}
+
+      <div style={styles.participantCount} data-testid="participant-count">
+        {participants.length} / {call.maxParticipants} participants
+      </div>
+      <div style={styles.callDuration} data-testid="call-duration">
+        {formatDuration(duration)}
+      </div>
+
       <div style={styles.videoGrid}>
         {participants.map((participant) => (
-          <div key={participant.peerID} style={styles.videoTile}>
-            <VideoElement stream={participant.stream} isLocal={participant.peerID === call.initiator} />
-            <div style={styles.participantName}>{participant.peerID.slice(0, 8)}...</div>
+          <div
+            key={participant.peerID}
+            style={styles.videoTile}
+            data-testid="video-tile"
+          >
+            <VideoElement
+              stream={participant.stream}
+              isLocal={participant.peerID === call.initiator}
+              dataTestId={participant.peerID === call.initiator ? 'local-video' : 'remote-video'}
+            />
+            <div style={styles.participantName}>
+              {participant.peerID.slice(0, 8)}...
+            </div>
             <div style={styles.statusIcons}>
-              {participant.isMuted && <span style={styles.statusIcon}>🔇</span>}
-              {participant.isVideoOff && <span style={styles.statusIcon}>📷</span>}
-              {participant.isScreenSharing && <span style={styles.statusIcon}>🖥️</span>}
+              {participant.isMuted && (
+                <span style={styles.statusIcon} title="Muted">🔇</span>
+              )}
+              {participant.isVideoOff && (
+                <span style={styles.statusIcon} title="Video off">📷</span>
+              )}
+              {participant.isScreenSharing && (
+                <span style={styles.statusIcon} title="Screen sharing">🖥️</span>
+              )}
             </div>
           </div>
         ))}
       </div>
+
       <div style={styles.controls}>
-        <button style={{ ...styles.controlButton, ...(isMuted ? styles.controlButtonActive : styles.controlButtonInactive) }} onClick={handleMute} aria-label={isMuted ? 'Unmute' : 'Mute'}>{isMuted ? '🔇' : '🎤'}</button>
-        <button style={{ ...styles.controlButton, ...(isVideoOff ? styles.controlButtonActive : styles.controlButtonInactive) }} onClick={handleVideo} aria-label={isVideoOff ? 'Turn on video' : 'Turn off video'}>{isVideoOff ? '📷' : '🎥'}</button>
-        <button style={{ ...styles.controlButton, ...styles.screenShareButton }} onClick={handleScreenShare} aria-label={isScreenSharing ? 'Stop screen share' : 'Share screen'}>🖥️</button>
-        <button style={{ ...styles.controlButton, ...styles.endCallButton }} onClick={handleEnd} aria-label="End call">📞</button>
+        <button
+          style={{
+            ...styles.controlButton,
+            ...(isMuted ? styles.controlButtonActive : styles.controlButtonInactive),
+          }}
+          onClick={handleMute}
+          aria-label={isMuted ? 'Unmute' : 'Mute'}
+          data-testid="mute-button"
+        >
+          {isMuted ? '🔇' : '🎤'}
+        </button>
+        <button
+          style={{
+            ...styles.controlButton,
+            ...(isVideoOff ? styles.controlButtonActive : styles.controlButtonInactive),
+          }}
+          onClick={handleVideo}
+          aria-label={isVideoOff ? 'Turn on video' : 'Turn off video'}
+          data-testid="video-button"
+        >
+          {isVideoOff ? '📷' : '🎥'}
+        </button>
+        <button
+          style={{ ...styles.controlButton, ...styles.screenShareButton }}
+          onClick={handleScreenShare}
+          aria-label={isScreenSharing ? 'Stop screen share' : 'Share screen'}
+          data-testid="screen-share-button"
+        >
+          🖥️
+        </button>
+        <button
+          style={{ ...styles.controlButton, ...styles.endCallButton }}
+          onClick={handleEnd}
+          aria-label="End call"
+          data-testid="end-call-button"
+        >
+          📞
+        </button>
       </div>
     </div>
   );
@@ -85,10 +220,26 @@ export function VideoCallUI({ call, onEnd }: VideoCallUIProps) {
 interface VideoElementProps {
   stream?: MediaStream;
   isLocal?: boolean;
+  dataTestId?: string;
 }
 
-function VideoElement({ stream, isLocal }: VideoElementProps) {
+function VideoElement({ stream, isLocal, dataTestId = 'video-element' }: VideoElementProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
-  useEffect(() => { if (videoRef.current && stream) videoRef.current.srcObject = stream; }, [stream]);
-  return <video ref={videoRef} style={styles.video} autoPlay playsInline muted={isLocal} />;
+
+  useEffect(() => {
+    if (videoRef.current && stream) {
+      videoRef.current.srcObject = stream;
+    }
+  }, [stream]);
+
+  return (
+    <video
+      ref={videoRef}
+      style={styles.video}
+      autoPlay
+      playsInline
+      muted={isLocal}
+      data-testid={dataTestId}
+    />
+  );
 }

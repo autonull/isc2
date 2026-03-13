@@ -3,12 +3,12 @@
  */
 
 import { h } from 'preact';
-import { useState } from 'preact/hooks';
+import { useState, useEffect } from 'preact/hooks';
 import { channelManager } from '../channels/manager.js';
 import { getDHTClient, initializeDHT } from '../network/dht.js';
 import { lshHash } from '@isc/core';
 import { navigate } from '../router.js';
-import { embeddingService } from '../channels/embedding.js';
+import { embeddingService, isModelLoaded, isModelLoading, getLoadProgress } from '../channels/embedding.js';
 
 interface RelationInput {
   tag: string;
@@ -55,7 +55,25 @@ export function ComposeScreen() {
   const [relationObject, setRelationObject] = useState('');
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
-  const [modelLoading, setModelLoading] = useState(false);
+  const [modelProgress, setModelProgress] = useState(0);
+  const [modelStatus, setModelStatus] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle');
+
+  // Check model status on mount
+  useEffect(() => {
+    if (isModelLoaded()) {
+      setModelStatus('ready');
+    } else if (isModelLoading()) {
+      setModelStatus('loading');
+      const interval = setInterval(() => {
+        setModelProgress(getLoadProgress());
+        if (isModelLoaded()) {
+          setModelStatus('ready');
+          clearInterval(interval);
+        }
+      }, 500);
+      return () => clearInterval(interval);
+    }
+  }, []);
 
   const handleAddRelation = (tag: string) => {
     if (relations.length >= 5) {
@@ -110,13 +128,19 @@ export function ComposeScreen() {
       // Initialize DHT
       const dhtClient = await initializeDHT();
 
-      // Compute channel vector using real embedding model
-      setModelLoading(true);
+      // Compute channel vector using real embedding model with progress tracking
+      setModelStatus('loading');
       let normalizedVec: number[];
       try {
+        // Load model if not already loaded (with progress tracking)
+        await embeddingService.load();
+        
+        // Compute embedding
         normalizedVec = await embeddingService.embed(description.trim());
+        setModelStatus('ready');
       } catch (err) {
         console.warn('[Compose] Embedding failed, using fallback:', err);
+        setModelStatus('error');
         // Fallback to stub embedding
         const encoder = new TextEncoder();
         const hash = await crypto.subtle.digest('SHA-256', encoder.encode(description.trim()));
@@ -128,7 +152,6 @@ export function ComposeScreen() {
         const norm = Math.sqrt(vec.reduce((sum, v) => sum + v * v, 0));
         normalizedVec = vec.map(v => v / norm);
       }
-      setModelLoading(false);
 
       // Generate LSH hashes
       const modelHash = 'XenovaallMiniLM'.slice(0, 12);
@@ -159,7 +182,7 @@ export function ComposeScreen() {
       // Navigate back to Now tab
       navigate('now');
     } catch (err) {
-      setModelLoading(false);
+      setModelStatus('error');
       setError('Failed to create channel: ' + (err as Error).message);
     } finally {
       setSaving(false);
@@ -174,13 +197,49 @@ export function ComposeScreen() {
         </button>
         <h1 style={styles.title}>New Channel</h1>
         <button
-          style={{ ...styles.button, ...styles.saveBtn, opacity: saving || modelLoading ? 0.5 : 1 }}
+          style={{ ...styles.button, ...styles.saveBtn, opacity: saving || modelStatus === 'loading' ? 0.5 : 1 }}
           onClick={handleSave}
-          disabled={saving || modelLoading}
+          disabled={saving || modelStatus === 'loading'}
         >
-          {modelLoading ? 'Loading Model...' : saving ? 'Saving...' : 'Save'}
+          {modelStatus === 'loading' ? `Loading ${Math.round(modelProgress * 100)}%...` : saving ? 'Saving...' : 'Save'}
         </button>
       </header>
+
+      {/* Model loading indicator */}
+      {modelStatus === 'loading' && (
+        <div style={{ padding: '16px', background: '#e8f4fd', borderBottom: '1px solid #b3d9ff' }}>
+          <div style={{ fontSize: '14px', color: '#0066cc', marginBottom: '8px' }}>
+            🧠 Loading semantic model... ({Math.round(modelProgress * 100)}%)
+          </div>
+          <div style={{ background: '#b3d9ff', borderRadius: '4px', height: '8px', overflow: 'hidden' }}>
+            <div style={{
+              background: '#0066cc',
+              height: '100%',
+              width: `${modelProgress * 100}%`,
+              transition: 'width 0.3s ease'
+            }} />
+          </div>
+          <div style={{ fontSize: '12px', color: '#666', marginTop: '4px' }}>
+            First load downloads ~22MB. Subsequent loads use cached model.
+          </div>
+        </div>
+      )}
+
+      {modelStatus === 'error' && (
+        <div style={{ padding: '16px', background: '#fff3cd', borderBottom: '1px solid #ffc107' }}>
+          <div style={{ fontSize: '14px', color: '#856404' }}>
+            ⚠️ Model failed to load. Using fallback embedding (reduced quality).
+          </div>
+        </div>
+      )}
+
+      {modelStatus === 'ready' && (
+        <div style={{ padding: '8px 16px', background: '#d4edda', borderBottom: '1px solid #c3e6cb' }}>
+          <div style={{ fontSize: '12px', color: '#155724' }}>
+            ✓ Semantic model ready for high-quality matching
+          </div>
+        </div>
+      )}
 
       <div style={styles.content}>
         <label style={styles.label}>Channel Name</label>

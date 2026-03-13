@@ -26,6 +26,7 @@ export function DiscoverScreen() {
     loading,
     error,
     activeChannel,
+    modelStatus,
     loadMatches,
     refreshMatches,
   } = usePeerDiscovery();
@@ -112,10 +113,22 @@ export function DiscoverScreen() {
   return (
     <div style={styles.screen}>
       <header style={styles.header}>
-        <h1 style={styles.title}>Discover</h1>
-        <p style={styles.subtitle}>
-          {activeChannel ? `Querying: ${activeChannel.name}` : 'No active channel'}
-        </p>
+        <div>
+          <h1 style={styles.title}>Discover</h1>
+          <p style={styles.subtitle}>
+            {activeChannel ? `Querying: ${activeChannel.name}` : 'No active channel'}
+          </p>
+        </div>
+        {modelStatus === 'ready' && (
+          <span style={{ fontSize: '12px', color: '#17bf63', background: '#d4edda', padding: '4px 8px', borderRadius: '4px' }}>
+            ✓ Real embeddings
+          </span>
+        )}
+        {modelStatus === 'fallback' && (
+          <span style={{ fontSize: '12px', color: '#856404', background: '#fff3cd', padding: '4px 8px', borderRadius: '4px' }}>
+            ⚠️ Fallback mode
+          </span>
+        )}
       </header>
 
       <div style={styles.content}>

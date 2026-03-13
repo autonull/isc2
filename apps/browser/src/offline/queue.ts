@@ -5,11 +5,13 @@ const OFFLINE_QUEUE_STORE = 'offline_queue';
 
 export interface OfflineAction {
   id: string;
-  type: 'post' | 'like' | 'repost' | 'reply' | 'follow' | 'dm' | 'mute' | 'block' | 'report';
+  type: 'post' | 'like' | 'repost' | 'reply' | 'follow' | 'dm' | 'mute' | 'block' | 'report' | 'message' | 'channel' | 'announce';
   payload: unknown;
   timestamp: number;
   retryCount: number;
   maxRetries: number;
+  priority?: 'low' | 'normal' | 'high';
+  metadata?: Record<string, any>;
 }
 
 let queueDb: IDBDatabase | null = null;
@@ -90,6 +92,59 @@ export async function getQueueCount(): Promise<number> {
 
 export async function hasPendingActions(): Promise<boolean> {
   return (await getQueueCount()) > 0;
+}
+
+/**
+ * Queue a chat message for offline delivery
+ */
+export async function queueMessage(payload: {
+  peerId: string;
+  channelID: string;
+  msg: string;
+  timestamp: number;
+}): Promise<OfflineAction> {
+  return queueAction({
+    type: 'message',
+    payload,
+    priority: 'high',
+    metadata: { peerId: payload.peerId },
+  });
+}
+
+/**
+ * Queue a channel announcement for offline sync
+ */
+export async function queueChannelAnnouncement(payload: {
+  channelID: string;
+  distributions: Array<{ mu: number[]; sigma: number }>;
+}): Promise<OfflineAction> {
+  return queueAction({
+    type: 'announce',
+    payload,
+    priority: 'normal',
+    metadata: { channelID: payload.channelID },
+  });
+}
+
+/**
+ * Get queued messages for a specific peer
+ */
+export async function getQueuedMessagesForPeer(peerId: string): Promise<OfflineAction[]> {
+  const actions = await getQueuedActions();
+  return actions.filter(
+    (a) => a.type === 'message' && (a.metadata?.peerId === peerId)
+  );
+}
+
+/**
+ * Clear queued messages for a specific peer
+ */
+export async function clearQueuedMessagesForPeer(peerId: string): Promise<void> {
+  const actions = await getQueuedMessagesForPeer(peerId);
+  const db = await getQueueDB();
+  for (const action of actions) {
+    await dbDelete(db, OFFLINE_QUEUE_STORE, action.id);
+  }
 }
 
 export async function processQueue(processAction: (action: OfflineAction) => Promise<boolean>): Promise<{

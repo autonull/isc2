@@ -1,10 +1,12 @@
 /**
  * Peer Discovery Hook
+ * 
+ * Discovers and ranks peers based on semantic similarity using real embeddings.
  */
 
 import { useState, useCallback } from 'preact/hooks';
 import { channelManager } from '../../../channels/manager.js';
-import { embeddingService } from '../../../channels/embedding.js';
+import { computeEmbedding, isModelLoaded, isModelLoading } from '../../../identity/embedding-service.js';
 import { PeerDiscoveryService } from '../services/PeerDiscoveryService.js';
 import { MatchService } from '../services/MatchService.js';
 import { DISCOVER_CONFIG } from '../config/discoverConfig.js';
@@ -18,6 +20,7 @@ export function usePeerDiscovery() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [activeChannel, setActiveChannel] = useState<Channel | null>(null);
+  const [modelStatus, setModelStatus] = useState<'loading' | 'ready' | 'fallback'>('loading');
 
   const discoveryService = new PeerDiscoveryService();
   const matchService = new MatchService();
@@ -25,8 +28,20 @@ export function usePeerDiscovery() {
   const computeChannelVector = useCallback(
     async (channel: Channel): Promise<number[]> => {
       try {
-        return await embeddingService.embed(channel.description);
-      } catch {
+        // Use real embedding model
+        const embedding = await computeEmbedding(channel.description);
+        
+        if (isModelLoaded()) {
+          setModelStatus('ready');
+        } else {
+          setModelStatus('fallback');
+        }
+        
+        return embedding;
+      } catch (err) {
+        console.warn('[usePeerDiscovery] Embedding failed, using fallback:', err);
+        setModelStatus('fallback');
+        
         // Fallback to stub embedding
         const encoder = new TextEncoder();
         const hash = await crypto.subtle.digest(
@@ -113,6 +128,7 @@ export function usePeerDiscovery() {
     loading,
     error,
     activeChannel,
+    modelStatus,
     loadMatches,
     refreshMatches,
   };

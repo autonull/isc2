@@ -19,6 +19,7 @@ interface MessageCallbacks {
 export class MessageReceiver {
   private callbacks: MessageCallbacks;
   private publicKeyCache: Map<string, string> = new Map();
+  private pendingAcks = new Map<number, { timestamp: number; peerId: string }>();
 
   constructor(callbacks: MessageCallbacks) {
     this.callbacks = callbacks;
@@ -58,6 +59,7 @@ export class MessageReceiver {
    * Process incoming message
    */
   private async processMessage(msg: ChatMessage, stream: any): Promise<void> {
+    // Verify signature if present
     if (msg.signature && msg.publicKey) {
       if (isPeerBlocked(msg.sender)) {
         console.warn('[Chat] Blocked peer message ignored:', msg.sender);
@@ -74,13 +76,27 @@ export class MessageReceiver {
         }
       } catch (err) {
         console.error('[Chat] Signature verification failed:', err);
+        // Continue anyway - don't block messages due to verification errors
       }
     }
 
+    // Mark message as delivered locally
+    if (msg.id) {
+      const messageId = parseInt(msg.id, 10);
+      if (!isNaN(messageId)) {
+        this.pendingAcks.set(messageId, {
+          timestamp: msg.timestamp,
+          peerId: msg.sender,
+        });
+      }
+    }
+
+    // Notify callback
     if (this.callbacks.onMessage) {
       this.callbacks.onMessage(msg);
     }
 
+    // Send acknowledgment
     await this.sendAcknowledgment(msg.timestamp, stream);
   }
 
@@ -94,20 +110,28 @@ export class MessageReceiver {
   }
 
   /**
-   * Handle acknowledgment
+   * Handle acknowledgment - marks message as delivered
    */
   private handleAcknowledgment(messageId: number): void {
+    console.log('[Chat] Message acknowledged:', messageId);
     if (this.callbacks.onStatusUpdate) {
       this.callbacks.onStatusUpdate(messageId, 'delivered');
     }
+    
+    // Clean up pending ack
+    this.pendingAcks.delete(messageId);
   }
 
   /**
    * Send acknowledgment
    */
   private async sendAcknowledgment(timestamp: number, stream: any): Promise<void> {
-    const ack = { ack: timestamp };
-    await stream.sink([fromString(JSON.stringify(ack))]);
+    try {
+      const ack = { ack: timestamp };
+      await stream.sink([fromString(JSON.stringify(ack))]);
+    } catch (err) {
+      console.warn('[Chat] Failed to send acknowledgment:', err);
+    }
   }
 
   /**
@@ -161,5 +185,27 @@ export class MessageReceiver {
    */
   clearKeyCache(): void {
     this.publicKeyCache.clear();
+  }
+
+  /**
+   * Get pending acknowledgments count
+   */
+  getPendingAcksCount(): number {
+    return this.pendingAcks.size;
+  }
+
+  /**
+   * Clear pending acknowledgments older than timeout
+   */
+  cleanupPendingAcks(timeoutMs: number = 30000): void {
+    const now = Date.now();
+    for (const [messageId, data] of this.pendingAcks.entries()) {
+      if (now - data.timestamp > timeoutMs) {
+        this.pendingAcks.delete(messageId);
+        if (this.callbacks.onStatusUpdate) {
+          this.callbacks.onStatusUpdate(messageId, 'failed');
+        }
+      }
+    }
   }
 }

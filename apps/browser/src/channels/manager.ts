@@ -1,5 +1,6 @@
 import type { Channel, Relation } from '@isc/core';
 import { DHTClient, openDB, dbGet, dbGetAll, dbPut, dbDelete } from '@isc/adapters';
+import { computeEmbedding } from '../identity/embedding-service.js';
 
 const MAX_ACTIVE_CHANNELS = 5;
 const DB_NAME = 'isc-channels';
@@ -11,6 +12,13 @@ export interface ChannelStore {
   get(id: string): Promise<Channel | null>;
   save(channel: Channel): Promise<void>;
   delete(id: string): Promise<void>;
+}
+
+export interface ChannelDistribution {
+  mu: number[];
+  sigma: number;
+  tag?: string;
+  weight?: number;
 }
 
 class IndexedDBChannelStore implements ChannelStore {
@@ -173,6 +181,63 @@ export class ChannelManager {
 
   isActive(id: string): boolean {
     return this.activeChannels.has(id);
+  }
+
+  /**
+   * Compute channel distributions using real embeddings
+   */
+  async computeChannelDistributions(channel: Channel): Promise<ChannelDistribution[]> {
+    const distributions: ChannelDistribution[] = [];
+
+    try {
+      // Root distribution from description
+      const rootEmbedding = await computeEmbedding(channel.description);
+      distributions.push({
+        mu: rootEmbedding,
+        sigma: channel.spread,
+      });
+
+      // Fused distributions for each relation
+      for (const relation of channel.relations || []) {
+        // Compose: "description tag object"
+        const composedText = `${channel.description} ${relation.tag.replace(/_/g, ' ')} ${relation.object}`;
+        const fusedEmbedding = await computeEmbedding(composedText);
+        
+        distributions.push({
+          mu: fusedEmbedding,
+          sigma: channel.spread / (relation.weight || 1.0),
+          tag: relation.tag,
+          weight: relation.weight,
+        });
+      }
+    } catch (err) {
+      console.error('[ChannelManager] Failed to compute distributions:', err);
+      // Fallback: return empty distributions
+      throw new Error('Failed to compute channel distributions');
+    }
+
+    return distributions;
+  }
+
+  /**
+   * Activate channel with automatic embedding computation
+   */
+  async activateChannelWithEmbedding(id: string): Promise<void> {
+    const channel = await this.getChannel(id);
+    if (!channel) throw new Error(`Channel ${id} not found`);
+    if (this.activeChannels.has(id)) return;
+    if (this.activeChannels.size >= MAX_ACTIVE_CHANNELS) {
+      throw new Error(`Maximum ${MAX_ACTIVE_CHANNELS} active channels allowed`);
+    }
+    if (!this.dhtClient) throw new Error('DHT client not configured');
+
+    // Compute distributions using real embeddings
+    const distributions = await this.computeChannelDistributions(channel);
+
+    // Announce to DHT
+    await this.dhtClient.announceChannel(channel, distributions);
+    this.activeChannels.add(id);
+    await this.store.save({ ...channel, active: true, updatedAt: Date.now() });
   }
 }
 

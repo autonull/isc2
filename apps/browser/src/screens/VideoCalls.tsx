@@ -216,15 +216,15 @@ export function VideoCallScreen() {
     <div style={styles.container}>
       <header style={styles.header}>
         <h1 style={styles.title}>Video Calls</h1>
-        <button style={styles.newCallButton} onClick={() => setShowNewCallModal(true)}>
+        <button style={styles.newCallButton} onClick={() => setShowNewCallModal(true)} data-testid="new-call-button">
           + New Call
         </button>
       </header>
 
       <div style={styles.content}>
-        <div style={styles.callList}>
+        <div style={styles.callList} data-testid="call-list">
           {activeCalls.length === 0 ? (
-            <div style={{ textAlign: 'center', color: '#666', padding: '48px' }}>
+            <div style={{ textAlign: 'center', color: '#666', padding: '48px' }} data-testid="no-active-calls">
               <p style={{ fontSize: '18px', marginBottom: '8px' }}>No active calls</p>
               <p style={{ fontSize: '14px' }}>Start a new call or join an existing one</p>
             </div>
@@ -250,18 +250,18 @@ export function VideoCallScreen() {
 
       {showNewCallModal && (
         <div style={styles.modal} onClick={() => setShowNewCallModal(false)}>
-          <div style={styles.modalContent} onClick={(e) => e.stopPropagation()}>
+          <div style={styles.modalContent} onClick={(e) => e.stopPropagation()} data-testid="new-call-modal">
             <h2 style={styles.modalTitle}>New Video Call</h2>
 
             {error && (
-              <div style={{ 
-                background: '#fee', 
-                border: '1px solid #fcc', 
-                borderRadius: '8px', 
-                padding: '12px', 
+              <div style={{
+                background: '#fee',
+                border: '1px solid #fcc',
+                borderRadius: '8px',
+                padding: '12px',
                 marginBottom: '16px',
                 color: '#c00'
-              }}>
+              }} data-testid="call-error">
                 {error}
               </div>
             )}
@@ -277,6 +277,7 @@ export function VideoCallScreen() {
                     background: callType === 'direct' ? '#3498db' : '#333',
                   }}
                   onClick={() => setCallType('direct')}
+                  data-testid="call-type-direct"
                 >
                   Direct
                 </button>
@@ -286,6 +287,7 @@ export function VideoCallScreen() {
                     background: callType === 'group' ? '#3498db' : '#333',
                   }}
                   onClick={() => setCallType('group')}
+                  data-testid="call-type-group"
                 >
                   Group
                 </button>
@@ -303,6 +305,7 @@ export function VideoCallScreen() {
                   value={recipient}
                   onChange={(e) => setRecipient((e.target as HTMLInputElement).value)}
                   placeholder="Enter peer ID..."
+                  data-testid="recipient-input"
                 />
               </div>
             ) : (
@@ -316,6 +319,7 @@ export function VideoCallScreen() {
                   value={channelID}
                   onChange={(e) => setChannelID((e.target as HTMLInputElement).value)}
                   placeholder="Enter channel ID..."
+                  data-testid="channel-id-input"
                 />
               </div>
             )}
@@ -324,7 +328,11 @@ export function VideoCallScreen() {
               <button style={styles.cancelButton} onClick={() => setShowNewCallModal(false)}>
                 Cancel
               </button>
-              <button style={styles.createButton} onClick={handleNewCall}>
+              <button
+                style={styles.createButton}
+                onClick={handleNewCall}
+                data-testid="create-call-button"
+              >
                 {callType === 'direct' ? 'Call' : 'Start Group Call'}
               </button>
             </div>

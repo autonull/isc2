@@ -12,6 +12,9 @@ import { kadDHT } from '@libp2p/kad-dht';
 import { bootstrap } from '@libp2p/bootstrap';
 import type { Libp2p } from 'libp2p';
 import { checkQueryRate, checkAnnounceRate } from '../rateLimit.js';
+import { verifySignature, isPeerBlocked } from '../crypto/verifier.js';
+import { sign, encode, type Signature } from '@isc/core';
+import { getKeypair } from '../identity/index.js';
 
 // Bootstrap peers (public libp2p relays)
 const BOOTSTRAP_PEERS = [
@@ -37,6 +40,18 @@ export interface PeerInfo {
 export interface DHTClientConfig {
   bootstrapPeers?: string[];
   announceTTL?: number; // seconds
+}
+
+export interface SignedAnnouncement {
+  peerID: string;
+  channelID: string;
+  model: string;
+  vec: number[];
+  relTag?: string;
+  ttl: number;
+  updatedAt: number;
+  signature?: Uint8Array | string;
+  publicKey?: string;
 }
 
 export class RealDHTClient {
@@ -113,7 +128,7 @@ export class RealDHTClient {
       const reason = rateCheck.blocked ? 'blocked' : 'rate limited';
       console.warn('[DHT] Announce rejected:', reason, 'peer:', peerId);
       throw new Error(
-        rateCheck.blocked 
+        rateCheck.blocked
           ? `Announce blocked due to repeated violations. Try again in ${rateCheck.retryAfter}s`
           : `Announce rate limit exceeded. Try again in ${rateCheck.retryAfter}s`
       );
@@ -123,18 +138,49 @@ export class RealDHTClient {
     const expiresAt = Date.now() + ttlToUse * 1000;
 
     try {
+      // Sign the payload if we have a keypair
+      let signedValue = value;
+      const keypair = getKeypair();
+      
+      if (keypair) {
+        try {
+          // Decode the value to add signature
+          const decoded = JSON.parse(new TextDecoder().decode(value));
+          
+          // Create signature over the payload (without signature field)
+          const { signature: _, ...payloadForSigning } = decoded;
+          const payloadBytes = encode(payloadForSigning);
+          const signature: Signature = await sign(payloadBytes, keypair.privateKey);
+          
+          // Export public key for verification by others
+          const publicKeyBytes = await crypto.subtle.exportKey('raw', keypair.publicKey);
+          
+          // Add signature and public key to payload
+          const signedPayload = {
+            ...decoded,
+            signature: Array.from(signature.data),
+            publicKey: Array.from(new Uint8Array(publicKeyBytes)),
+          };
+          
+          signedValue = new TextEncoder().encode(JSON.stringify(signedPayload));
+        } catch (signErr) {
+          console.warn('[DHT] Failed to sign announcement:', signErr);
+          // Continue with unsigned announcement
+        }
+      }
+
       // Put to DHT
       const keyBytes = new TextEncoder().encode(key);
-      await this.dht.put(keyBytes, value);
+      await this.dht.put(keyBytes, signedValue);
 
       // Cache locally
       this.entryCache.set(key, {
-        entry: { key, value, ttl: ttlToUse },
+        entry: { key, value: signedValue, ttl: ttlToUse },
         expiresAt,
       });
       this.announcedKeys.add(key);
 
-      console.log('[DHT] Announced:', key);
+      console.log('[DHT] Announced:', key, signedValue !== value ? '(signed)' : '(unsigned)');
     } catch (error) {
       console.error('[DHT] Announce failed:', key, error);
       throw error;
@@ -153,7 +199,7 @@ export class RealDHTClient {
       const reason = rateCheck.blocked ? 'blocked' : 'rate limited';
       console.warn('[DHT] Query rejected:', reason, 'peer:', peerId);
       throw new Error(
-        rateCheck.blocked 
+        rateCheck.blocked
           ? `Query blocked due to repeated violations. Try again in ${rateCheck.retryAfter}s`
           : `Query rate limit exceeded. Try again in ${rateCheck.retryAfter}s`
       );
@@ -167,6 +213,39 @@ export class RealDHTClient {
       const result = await this.dht.get(keyBytes);
 
       if (result) {
+        // Verify signature if present
+        try {
+          const decoded = JSON.parse(new TextDecoder().decode(result)) as SignedAnnouncement;
+          
+          if (decoded.signature && decoded.publicKey) {
+            // Check if peer is blocked
+            if (isPeerBlocked(decoded.peerID)) {
+              console.warn('[DHT] Ignoring announcement from blocked peer:', decoded.peerID);
+              return results;
+            }
+
+            // Import public key and verify
+            const publicKeyBytes = this.hexToBytes(decoded.publicKey);
+            const publicKey = await crypto.subtle.importKey(
+              'raw',
+              publicKeyBytes.buffer as ArrayBuffer,
+              { name: 'Ed25519' },
+              true,
+              ['verify']
+            );
+
+            const verificationResult = await verifySignature(decoded, publicKey, decoded.peerID);
+            
+            if (!verificationResult.valid) {
+              console.warn('[DHT] Invalid signature in announcement:', verificationResult.reason);
+              return results; // Don't return invalid data
+            }
+          }
+        } catch (err) {
+          console.warn('[DHT] Signature verification failed:', err);
+          // Continue anyway - some announcements may not have signatures
+        }
+
         results.push(result);
       }
 
@@ -197,6 +276,15 @@ export class RealDHTClient {
 
   getConnectionCount(): number {
     return this.node?.getConnections().length || 0;
+  }
+
+  /**
+   * Convert hex string to Uint8Array
+   */
+  private hexToBytes(hex: string): Uint8Array {
+    return Uint8Array.from({ length: hex.length / 2 }, (_, i) =>
+      parseInt(hex.slice(i * 2, i * 2 + 2), 16)
+    );
   }
 }
 
