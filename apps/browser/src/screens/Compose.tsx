@@ -8,7 +8,7 @@ import { channelManager } from '../channels/manager.js';
 import { getDHTClient, initializeDHT } from '../network/dht.js';
 import { lshHash } from '@isc/core';
 import { navigate } from '../router.js';
-import { embeddingService, isModelLoaded, isModelLoading, getLoadProgress } from '../channels/embedding.js';
+import { EmbeddingService, isModelLoaded, isModelLoading, getLoadProgress } from '../channels/embedding.js';
 import { loggers } from '../utils/logger.js';
 
 const logger = loggers.channel;
@@ -136,10 +136,10 @@ export function ComposeScreen() {
       let normalizedVec: number[];
       try {
         // Load model if not already loaded (with progress tracking)
-        await embeddingService.load();
-        
+        await EmbeddingService.loadModel();
+
         // Compute embedding
-        normalizedVec = await embeddingService.embed(description.trim());
+        normalizedVec = await EmbeddingService.computeEmbedding(description.trim());
         setModelStatus('ready');
       } catch (err) {
         logger.warn('Embedding failed, using fallback', { error: (err as Error).message });

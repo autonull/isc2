@@ -1,5 +1,8 @@
 import { getQueuedActions, processQueue, hasPendingActions, type OfflineAction } from './queue.js';
 import { isOnline, subscribeToConnectionChanges, getConnectionInfo } from './connection.js';
+import { loggers } from '../utils/logger.js';
+
+const logger = loggers.offline;
 
 export interface SyncResult {
   success: number;
@@ -30,31 +33,31 @@ async function handleConnectionChange(): Promise<void> {
 
 export async function syncPendingActions(): Promise<SyncResult> {
   if (isSyncing) {
-    console.log('[SyncManager] Sync already in progress');
+    logger.warn('Sync already in progress');
     return { success: 0, failed: 0, remaining: await getQueuedActions().then((a) => a.length), lastSync: lastSyncTime ?? 0 };
   }
 
   if (!isOnline()) {
-    console.log('[SyncManager] Cannot sync - offline');
+    logger.warn('Cannot sync - offline');
     return { success: 0, failed: 0, remaining: await getQueuedActions().then((a) => a.length), lastSync: lastSyncTime ?? 0 };
   }
 
   const hasPending = await hasPendingActions();
   if (!hasPending) {
-    console.log('[SyncManager] No pending actions to sync');
+    logger.debug('No pending actions to sync');
     return { success: 0, failed: 0, remaining: 0, lastSync: lastSyncTime ?? 0 };
   }
 
   isSyncing = true;
-  console.log('[SyncManager] Starting sync...');
+  logger.info('Starting sync...');
 
   try {
     const result = await processQueue(processAction);
     lastSyncTime = Date.now();
-    console.log(`[SyncManager] Sync complete: ${result.success} success, ${result.failed} failed, ${result.remaining} remaining`);
+    logger.info('Sync complete', { success: result.success, failed: result.failed, remaining: result.remaining });
     return { ...result, lastSync: lastSyncTime };
-  } catch {
-    console.error('[SyncManager] Sync failed');
+  } catch (err) {
+    logger.error('Sync failed', err as Error);
     return { success: 0, failed: 0, remaining: await getQueuedActions().then((a) => a.length), lastSync: lastSyncTime ?? 0 };
   } finally {
     isSyncing = false;
@@ -64,14 +67,14 @@ export async function syncPendingActions(): Promise<SyncResult> {
 async function processAction(action: OfflineAction): Promise<boolean> {
   const processor = PROCESSORS.get(action.type);
   if (!processor) {
-    console.warn('[SyncManager] No processor registered for action type:', action.type);
+    logger.warn('No processor registered for action type', { type: action.type });
     return false;
   }
 
   try {
     return await processor(action);
-  } catch {
-    console.error('[SyncManager] Action processor failed:', action.id);
+  } catch (err) {
+    logger.error('Action processor failed', err as Error, { actionId: action.id });
     return false;
   }
 }

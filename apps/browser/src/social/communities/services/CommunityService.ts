@@ -7,7 +7,7 @@
 import { lshHash } from '@isc/core';
 import { DelegationClient } from '../../../delegation/fallback.js';
 import { getPeerID } from '../../../identity/index.js';
-import { loadEmbeddingModel } from '../../../identity/embedding.js';
+import { EmbeddingService } from '../../../identity/embedding-service.js';
 import { CommunityRepository } from './CommunityRepository.js';
 import { CommunitySigningService } from './CommunitySigningService.js';
 import { validateCommunity, hasPermission } from '../utils/communityValidator.js';
@@ -250,7 +250,7 @@ export class CommunityService {
     name: string,
     description: string
   ): Promise<number[]> {
-    const model = await loadEmbeddingModel();
+    const model = await EmbeddingService.loadModel();
     return model.embed(`${name} ${description}`);
   }
 }

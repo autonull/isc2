@@ -3,6 +3,10 @@
  * Protects against spam and DoS by tracking per-peer rates
  */
 
+import { loggers } from './utils/logger.js';
+
+const logger = loggers.offline;
+
 interface RateLimitEntry {
   timestamps: number[];
   violations: number;
@@ -104,9 +108,9 @@ function checkRate(
     // Block if too many violations
     if (rateEntry.violations >= config.maxViolations) {
       rateEntry.blockedUntil = now + config.blockDurationMs;
-      console.warn('[RateLimit] Peer blocked:', peerId, 'for', config.blockDurationMs / 1000, 's');
-      return { 
-        allowed: false, 
+      logger.warn('Peer blocked', { peerId, duration: config.blockDurationMs / 1000 });
+      return {
+        allowed: false,
         blocked: true,
         retryAfter: Math.ceil(config.blockDurationMs / 1000)
       };
@@ -177,8 +181,8 @@ export function blockPeer(peerId: string, durationMs: number = config.blockDurat
   entry.announces.blockedUntil = blockUntil;
   entry.queries.blockedUntil = blockUntil;
   entry.chats.blockedUntil = blockUntil;
-  
-  console.log('[RateLimit] Peer manually blocked:', peerId, 'for', durationMs / 1000, 's');
+
+  logger.info('Peer manually blocked', { peerId, duration: durationMs / 1000 });
 }
 
 /**
@@ -194,7 +198,7 @@ export function unblockPeer(peerId: string): void {
     entry.queries.violations = 0;
     entry.chats.violations = 0;
   }
-  console.log('[RateLimit] Peer unblocked:', peerId);
+  logger.info('Peer unblocked', { peerId });
 }
 
 /**

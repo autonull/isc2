@@ -36,11 +36,12 @@ export {
 
 // Re-export for backward compatibility
 import type { Libp2p } from 'libp2p';
+import type { Stream } from '@libp2p/interface';
 import type { ChatMessage, TypingIndicator, MessageStatus } from './webrtc/types/chat.js';
 import { WebRTChatHandler } from './webrtc/services/WebRTChatHandler.js';
 
 export interface ChatHandler {
-  handleStream(stream: any): Promise<void>;
+  handleStream(stream: Stream): Promise<void>;
   registerWithNode(node: Libp2p): void;
   setOnMessage(callback: (msg: ChatMessage) => void): void;
   setOnStatusUpdate(callback: (messageId: number, status: MessageStatus) => void): void;
@@ -81,7 +82,7 @@ export class RealChatHandler implements ChatHandler {
     this.handler.registerWithNode(node);
   }
 
-  async handleStream(stream: any): Promise<void> {
+  async handleStream(stream: Stream): Promise<void> {
     await this.handler.handleStream(stream);
   }
 

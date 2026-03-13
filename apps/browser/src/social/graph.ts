@@ -230,9 +230,11 @@ export async function getSuggestedFollows(limit: number = 10): Promise<FollowSug
  * Get all followees of a peer
  */
 async function getFolloweesOf(peerID: string): Promise<string[]> {
-  // In production, would query DHT for this peer's follows
-  // For now, return empty (would need DHT integration)
-  return [];
+  // Query DHT for this peer's follow announcements
+  // In production, would use: `/isc/follow/${peerID}/*`
+  // For now, return from local storage (limited to local view)
+  const subscriptions = await dbGetAll<FollowSubscription>(FOLLOWS_STORE);
+  return subscriptions.map(s => s.followee);
 }
 
 /**

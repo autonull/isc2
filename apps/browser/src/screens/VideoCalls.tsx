@@ -197,9 +197,11 @@ export function VideoCallScreen() {
     try {
       const call = await joinVideoCall(callID);
       setCurrentCall(call);
+      setError(null);
     } catch (err) {
       console.error('Failed to join call:', err);
-      alert('Failed to join call: ' + (err as Error).message);
+      setError((err as Error).message);
+      setTimeout(() => setError(null), 5000);
     }
   };
 

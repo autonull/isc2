@@ -265,6 +265,6 @@ export interface DiscussionTopic {
   id: string;
   title: string;
   description: string;
-  channels: any[]; // Array of Channel objects
+  channels: Channel[];
   similarity: number;
 }

@@ -20,6 +20,7 @@ interface SignableData {
   peerID?: string;
   peerId?: string;
   sender?: string;
+  author?: string;
 }
 
 const VERIFICATION_CACHE = new Map<string, { valid: boolean; timestamp: number }>();
@@ -97,7 +98,7 @@ export async function verifySignature(
  * Verify DHT announcement
  */
 export async function verifyAnnouncement(
-  announcement: any,
+  announcement: SignableData,
   publicKey: CryptoKey
 ): Promise<VerificationResult> {
   const peerId = announcement.peerID || announcement.peerId;
@@ -112,7 +113,7 @@ export async function verifyAnnouncement(
  * Verify chat message
  */
 export async function verifyMessage(
-  message: any,
+  message: SignableData,
   publicKey: CryptoKey
 ): Promise<VerificationResult> {
   const sender = message.sender;
@@ -127,7 +128,7 @@ export async function verifyMessage(
  * Verify post
  */
 export async function verifyPost(
-  post: any,
+  post: SignableData,
   publicKey: CryptoKey
 ): Promise<VerificationResult> {
   const author = post.author || post.peerID;

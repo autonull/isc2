@@ -5,7 +5,7 @@
  */
 
 import { h, Fragment } from 'preact';
-import { useEffect } from 'preact/hooks';
+import { useEffect, useState } from 'preact/hooks';
 import { usePeerDiscovery } from './hooks/usePeerDiscovery.js';
 import { usePeerFiltering } from './hooks/usePeerFiltering.js';
 import { useMatchScoring } from './hooks/useMatchScoring.js';
@@ -21,6 +21,9 @@ import { getDHTClient } from '../../network/dht.js';
 import { navigate } from '../../router.js';
 
 export function DiscoverScreen() {
+  const [dialError, setDialError] = useState<string | null>(null);
+  const [dialSuccess, setDialSuccess] = useState<string | null>(null);
+
   const {
     matches,
     loading,
@@ -44,7 +47,8 @@ export function DiscoverScreen() {
       const node = dhtClient.getNode();
 
       if (!node) {
-        alert('Not connected to network');
+        setDialError('Not connected to network');
+        setTimeout(() => setDialError(null), 5000);
         return;
       }
 
@@ -86,11 +90,13 @@ export function DiscoverScreen() {
       const msgKey = `isc-messages-${match.peerId}`;
       localStorage.setItem(msgKey, JSON.stringify([greeting]));
 
-      alert(
-        `Chat started with peer ${match.peerId.slice(0, 8)}!\n\nGo to the Chats tab to continue the conversation.`
+      setDialSuccess(
+        `Chat started with peer ${match.peerId.slice(0, 8)}! Go to the Chats tab to continue.`
       );
+      setTimeout(() => setDialSuccess(null), 5000);
     } catch (err) {
-      alert('Failed to connect to peer: ' + (err as Error).message);
+      setDialError((err as Error).message);
+      setTimeout(() => setDialError(null), 5000);
     }
   };
 
@@ -130,6 +136,32 @@ export function DiscoverScreen() {
           </span>
         )}
       </header>
+
+      {dialError && (
+        <div style={{
+          background: '#ef4444',
+          color: 'white',
+          padding: '12px 16px',
+          margin: '0 16px 8px',
+          borderRadius: '4px',
+          fontSize: '14px',
+        }} role="alert">
+          {dialError}
+        </div>
+      )}
+
+      {dialSuccess && (
+        <div style={{
+          background: '#17bf63',
+          color: 'white',
+          padding: '12px 16px',
+          margin: '0 16px 8px',
+          borderRadius: '4px',
+          fontSize: '14px',
+        }} role="status">
+          {dialSuccess}
+        </div>
+      )}
 
       <div style={styles.content}>
         {error && (

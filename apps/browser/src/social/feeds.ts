@@ -1,45 +1,106 @@
-import type { SignedPost } from './types.js';
+import type { SignedPost, RankedPost } from './types.js';
 import { getAllPosts, getPostsByChannel } from './posts.js';
 import { getFollowees } from './graph.js';
-import { cosineSimilarity } from '@isc/core';
-import { getActiveChannel } from '../channels/manager.js';
+import { cosineSimilarity, type Distribution } from '@isc/core';
+import { getActiveChannel, getChannel } from '../channels/manager.js';
+import { loggers } from '../utils/logger.js';
+
+const logger = loggers.app;
+
+interface ScoredPost {
+  post: SignedPost;
+  score: number;
+  similarityScore?: number;
+  matchedChannel?: string;
+}
 
 /**
  * Get "For You" feed ranked by semantic similarity to active channel
  */
-export async function getForYouFeed(limit: number = 50): Promise<SignedPost[]> {
+export async function getForYouFeed(limit: number = 50): Promise<RankedPost[]> {
   const allPosts = await getAllPosts();
   const activeChannel = await getActiveChannel();
-  
+
   if (!activeChannel || !activeChannel.distributions || activeChannel.distributions.length === 0) {
-    // Fallback to chronological if no active channel
+    logger.warn('No active channel distributions, using chronological fallback');
     const sorted = allPosts.sort((a, b) => b.timestamp - a.timestamp);
-    return sorted.slice(0, limit);
+    return sorted.slice(0, limit).map(post => toRankedPost(post));
   }
-  
-  // Rank posts by semantic similarity to active channel
-  const scoredPosts = allPosts.map(post => {
-    // Simple scoring: boost posts from same channel, then by recency
-    let score = 0;
-    
-    // Channel match boost
-    if (post.channelID === activeChannel.id) {
-      score += 10;
-    }
-    
-    // Recency decay (posts lose 1 point per hour)
-    const ageHours = (Date.now() - post.timestamp) / (1000 * 60 * 60);
-    score += Math.max(0, 5 - ageHours);
-    
-    return { post, score };
+
+  // Rank posts by semantic similarity to active channel distributions
+  const scoredPosts: ScoredPost[] = allPosts.map(post => {
+    const score = computePostScore(post, activeChannel.distributions!, activeChannel.id);
+    return {
+      post,
+      score: score.total,
+      similarityScore: score.similarity,
+      matchedChannel: score.matchedChannel,
+    };
   });
-  
+
   // Sort by score descending
   const sorted = scoredPosts
     .sort((a, b) => b.score - a.score)
-    .map(({ post }) => post);
-  
+    .map(s => toRankedPost(s.post, s.score, s.similarityScore, s.matchedChannel));
+
   return sorted.slice(0, limit);
+}
+
+/**
+ * Compute semantic score for a post against channel distributions
+ */
+function computePostScore(
+  post: SignedPost,
+  distributions: Distribution[],
+  activeChannelId?: string
+): { total: number; similarity: number; matchedChannel?: string } {
+  let maxSimilarity = 0;
+  let matchedChannel: string | undefined;
+
+  // Compare post embedding against all channel distributions
+  if (post.embedding && distributions.length > 0) {
+    for (const dist of distributions) {
+      const similarity = cosineSimilarity(post.embedding, dist.mu);
+      if (similarity > maxSimilarity) {
+        maxSimilarity = similarity;
+        matchedChannel = dist.tag || 'root';
+      }
+    }
+  }
+
+  // Base score from similarity (0-1 range mapped to 0-10)
+  const similarityScore = maxSimilarity * 10;
+
+  // Channel match boost
+  const channelBoost = post.channelID === activeChannelId ? 5 : 0;
+
+  // Recency decay (posts lose 1 point per hour, max 5 points)
+  const ageHours = (Date.now() - post.timestamp) / (1000 * 60 * 60);
+  const recencyScore = Math.max(0, 5 - ageHours);
+
+  return {
+    total: similarityScore + channelBoost + recencyScore,
+    similarity: maxSimilarity,
+    matchedChannel,
+  };
+}
+
+/**
+ * Convert SignedPost to RankedPost with engagement metrics
+ */
+function toRankedPost(
+  post: SignedPost,
+  score?: number,
+  similarityScore?: number,
+  matchedChannel?: string
+): RankedPost {
+  return {
+    ...post,
+    trendingScore: score || 0,
+    engagementCount: 0,
+    similarityScore,
+    matchedChannel,
+  };
 }
 
 /**
@@ -76,5 +137,73 @@ export async function getChannelFeed(channelID: string, limit: number = 50): Pro
  * Refresh feed (trigger re-fetch from network)
  */
 export async function refreshFeed(channelID?: string): Promise<void> {
-  console.log('[Feeds] Refreshing feed...', channelID ? `channel: ${channelID}` : 'all channels');
+  logger.info('Refreshing feed', { channelID: channelID || 'all channels' });
+}
+
+/**
+ * Get trending posts by engagement and recency
+ */
+export async function getTrendingPosts(
+  channelID?: string,
+  timeWindow: number = 3600000, // 1 hour default
+  limit: number = 20
+): Promise<RankedPost[]> {
+  const allPosts = channelID
+    ? await getPostsByChannel(channelID)
+    : await getAllPosts();
+
+  const now = Date.now();
+  const windowStart = now - timeWindow;
+
+  // Filter to recent posts
+  const recentPosts = allPosts.filter(post => post.timestamp >= windowStart);
+
+  // Score by engagement velocity (likes + reposts + replies per hour)
+  const scoredPosts = recentPosts.map(post => {
+    const ageHours = Math.max(1, (now - post.timestamp) / (1000 * 60 * 60));
+    const engagementCount = getEngagementCount(post);
+    const velocity = engagementCount / ageHours;
+
+    return {
+      ...post,
+      trendingScore: velocity,
+      engagementCount,
+    };
+  });
+
+  // Sort by trending score descending
+  return scoredPosts
+    .sort((a, b) => b.trendingScore - a.trendingScore)
+    .slice(0, limit);
+}
+
+/**
+ * Get engagement count for a post
+ */
+function getEngagementCount(post: SignedPost): number {
+  // In production, would fetch from DHT or engagement store
+  // For now, return 0 (would need likes/reposts/replies integration)
+  return 0;
+}
+
+/**
+ * Get semantic matches for a post (similar posts)
+ */
+export async function getSimilarPosts(post: SignedPost, limit: number = 10): Promise<SignedPost[]> {
+  if (!post.embedding) {
+    return [];
+  }
+
+  const allPosts = await getAllPosts();
+  const otherPosts = allPosts.filter(p => p.id !== post.id && p.embedding);
+
+  const scored = otherPosts
+    .map(p => ({
+      post: p,
+      similarity: cosineSimilarity(post.embedding!, p.embedding!),
+    }))
+    .filter(s => s.similarity > 0.5) // Minimum similarity threshold
+    .sort((a, b) => b.similarity - a.similarity);
+
+  return scored.slice(0, limit).map(s => s.post);
 }

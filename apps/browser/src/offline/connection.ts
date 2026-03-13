@@ -10,6 +10,10 @@ export interface ConnectionInfo {
 
 type ConnectionListener = (info: ConnectionInfo) => void;
 
+import { loggers } from '../utils/logger.js';
+
+const logger = loggers.offline;
+
 const listeners = new Set<ConnectionListener>();
 let currentInfo: ConnectionInfo = { status: navigator.onLine ? 'online' : 'offline' };
 
@@ -77,19 +81,19 @@ function getConnectionStatus(): ConnectionStatus {
 
 function handleOnline(): void {
   updateConnectionInfo();
-  console.log('[ConnectionMonitor] Connection restored');
+  logger.info('Connection restored');
 }
 
 function handleOffline(): void {
   updateConnectionInfo();
-  console.log('[ConnectionMonitor] Connection lost');
+  logger.info('Connection lost');
 }
 
 function handleConnectionChange(): void {
   const oldStatus = currentInfo.status;
   updateConnectionInfo();
   if (oldStatus !== currentInfo.status) {
-    console.log('[ConnectionMonitor] Connection type changed:', currentInfo.status);
+    logger.info('Connection type changed', { status: currentInfo.status });
   }
 }
 
@@ -97,8 +101,8 @@ function notifyListeners(): void {
   listeners.forEach((listener) => {
     try {
       listener(currentInfo);
-    } catch {
-      console.error('[ConnectionMonitor] Listener error');
+    } catch (err) {
+      logger.error('Listener error', err as Error);
     }
   });
 }

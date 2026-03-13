@@ -5,15 +5,16 @@
  */
 
 import type { Libp2p } from 'libp2p';
+import type { Stream } from '@libp2p/interface';
 import { CHAT_CONFIG } from '../config/chatConfig.js';
 
 export class StreamManager {
-  private activeStreams: Map<string, any> = new Map();
+  private activeStreams: Map<string, Stream> = new Map();
 
   /**
    * Get or create stream for peer
    */
-  async getStream(peerId: string, node: Libp2p): Promise<any> {
+  async getStream(peerId: string, node: Libp2p): Promise<Stream> {
     const existing = this.activeStreams.get(peerId);
     if (existing) {
       return existing;
@@ -62,7 +63,7 @@ export class StreamManager {
   /**
    * Register stream handler
    */
-  registerHandler(node: Libp2p, handler: (stream: any) => Promise<void>): void {
+  registerHandler(node: Libp2p, handler: (stream: Stream) => Promise<void>): void {
     node.handle(CHAT_CONFIG.protocolChat, (event: any) => handler(event.stream));
   }
 

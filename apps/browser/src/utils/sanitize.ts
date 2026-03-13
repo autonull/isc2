@@ -4,6 +4,9 @@
  */
 
 import DOMPurify from 'dompurify';
+import { loggers } from './logger.js';
+
+const logger = loggers.app;
 
 // Configure DOMPurify for security
 DOMPurify.setConfig({
@@ -46,19 +49,19 @@ export function sanitizeText(text: string): string {
  */
 export function sanitizeURL(url: string): string {
   if (!url) return '';
-  
+
   try {
     const parsed = new URL(url);
     const allowedProtocols = ['http:', 'https:', 'mailto:'];
-    
+
     if (!allowedProtocols.includes(parsed.protocol)) {
-      console.warn('[Sanitizer] Blocked URL with disallowed protocol:', url);
+      logger.warn('Blocked URL with disallowed protocol', { url });
       return '';
     }
-    
+
     return parsed.href;
   } catch {
-    console.warn('[Sanitizer] Invalid URL:', url);
+    logger.warn('Invalid URL', { url });
     return '';
   }
 }

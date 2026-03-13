@@ -25,6 +25,7 @@ const logger = loggers.chat;
 export function ChatsScreen() {
   const [activeChat, setActiveChat] = useState<Conversation | null>(null);
   const [inputValue, setInputValue] = useState('');
+  const [error, setError] = useState<string | null>(null);
 
   const {
     conversations,
@@ -125,9 +126,11 @@ export function ChatsScreen() {
       await sendMessage(activeChat.peerId, message);
       updateLastMessage(activeChat.peerId, message.msg, message.timestamp);
       setInputValue('');
+      setError(null);
     } catch (err) {
       logger.error('Failed to send message', err as Error);
-      alert('Failed to send message: ' + (err as Error).message);
+      setError((err as Error).message);
+      setTimeout(() => setError(null), 5000);
     }
   };
 
@@ -157,6 +160,19 @@ export function ChatsScreen() {
       <header class="chats-header">
         <h1 class="chats-title">Chats</h1>
       </header>
+
+      {error && (
+        <div class="error-banner" role="alert" style={{
+          background: '#ef4444',
+          color: 'white',
+          padding: '12px 16px',
+          margin: '0 16px 8px',
+          borderRadius: '4px',
+          fontSize: '14px',
+        }}>
+          {error}
+        </div>
+      )}
 
       <div class="chats-content">
         <ConversationList

@@ -114,6 +114,23 @@ async function sendVideoCallMessage(message: VideoCallMessage): Promise<void> {
   await signAndSend(message, key, 60);
 }
 
+function createParticipant(initiator: string, settings: Partial<VideoCallSettings>): VideoParticipant {
+  return {
+    peerID: initiator,
+    isMuted: settings.audioEnabled !== undefined ? !settings.audioEnabled : !DEFAULT_VIDEO_SETTINGS.audioEnabled,
+    isVideoOff: settings.videoEnabled !== undefined ? !settings.videoEnabled : !DEFAULT_VIDEO_SETTINGS.videoEnabled,
+    isScreenSharing: false,
+    joinedAt: Date.now(),
+  };
+}
+
+function cleanupCall(callID: string): void {
+  const stream = localStreams.get(callID);
+  if (stream) stream.getTracks().forEach(track => track.stop());
+  localStreams.delete(callID);
+  activeCalls.delete(callID);
+}
+
 export async function createVideoCall(
   type: 'direct' | 'group',
   recipient?: string,
@@ -123,21 +140,15 @@ export async function createVideoCall(
   const initiator = await getPeerID();
   const keypair = getKeypair();
 
-  if (!keypair) throw new VideoCallError('Identity not initialized. Please refresh the page.', 'UNKNOWN');
+  if (!keypair) {
+    throw new VideoCallError('Identity not initialized. Please refresh the page.', 'UNKNOWN');
+  }
 
   const call: VideoCall = {
     callID: `call_${crypto.randomUUID()}`,
     type,
     initiator,
-    participants: [
-      {
-        peerID: initiator,
-        isMuted: settings.audioEnabled !== undefined ? !settings.audioEnabled : !DEFAULT_VIDEO_SETTINGS.audioEnabled,
-        isVideoOff: settings.videoEnabled !== undefined ? !settings.videoEnabled : !DEFAULT_VIDEO_SETTINGS.videoEnabled,
-        isScreenSharing: false,
-        joinedAt: Date.now(),
-      },
-    ],
+    participants: [createParticipant(initiator, settings)],
     channelID,
     createdAt: Date.now(),
     maxParticipants: settings.maxParticipants || MAX_PARTICIPANTS,
@@ -152,28 +163,16 @@ export async function createVideoCall(
     throw new VideoCallError(`Failed to initialize media: ${(err as Error).message}`, 'UNKNOWN');
   }
 
-  if (type === 'direct' && recipient) {
-    try {
+  try {
+    if (type === 'direct' && recipient) {
       await sendCallInvitation(call, recipient);
-    } catch (err) {
-      // Clean up stream if invitation fails
-      const stream = localStreams.get(call.callID);
-      if (stream) stream.getTracks().forEach(track => track.stop());
-      localStreams.delete(call.callID);
-      activeCalls.delete(call.callID);
-      throw new VideoCallError('Failed to send call invitation. Check your network connection.', 'NETWORK_ERROR');
-    }
-  } else if (type === 'group' && channelID) {
-    try {
+    } else if (type === 'group' && channelID) {
       await announceGroupCall(call, channelID);
-    } catch (err) {
-      // Clean up stream if announcement fails
-      const stream = localStreams.get(call.callID);
-      if (stream) stream.getTracks().forEach(track => track.stop());
-      localStreams.delete(call.callID);
-      activeCalls.delete(call.callID);
-      throw new VideoCallError('Failed to announce group call. Check your network connection.', 'NETWORK_ERROR');
     }
+  } catch (err) {
+    cleanupCall(call.callID);
+    const action = type === 'direct' ? 'send call invitation' : 'announce group call';
+    throw new VideoCallError(`Failed to ${action}. Check your network connection.`, 'NETWORK_ERROR');
   }
 
   return call;

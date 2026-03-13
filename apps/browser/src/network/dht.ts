@@ -91,9 +91,9 @@ export class RealDHTClient {
         services: {
           dht: kadDHT({
             kBucketSize: 20,
-          }) as any, // Cast to any to bypass complex type issues
+          }),
         },
-      });
+      } as any);
 
       this.dht = this.node.services.dht as KadDHT;
 

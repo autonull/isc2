@@ -5,6 +5,7 @@
  */
 
 import type { Libp2p } from 'libp2p';
+import type { Stream } from '@libp2p/interface';
 import { fromString, toString } from 'uint8arrays';
 import type { ChatMessage, TypingIndicator, MessageStatus } from '../types/chat.js';
 import { CHAT_CONFIG } from '../config/chatConfig.js';
@@ -31,9 +32,9 @@ export class MessageReceiver {
   /**
    * Handle incoming stream
    */
-  async handleStream(stream: any): Promise<void> {
+  async handleStream(stream: Stream): Promise<void> {
     try {
-      for await (const chunk of stream.source as AsyncIterable<Uint8Array>) {
+      for await (const chunk of (stream as any).source as AsyncIterable<Uint8Array>) {
         try {
           const data = JSON.parse(toString(chunk, 'utf-8'));
 
@@ -61,7 +62,7 @@ export class MessageReceiver {
   /**
    * Process incoming message
    */
-  private async processMessage(msg: ChatMessage, stream: any): Promise<void> {
+  private async processMessage(msg: ChatMessage, stream: Stream): Promise<void> {
     // Verify signature if present
     if (msg.signature && msg.publicKey) {
       if (isPeerBlocked(msg.sender)) {
@@ -128,10 +129,10 @@ export class MessageReceiver {
   /**
    * Send acknowledgment
    */
-  private async sendAcknowledgment(timestamp: number, stream: any): Promise<void> {
+  private async sendAcknowledgment(timestamp: number, stream: Stream): Promise<void> {
     try {
       const ack = { ack: timestamp };
-      await stream.sink([fromString(JSON.stringify(ack))]);
+      await (stream as any).sink([fromString(JSON.stringify(ack))]);
     } catch (err) {
       logger.warn('Failed to send acknowledgment', { error: (err as Error).message });
     }

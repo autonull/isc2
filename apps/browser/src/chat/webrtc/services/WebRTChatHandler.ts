@@ -5,6 +5,7 @@
  */
 
 import type { Libp2p } from 'libp2p';
+import type { Stream } from '@libp2p/interface';
 import type { ChatMessage, TypingIndicator, MessageStatus } from '../types/chat.js';
 import { MessageQueue } from '../models/MessageQueue.js';
 import { MessageSender } from '../services/MessageSender.js';
@@ -84,7 +85,7 @@ export class WebRTChatHandler {
   /**
    * Handle incoming stream
    */
-  async handleStream(stream: any): Promise<void> {
+  async handleStream(stream: Stream): Promise<void> {
     await this.receiver.handleStream(stream);
   }
 
