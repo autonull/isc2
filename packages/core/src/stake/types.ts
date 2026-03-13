@@ -51,7 +51,9 @@ export type SlashingReason =
   | 'fraud'
   | 'court_no_show'
   | 'double_spend'
-  | 'protocol_violation';
+  | 'protocol_violation'
+  | 'invalid_signature'
+  | 'malicious_behavior';
 
 /**
  * Stake operation result

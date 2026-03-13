@@ -79,6 +79,22 @@ const DEFAULT_CONDITIONS: Record<SlashingReason, SlashingCondition> = {
     requiresCourt: false,
     autoSlash: true,
   },
+  invalid_signature: {
+    reason: 'invalid_signature',
+    description: 'Submitting invalid or malformed signatures',
+    minEvidence: 3,
+    slashPercentRange: [10, 50],
+    requiresCourt: true,
+    autoSlash: false,
+  },
+  malicious_behavior: {
+    reason: 'malicious_behavior',
+    description: 'General malicious behavior not covered by other reasons',
+    minEvidence: 5,
+    slashPercentRange: [25, 100],
+    requiresCourt: true,
+    autoSlash: false,
+  },
 };
 
 /**
