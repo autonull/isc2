@@ -1,49 +1,25 @@
 /**
- * Zero-Knowledge Proofs Module (Research)
- *
- * Privacy-preserving semantic similarity proofs.
- * References: NEXT_STEPS.md#63-zk-proximity-proofs-research
+ * Crypto Module
  */
 
+export { SignatureService } from './services/SignatureService.js';
+
+// Re-export proof-related functions from existing modules
 export {
-  // Commitments
-  createEmbeddingCommitment,
-  getCommitment,
-  
-  // Proximity proofs
   generateProximityProof,
-  verifyProximityProof,
-  
-  // Specialized proofs
   proveChannelRelevance,
   proveInterestSimilarity,
-  
-  // Batch operations
   generateBatchProofs,
-  verifyBatchProofs,
-  
-  // Storage
-  getAllProofs,
-  getProofsByProver,
-  getVerifiedProofs,
-  
-  // Export/Import
-  exportProof,
-  importProof,
-  
-  // Benchmarking
-  benchmarkProofGeneration,
-  
-  // Research
-  getResearchNotes,
-  RESEARCH_NOTES,
 } from './zk-proofs.js';
 
-export type {
-  Embedding,
-  EmbeddingCommitment,
-  ProximityProof,
-  ProofData,
-  VerificationResult,
-  ZKConfig,
+export {
+  verifyProximityProof,
+  verifyBatchProofs,
 } from './zk-proofs.js';
+
+export {
+  createEmbeddingCommitment,
+  getCommitment,
+} from './zk-proofs.js';
+
+export type { SignableData } from './services/SignatureService.js';
