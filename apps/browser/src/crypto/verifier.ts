@@ -5,6 +5,9 @@
 
 import { verify } from '@isc/core';
 import type { Signature } from '@isc/core';
+import { loggers } from '../utils/logger.js';
+
+const logger = loggers.crypto;
 
 interface VerificationResult {
   valid: boolean;
@@ -74,7 +77,7 @@ export async function verifySignature(
 
       if (count >= MAX_FAILED_ATTEMPTS) {
         BLOCKED_PEERS.add(peerId);
-        console.warn('[Verifier] Peer blocked:', peerId, 'due to repeated verification failures');
+        logger.warn('Peer blocked due to repeated verification failures', { peerId });
       }
 
       return { valid: false, reason: 'Signature verification failed' };
@@ -85,7 +88,7 @@ export async function verifySignature(
 
     return { valid: true };
   } catch (err) {
-    console.error('[Verifier] Verification error:', err);
+    logger.error('Verification error', err as Error);
     return { valid: false, reason: 'Verification error: ' + (err as Error).message };
   }
 }
@@ -140,7 +143,7 @@ export async function verifyPost(
  */
 export function blockPeer(peerId: string): void {
   BLOCKED_PEERS.add(peerId);
-  console.log('[Verifier] Peer blocked:', peerId);
+  logger.warn('Peer blocked', { peerId });
 }
 
 /**
@@ -149,7 +152,7 @@ export function blockPeer(peerId: string): void {
 export function unblockPeer(peerId: string): void {
   BLOCKED_PEERS.delete(peerId);
   FAILED_VERIFICATION_COUNT.delete(peerId);
-  console.log('[Verifier] Peer unblocked:', peerId);
+  logger.info('Peer unblocked', { peerId });
 }
 
 /**

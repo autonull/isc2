@@ -10,6 +10,9 @@ import type { ChatMessage, MessageStatus } from '../types/chat.js';
 import { CHAT_CONFIG } from '../config/chatConfig.js';
 import { MessageQueue } from '../models/MessageQueue.js';
 import { checkChatRate } from '../../../rateLimit.js';
+import { loggers } from '../../../utils/logger.js';
+
+const logger = loggers.chat;
 
 export class MessageSender {
   private queue: MessageQueue;
@@ -42,11 +45,11 @@ export class MessageSender {
             // Retry sending
             data.retryCount++;
             data.timestamp = now;
-            console.log(`[Chat] Retrying message ${messageId} (attempt ${data.retryCount})`);
+            logger.debug('Retrying message', { messageId: String(messageId), attempt: String(data.retryCount) });
           } else {
             // Mark as failed after 3 retries
             this.pendingDelivery.delete(messageId);
-            console.warn(`[Chat] Message ${messageId} failed after 3 retries`);
+            logger.warn('Message failed after retries', { messageId: String(messageId) });
           }
         }
       }

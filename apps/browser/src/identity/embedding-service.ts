@@ -7,6 +7,9 @@
 
 import type { EmbeddingModelAdapter } from '@isc/adapters';
 import { BrowserModel } from '@isc/adapters';
+import { loggers } from '../utils/logger.js';
+
+const logger = loggers.embed;
 
 const MODEL_ID = 'Xenova/all-MiniLM-L6-v2';
 const MODEL_CACHE_KEY = 'isc-embedding-model-loaded';
@@ -87,9 +90,9 @@ class EmbeddingServiceClass {
         // Mark as loaded for future sessions
         localStorage.setItem(MODEL_CACHE_KEY, 'true');
 
-        console.log('[Embedding] Model loaded successfully:', MODEL_ID);
+        logger.info('Model loaded successfully', { model: MODEL_ID });
       } catch (err) {
-        console.warn('[Embedding] Failed to load model, will use fallback:', err);
+        logger.warn('Failed to load model, using fallback', { error: (err as Error).message });
         this.model = null;
         this.instance = null;
         this.isLoaded = false;
@@ -159,11 +162,13 @@ class EmbeddingServiceClass {
         });
 
         // Cache in IndexedDB (async, don't block)
-        this.cacheEmbedding(text, embedding).catch(console.warn);
+        this.cacheEmbedding(text, embedding).catch((err) => {
+          logger.warn('Failed to cache embedding', { error: (err as Error).message });
+        });
 
         return embedding;
       } catch (err) {
-        console.warn('[Embedding] Model inference failed, using fallback:', err);
+        logger.warn('Model inference failed, using fallback', { error: (err as Error).message });
       }
     }
 
@@ -190,7 +195,7 @@ class EmbeddingServiceClass {
       this.isLoading = false;
       this.loadProgress = 0;
       this.loadPromise = null;
-      console.log('[Embedding] Model unloaded');
+      logger.info('Model unloaded');
     }
   }
 
@@ -296,7 +301,7 @@ class EmbeddingServiceClass {
       this.embeddingCache.set(item.text, item);
     }
 
-    console.log(`[Embedding] Loaded ${recent.length} cached embeddings`);
+    logger.debug('Loaded cached embeddings', { count: recent.length });
   }
 
   /**
@@ -394,7 +399,7 @@ class EmbeddingServiceClass {
       try {
         callback(this.loadProgress);
       } catch (err) {
-        console.warn('[Embedding] Progress callback error:', err);
+        logger.warn('Progress callback error', { error: (err as Error).message });
       }
     }
   }

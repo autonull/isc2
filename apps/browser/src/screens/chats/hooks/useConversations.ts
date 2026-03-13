@@ -16,7 +16,12 @@ export function useConversations(activeChatPeerId?: string | null) {
       const saved = localStorage.getItem(CONVERSATIONS_KEY);
       if (saved) {
         const convos: Conversation[] = JSON.parse(saved);
-        setConversations(convos.sort((a, b) => (b.lastMessageTime || 0) - (a.lastMessageTime || 0)));
+        const sorted = convos.sort((a, b) => (b.lastMessageTime || 0) - (a.lastMessageTime || 0));
+        setConversations(sorted);
+        
+        // Update badge count on load
+        const totalUnread = sorted.reduce((sum, c) => sum + c.unreadCount, 0);
+        notificationService.setBadgeCount(totalUnread);
       }
     } catch (err) {
       console.error('[useConversations] Failed to load conversations:', err);

@@ -7,6 +7,10 @@
  * - IndexedDB for persistent state
  */
 
+import { loggers } from '../utils/logger.js';
+
+const logger = loggers.state;
+
 export interface AppState {
   channels: ChannelState[];
   conversations: ConversationState[];
@@ -110,7 +114,7 @@ class StateSyncServiceClass {
         return parsed as T;
       }
     } catch (err) {
-      console.error('[StateSync] Failed to load state:', key, err);
+      logger.error('Failed to load state', err as Error, { key });
     }
 
     return null;
@@ -128,7 +132,7 @@ class StateSyncServiceClass {
       try {
         localStorage.setItem(STORAGE_KEYS[key as keyof typeof STORAGE_KEYS], JSON.stringify(state));
       } catch (err) {
-        console.error('[StateSync] Failed to persist state:', key, err);
+        logger.error('Failed to persist state', err as Error, { key });
       }
     }
 
@@ -173,7 +177,7 @@ class StateSyncServiceClass {
           this.stateCache.set(key, newState);
           this.notifySubscribers(key, newState);
         } catch (err) {
-          console.error('[StateSync] Failed to parse storage event:', err);
+          logger.error('Failed to parse storage event', err as Error);
         }
       }
     });
@@ -201,7 +205,7 @@ class StateSyncServiceClass {
         detail: { key, state },
       }));
     } catch (err) {
-      console.error('[StateSync] Failed to dispatch custom event:', err);
+      logger.error('Failed to dispatch custom event', err as Error);
     }
   }
 
@@ -215,7 +219,7 @@ class StateSyncServiceClass {
         try {
           callback(state);
         } catch (err) {
-          console.error('[StateSync] Subscriber callback error:', key, err);
+          logger.error('Subscriber callback error', err as Error, { key });
         }
       });
     }
@@ -232,7 +236,7 @@ class StateSyncServiceClass {
           this.stateCache.set(key, JSON.parse(stored));
         }
       } catch (err) {
-        console.error('[StateSync] Failed to sync from storage:', key, err);
+        logger.error('Failed to sync from storage', err as Error, { key });
       }
     });
   }

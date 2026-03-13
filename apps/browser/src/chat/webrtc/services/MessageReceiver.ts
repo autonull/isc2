@@ -9,6 +9,9 @@ import { fromString, toString } from 'uint8arrays';
 import type { ChatMessage, TypingIndicator, MessageStatus } from '../types/chat.js';
 import { CHAT_CONFIG } from '../config/chatConfig.js';
 import { verifySignature, isPeerBlocked } from '../../../crypto/verifier.js';
+import { loggers } from '../../../utils/logger.js';
+
+const logger = loggers.chat;
 
 interface MessageCallbacks {
   onMessage?: (msg: ChatMessage) => void;
@@ -47,11 +50,11 @@ export class MessageReceiver {
           const msg: ChatMessage = data;
           await this.processMessage(msg, stream);
         } catch (err) {
-          console.error('[Chat] Failed to parse message:', err);
+          logger.warn('Failed to parse message', { error: (err as Error).message });
         }
       }
     } catch (err) {
-      console.error('[Chat] Stream error:', err);
+      logger.error('Stream error', undefined, { error: (err as Error).message });
     }
   }
 
@@ -62,7 +65,7 @@ export class MessageReceiver {
     // Verify signature if present
     if (msg.signature && msg.publicKey) {
       if (isPeerBlocked(msg.sender)) {
-        console.warn('[Chat] Blocked peer message ignored:', msg.sender);
+        logger.warn('Blocked peer message ignored', { sender: msg.sender });
         return;
       }
 
@@ -71,11 +74,11 @@ export class MessageReceiver {
         const result = await verifySignature(msg, publicKey, msg.sender);
 
         if (!result.valid) {
-          console.warn('[Chat] Invalid signature from:', msg.sender, result.reason);
+          logger.warn('Invalid signature', { sender: msg.sender, reason: result.reason });
           return;
         }
       } catch (err) {
-        console.error('[Chat] Signature verification failed:', err);
+        logger.error('Signature verification failed', undefined, { error: (err as Error).message });
         // Continue anyway - don't block messages due to verification errors
       }
     }
@@ -113,7 +116,7 @@ export class MessageReceiver {
    * Handle acknowledgment - marks message as delivered
    */
   private handleAcknowledgment(messageId: number): void {
-    console.log('[Chat] Message acknowledged:', messageId);
+    logger.debug('Message acknowledged', { messageId: String(messageId) });
     if (this.callbacks.onStatusUpdate) {
       this.callbacks.onStatusUpdate(messageId, 'delivered');
     }
@@ -130,7 +133,7 @@ export class MessageReceiver {
       const ack = { ack: timestamp };
       await stream.sink([fromString(JSON.stringify(ack))]);
     } catch (err) {
-      console.warn('[Chat] Failed to send acknowledgment:', err);
+      logger.warn('Failed to send acknowledgment', { error: (err as Error).message });
     }
   }
 

@@ -3,7 +3,10 @@ import type { SignedPost } from './types.js';
 import { getPeerID, getKeypair, getPeerPublicKey, announcePublicKey } from '../identity/index.js';
 import { DelegationClient } from '../delegation/fallback.js';
 import { dbGet, dbGetAll, dbPut, dbFilter } from '../db/helpers.js';
+import { signContent, verifyContent, announceToDHT, queryFromDHT } from './signing.js';
+import { loggers } from '../utils/logger.js';
 
+const logger = loggers.social;
 const POSTS_STORE = 'posts';
 
 export async function createPost(
@@ -61,13 +64,13 @@ export async function verifyPost(post: SignedPost): Promise<boolean> {
 
     const publicKey = await getPeerPublicKey(post.author);
     if (!publicKey) {
-      console.warn(`Public key not found for peer ${post.author}`);
+      logger.warn('Public key not found for post verification', { author: post.author, postId: post.id });
       return false;
     }
 
     return verify(payload, signature, publicKey);
   } catch (error) {
-    console.error('Post verification failed:', error);
+    logger.error('Post verification failed', error as Error, { postId: post.id });
     return false;
   }
 }
@@ -78,26 +81,69 @@ export async function discoverPosts(channelID: string, limit: number = 50): Prom
     return getPostsByChannel(channelID);
   }
 
-  const key = `/isc/post/${channelID}`;
-  const encoded = await client.query(key, limit);
-
-  const posts: SignedPost[] = [];
-  for (const data of encoded) {
-    try {
-      const post = decode(data) as SignedPost;
-      if (post && post.id && post.author) {
-        posts.push(post);
-      }
-    } catch (error) {
-      console.warn('Failed to decode post:', error);
-    }
-  }
+  const posts = await queryFromDHT<SignedPost>(`/isc/post/${channelID}`, limit);
 
   for (const post of posts) {
     await dbPut(POSTS_STORE, post);
   }
 
   return posts;
+}
+
+/**
+ * Get posts ranked by semantic similarity to channel
+ */
+export async function getSemanticFeed(
+  channelID: string,
+  queryEmbedding: number[],
+  limit: number = 20
+): Promise<Array<SignedPost & { similarity: number }>> {
+  const posts = await discoverPosts(channelID, limit * 2);
+  
+  // Calculate similarity for each post
+  const postsWithSimilarity = posts.map(post => {
+    // Simple content-based similarity (in production, would use post embeddings)
+    const similarity = calculateContentSimilarity(post.content, queryEmbedding);
+    return { ...post, similarity };
+  });
+
+  // Rank by similarity and return top N
+  return postsWithSimilarity
+    .sort((a, b) => b.similarity - a.similarity)
+    .slice(0, limit);
+}
+
+/**
+ * Get trending posts in time window
+ */
+export async function getTrendingPosts(
+  channelID: string,
+  timeWindow: number = 3600000, // 1 hour
+  limit: number = 10
+): Promise<SignedPost[]> {
+  const posts = await discoverPosts(channelID, 100);
+  const now = Date.now();
+  
+  // Filter to recent posts
+  const recentPosts = posts.filter(post => 
+    post.timestamp > now - timeWindow
+  );
+
+  // Rank by engagement (likes, reposts, replies - would need to fetch these)
+  // For now, just return most recent
+  return recentPosts
+    .sort((a, b) => b.timestamp - a.timestamp)
+    .slice(0, limit);
+}
+
+/**
+ * Simple content similarity calculation
+ * In production, would use actual post embeddings
+ */
+function calculateContentSimilarity(content: string, _queryEmbedding: number[]): number {
+  // Placeholder - in production would compute cosine similarity
+  // with actual post embeddings
+  return Math.random(); // TODO: Implement real similarity
 }
 
 export async function deletePost(id: string): Promise<void> {

@@ -17,7 +17,10 @@ import { useChatHandler } from './chats/hooks/useChatHandler.js';
 import { ConversationList } from './chats/components/ConversationList.js';
 import { ChatPanel } from './chats/components/ChatPanel.js';
 import type { Conversation } from './chats/types.js';
+import { loggers } from '../utils/logger.js';
 import './chats/styles/ChatsScreen.css';
+
+const logger = loggers.chat;
 
 export function ChatsScreen() {
   const [activeChat, setActiveChat] = useState<Conversation | null>(null);
@@ -42,10 +45,25 @@ export function ChatsScreen() {
 
   const handleNewMessage = useCallback(
     (msg: ChatMessage) => {
-      console.log('[Chats] New message:', msg);
-
       if (msg.sender !== 'me') {
         notificationService.showMessage(msg.sender, msg.msg);
+        
+        // Update unread count and badge if chat is not active
+        if (!activeChat || msg.sender !== activeChat.peerId) {
+          const peerId = msg.sender;
+          // Increment unread count for this conversation
+          const saved = localStorage.getItem('isc-conversations');
+          if (saved) {
+            const convos: Conversation[] = JSON.parse(saved);
+            const convo = convos.find(c => c.peerId === peerId);
+            if (convo) {
+              convo.unreadCount = (convo.unreadCount || 0) + 1;
+              localStorage.setItem('isc-conversations', JSON.stringify(convos));
+              const totalUnread = convos.reduce((sum, c) => sum + (c.unreadCount || 0), 0);
+              notificationService.setBadgeCount(totalUnread);
+            }
+          }
+        }
       }
 
       addMessage(msg);
@@ -58,7 +76,7 @@ export function ChatsScreen() {
 
   const handleStatusUpdate = useCallback(
     (messageId: number, status: MessageStatus) => {
-      console.log('[Chats] Message status update:', messageId, status);
+      logger.debug('Message status update', { messageId: String(messageId), status });
       updateMessageStatus(messageId, status);
     },
     [updateMessageStatus]
@@ -108,7 +126,7 @@ export function ChatsScreen() {
       updateLastMessage(activeChat.peerId, message.msg, message.timestamp);
       setInputValue('');
     } catch (err) {
-      console.error('[Chats] Failed to send message:', err);
+      logger.error('Failed to send message', err as Error);
       alert('Failed to send message: ' + (err as Error).message);
     }
   };

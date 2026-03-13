@@ -188,6 +188,110 @@ export async function getWoTSuggestedFollows(
   return [];
 }
 
+/**
+ * Get suggested follows based on mutual connections
+ */
+export async function getSuggestedFollows(limit: number = 10): Promise<FollowSuggestion[]> {
+  const myFollowees = await getFollowees();
+  const suggestions = new Map<string, { count: number; peerID: string }>();
+
+  // Find people followed by people I follow
+  for (const followee of myFollowees) {
+    const theirFollowees = await getFolloweesOf(followee);
+    for (const theirFollowee of theirFollowees) {
+      // Skip if already following or self
+      if (theirFollowee === followee || await isFollowing(theirFollowee)) {
+        continue;
+      }
+
+      const existing = suggestions.get(theirFollowee) || { count: 0, peerID: theirFollowee };
+      suggestions.set(theirFollowee, {
+        count: existing.count + 1,
+        peerID: theirFollowee,
+      });
+    }
+  }
+
+  // Convert to suggestions and sort by mutual count
+  return Array.from(suggestions.values())
+    .map(({ count, peerID }) => ({
+      peerID,
+      score: count * 0.3, // Each mutual connection adds 0.3 to score
+      mutualFollows: count,
+      reason: count === 1 
+        ? 'Followed by someone you follow' 
+        : `Followed by ${count} people you follow`,
+    }))
+    .sort((a, b) => b.mutualFollows - a.mutualFollows)
+    .slice(0, limit);
+}
+
+/**
+ * Get all followees of a peer
+ */
+async function getFolloweesOf(peerID: string): Promise<string[]> {
+  // In production, would query DHT for this peer's follows
+  // For now, return empty (would need DHT integration)
+  return [];
+}
+
+/**
+ * Get follow suggestions based on interaction history
+ */
+export async function getInteractionBasedSuggestions(limit: number = 5): Promise<FollowSuggestion[]> {
+  const allInteractions = await dbGetAll<Interaction>(INTERACTIONS_STORE);
+  
+  // Group by peer and count interactions
+  const peerCounts = new Map<string, number>();
+  for (const interaction of allInteractions) {
+    const count = peerCounts.get(interaction.peerID) || 0;
+    peerCounts.set(interaction.peerID, count + 1);
+  }
+
+  // Filter out already following and self
+  const myFollowees = await getFollowees();
+  const suggestions = Array.from(peerCounts.entries())
+    .filter(([peerID]) => !myFollowees.includes(peerID))
+    .map(([peerID, count]) => ({
+      peerID,
+      score: Math.log(count + 1) * 0.2, // Log scale to prevent spam
+      mutualFollows: 0,
+      reason: `You've interacted ${count} times`,
+    }))
+    .sort((a, b) => b.score - a.score)
+    .slice(0, limit);
+
+  return suggestions;
+}
+
+/**
+ * Get combined follow suggestions from all sources
+ */
+export async function getAllFollowSuggestions(limit: number = 20): Promise<FollowSuggestion[]> {
+  const [mutualSuggestions, interactionSuggestions] = await Promise.all([
+    getSuggestedFollows(Math.floor(limit * 0.6)),
+    getInteractionBasedSuggestions(Math.floor(limit * 0.4)),
+  ]);
+
+  // Combine and deduplicate
+  const combined = new Map<string, FollowSuggestion>();
+  
+  for (const suggestion of [...mutualSuggestions, ...interactionSuggestions]) {
+    const existing = combined.get(suggestion.peerID);
+    if (existing) {
+      // Merge scores
+      existing.score += suggestion.score;
+      existing.reason = `${existing.reason}; ${suggestion.reason}`;
+    } else {
+      combined.set(suggestion.peerID, suggestion);
+    }
+  }
+
+  return Array.from(combined.values())
+    .sort((a, b) => b.score - a.score)
+    .slice(0, limit);
+}
+
 export async function getBridgeSuggestions(_limit: number = 5): Promise<BridgeProfile[]> {
   return [];
 }
@@ -220,8 +324,4 @@ export function applyChaosMode(embedding: number[], chaosLevel: number): number[
   const perturbed = embedding.map((v) => v + (Math.random() - 0.5) * 2 * chaosLevel);
   const norm = Math.sqrt(perturbed.reduce((sum, v) => sum + v * v, 0));
   return norm === 0 ? embedding : perturbed.map((v) => v / norm);
-}
-
-export async function getSuggestedFollows(_limit: number = 10): Promise<string[]> {
-  return [];
 }

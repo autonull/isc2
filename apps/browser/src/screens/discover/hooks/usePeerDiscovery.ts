@@ -4,7 +4,7 @@
  * Discovers and ranks peers based on semantic similarity using real embeddings.
  */
 
-import { useState, useCallback } from 'preact/hooks';
+import { useState, useCallback, useEffect } from 'preact/hooks';
 import { channelManager } from '../../../channels/manager.js';
 import { computeEmbedding, isModelLoaded, isModelLoading } from '../../../identity/embedding-service.js';
 import { PeerDiscoveryService } from '../services/PeerDiscoveryService.js';
@@ -12,6 +12,7 @@ import { MatchService } from '../services/MatchService.js';
 import { DISCOVER_CONFIG } from '../config/discoverConfig.js';
 import type { Match } from '../types/discover.js';
 import type { Channel } from '@isc/core';
+import { notificationService } from '../../../chat/notifications.js';
 
 const queryCache = new Map<string, { matches: Match[]; timestamp: number }>();
 
@@ -103,6 +104,14 @@ export function usePeerDiscovery() {
 
       const rankedMatches = matchService.rankMatches(filteredPeers, queryVec);
       const deduplicatedMatches = matchService.deduplicateMatches(rankedMatches);
+
+      // Notify if new matches found
+      const prevMatches = queryCache.get(cacheKey)?.matches || [];
+      if (deduplicatedMatches.length > prevMatches.length && document.visibilityState === 'hidden') {
+        const topSimilarity = deduplicatedMatches[0]?.similarity || 0;
+        const newCount = deduplicatedMatches.length - prevMatches.length;
+        notificationService.showMatchNotification(newCount, topSimilarity);
+      }
 
       // Cache results
       queryCache.set(cacheKey, {

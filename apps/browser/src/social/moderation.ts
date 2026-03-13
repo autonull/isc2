@@ -3,8 +3,12 @@ import type { SignedPost, CommunityReport, CommunityCouncil } from './types.js';
 import { getPeerID, getKeypair } from '../identity/index.js';
 import { DelegationClient } from '../delegation/fallback.js';
 import { computeReputation } from './graph.js';
+import { getDB, dbGet, dbGetAll, dbPut, dbDelete } from '../db/factory.js';
 
 const DEFAULT_TTL = 86400 * 30;
+const DB_NAME = 'isc-moderation';
+const DB_VERSION = 1;
+const STORES = ['mutes', 'blocks', 'reports', 'votes', 'councils', 'decisions'];
 
 export function isPostValid(post: { timestamp: number; ttl: number }): boolean {
   return Date.now() < post.timestamp + post.ttl * 1000;
@@ -16,49 +20,23 @@ export function filterMutedPosts<T extends { author: string }>(posts: T[], muted
 }
 
 async function getModerationDB(): Promise<IDBDatabase> {
-  return new Promise((resolve, reject) => {
-    const request = indexedDB.open('isc-moderation', 1);
-    request.onerror = () => reject(request.error);
-    request.onsuccess = () => resolve(request.result);
-    request.onupgradeneeded = (event) => {
-      const db = (event.target as IDBOpenDBRequest).result;
-      ['mutes', 'blocks', 'reports', 'votes', 'councils', 'decisions'].forEach((store) => {
-        if (!db.objectStoreNames.contains(store)) {
-          db.createObjectStore(store, { keyPath: store === 'decisions' ? 'reportId' : 'id' });
-        }
-      });
-    };
-  });
-}
-
-async function dbAction<T>(
-  db: IDBDatabase,
-  store: string,
-  mode: IDBTransactionMode,
-  action: (store: IDBObjectStore) => IDBRequest<T>
-): Promise<T> {
-  return new Promise((resolve, reject) => {
-    const req = db.transaction(store, mode).objectStore(store);
-    const result = action(req);
-    result.onsuccess = () => resolve(result.result);
-    result.onerror = () => reject(result.error);
-  });
-}
-
-async function dbGetAllFrom<T>(db: IDBDatabase, store: string): Promise<T[]> {
-  return dbAction(db, store, 'readonly', (s) => s.getAll());
-}
-
-async function dbPutTo(db: IDBDatabase, store: string, value: unknown): Promise<void> {
-  await dbAction(db, store, 'readwrite', (s) => s.put(value));
-}
-
-async function dbDeleteFrom(db: IDBDatabase, store: string, key: string): Promise<void> {
-  await dbAction(db, store, 'readwrite', (s) => s.delete(key));
+  return getDB(DB_NAME, DB_VERSION, STORES);
 }
 
 async function dbGetFrom<T>(db: IDBDatabase, store: string, key: string): Promise<T | null> {
-  return dbAction(db, store, 'readonly', (s) => s.get(key));
+  return dbGet<T>(db, store, key);
+}
+
+async function dbGetAllFrom<T>(db: IDBDatabase, store: string): Promise<T[]> {
+  return dbGetAll<T>(db, store);
+}
+
+async function dbPutTo(db: IDBDatabase, store: string, value: unknown): Promise<void> {
+  await dbPut(db, store, value);
+}
+
+async function dbDeleteFrom(db: IDBDatabase, store: string, key: string): Promise<void> {
+  await dbDelete(db, store, key);
 }
 
 export async function muteUser(peerID: string): Promise<void> {

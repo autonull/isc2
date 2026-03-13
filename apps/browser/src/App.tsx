@@ -2,6 +2,7 @@ import { h, Fragment } from 'preact';
 import { useState, useEffect } from 'preact/hooks';
 import { router, currentRoute, navigate, initRouter } from './router.js';
 import type { Route } from './router.js';
+import { ErrorBoundary } from './components/ErrorBoundary.js';
 import { ChannelHeader } from './components/ChannelHeader.js';
 import { TopNav } from './components/TopNav.js';
 import { PWAInstallPrompt } from './components/PWAInstallPrompt.js';
@@ -18,6 +19,9 @@ import { DiscoverScreen } from './screens/Discover.js';
 import { ChatsScreen as ChatsScreenComponent } from './screens/Chats.js';
 import { SettingsScreen as SettingsScreenComponent } from './screens/Settings.js';
 import { Onboarding, isOnboardingComplete } from './screens/Onboarding.js';
+import { loggers } from './utils/logger.js';
+
+const logger = loggers.app;
 
 interface AppProps {
   onReady?: () => void;
@@ -68,7 +72,7 @@ export function App({ onReady }: AppProps) {
     const handleStorageChange = (e: StorageEvent) => {
       if (e.key === 'isc-conversations' || e.key?.startsWith('isc-messages-')) {
         // Reload conversations/messages if changed in another tab
-        console.log('[App] Storage changed in another tab:', e.key);
+        logger.debug('Storage changed in another tab', { key: e.key });
         // Could trigger a reload or emit event for components to refresh
       }
       if (e.key === 'isc-channels') {
@@ -116,7 +120,7 @@ export function App({ onReady }: AppProps) {
       const active = chs.find((c) => c.active) || null;
       setActiveChannel(active);
     } catch (err) {
-      console.error('Refresh failed:', err);
+      logger.error('Refresh failed', err as Error);
     } finally {
       setIsRefreshing(false);
     }
@@ -142,44 +146,46 @@ export function App({ onReady }: AppProps) {
       const ch = await channelManager.getChannel(channelId);
       if (ch) setActiveChannel(ch);
     } catch (err) {
-      console.error('Failed to activate channel:', err);
+      logger.error('Failed to activate channel', err as Error);
     }
   };
 
   return (
-    <div class="app">
-      <div class={`ptr-indicator ${isRefreshing ? 'visible' : ''}`}>
-        <div class="ptr-spinner" />
+    <ErrorBoundary>
+      <div class="app">
+        <div class={`ptr-indicator ${isRefreshing ? 'visible' : ''}`}>
+          <div class="ptr-spinner" />
+        </div>
+        {isDesktop && activeChannel && (
+          <ChannelHeader
+            channel={activeChannel}
+            matchCount={badges.now}
+            onSwitchClick={handleChannelSwitch}
+            onEditClick={() => navigate('compose')}
+          />
+        )}
+        {showChannelSwitcher && (
+          <ChannelSwitcherOverlay
+            channels={channels}
+            activeChannelId={activeChannel?.id}
+            onSelect={handleChannelSelect}
+            onClose={() => setShowChannelSwitcher(false)}
+          />
+        )}
+        <main class="app-content">
+          <Screen route={route} />
+        </main>
+        {isDesktop ? (
+          <TopNav activeTab={route} onTabClick={handleTabClick} badges={badges} />
+        ) : (
+          <TabBar activeTab={route} onTabClick={handleTabClick} badges={badges} />
+        )}
+        {/* PWA Components */}
+        {!isDesktop && <ConnectionStatusIndicator />}
+        <PWAInstallPrompt />
+        {showOnboarding && <Onboarding onComplete={() => setShowOnboarding(false)} />}
       </div>
-      {isDesktop && activeChannel && (
-        <ChannelHeader
-          channel={activeChannel}
-          matchCount={badges.now}
-          onSwitchClick={handleChannelSwitch}
-          onEditClick={() => navigate('compose')}
-        />
-      )}
-      {showChannelSwitcher && (
-        <ChannelSwitcherOverlay
-          channels={channels}
-          activeChannelId={activeChannel?.id}
-          onSelect={handleChannelSelect}
-          onClose={() => setShowChannelSwitcher(false)}
-        />
-      )}
-      <main class="app-content">
-        <Screen route={route} />
-      </main>
-      {isDesktop ? (
-        <TopNav activeTab={route} onTabClick={handleTabClick} badges={badges} />
-      ) : (
-        <TabBar activeTab={route} onTabClick={handleTabClick} badges={badges} />
-      )}
-      {/* PWA Components */}
-      {!isDesktop && <ConnectionStatusIndicator />}
-      <PWAInstallPrompt />
-      {showOnboarding && <Onboarding onComplete={() => setShowOnboarding(false)} />}
-    </div>
+    </ErrorBoundary>
   );
 }
 

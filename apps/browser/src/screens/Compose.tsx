@@ -9,6 +9,9 @@ import { getDHTClient, initializeDHT } from '../network/dht.js';
 import { lshHash } from '@isc/core';
 import { navigate } from '../router.js';
 import { embeddingService, isModelLoaded, isModelLoading, getLoadProgress } from '../channels/embedding.js';
+import { loggers } from '../utils/logger.js';
+
+const logger = loggers.channel;
 
 interface RelationInput {
   tag: string;
@@ -139,7 +142,7 @@ export function ComposeScreen() {
         normalizedVec = await embeddingService.embed(description.trim());
         setModelStatus('ready');
       } catch (err) {
-        console.warn('[Compose] Embedding failed, using fallback:', err);
+        logger.warn('Embedding failed, using fallback', { error: (err as Error).message });
         setModelStatus('error');
         // Fallback to stub embedding
         const encoder = new TextEncoder();
@@ -174,7 +177,7 @@ export function ComposeScreen() {
         await dhtClient.announce(key, encoded, 300);
       }
 
-      console.log('[Compose] Channel announced to DHT:', channel.id);
+      logger.info('Channel announced to DHT', { channelID: channel.id });
 
       // Activate the channel locally
       await channelManager.activateChannel(channel.id, [{ mu: normalizedVec, sigma: spread }]);

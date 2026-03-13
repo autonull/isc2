@@ -3,6 +3,10 @@ import type { LikeEvent, RepostEvent, ReplyEvent, QuoteEvent } from './types.js'
 import { getPeerID, getKeypair } from '../identity/index.js';
 import { DelegationClient } from '../delegation/fallback.js';
 import { dbGet, dbGetAll, dbPut, dbDelete, dbFilter } from '../db/helpers.js';
+import { signContent, announceToDHT } from './signing.js';
+import { loggers } from '../utils/logger.js';
+
+const logger = loggers.social;
 
 const LIKES_STORE = 'likes';
 const REPOSTS_STORE = 'reposts';
@@ -23,9 +27,10 @@ async function createAndAnnounceEvent<T extends { id: string; signature: Signatu
 
   await dbPut(store, event);
 
-  const client = DelegationClient.getInstance();
-  if (client) {
-    await client.announce(dhtKey, encode(event), DEFAULT_TTL);
+  try {
+    await announceToDHT(dhtKey, event);
+  } catch (error) {
+    logger.warn('Failed to announce event to DHT', { error: (error as Error).message, dhtKey });
   }
 
   return event;

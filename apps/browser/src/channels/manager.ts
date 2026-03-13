@@ -1,11 +1,13 @@
 import type { Channel, Relation } from '@isc/core';
-import { DHTClient, openDB, dbGet, dbGetAll, dbPut, dbDelete } from '@isc/adapters';
+import type { DHTClient } from '@isc/adapters';
 import { computeEmbedding } from '../identity/embedding-service.js';
+import { getDB, dbGet, dbGetAll, dbPut, dbDelete } from '../db/factory.js';
 
 const MAX_ACTIVE_CHANNELS = 5;
 const DB_NAME = 'isc-channels';
 const DB_VERSION = 1;
 const MAX_RELATIONS = 5;
+const CHANNEL_STORE = 'channels';
 
 export interface ChannelStore {
   getAll(): Promise<Channel[]>;
@@ -22,36 +24,28 @@ export interface ChannelDistribution {
 }
 
 class IndexedDBChannelStore implements ChannelStore {
-  private db: IDBDatabase | null = null;
-
   private async getDB(): Promise<IDBDatabase> {
-    if (this.db) return this.db;
-    this.db = await openDB(DB_NAME, DB_VERSION, (database) => {
-      if (!database.objectStoreNames.contains('channels')) {
-        database.createObjectStore('channels', { keyPath: 'id' });
-      }
-    });
-    return this.db;
+    return getDB(DB_NAME, DB_VERSION, [CHANNEL_STORE]);
   }
 
   async getAll(): Promise<Channel[]> {
     const db = await this.getDB();
-    return dbGetAll<Channel>(db, 'channels');
+    return dbGetAll<Channel>(db, CHANNEL_STORE);
   }
 
   async get(id: string): Promise<Channel | null> {
     const db = await this.getDB();
-    return dbGet<Channel>(db, 'channels', id);
+    return dbGet<Channel>(db, CHANNEL_STORE, id);
   }
 
   async save(channel: Channel): Promise<void> {
     const db = await this.getDB();
-    await dbPut(db, 'channels', channel);
+    await dbPut(db, CHANNEL_STORE, channel);
   }
 
   async delete(id: string): Promise<void> {
     const db = await this.getDB();
-    await dbDelete(db, 'channels', id);
+    await dbDelete(db, CHANNEL_STORE, id);
   }
 }
 

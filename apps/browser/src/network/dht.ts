@@ -8,13 +8,16 @@ import { createLibp2p } from 'libp2p';
 import { webSockets } from '@libp2p/websockets';
 import { noise } from '@chainsafe/libp2p-noise';
 import { yamux } from '@chainsafe/libp2p-yamux';
-import { kadDHT } from '@libp2p/kad-dht';
+import { kadDHT, KadDHT } from '@libp2p/kad-dht';
 import { bootstrap } from '@libp2p/bootstrap';
 import type { Libp2p } from 'libp2p';
 import { checkQueryRate, checkAnnounceRate } from '../rateLimit.js';
 import { verifySignature, isPeerBlocked } from '../crypto/verifier.js';
 import { sign, encode, type Signature } from '@isc/core';
 import { getKeypair } from '../identity/index.js';
+import { loggers } from '../utils/logger.js';
+
+const logger = loggers.dht;
 
 // Bootstrap peers (public libp2p relays)
 const BOOTSTRAP_PEERS = [
@@ -56,7 +59,7 @@ export interface SignedAnnouncement {
 
 export class RealDHTClient {
   private node: Libp2p | null = null;
-  private dht: any = null; // Using any to avoid complex type issues
+  private dht: KadDHT | null = null;
   private config: DHTClientConfig;
   private announcedKeys: Set<string> = new Set();
   private entryCache: Map<string, { entry: DHTEntry; expiresAt: number }> = new Map();
@@ -92,19 +95,19 @@ export class RealDHTClient {
         },
       });
 
-      this.dht = this.node.services.dht;
+      this.dht = this.node.services.dht as KadDHT;
 
       // Wait for DHT to be ready
       await new Promise<void>((resolve) => {
         setTimeout(resolve, 3000);
       });
 
-      console.log('[DHT] Initialized', {
+      logger.info('Initialized', {
         peerId: this.node.peerId.toString(),
         multiaddrs: this.node.getMultiaddrs().map(m => m.toString()),
       });
     } catch (error) {
-      console.error('[DHT] Initialization failed:', error);
+      logger.error('Initialization failed', error as Error, {});
       throw error;
     }
   }
@@ -126,7 +129,7 @@ export class RealDHTClient {
     const rateCheck = checkAnnounceRate(peerId);
     if (!rateCheck.allowed) {
       const reason = rateCheck.blocked ? 'blocked' : 'rate limited';
-      console.warn('[DHT] Announce rejected:', reason, 'peer:', peerId);
+      logger.warn('Announce rejected', { reason, peerId });
       throw new Error(
         rateCheck.blocked
           ? `Announce blocked due to repeated violations. Try again in ${rateCheck.retryAfter}s`
@@ -164,7 +167,7 @@ export class RealDHTClient {
           
           signedValue = new TextEncoder().encode(JSON.stringify(signedPayload));
         } catch (signErr) {
-          console.warn('[DHT] Failed to sign announcement:', signErr);
+          logger.warn('Failed to sign announcement', { error: (signErr as Error).message });
           // Continue with unsigned announcement
         }
       }
@@ -180,9 +183,9 @@ export class RealDHTClient {
       });
       this.announcedKeys.add(key);
 
-      console.log('[DHT] Announced:', key, signedValue !== value ? '(signed)' : '(unsigned)');
+      logger.info('Announced', { key, signed: signedValue !== value });
     } catch (error) {
-      console.error('[DHT] Announce failed:', key, error);
+      logger.error('Announce failed', error as Error, { key });
       throw error;
     }
   }
@@ -197,7 +200,7 @@ export class RealDHTClient {
     const rateCheck = checkQueryRate(peerId);
     if (!rateCheck.allowed) {
       const reason = rateCheck.blocked ? 'blocked' : 'rate limited';
-      console.warn('[DHT] Query rejected:', reason, 'peer:', peerId);
+      logger.warn('Query rejected', { reason, peerId });
       throw new Error(
         rateCheck.blocked
           ? `Query blocked due to repeated violations. Try again in ${rateCheck.retryAfter}s`
@@ -210,49 +213,54 @@ export class RealDHTClient {
 
       // Query DHT
       const keyBytes = new TextEncoder().encode(key);
-      const result = await this.dht.get(keyBytes);
-
-      if (result) {
-        // Verify signature if present
-        try {
-          const decoded = JSON.parse(new TextDecoder().decode(result)) as SignedAnnouncement;
+      
+      // Iterate over DHT results
+      for await (const event of this.dht.get(keyBytes)) {
+        // Check if this is a GetValueEvent with value property
+        if ('value' in event && event.value) {
+          const value = event.value;
           
-          if (decoded.signature && decoded.publicKey) {
-            // Check if peer is blocked
-            if (isPeerBlocked(decoded.peerID)) {
-              console.warn('[DHT] Ignoring announcement from blocked peer:', decoded.peerID);
-              return results;
-            }
+          // Verify signature if present
+          try {
+            const decoded = JSON.parse(new TextDecoder().decode(value)) as SignedAnnouncement;
 
-            // Import public key and verify
-            const publicKeyBytes = this.hexToBytes(decoded.publicKey);
-            const publicKey = await crypto.subtle.importKey(
-              'raw',
-              publicKeyBytes.buffer as ArrayBuffer,
-              { name: 'Ed25519' },
-              true,
-              ['verify']
-            );
+            if (decoded.signature && decoded.publicKey) {
+              // Check if peer is blocked
+              if (isPeerBlocked(decoded.peerID)) {
+                logger.warn('Ignoring announcement from blocked peer', { peerId: decoded.peerID });
+                return results;
+              }
 
-            const verificationResult = await verifySignature(decoded, publicKey, decoded.peerID);
-            
-            if (!verificationResult.valid) {
-              console.warn('[DHT] Invalid signature in announcement:', verificationResult.reason);
-              return results; // Don't return invalid data
+              // Import public key and verify
+              const publicKeyBytes = this.hexToBytes(decoded.publicKey);
+              const publicKey = await crypto.subtle.importKey(
+                'raw',
+                publicKeyBytes.buffer as ArrayBuffer,
+                { name: 'Ed25519' },
+                true,
+                ['verify']
+              );
+
+              const verificationResult = await verifySignature(decoded, publicKey, decoded.peerID);
+              
+              if (!verificationResult.valid) {
+                logger.warn('Invalid signature in announcement', { reason: verificationResult.reason });
+                continue; // Skip invalid, continue with other results
+              }
             }
+          } catch (err) {
+            logger.warn('Signature verification failed', { error: (err as Error).message });
+            // Continue anyway - some announcements may not have signatures
           }
-        } catch (err) {
-          console.warn('[DHT] Signature verification failed:', err);
-          // Continue anyway - some announcements may not have signatures
-        }
 
-        results.push(result);
+          results.push(value);
+        }
       }
 
-      console.log('[DHT] Query:', key, 'found', results.length, 'entries');
+      logger.info('Query completed', { key, count: results.length });
       return results;
     } catch (error) {
-      console.error('[DHT] Query failed:', key, error);
+      logger.error('Query failed', error as Error);
       return [];
     }
   }
@@ -262,7 +270,7 @@ export class RealDHTClient {
       await this.node.stop();
       this.node = null;
       this.dht = null;
-      console.log('[DHT] Closed');
+      logger.info('Closed');
     }
   }
 
