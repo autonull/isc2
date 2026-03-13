@@ -38,6 +38,13 @@ export class SemanticMapService {
   }
 
   /**
+   * Add point
+   */
+  addPoint(point: Point2D): void {
+    this.points.push(point);
+  }
+
+  /**
    * Compute clusters
    */
   computeClusters(k: number): Point2D[] {

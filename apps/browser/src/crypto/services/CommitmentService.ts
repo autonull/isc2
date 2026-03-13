@@ -16,12 +16,13 @@ export async function createEmbeddingCommitment(
 ): Promise<EmbeddingCommitment> {
   const salt = generateSalt();
   const embeddingBytes = embeddingToBytes(embedding);
-  const commitment = await hashCommitment(embeddingBytes, salt);
+  const commitmentBytes = await hashCommitment(embeddingBytes, salt);
+  const commitment = Buffer.from(commitmentBytes).toString('hex');
 
   const commitmentObj: EmbeddingCommitment = {
     id: `commit_${crypto.randomUUID()}`,
     commitment,
-    salt,
+    salt: Buffer.from(salt).toString('hex'),
     createdAt: Date.now(),
     metadata,
   };

@@ -39,8 +39,8 @@ vi.mock('../../src/delegation/fallback', () => ({
 
 // Mock navigator.mediaDevices
 const mockMediaStream = {
-  getTracks: vi.fn().mockReturnValue([]),
-  getAudioTracks: vi.fn().mockReturnValue([]),
+  getTracks: vi.fn().mockReturnValue([{ stop: vi.fn() }]),
+  getAudioTracks: vi.fn().mockReturnValue([{ enabled: true, stop: vi.fn() }]),
   getVideoTracks: vi.fn().mockReturnValue([]),
   addTrack: vi.fn(),
   removeTrack: vi.fn(),
@@ -114,6 +114,9 @@ describe('Audio Spaces', () => {
 
       const space = await createAudioSpace('test-channel');
       expect(space.isMuted).toBe(false);
+
+      // Inject mock local stream
+      space.setLocalStream(mockMediaStream as unknown as MediaStream);
 
       const muted = await toggleMute(space.spaceID);
       expect(muted).toBe(true);
