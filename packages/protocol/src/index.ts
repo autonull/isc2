@@ -1,6 +1,7 @@
 import { DHT_KEYS } from './keys.js';
 import { RateLimiter, RATE_LIMITS, globalRateLimiter } from './rateLimit.js';
 import { ChatHandler } from './handlers/chat.js';
+import { handleDelegationHealthStream, sendDelegationHealth, createDelegationHealth } from './handlers/delegationHealth.js';
 import {
   PROTOCOL_CHAT,
   PROTOCOL_DELEGATE,
@@ -25,6 +26,9 @@ export {
   RATE_LIMITS,
   globalRateLimiter,
   ChatHandler,
+  handleDelegationHealthStream,
+  sendDelegationHealth,
+  createDelegationHealth,
   PROTOCOL_CHAT,
   PROTOCOL_DELEGATE,
   PROTOCOL_ANNOUNCE,

@@ -77,3 +77,6 @@ export * from './social/index.js';
 
 // Channel management
 export * from './channels/index.js';
+
+// Peer-aware rate limiting (from isc1)
+export * from './peerRateLimiter.js';
