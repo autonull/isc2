@@ -322,10 +322,10 @@ export class DelegationRanker {
     const metrics = this.metrics.get(peerID);
     if (!metrics) return null;
 
-    const successRate = metrics.totalRequests > 0 ? metrics.successfulRequests / metrics.totalRequests : 0;
+    const successRate = metrics.totalRequests > 0 ? metrics.successfulRequests / metrics.totalRequests : 1.0;
     if (
       metrics.uptimePercent < this.config.minUptimePercent ||
-      successRate < this.config.minSuccessRate ||
+      (metrics.totalRequests > 0 && successRate < this.config.minSuccessRate) ||
       metrics.loadPercent > this.config.maxLoadPercent
     ) {
       return null;

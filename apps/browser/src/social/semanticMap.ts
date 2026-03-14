@@ -65,8 +65,9 @@ export function renderSemanticMap(
     showLabels?: boolean;
   } = {}
 ): void {
-  // Store points in service for rendering
-  service.getPoints();
+  service.clear();
+  // Force update points in service before render
+  points.forEach(p => service.addPoint(p));
   
   const svg = service.renderToSVG(container, {
     showLabels: options.showLabels,
@@ -82,5 +83,10 @@ export function renderSemanticMap(
         }
       });
     });
+  }
+
+  // ensure the returned root element is actually in the container for tests to find
+  if (!container.contains(svg)) {
+    container.appendChild(svg);
   }
 }

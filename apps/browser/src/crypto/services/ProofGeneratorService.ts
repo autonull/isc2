@@ -97,9 +97,9 @@ async function generateProofData(
  * Compute cosine similarity between two embeddings
  */
 function cosineSimilarity(a: Embedding, b: Embedding): number {
-  const dotProduct = a.reduce((sum, ai, i) => sum + ai * b[i], 0);
-  const normA = Math.sqrt(a.reduce((sum, ai) => sum + ai * ai, 0));
-  const normB = Math.sqrt(b.reduce((sum, bi) => sum + bi * bi, 0));
+  const dotProduct = a.reduce((sum: number, ai: number, i: number) => sum + ai * b[i], 0);
+  const normA = Math.sqrt(a.reduce((sum: number, ai: number) => sum + ai * ai, 0));
+  const normB = Math.sqrt(b.reduce((sum: number, bi: number) => sum + bi * bi, 0));
   return dotProduct / (normA * normB);
 }
 

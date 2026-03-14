@@ -88,6 +88,8 @@ describe('Reputation Decay', () => {
 
     it('should apply 50% decay after one half-life', () => {
       const halfLifeAgo = Date.now() - 30 * 24 * 60 * 60 * 1000;
+      // In DecayCalculator, the timestamp is considered the *interaction* time.
+      // So if age is 30 days and half-life is 30, decayFactor = 0.5. Base weight 10 => 5.
       const result = applyDecayToInteraction(halfLifeAgo, 10, 30);
 
       expect(result.decayedWeight).toBeCloseTo(5, 0);

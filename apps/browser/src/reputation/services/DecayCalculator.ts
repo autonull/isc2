@@ -30,7 +30,7 @@ export class DecayCalculator {
   ): { decayedWeight: number; ageInDays: number; decayFactor: number } {
     const now = Date.now();
     const ageInMs = now - timestamp;
-    const ageInDays = ageInMs / REPUTATION_CONSTANTS.DEFAULT_HALF_LIFE_MS * 24 * 60 * 60 * 1000 / (24 * 60 * 60 * 1000);
+    const ageInDays = ageInMs / (24 * 60 * 60 * 1000);
 
     const decayFactor = this.calculateDecayFactor(ageInDays, halfLifeDays);
     const decayedWeight = baseWeight * decayFactor;

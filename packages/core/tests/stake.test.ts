@@ -64,7 +64,7 @@ describe('Stake System', () => {
         await manager.lockStake('peer1', 50000, invoice.paymentHash);
 
         // Advance time past lock period
-        const bond = manager.getBond('peer1');
+        const bond = manager['stakeService'].getBond('peer1');
         if (bond) {
           bond.unlockableAt = Date.now() - 1000;
         }

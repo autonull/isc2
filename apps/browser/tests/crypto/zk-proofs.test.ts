@@ -68,7 +68,7 @@ describe('ZK Proximity Proofs - Commitments', () => {
       const commitment = await createEmbeddingCommitment(embedding);
 
       expect(commitment.commitment).toBeDefined();
-      expect(commitment.commitment.length).toBe(32); // SHA-256 output
+      expect(commitment.commitment.length).toBe(64); // SHA-256 hex output
     });
 
     it('should include salt', async () => {
@@ -76,7 +76,7 @@ describe('ZK Proximity Proofs - Commitments', () => {
       const commitment = await createEmbeddingCommitment(embedding);
 
       expect(commitment.salt).toBeDefined();
-      expect(commitment.salt.length).toBe(32);
+      expect(commitment.salt.length).toBe(64); // hex output
     });
 
     it('should include creation timestamp', async () => {
