@@ -5,9 +5,10 @@
  */
 
 import { h } from 'preact';
-import { useState } from 'preact/hooks';
+import { useState, useEffect } from 'preact/hooks';
 import { useNavigation } from '@isc/navigation';
 import { useChannelService } from '../di/container.jsx';
+import { useDependencies } from '../di/container.jsx';
 import { validateChannelInput } from '../services/channelService.js';
 
 const styles = {
@@ -33,19 +34,37 @@ const styles = {
 export function ComposeScreen() {
   const { navigate } = useNavigation();
   const channelService = useChannelService();
-  
+  const { networkService } = useDependencies();
+
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [spread, setSpread] = useState(50);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [networkStatus, setNetworkStatus] = useState<string>('disconnected');
+
+  // Subscribe to network status
+  useEffect(() => {
+    if (!networkService) return;
+
+    const updateStatus = () => {
+      setNetworkStatus(networkService.getStatus());
+    };
+
+    updateStatus();
+    networkService.on({ onStatusChange: updateStatus });
+
+    return () => {
+      // Cleanup if needed
+    };
+  }, [networkService]);
 
   const canSubmit = name.trim().length >= 3 && description.trim().length >= 10 && !submitting;
 
   const handleSave = async () => {
     setError('');
-    
+
     if (!canSubmit) {
       if (name.trim().length < 3) {
         setError('Channel name must be at least 3 characters');
@@ -71,15 +90,23 @@ export function ComposeScreen() {
     setSubmitting(true);
 
     try {
-      // Create the channel
-      const channel = await channelService?.createChannel({
-        name: name.trim(),
-        description: description.trim(),
-        spread,
-        relations: [],
-      });
+      // Create channel using both services for redundancy
+      // First try network service (with embeddings)
+      if (networkService && networkService.getStatus() === 'connected') {
+        const channel = await networkService.createChannel(name.trim(), description.trim());
+        console.log('[ComposeScreen] Channel created via network service:', channel);
+      } 
+      // Fallback to channel service
+      else if (channelService) {
+        const channel = await channelService.createChannel({
+          name: name.trim(),
+          description: description.trim(),
+          spread,
+          relations: [],
+        });
+        console.log('[ComposeScreen] Channel created via channel service:', channel);
+      }
 
-      console.log('[ComposeScreen] Channel created:', channel);
       setSuccess(true);
 
       // Navigate to now screen after short delay
@@ -136,6 +163,13 @@ export function ComposeScreen() {
       </div>
 
       <div style={styles.content}>
+        {/* Network status indicator */}
+        <div style={{ ...styles.card, background: networkStatus === 'connected' ? '#edf9ef' : '#fef3f2', marginBottom: '16px' }}>
+          <div style={{ fontSize: '14px', color: networkStatus === 'connected' ? '#17bf63' : '#d93025' }}>
+            {networkStatus === 'connected' ? '✅ Network connected' : `⏳ Network: ${networkStatus}`}
+          </div>
+        </div>
+
         {success && (
           <div style={styles.success} data-testid="channel-created">
             ✅ Channel created successfully! Redirecting...

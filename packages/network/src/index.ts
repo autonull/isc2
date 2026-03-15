@@ -36,5 +36,27 @@ export {
   type PeerStats,
 } from './peer.js';
 
+// Storage
+export {
+  createStorage,
+  BrowserStorage,
+  LocalStorage,
+  MemoryStorage,
+  type Storage,
+} from './storage.js';
+
+// Browser Network Service
+export {
+  BrowserNetworkService,
+  createBrowserNetworkService,
+  getBrowserNetworkService,
+  type NetworkServiceConfig,
+  type NetworkEvents as BrowserNetworkEvents,
+  type NetworkStatus,
+  type ChannelData,
+  type PostData,
+  type Identity,
+} from './browser.js';
+
 // Default config
 export { DEFAULT_CONFIG } from './types.js';

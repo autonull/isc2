@@ -12,6 +12,7 @@ import type { Navigator } from '@isc/navigation';
 import type { ChannelService } from '../services/channelService.js';
 import type { PostService } from '../services/postService.js';
 import type { FeedService } from '../services/feedService.js';
+import type { WebUINetworkService } from '../services/networkService.js';
 
 // Service interfaces for DI
 export interface IdentityService {
@@ -58,6 +59,7 @@ export interface AppDependencies {
   channelService: ChannelService | null;
   postService: PostService | null;
   feedService: FeedService | null;
+  networkService: WebUINetworkService | null;
   navigator: Navigator | null;
   identity: IdentityService | null;
   settings: SettingsService | null;
@@ -75,6 +77,7 @@ export const nullDependencies: AppDependencies = {
   channelService: null,
   postService: null,
   feedService: null,
+  networkService: null,
   navigator: null,
   identity: null,
   settings: null,
@@ -309,11 +312,27 @@ export function createMockDependencies(overrides?: Partial<AppDependencies>): Ap
     async getPeerProfile() { return null; },
   };
 
+  const mockNetworkService = {
+    async initialize() {},
+    getStatus() { return 'disconnected'; },
+    getIdentity() { return null; },
+    async updateIdentity() {},
+    async createChannel() { return { id: 'mock-channel', name: 'Mock', description: '', createdAt: Date.now(), members: [] }; },
+    getChannels() { return []; },
+    async createPost() { return { id: 'mock-post', channelId: '', channelName: '', content: '', author: '', authorId: '', createdAt: Date.now() }; },
+    getPosts() { return []; },
+    getMatches() { return []; },
+    async discoverPeers() { return []; },
+    on() {},
+    destroy() {},
+  };
+
   return {
     channelManager: mockChannelManager as unknown as ChannelManager,
     channelService: mockChannelService as unknown as ChannelService,
     postService: mockPostService as unknown as PostService,
     feedService: mockFeedService as unknown as FeedService,
+    networkService: mockNetworkService as unknown as WebUINetworkService,
     navigator: mockNavigator as unknown as Navigator,
     identity: mockIdentity,
     settings: mockSettings,

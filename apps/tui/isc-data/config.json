@@ -1,0 +1,12 @@
+{
+  "identity": {
+    "name": "Anonymous",
+    "bio": "ISC User"
+  },
+  "settings": {
+    "theme": "dark",
+    "notifications": true,
+    "autoDiscover": true,
+    "discoverInterval": 30
+  }
+}

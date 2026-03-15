@@ -9,6 +9,7 @@
   },
   "scripts": {
     "dev": "tsx src/index.ts",
+    "test": "tsx test.js",
     "build": "tsc",
     "start": "node dist/index.js",
     "typecheck": "tsc --noEmit"

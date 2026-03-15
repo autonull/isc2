@@ -1,24 +1,74 @@
 #!/usr/bin/env node
 
 /**
- * ISC Terminal UI - IRC-style terminal interface
+ * ISC Terminal UI v2 - IRC-style interface with Network Integration
  * 
- * Like irssi/weechat but for ISC
+ * Uses @isc/network for real peer discovery and semantic matching.
+ * Like irssi/weechat but for ISC.
  */
 
 import blessed from 'blessed';
-import { join } from 'path';
-import { existsSync, readFileSync, writeFileSync } from 'fs';
+import { join, dirname } from 'path';
+import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
+import { fileURLToPath } from 'url';
+import {
+  createEmbeddingService,
+  createDHT,
+  VirtualPeer,
+  type PeerMatch,
+} from '@isc/network';
 
-// Data directories
+const __dirname = dirname(fileURLToPath(import.meta.url));
 const DATA_DIR = join(process.cwd(), 'isc-data');
+const CONFIG_FILE = join(DATA_DIR, 'config.json');
 const CHANNELS_FILE = join(DATA_DIR, 'channels.json');
 const POSTS_FILE = join(DATA_DIR, 'posts.json');
+const MATCHES_FILE = join(DATA_DIR, 'matches.json');
 
 // Ensure data directory exists
 if (!existsSync(DATA_DIR)) {
-  console.log('ISC not initialized. Run: pnpm --filter @isc/apps/cli dev -- init');
-  process.exit(1);
+  mkdirSync(DATA_DIR, { recursive: true });
+}
+
+// Configuration
+interface Config {
+  identity: {
+    name: string;
+    bio: string;
+  };
+  settings: {
+    theme: 'dark' | 'light';
+    notifications: boolean;
+    autoDiscover: boolean;
+    discoverInterval: number;
+  };
+}
+
+function loadConfig(): Config {
+  const defaults: Config = {
+    identity: { name: 'Anonymous', bio: 'ISC User' },
+    settings: {
+      theme: 'dark',
+      notifications: true,
+      autoDiscover: true,
+      discoverInterval: 30,
+    },
+  };
+
+  if (!existsSync(CONFIG_FILE)) {
+    saveConfig(defaults);
+    return defaults;
+  }
+
+  try {
+    return JSON.parse(readFileSync(CONFIG_FILE, 'utf-8'));
+  } catch {
+    return defaults;
+  }
+}
+
+function saveConfig(config: Config): void {
+  writeFileSync(CONFIG_FILE, JSON.stringify(config, null, 2));
 }
 
 // Load channels
@@ -31,24 +81,22 @@ function loadChannels() {
   }
 }
 
-// Save channels
-function saveChannels(channels) {
+function saveChannels(channels: any[]) {
   writeFileSync(CHANNELS_FILE, JSON.stringify(channels, null, 2));
 }
 
 // Load posts
-function loadPosts(channelId) {
+function loadPosts(channelId?: string) {
   if (!existsSync(POSTS_FILE)) return [];
   try {
     const all = JSON.parse(readFileSync(POSTS_FILE, 'utf-8'));
-    return channelId ? all.filter(p => p.channelId === channelId) : all;
+    return channelId ? all.filter((p: any) => p.channelId === channelId) : all;
   } catch {
     return [];
   }
 }
 
-// Save post
-function savePost(post) {
+function savePost(post: any) {
   let posts = [];
   if (existsSync(POSTS_FILE)) {
     try {
@@ -59,10 +107,31 @@ function savePost(post) {
   writeFileSync(POSTS_FILE, JSON.stringify(posts, null, 2));
 }
 
+// Load matches
+function loadMatches(): PeerMatch[] {
+  if (!existsSync(MATCHES_FILE)) return [];
+  try {
+    return JSON.parse(readFileSync(MATCHES_FILE, 'utf-8'));
+  } catch {
+    return [];
+  }
+}
+
+function saveMatches(matches: PeerMatch[]) {
+  writeFileSync(MATCHES_FILE, JSON.stringify(matches, null, 2));
+}
+
+// Network state
+const config = loadConfig();
+const embeddingService = createEmbeddingService();
+const dht = createDHT();
+let localPeer: VirtualPeer | null = null;
+let discoveryInterval: NodeJS.Timeout | null = null;
+
 // Create screens
 const screen = blessed.screen({
   smartCSR: true,
-  title: 'ISC - Internet Semantic Chat',
+  title: `ISC - ${config.identity.name}`,
   fullUnicode: true,
 });
 
@@ -79,9 +148,7 @@ const layout = blessed.layout({
 const channelList = blessed.list({
   label: ' Channels ',
   tags: true,
-  border: {
-    type: 'line',
-  },
+  border: { type: 'line' },
   style: {
     border: { fg: 'blue' },
     label: { fg: 'blue', bold: true },
@@ -93,25 +160,40 @@ const channelList = blessed.list({
   mouse: true,
   left: 0,
   top: 0,
-  width: '30%',
-  height: '100%',
+  width: '25%',
+  height: '70%',
   parent: layout,
+});
+
+// Matches panel (below channels)
+const matchesBox = blessed.box({
+  label: ' Matches ',
+  tags: true,
+  border: { type: 'line' },
+  style: {
+    border: { fg: 'green' },
+    label: { fg: 'green', bold: true },
+  },
+  left: 0,
+  top: '70%',
+  width: '25%',
+  height: '30%',
+  parent: layout,
+  scrollable: true,
 });
 
 // Posts view (main area)
 const postsBox = blessed.box({
   label: ' Posts ',
   tags: true,
-  border: {
-    type: 'line',
-  },
+  border: { type: 'line' },
   style: {
     border: { fg: 'blue' },
     label: { fg: 'blue', bold: true },
   },
-  left: '30%',
+  left: '25%',
   top: 0,
-  width: '70%',
+  width: '75%',
   height: '80%',
   parent: layout,
   scrollable: true,
@@ -125,17 +207,15 @@ const postsBox = blessed.box({
 const inputBox = blessed.textbox({
   label: ' Message ',
   tags: true,
-  border: {
-    type: 'line',
-  },
+  border: { type: 'line' },
   style: {
     border: { fg: 'green' },
     label: { fg: 'green', bold: true },
     focused: { border: { fg: 'green' } },
   },
-  left: '30%',
+  left: '25%',
   top: '80%',
-  width: '70%',
+  width: '75%',
   height: '20%',
   parent: layout,
   keys: true,
@@ -144,42 +224,68 @@ const inputBox = blessed.textbox({
 
 // Status bar
 const statusBar = blessed.box({
-  content: '{bold}ISC{/bold} | {cyan}Channels: {count}{/cyan} | {yellow}↑↓{/yellow} Navigate | {green}Enter{/green} Select | {red}q{/red} Quit | {cyan}n{/cyan} New Channel | {cyan}p{/cyan} New Post',
+  content: '',
   tags: true,
   bottom: 0,
   left: 0,
   width: '100%',
   height: 1,
-  style: {
-    bg: 'blue',
-    fg: 'white',
-  },
+  style: { bg: 'blue', fg: 'white' },
   parent: screen,
 });
 
 // State
 let channels = loadChannels();
-let selectedChannel = null;
+let selectedChannel: any = null;
 let selectedChannelIndex = 0;
+let matches: PeerMatch[] = loadMatches();
+let networkStatus = 'connecting';
+
+// Update status bar
+function updateStatusBar() {
+  const matchCount = matches.length;
+  const channelCount = channels.length;
+  statusBar.setContent(
+    `{bold}ISC{/bold} | ` +
+    `{cyan}${config.identity.name}{/cyan} | ` +
+    `Status: {${networkStatus === 'connected' ? 'green' : 'yellow'}}${networkStatus}{/${networkStatus === 'connected' ? 'green' : 'yellow'}} | ` +
+    `Channels: ${channelCount} | ` +
+    `Matches: ${matchCount} | ` +
+    `{yellow}↑↓{/yellow} Nav | {green}Enter{/green} Select | {red}q{/red} Quit | ` +
+    `{cyan}n{/cyan} Channel | {cyan}p{/cyan} Post | {cyan}d{/cyan} Discover | {cyan}?{/cyan} Help`
+  );
+  screen.render();
+}
 
 // Update channel list
 function updateChannelList() {
   channels = loadChannels();
-  const items = channels.map((c, i) => {
+  const items = channels.map((c: any, i: number) => {
     const isSelected = i === selectedChannelIndex;
     const prefix = isSelected ? '{bold}{green}▶{/green}{/bold} ' : '  ';
     return `${prefix}#${c.name}`;
   });
-  
+
   if (channels.length === 0) {
     items.push('{yellow}No channels - press n to create{/yellow}');
   }
-  
+
   channelList.setItems(items);
   channelList.select(selectedChannelIndex);
-  
-  // Update status bar
-  statusBar.setContent(`{bold}ISC{/bold} | {cyan}Channels: ${channels.length}{/cyan} | {yellow}↑↓{/yellow} Navigate | {green}Enter{/green} Select | {red}q{/red} Quit | {cyan}n{/cyan} New Channel | {cyan}p{/cyan} New Post`);
+  screen.render();
+}
+
+// Update matches display
+function updateMatchesDisplay() {
+  if (matches.length === 0) {
+    matchesBox.setContent('{dim}No matches yet\nPress d to discover{/dim}');
+  } else {
+    const content = matches.slice(0, 10).map((m: PeerMatch) => {
+      const similarity = (m.similarity * 100).toFixed(0);
+      return `{green}✓ ${m.peer.name} ({similarity}%){/green}\n{dim}${m.peer.description.slice(0, 30)}...{/dim}`;
+    }).join('\n\n');
+    matchesBox.setContent(content);
+  }
   screen.render();
 }
 
@@ -192,7 +298,7 @@ function updatePostsView() {
     if (posts.length === 0) {
       postsBox.setContent(`{yellow}No posts in #${selectedChannel.name} - press p to post{/yellow}`);
     } else {
-      const content = posts.map(p => {
+      const content = posts.map((p: any) => {
         const time = formatTime(p.createdAt);
         const author = p.author || '@anon';
         return `{cyan}[${time}]{/cyan} {bold}${author}{/bold}: ${p.content}`;
@@ -205,7 +311,7 @@ function updatePostsView() {
 }
 
 // Format timestamp
-function formatTime(timestamp) {
+function formatTime(timestamp: number): string {
   const diff = Date.now() - timestamp;
   const mins = Math.floor(diff / 60000);
   if (mins < 1) return 'now';
@@ -213,6 +319,93 @@ function formatTime(timestamp) {
   const hours = Math.floor(mins / 60);
   if (hours < 24) return `${hours}h`;
   return new Date(timestamp).toLocaleDateString();
+}
+
+// Initialize network
+async function initializeNetwork() {
+  try {
+    networkStatus = 'loading';
+    updateStatusBar();
+
+    console.log('[TUI] Loading embedding model...');
+    await embeddingService.load();
+    console.log('[TUI] Model loaded');
+
+    // Create local peer
+    localPeer = await VirtualPeer.create(
+      `tui-${Date.now()}`,
+      config.identity.bio,
+      embeddingService
+    );
+
+    // Announce to DHT
+    await localPeer.announce(dht);
+    console.log('[TUI] Announced to DHT');
+
+    networkStatus = 'connected';
+    updateStatusBar();
+
+    // Start auto-discovery
+    if (config.settings.autoDiscover) {
+      startAutoDiscovery();
+    }
+  } catch (err) {
+    console.error('[TUI] Network initialization failed:', err);
+    networkStatus = 'error';
+    updateStatusBar();
+  }
+}
+
+// Discover peers
+async function discoverPeers() {
+  if (!localPeer) {
+    addLogEntry('{red}Network not initialized{/red}');
+    return;
+  }
+
+  addLogEntry('{cyan}Discovering peers...{/cyan}');
+  const newMatches = await localPeer.discover(dht, 0.4);
+
+  // Filter out self and duplicates
+  const uniqueMatches = newMatches.filter(
+    m => m.peer.id !== localPeer!.id &&
+    !matches.some(existing => existing.peer.id === m.peer.id)
+  );
+
+  if (uniqueMatches.length > 0) {
+    matches = [...uniqueMatches, ...matches].slice(0, 50);
+    saveMatches(matches);
+    updateMatchesDisplay();
+    addLogEntry(`{green}Found ${uniqueMatches.length} new match(es)!{/green}`);
+
+    if (config.settings.notifications) {
+      addLogEntry(`{bold}New matches: ${uniqueMatches.map(m => m.peer.name).join(', ')}{/bold}`);
+    }
+  } else {
+    addLogEntry('{dim}No new matches found{/dim}');
+  }
+}
+
+// Start auto-discovery
+function startAutoDiscovery() {
+  if (discoveryInterval) clearInterval(discoveryInterval);
+
+  const intervalSeconds = config.settings.discoverInterval;
+  addLogEntry(`{dim}Auto-discovery every ${intervalSeconds}s{/dim}`);
+
+  discoveryInterval = setInterval(() => {
+    discoverPeers();
+  }, intervalSeconds * 1000);
+}
+
+// Add log entry (for debug/status)
+function addLogEntry(message: string) {
+  const current = matchesBox.getContent();
+  const lines = current.split('\n');
+  lines.unshift(message);
+  while (lines.length > 20) lines.pop();
+  matchesBox.setContent(lines.join('\n'));
+  screen.render();
 }
 
 // Create channel dialog
@@ -226,18 +419,18 @@ function createChannelDialog() {
     style: { border: { fg: 'blue' } },
     parent: screen,
   });
-  
+
   nameBox.focus();
   screen.render();
-  
-  nameBox.on('submit', (name) => {
+
+  nameBox.on('submit', (name: string) => {
     nameBox.destroy();
-    
+
     if (!name.trim()) {
       screen.render();
       return;
     }
-    
+
     const descBox = blessed.textbox({
       top: '50%',
       left: '30%',
@@ -247,27 +440,28 @@ function createChannelDialog() {
       style: { border: { fg: 'blue' } },
       parent: screen,
     });
-    
+
     descBox.focus();
     screen.render();
-    
-    descBox.on('submit', (desc) => {
+
+    descBox.on('submit', async (desc: string) => {
       descBox.destroy();
-      
+
       const newChannel = {
         id: `channel_${Date.now()}`,
         name: name.trim(),
         description: desc.trim() || 'No description',
         createdAt: Date.now(),
-        members: [],
+        members: [localPeer?.id || 'unknown'],
       };
-      
+
       channels.push(newChannel);
       saveChannels(channels);
       selectedChannelIndex = channels.length - 1;
       selectedChannel = newChannel;
       updateChannelList();
       updatePostsView();
+      addLogEntry(`{green}Created channel #${name.trim()}{/green}`);
     });
   });
 }
@@ -275,40 +469,97 @@ function createChannelDialog() {
 // Post dialog
 function createPostDialog() {
   if (!selectedChannel) {
+    addLogEntry('{yellow}Select a channel first{/yellow}');
     return;
   }
-  
+
   inputBox.focus();
   screen.render();
 }
 
 // Submit post
-function submitPost(content) {
+async function submitPost(content: string) {
   if (!selectedChannel || !content.trim()) {
     inputBox.clear();
     screen.render();
     return;
   }
-  
+
   const post = {
     id: `post_${Date.now()}`,
     channelId: selectedChannel.id,
     channelName: selectedChannel.name,
     content: content.trim(),
-    author: '@you',
+    author: config.identity.name,
     createdAt: Date.now(),
   };
-  
+
   savePost(post);
   inputBox.clear();
   inputBox.blur();
   updatePostsView();
   channelList.focus();
   screen.render();
+  addLogEntry(`{green}Posted to #${selectedChannel.name}{/green}`);
+}
+
+// Show help
+function showHelp() {
+  const helpText = [
+    '{bold}═══════════════════════════════════════════════════════════{/bold}',
+    '{bold}                    ISC TUI Help{/bold}',
+    '{bold}═══════════════════════════════════════════════════════════{/bold}',
+    '',
+    '{bold}Navigation:{/bold}',
+    '  ↑/k  Move up',
+    '  ↓/j  Move down',
+    '  Enter  Select channel',
+    '',
+    '{bold}Actions:{/bold}',
+    '  n  New channel',
+    '  p  New post (select channel first)',
+    '  d  Discover peers',
+    '  /  Search (coming soon)',
+    '',
+    '{bold}System:{/bold}',
+    '  ?  This help',
+    '  q  Quit',
+    '',
+    '{bold}Status:{/bold}',
+    `  Network: ${networkStatus}`,
+    `  Identity: ${config.identity.name}`,
+    `  Channels: ${channels.length}`,
+    `  Matches: ${matches.length}`,
+    '',
+    '{bold}═══════════════════════════════════════════════════════════{/bold}',
+    '  Press any key to close',
+  ].join('\n');
+
+  const helpBox = blessed.box({
+    top: 'center',
+    left: 'center',
+    width: '60%',
+    height: '70%',
+    content: helpText,
+    tags: true,
+    border: { type: 'line' },
+    style: {
+      border: { fg: 'cyan' },
+      label: { fg: 'cyan', bold: true },
+    },
+    parent: screen,
+  });
+
+  screen.render();
+
+  helpBox.once('key', () => {
+    helpBox.destroy();
+    screen.render();
+  });
 }
 
 // Key bindings
-channelList.on('select', (item, index) => {
+channelList.on('select', (item: any, index: number) => {
   if (index < channels.length) {
     selectedChannelIndex = index;
     selectedChannel = channels[index];
@@ -330,9 +581,15 @@ screen.key(['n', 'N'], () => {
 });
 
 screen.key(['p', 'P'], () => {
-  if (selectedChannel) {
-    createPostDialog();
-  }
+  createPostDialog();
+});
+
+screen.key(['d', 'D'], () => {
+  discoverPeers();
+});
+
+screen.key(['?', '/'], () => {
+  showHelp();
 });
 
 inputBox.key(['enter'], () => {
@@ -347,6 +604,7 @@ inputBox.key(['escape'], () => {
 });
 
 screen.key(['q', 'C-c'], () => {
+  if (discoveryInterval) clearInterval(discoveryInterval);
   process.exit(0);
 });
 
@@ -366,12 +624,33 @@ screen.key(['down', 'j'], () => {
 });
 
 // Initialize
-updateChannelList();
-updatePostsView();
-channelList.focus();
-screen.render();
+async function main() {
+  console.clear();
+  console.log('═══════════════════════════════════════════════════════════');
+  console.log('           ISC Terminal UI v2');
+  console.log('═══════════════════════════════════════════════════════════\n');
 
-// Handle resize
-screen.on('resize', () => {
+  console.log('Identity:', config.identity.name);
+  console.log('Bio:', config.identity.bio);
+  console.log('');
+
+  updateChannelList();
+  updateMatchesDisplay();
+  updatePostsView();
+  updateStatusBar();
+  channelList.focus();
   screen.render();
-});
+
+  // Initialize network in background
+  console.log('Initializing network...');
+  await initializeNetwork();
+
+  console.log('TUI ready. Press ? for help.\n');
+
+  // Handle resize
+  screen.on('resize', () => {
+    screen.render();
+  });
+}
+
+main().catch(console.error);

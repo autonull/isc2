@@ -6,6 +6,7 @@ import { getChannelManager } from './channels/manager.lazy.js';
 import { createChannelService } from './services/channelService.js';
 import { createPostService } from './services/postService.js';
 import { createFeedService } from './services/feedService.js';
+import { getWebUINetworkService } from './services/networkService.js';
 import { exposeDebugAPI, createDebugOverlay } from './dev/debugTools.js';
 import './styles/main.css';
 
@@ -26,6 +27,13 @@ async function init() {
     setNavigator(navigator);
     console.log('[ISC] Navigator initialized');
 
+    // Initialize network service (lazy, non-blocking)
+    const networkService = getWebUINetworkService();
+    networkService.initialize().catch(err => {
+      console.error('[ISC] Network init failed:', err);
+    });
+    console.log('[ISC] Network service starting...');
+
     // Initialize channel manager (lazy load)
     const channelManager = await getChannelManager();
     console.log('[ISC] Channel manager initialized');
@@ -41,6 +49,7 @@ async function init() {
       channelService,
       postService,
       feedService,
+      networkService,
       navigator,
       identity: null, // TODO: Implement
       settings: null, // TODO: Implement
@@ -63,7 +72,7 @@ async function init() {
       </DependencyProvider>,
       container
     );
-    
+
     console.log('[ISC] Render complete');
     console.log('[ISC] App ready - type ISC_DEBUG.help() for debug commands');
   } catch (err) {
