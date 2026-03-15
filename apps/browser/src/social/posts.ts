@@ -1,4 +1,5 @@
-import { sign, encode, verify, decode, Config, Validators } from '@isc/core';
+import { sign, encode, verify, decode, Config, Validators, cosineSimilarity } from '@isc/core';
+import { getEmbeddingService, type EmbeddingService } from '@isc/network';
 import type { SignedPost } from './types.js';
 import { getPeerID, getKeypair, getPeerPublicKey, announcePublicKey } from '../identity/index.js';
 import { DelegationClient } from '../delegation/fallback.js';
@@ -8,6 +9,16 @@ import { loggers } from '../utils/logger.js';
 
 const logger = loggers.social;
 const POSTS_STORE = 'posts';
+
+// Singleton embedding service for semantic feed
+let embeddingService: EmbeddingService | null = null;
+
+function getEmbedding(): EmbeddingService {
+  if (!embeddingService) {
+    embeddingService = getEmbeddingService();
+  }
+  return embeddingService;
+}
 
 export async function createPost(
   content: string,
@@ -99,13 +110,14 @@ export async function getSemanticFeed(
   limit: number = 20
 ): Promise<Array<SignedPost & { similarity: number }>> {
   const posts = await discoverPosts(channelID, limit * 2);
-  
+
   // Calculate similarity for each post
-  const postsWithSimilarity = posts.map(post => {
-    // Simple content-based similarity (in production, would use post embeddings)
-    const similarity = calculateContentSimilarity(post.content, queryEmbedding);
-    return { ...post, similarity };
-  });
+  const postsWithSimilarity = await Promise.all(
+    posts.map(async post => {
+      const similarity = await calculateContentSimilarity(post.content, queryEmbedding);
+      return { ...post, similarity };
+    })
+  );
 
   // Rank by similarity and return top N
   return postsWithSimilarity
@@ -138,12 +150,29 @@ export async function getTrendingPosts(
 
 /**
  * Simple content similarity calculation
- * In production, would use actual post embeddings
+ * Uses real transformer embeddings with cosine similarity
  */
-function calculateContentSimilarity(content: string, _queryEmbedding: number[]): number {
-  // Placeholder - in production would compute cosine similarity
-  // with actual post embeddings
-  return Math.random(); // TODO: Implement real similarity
+async function calculateContentSimilarity(content: string, queryEmbedding: number[]): Promise<number> {
+  try {
+    const embedding = await getEmbedding().compute(content);
+    return cosineSimilarity(embedding, queryEmbedding);
+  } catch (err) {
+    logger.warn('Similarity calculation failed, using fallback', err as Error);
+    // Fallback: word-based similarity
+    return fallbackSimilarity(content, queryEmbedding);
+  }
+}
+
+/**
+ * Fallback similarity using simple word matching
+ * Used when embedding service is unavailable
+ */
+function fallbackSimilarity(content: string, _queryEmbedding: number[]): number {
+  // Simple keyword-based relevance score
+  const keywords = ['ai', 'distributed', 'consensus', 'p2p', 'social', 'chat', 'privacy', 'security'];
+  const words = content.toLowerCase().match(/\w+/g) || [];
+  const matches = words.filter(w => keywords.includes(w)).length;
+  return Math.min(matches / 3, 1); // Normalize to 0-1 range
 }
 
 export async function deletePost(id: string): Promise<void> {
