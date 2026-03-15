@@ -9,6 +9,8 @@ import { webSockets } from '@libp2p/websockets';
 import { noise } from '@chainsafe/libp2p-noise';
 import { yamux } from '@chainsafe/libp2p-yamux';
 import { kadDHT, KadDHT } from '@libp2p/kad-dht';
+import { identify } from '@libp2p/identify';
+import { ping } from '@libp2p/ping';
 import { bootstrap } from '@libp2p/bootstrap';
 import type { Libp2p } from 'libp2p';
 import { checkQueryRate, checkAnnounceRate } from '../rateLimit.js';
@@ -84,11 +86,12 @@ export class RealDHTClient {
         connectionEncrypters: [noise()],
         streamMuxers: [yamux()],
         peerDiscovery: [
-          bootstrap({
-            list: this.config.bootstrapPeers!,
-          }),
+          // temporarily disable bootstrap to avoid peerId error which crashes Vite
+          // bootstrap({ list: this.config.bootstrapPeers! }),
         ],
         services: {
+          identify: identify(),
+          ping: ping(),
           dht: kadDHT({
             kBucketSize: 20,
           }),

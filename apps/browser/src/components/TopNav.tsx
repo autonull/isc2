@@ -25,6 +25,7 @@ export function TopNav({ activeTab, onTabClick, badges = {} }: TopNavProps) {
           {TABS.map((tab) => (
             <button
               key={tab.id}
+              data-tab={tab.id}
               class={`top-nav-tab ${tab.special ? 'compose' : ''} ${activeTab === tab.id ? 'active' : ''}`}
               onClick={() => onTabClick(tab.id as Route)}
               aria-current={activeTab === tab.id ? 'page' : undefined}

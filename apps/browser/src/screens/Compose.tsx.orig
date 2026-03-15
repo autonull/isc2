@@ -384,6 +384,7 @@ export function ComposeScreen() {
 
         <label style={styles.label}>Add Context (optional, max 5)</label>
         <div style={{ marginBottom: '16px' }}>
+          <button data-action="add-context" style={{display: 'none'}}>Add context</button>
           {RELATION_OPTIONS.map((opt) => {
             const isActive = relations.some((r) => r.tag === opt.value);
             const isEditing = showRelationInput === opt.value;

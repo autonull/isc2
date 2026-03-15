@@ -131,11 +131,14 @@ export class ChannelManager {
     if (this.activeChannels.size >= MAX_ACTIVE_CHANNELS) {
       throw new Error(`Maximum ${MAX_ACTIVE_CHANNELS} active channels allowed`);
     }
-    if (!this.dhtClient) throw new Error('DHT client not configured');
 
-    await this.dhtClient.announceChannel(channel, distributions);
     this.activeChannels.add(id);
     await this.store.save({ ...channel, active: true, updatedAt: Date.now() });
+    if (this.dhtClient) {
+      await this.dhtClient.announceChannel(channel, distributions);
+    } else {
+      console.warn('Channel activated locally, but DHT client not configured for announcement');
+    }
   }
 
   async deactivateChannel(id: string): Promise<void> {
@@ -223,15 +226,19 @@ export class ChannelManager {
     if (this.activeChannels.size >= MAX_ACTIVE_CHANNELS) {
       throw new Error(`Maximum ${MAX_ACTIVE_CHANNELS} active channels allowed`);
     }
-    if (!this.dhtClient) throw new Error('DHT client not configured');
 
     // Compute distributions using real embeddings
     const distributions = await this.computeChannelDistributions(channel);
 
-    // Announce to DHT
-    await this.dhtClient.announceChannel(channel, distributions);
     this.activeChannels.add(id);
     await this.store.save({ ...channel, active: true, updatedAt: Date.now() });
+
+    // Announce to DHT
+    if (this.dhtClient) {
+      await this.dhtClient.announceChannel(channel, distributions);
+    } else {
+      console.warn('Channel activated locally, but DHT client not configured for announcement');
+    }
   }
 }
 

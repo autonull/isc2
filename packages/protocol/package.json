@@ -22,7 +22,8 @@
   },
   "dependencies": {
     "@isc/core": "workspace:*",
-    "it-pipe": "^3.0.0"
+    "it-pipe": "^3.0.0",
+    "uint8arrays": "^5.0.0"
   },
   "peerDependencies": {
     "libp2p": "^1.0"
