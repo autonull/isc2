@@ -8,7 +8,8 @@ interface IRCSidebarProps {
   badges?: Record<string, number>;
   channels: Channel[];
   activeChannelId?: string;
-  onChannelSelect: (id: string) => void;
+  onChannelSelect?: (id: string) => void;
+  connectionStatus?: 'online' | 'offline' | 'slow';
 }
 
 const TABS: Array<{ id: Route; label: string; icon: string; special?: boolean }> = [
@@ -26,12 +27,16 @@ export function IRCSidebar({
   badges = {},
   channels,
   activeChannelId,
-  onChannelSelect
+  onChannelSelect,
+  connectionStatus = 'online'
 }: IRCSidebarProps) {
   return (
     <aside class="irc-sidebar" data-testid="sidebar" data-component="irc-sidebar">
       <div class="irc-brand" data-testid="sidebar-brand" data-component="irc-brand">
         ISC
+        <span class={`connection-indicator status-${connectionStatus}`} data-testid="connection-status" title={`Connection: ${connectionStatus}`}>
+          ●
+        </span>
       </div>
 
       <ul class="irc-nav-list" data-testid="sidebar-nav-list" data-component="irc-nav-list">
@@ -63,7 +68,7 @@ export function IRCSidebar({
             data-testid={`sidebar-channel-${channel.id}`}
             data-channel-id={channel.id}
             data-active={channel.id === activeChannelId}
-            onClick={() => onChannelSelect(channel.id)}
+            onClick={() => onChannelSelect?.(channel.id)}
           >
             <span class="irc-channel-name" data-testid={`sidebar-channel-${channel.id}-name`}># {channel.name}</span>
           </li>

@@ -1,88 +1,141 @@
+/**
+ * Compose Post Component
+ * 
+ * Allows users to create new posts in a channel.
+ */
+
 import { h } from 'preact';
 import { useState } from 'preact/hooks';
-import { createPost } from '../social/index.js';
-import type { Channel } from '@isc/core';
+import { usePostService } from '../di/container.jsx';
 
 interface ComposePostProps {
-  channel?: Channel | null;
-  onPost?: (postId: string) => void;
-  onCancel?: () => void;
+  channelId?: string;
+  onSuccess?: () => void;
 }
+
+const styles = {
+  container: { background: 'white', borderRadius: '12px', padding: '16px', marginBottom: '16px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' } as const,
+  textarea: { 
+    width: '100%', 
+    minHeight: '80px', 
+    padding: '12px', 
+    border: '1px solid #e1e8ed', 
+    borderRadius: '8px', 
+    fontSize: '15px', 
+    fontFamily: 'inherit',
+    resize: 'vertical' as const,
+    marginBottom: '12px',
+  } as const,
+  footer: { display: 'flex', justifyContent: 'space-between', alignItems: 'center' } as const,
+  charCount: { fontSize: '12px', color: '#657786' } as const,
+  submitButton: { 
+    padding: '8px 20px', 
+    background: '#1da1f2', 
+    color: 'white', 
+    border: 'none', 
+    borderRadius: '20px', 
+    fontSize: '14px', 
+    fontWeight: 'bold' as const, 
+    cursor: 'pointer',
+  } as const,
+  submitButtonDisabled: { 
+    padding: '8px 20px', 
+    background: '#aab8c2', 
+    color: 'white', 
+    border: 'none', 
+    borderRadius: '20px', 
+    fontSize: '14px', 
+    fontWeight: 'bold' as const, 
+    cursor: 'not-allowed',
+  } as const,
+  error: { color: '#e0245e', fontSize: '12px', marginTop: '8px' } as const,
+  success: { color: '#17bf63', fontSize: '12px', marginTop: '8px' } as const,
+};
 
 const MAX_LENGTH = 500;
 
-const styles = {
-  form: { padding: '16px', borderBottom: '1px solid #e1e8ed' } as const,
-  header: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' } as const,
-  channel: { fontSize: '14px', color: '#1da1f2', fontWeight: 500 } as const,
-  cancelBtn: { background: 'none', border: 'none', fontSize: '20px', cursor: 'pointer', color: '#657786', padding: '4px 8px' } as const,
-  textarea: { width: '100%', padding: '12px', border: '1px solid #e1e8ed', borderRadius: '4px', fontSize: '15px', resize: 'vertical' as const, fontFamily: 'inherit', marginBottom: '12px' } as const,
-  footer: { display: 'flex', alignItems: 'center', gap: '16px' } as const,
-  counter: { fontSize: '14px' } as const,
-  counterText: { fontWeight: 500 } as const,
-  error: { color: '#e0245e', fontSize: '14px', flex: 1 } as const,
-  postBtn: { padding: '8px 20px', background: '#1da1f2', color: 'white', border: 'none', borderRadius: '4px', fontSize: '15px', fontWeight: 'bold' as const } as const,
-};
-
-export function ComposePost({ channel, onPost, onCancel }: ComposePostProps) {
+export function ComposePost({ channelId, onSuccess }: ComposePostProps) {
+  const postService = usePostService();
   const [content, setContent] = useState('');
-  const [posting, setPosting] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState(false);
 
-  const remaining = MAX_LENGTH - content.length;
-  const isOverLimit = remaining < 0;
-  const canPost = content.trim().length > 0 && !isOverLimit && !posting;
+  const remainingChars = MAX_LENGTH - content.length;
+  const canSubmit = content.trim().length > 0 && content.length <= MAX_LENGTH && !submitting;
 
   const handleSubmit = async (e: Event) => {
     e.preventDefault();
-    if (!canPost || !channel) return;
-    setPosting(true);
+    
+    if (!canSubmit) return;
+    
+    if (!channelId) {
+      setError('Please select a channel first');
+      return;
+    }
+
+    setSubmitting(true);
     setError(null);
+    setSuccess(false);
+
     try {
-      const post = await createPost(content.trim(), channel.id);
+      await postService?.createPost({
+        content: content.trim(),
+        channelId,
+      });
+
       setContent('');
-      onPost?.(post.id);
-    } catch {
-      setError('Failed to post');
+      setSuccess(true);
+      onSuccess?.();
+
+      // Clear success message after 3 seconds
+      setTimeout(() => setSuccess(false), 3000);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to create post');
     } finally {
-      setPosting(false);
+      setSubmitting(false);
     }
   };
 
-  const handleCancel = () => {
-    setContent('');
-    setError(null);
-    onCancel?.();
+  const handleTextChange = (e: Event) => {
+    const target = e.target as HTMLTextAreaElement;
+    setContent(target.value);
   };
 
   return (
-    <form onSubmit={handleSubmit} style={styles.form}>
-      <div style={styles.header}>
-        <span style={styles.channel}>{channel ? `Posting in ${channel.name}` : 'Select a channel'}</span>
-        {onCancel && <button type="button" onClick={handleCancel} style={styles.cancelBtn}>✕</button>}
-      </div>
-      <textarea
-        value={content}
-        onInput={(e) => setContent((e.target as HTMLTextAreaElement).value)}
-        placeholder="What's on your mind?"
-        style={{ ...styles.textarea, borderColor: isOverLimit ? '#e0245e' : '#e1e8ed' }}
-        rows={4}
-        maxLength={MAX_LENGTH + 50}
-        disabled={posting}
-      />
-      <div style={styles.footer}>
-        <div style={styles.counter}>
-          <span style={{ ...styles.counterText, color: remaining < 20 ? (isOverLimit ? '#e0245e' : '#ffad1f') : '#657786' }}>{remaining}</span>
+    <div style={styles.container} data-testid="compose-post">
+      <form onSubmit={handleSubmit}>
+        <textarea
+          style={styles.textarea}
+          placeholder="What's happening?"
+          value={content}
+          onInput={handleTextChange}
+          maxLength={MAX_LENGTH + 1}
+          data-testid="compose-post-textarea"
+        />
+
+        <div style={styles.footer}>
+          <div>
+            <span style={{
+              ...styles.charCount,
+              color: remainingChars < 20 ? '#e0245e' : remainingChars < 50 ? '#ffad1f' : '#657786',
+            }}>
+              {remainingChars}
+            </span>
+            {error && <div style={styles.error} data-testid="compose-error">{error}</div>}
+            {success && <div style={styles.success} data-testid="compose-success">Post created!</div>}
+          </div>
+
+          <button
+            type="submit"
+            style={canSubmit ? styles.submitButton : styles.submitButtonDisabled}
+            disabled={!canSubmit}
+            data-testid="submit-post"
+          >
+            {submitting ? 'Posting...' : 'Post'}
+          </button>
         </div>
-        {error && <span style={styles.error}>{error}</span>}
-        <button
-          type="submit"
-          disabled={!canPost || posting}
-          style={{ ...styles.postBtn, opacity: canPost && !posting ? 1 : 0.5, cursor: canPost && !posting ? 'pointer' : 'not-allowed' }}
-        >
-          {posting ? 'Posting...' : 'Post'}
-        </button>
-      </div>
-    </form>
+      </form>
+    </div>
   );
 }

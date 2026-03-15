@@ -1,5 +1,4 @@
 import type { Channel, Relation } from '@isc/core';
-import { computeEmbedding } from '../identity/embedding-service.js';
 import { getDB, dbGet, dbGetAll, dbPut, dbDelete } from '../db/factory.js';
 import { loggers } from '../utils/logger.js';
 import type { RealDHTClient } from '../network/dht.js';
@@ -223,6 +222,9 @@ export class ChannelManager {
     const distributions: ChannelDistribution[] = [];
 
     try {
+      // Lazy import embedding service to avoid initialization issues
+      const { computeEmbedding } = await import('../identity/embedding-service.js');
+      
       // Root distribution from description
       const rootEmbedding = await computeEmbedding(channel.description);
       distributions.push({
@@ -235,7 +237,7 @@ export class ChannelManager {
         // Compose: "description tag object"
         const composedText = `${channel.description} ${relation.tag.replace(/_/g, ' ')} ${relation.object}`;
         const fusedEmbedding = await computeEmbedding(composedText);
-        
+
         distributions.push({
           mu: fusedEmbedding,
           sigma: channel.spread / (relation.weight || 1.0),

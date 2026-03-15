@@ -1,0 +1,189 @@
+/**
+ * Feed Service
+ * 
+ * Business logic layer for feed generation.
+ * Handles For You, Following, and Channel feeds with scoring.
+ */
+
+import type { Post } from '../types/extended.js';
+import type { Channel } from '@isc/core';
+import { cosineSimilarity } from '@isc/core';
+
+export interface FeedService {
+  getForYouFeed(channelId?: string): Promise<Post[]>;
+  getFollowingFeed(): Promise<Post[]>;
+  getChannelFeed(channelId: string): Promise<Post[]>;
+  getExploreFeed(): Promise<Post[]>;
+  refresh(): Promise<void>;
+}
+
+// In-memory cache for feeds
+const feedCache = new Map<string, { posts: Post[]; timestamp: number }>();
+const CACHE_DURATION = 30000; // 30 seconds
+
+export function createFeedService(
+  postService: any,
+  channelManager: any
+): FeedService {
+  return {
+    async getForYouFeed(channelId?: string): Promise<Post[]> {
+      const cacheKey = channelId ? `foryou-${channelId}` : 'foryou';
+      
+      // Check cache
+      const cached = feedCache.get(cacheKey);
+      if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
+        return cached.posts;
+      }
+
+      // Get all posts
+      let posts = await postService.getAllPosts(channelId);
+      
+      // Score and sort posts
+      const scored = await scorePosts(posts, channelManager);
+      
+      // Cache result
+      feedCache.set(cacheKey, {
+        posts: scored,
+        timestamp: Date.now(),
+      });
+
+      return scored;
+    },
+
+    async getFollowingFeed(): Promise<Post[]> {
+      // TODO: Get posts from followed users
+      // For now, return all posts
+      return postService.getAllPosts();
+    },
+
+    async getChannelFeed(channelId: string): Promise<Post[]> {
+      const cacheKey = `channel-${channelId}`;
+      
+      // Check cache
+      const cached = feedCache.get(cacheKey);
+      if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
+        return cached.posts;
+      }
+
+      const posts = await postService.getPostsByChannel(channelId);
+      
+      // Sort by timestamp (newest first)
+      const sorted = posts.sort((a: Post, b: Post) => b.timestamp - a.timestamp);
+      
+      // Cache result
+      feedCache.set(cacheKey, {
+        posts: sorted,
+        timestamp: Date.now(),
+      });
+
+      return sorted;
+    },
+
+    async getExploreFeed(): Promise<Post[]> {
+      // Get all posts and sort by engagement
+      const posts = await postService.getAllPosts();
+      
+      return posts.sort((a: Post, b: Post) => {
+        const scoreA = computeEngagementScore(a);
+        const scoreB = computeEngagementScore(b);
+        return scoreB - scoreA;
+      });
+    },
+
+    async refresh(): Promise<void> {
+      // Clear all caches
+      feedCache.clear();
+    },
+  };
+}
+
+/**
+ * Score posts based on relevance and engagement
+ */
+async function scorePosts(posts: Post[], channelManager: any): Promise<Post[]> {
+  // Get active channels for context
+  const channels: Channel[] = await channelManager.getAllChannels();
+  const activeChannels = channels.filter((c: Channel) => channelManager.isActive(c.id));
+
+  // If no active channels, sort by engagement
+  if (activeChannels.length === 0) {
+    return posts.sort((a, b) => computeEngagementScore(b) - computeEngagementScore(a));
+  }
+
+  // Score each post based on channel similarity
+  const scored = posts.map(post => {
+    const score = computeRelevanceScore(post, activeChannels);
+    return { ...post, _score: score };
+  });
+
+  // Sort by score (highest first)
+  return scored.sort((a, b) => (b._score || 0) - (a._score || 0));
+}
+
+/**
+ * Compute relevance score for a post
+ */
+function computeRelevanceScore(post: Post, channels: Channel[]): number {
+  // Base score from engagement
+  const engagementScore = computeEngagementScore(post);
+  
+  // Check if post matches any active channel
+  let channelMatchScore = 0;
+  for (const channel of channels) {
+    if (post.channelID === channel.id) {
+      channelMatchScore = 10; // Boost for matching channel
+      break;
+    }
+  }
+
+  // Recency bonus (newer posts get higher score)
+  const age = Date.now() - post.timestamp;
+  const recencyScore = Math.max(0, 1 - (age / (7 * 24 * 60 * 60 * 1000))); // 7 days half-life
+
+  // Combined score
+  return engagementScore + channelMatchScore + (recencyScore * 5);
+}
+
+/**
+ * Compute engagement score for a post
+ */
+function computeEngagementScore(post: Post): number {
+  const likes = post.likeCount || 0;
+  const reposts = post.repostCount || 0;
+  const replies = post.replyCount || 0;
+  
+  // Weighted score
+  return likes + (reposts * 2) + (replies * 3);
+}
+
+/**
+ * Compute semantic similarity between text and channel
+ */
+export async function computeTextChannelSimilarity(
+  text: string,
+  channel: Channel
+): Promise<number> {
+  // TODO: Use embedding service for real similarity
+  // For now, use simple keyword matching
+  
+  const textLower = text.toLowerCase();
+  const channelLower = channel.name.toLowerCase();
+  const descLower = channel.description.toLowerCase();
+  
+  let score = 0;
+  
+  // Check if channel name appears in text
+  if (textLower.includes(channelLower)) {
+    score += 0.5;
+  }
+  
+  // Check for keyword matches in description
+  const keywords = channel.description.split(/\s+/).filter(w => w.length > 4);
+  for (const keyword of keywords.slice(0, 10)) {
+    if (textLower.includes(keyword.toLowerCase())) {
+      score += 0.1;
+    }
+  }
+  
+  return Math.min(1, score);
+}

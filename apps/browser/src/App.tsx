@@ -8,14 +8,18 @@ import { VideoCallScreen } from './screens/VideoCalls.js';
 import { ChatsScreen } from './screens/Chats.js';
 import { SettingsScreen } from './screens/Settings.js';
 import { ComposeScreen } from './screens/Compose.js';
+import { useConnectionStatus } from './hooks/index.js';
 
 type Route = 'now' | 'discover' | 'video' | 'chats' | 'settings' | 'compose';
+type ConnectionStatus = 'online' | 'offline' | 'slow';
 
 export function App() {
   const { currentRoute, navigate } = useNavigation();
   const route: Route = ((currentRoute?.name as Route) || 'now');
+  const { status } = useConnectionStatus();
+  const connectionStatus: ConnectionStatus = status as ConnectionStatus;
 
-  console.log('[App] Current route:', route, 'currentRoute:', currentRoute);
+  console.log('[App] Current route:', route, 'connection:', connectionStatus);
 
   return (
     <ErrorBoundary>
@@ -28,6 +32,7 @@ export function App() {
           }}
           badges={{}}
           channels={[]}
+          connectionStatus={connectionStatus}
         />
         <main class="irc-main">
           <div class="app-content">

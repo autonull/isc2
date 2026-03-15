@@ -30,9 +30,8 @@ test.describe('📸 Generate Marketing Screenshots', () => {
 
     test('App Overview - Now Screen', async ({ page }) => {
       await page.goto('/');
+      await page.waitForSelector('[data-testid="sidebar"]', { timeout: 15000 });
       await page.waitForTimeout(2000);
-      await page.click('[data-testid="nav-tab-now"]').catch(() => {});
-      await page.waitForTimeout(500);
       
       await page.screenshot({ 
         path: path.join(SCREENSHOT_DIR, 'desktop', '00-app-overview.png'),
@@ -44,9 +43,8 @@ test.describe('📸 Generate Marketing Screenshots', () => {
 
     test('Home/Now Screen', async ({ page }) => {
       await page.goto('/');
+      await page.waitForSelector('[data-testid="sidebar"]', { timeout: 15000 });
       await page.waitForTimeout(2000);
-      await page.click('[data-testid="nav-tab-now"]').catch(() => {});
-      await page.waitForTimeout(500);
       
       await page.screenshot({ 
         path: path.join(SCREENSHOT_DIR, 'desktop', '01-home-screen.png'),
@@ -58,9 +56,10 @@ test.describe('📸 Generate Marketing Screenshots', () => {
 
     test('Discover Screen', async ({ page }) => {
       await page.goto('/');
+      await page.waitForSelector('[data-testid="sidebar"]', { timeout: 15000 });
       await page.waitForTimeout(1000);
-      await page.click('[data-testid="nav-tab-discover"]');
-      await page.waitForTimeout(1000);
+      await page.click('[data-testid="nav-tab-discover"]', { timeout: 5000 });
+      await page.waitForTimeout(2000);
       
       await page.screenshot({ 
         path: path.join(SCREENSHOT_DIR, 'desktop', '02-discover-screen.png'),
@@ -72,9 +71,10 @@ test.describe('📸 Generate Marketing Screenshots', () => {
 
     test('Video Calls Screen', async ({ page }) => {
       await page.goto('/');
+      await page.waitForSelector('[data-testid="sidebar"]', { timeout: 15000 });
       await page.waitForTimeout(1000);
-      await page.click('[data-testid="nav-tab-video"]');
-      await page.waitForTimeout(1000);
+      await page.click('[data-testid="nav-tab-video"]', { timeout: 5000 });
+      await page.waitForTimeout(2000);
       
       await page.screenshot({ 
         path: path.join(SCREENSHOT_DIR, 'desktop', '03-video-screen.png'),
@@ -86,9 +86,10 @@ test.describe('📸 Generate Marketing Screenshots', () => {
 
     test('Chats Screen', async ({ page }) => {
       await page.goto('/');
+      await page.waitForSelector('[data-testid="sidebar"]', { timeout: 15000 });
       await page.waitForTimeout(1000);
-      await page.click('[data-testid="nav-tab-chats"]');
-      await page.waitForTimeout(1000);
+      await page.click('[data-testid="nav-tab-chats"]', { timeout: 5000 });
+      await page.waitForTimeout(2000);
       
       await page.screenshot({ 
         path: path.join(SCREENSHOT_DIR, 'desktop', '04-chats-screen.png'),
@@ -100,9 +101,10 @@ test.describe('📸 Generate Marketing Screenshots', () => {
 
     test('Settings Screen', async ({ page }) => {
       await page.goto('/');
+      await page.waitForSelector('[data-testid="sidebar"]', { timeout: 15000 });
       await page.waitForTimeout(1000);
-      await page.click('[data-testid="nav-tab-settings"]');
-      await page.waitForTimeout(1000);
+      await page.click('[data-testid="nav-tab-settings"]', { timeout: 5000 });
+      await page.waitForTimeout(2000);
       
       await page.screenshot({ 
         path: path.join(SCREENSHOT_DIR, 'desktop', '05-settings-screen.png'),
@@ -114,9 +116,10 @@ test.describe('📸 Generate Marketing Screenshots', () => {
 
     test('Compose Screen', async ({ page }) => {
       await page.goto('/');
+      await page.waitForSelector('[data-testid="sidebar"]', { timeout: 15000 });
       await page.waitForTimeout(1000);
-      await page.click('[data-testid="nav-tab-compose"]');
-      await page.waitForTimeout(1000);
+      await page.click('[data-testid="nav-tab-compose"]', { timeout: 5000 });
+      await page.waitForTimeout(2000);
       
       await page.screenshot({ 
         path: path.join(SCREENSHOT_DIR, 'desktop', '06-compose-screen.png'),
@@ -220,6 +223,7 @@ test.describe('📸 Generate Marketing Screenshots', () => {
 
     test('Tablet Home', async ({ page }) => {
       await page.goto('/');
+      await page.waitForSelector('[data-testid="sidebar"]', { timeout: 15000 });
       await page.waitForTimeout(2000);
       
       await page.screenshot({ 
@@ -232,9 +236,10 @@ test.describe('📸 Generate Marketing Screenshots', () => {
 
     test('Tablet Discover', async ({ page }) => {
       await page.goto('/');
+      await page.waitForSelector('[data-testid="sidebar"]', { timeout: 15000 });
       await page.waitForTimeout(1000);
-      await page.click('[data-testid="nav-tab-discover"]');
-      await page.waitForTimeout(1000);
+      await page.click('[data-testid="nav-tab-discover"]', { timeout: 5000 });
+      await page.waitForTimeout(2000);
       
       await page.screenshot({ 
         path: path.join(SCREENSHOT_DIR, 'tablet', '02-discover-tablet.png'),
@@ -246,9 +251,10 @@ test.describe('📸 Generate Marketing Screenshots', () => {
 
     test('Tablet Chats', async ({ page }) => {
       await page.goto('/');
+      await page.waitForSelector('[data-testid="sidebar"]', { timeout: 15000 });
       await page.waitForTimeout(1000);
-      await page.click('[data-testid="nav-tab-chats"]');
-      await page.waitForTimeout(1000);
+      await page.click('[data-testid="nav-tab-chats"]', { timeout: 5000 });
+      await page.waitForTimeout(2000);
       
       await page.screenshot({ 
         path: path.join(SCREENSHOT_DIR, 'tablet', '03-chats-tablet.png'),
@@ -324,15 +330,16 @@ test.describe('📸 Generate Marketing Screenshots', () => {
 
     test('Creating a new channel', async ({ page }) => {
       await page.goto('/');
+      await page.waitForSelector('[data-testid="sidebar"]', { timeout: 15000 });
       await page.waitForTimeout(1000);
       
       // Click compose
-      await page.click('[data-testid="nav-tab-compose"]');
-      await page.waitForTimeout(500);
+      await page.click('[data-testid="nav-tab-compose"]', { timeout: 5000 });
+      await page.waitForTimeout(1000);
       
       // Fill in channel details
-      await page.fill('input[placeholder*="thinking"]', 'AI Ethics Discussion');
-      await page.fill('textarea[placeholder*="thoughts"]', 'A thoughtful discussion about the ethical implications of artificial intelligence and machine learning in modern society.');
+      await page.fill('input[data-testid="compose-name-input"]', 'AI Ethics Discussion');
+      await page.fill('textarea[data-testid="compose-description-input"]', 'A thoughtful discussion about the ethical implications of artificial intelligence and machine learning in modern society.');
       
       await page.waitForTimeout(500);
       
@@ -364,9 +371,10 @@ test.describe('📸 Generate Marketing Screenshots', () => {
 
     test('Settings with toggles active', async ({ page }) => {
       await page.goto('/');
+      await page.waitForSelector('[data-testid="sidebar"]', { timeout: 15000 });
       await page.waitForTimeout(1000);
-      await page.click('[data-testid="nav-tab-settings"]');
-      await page.waitForTimeout(500);
+      await page.click('[data-testid="nav-tab-settings"]', { timeout: 5000 });
+      await page.waitForTimeout(1000);
       
       // Toggle notifications on
       const toggle = page.locator('button[style*="background: #17bf63"]').first();
@@ -385,9 +393,10 @@ test.describe('📸 Generate Marketing Screenshots', () => {
 
     test('Video call interface', async ({ page }) => {
       await page.goto('/');
+      await page.waitForSelector('[data-testid="sidebar"]', { timeout: 15000 });
       await page.waitForTimeout(1000);
-      await page.click('[data-testid="nav-tab-video"]');
-      await page.waitForTimeout(500);
+      await page.click('[data-testid="nav-tab-video"]', { timeout: 5000 });
+      await page.waitForTimeout(1000);
       
       await page.screenshot({ 
         path: path.join(SCREENSHOT_DIR, 'action', '04-video-interface.png'),
@@ -399,9 +408,10 @@ test.describe('📸 Generate Marketing Screenshots', () => {
 
     test('Chat conversation view', async ({ page }) => {
       await page.goto('/');
+      await page.waitForSelector('[data-testid="sidebar"]', { timeout: 15000 });
       await page.waitForTimeout(1000);
-      await page.click('[data-testid="nav-tab-chats"]');
-      await page.waitForTimeout(500);
+      await page.click('[data-testid="nav-tab-chats"]', { timeout: 5000 });
+      await page.waitForTimeout(1000);
       
       await page.screenshot({ 
         path: path.join(SCREENSHOT_DIR, 'action', '05-chat-view.png'),
@@ -413,9 +423,10 @@ test.describe('📸 Generate Marketing Screenshots', () => {
 
     test('Discover peers interface', async ({ page }) => {
       await page.goto('/');
+      await page.waitForSelector('[data-testid="sidebar"]', { timeout: 15000 });
       await page.waitForTimeout(1000);
-      await page.click('[data-testid="nav-tab-discover"]');
-      await page.waitForTimeout(500);
+      await page.click('[data-testid="nav-tab-discover"]', { timeout: 5000 });
+      await page.waitForTimeout(1000);
       
       await page.screenshot({ 
         path: path.join(SCREENSHOT_DIR, 'action', '06-discover-peers.png'),
@@ -428,19 +439,20 @@ test.describe('📸 Generate Marketing Screenshots', () => {
     test('All navigation tabs overview', async ({ page }) => {
       await page.setViewportSize({ width: 1400, height: 900 });
       await page.goto('/');
+      await page.waitForSelector('[data-testid="sidebar"]', { timeout: 15000 });
       await page.waitForTimeout(1000);
-      
+
       // Create a composite showing all tabs
       const tabs = ['now', 'discover', 'video', 'chats', 'settings', 'compose'];
       
       for (const tab of tabs) {
-        await page.click(`[data-testid="nav-tab-${tab}"]`);
-        await page.waitForTimeout(300);
+        await page.click(`[data-testid="nav-tab-${tab}"]`, { timeout: 5000 });
+        await page.waitForTimeout(500);
       }
       
       // Return to now
-      await page.click('[data-testid="nav-tab-now"]');
-      await page.waitForTimeout(500);
+      await page.click('[data-testid="nav-tab-now"]', { timeout: 5000 });
+      await page.waitForTimeout(1000);
       
       await page.screenshot({ 
         path: path.join(SCREENSHOT_DIR, 'action', '00-all-tabs-overview.png'),
