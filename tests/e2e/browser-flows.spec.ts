@@ -5,6 +5,7 @@
  */
 
 import { test, expect } from '@playwright/test';
+import { waitForAppReady, waitForChannelsLoaded, waitForMatchesLoaded, waitForNavigation, waitForPostsLoaded } from './utils/waitHelpers.js';
 
 test.describe('ISC Browser E2E', () => {
   test.beforeEach(async ({ page }) => {
@@ -20,7 +21,7 @@ test.describe('ISC Browser E2E', () => {
 
     // Navigate to app and wait for render
     await page.goto('/');
-    await page.waitForSelector('[data-component="irc-sidebar"], [data-component="tab-bar"]', { timeout: 10000 });
+    await waitForAppReady(page, 10000);
   });
 
   test.describe('Channel Management', () => {
@@ -87,7 +88,7 @@ test.describe('ISC Browser E2E', () => {
       await page.click('[data-testid="nav-tab-now"]');
 
       // Wait for matches to load
-      await page.waitForTimeout(3000);
+      await waitForMatchesLoaded(page, 5000);
 
       // Should show match sections or empty state
       const hasMatches = await page.isVisible('[data-section="very-close"], [data-section="nearby"]');
@@ -98,7 +99,7 @@ test.describe('ISC Browser E2E', () => {
 
     test('should show similarity scores for matches', async ({ page }) => {
       await page.click('[data-testid="nav-tab-now"]');
-      await page.waitForTimeout(3000);
+      await waitForMatchesLoaded(page, 5000);
 
       // Check for similarity indicators
       const hasSignalBars = await page.isVisible('[data-similarity], text=/▐▌/');
@@ -109,6 +110,7 @@ test.describe('ISC Browser E2E', () => {
 
     test('should refresh matches on pull-to-refresh', async ({ page }) => {
       await page.click('[data-testid="nav-tab-now"]');
+      await waitForMatchesLoaded(page);
 
       // Pull to refresh (touch gesture simulation)
       await page.evaluate(() => {
@@ -130,47 +132,47 @@ test.describe('ISC Browser E2E', () => {
 
   test.describe('Chat Flow', () => {
     test('should open chat panel from match card', async ({ page }) => {
-      await page.click('[data-tab="now"]');
-      await page.waitForTimeout(3000);
-      
+      await page.click('[data-testid="nav-tab-now"]');
+      await waitForMatchesLoaded(page);
+
       // Click on first match card
       const matchCard = page.locator('[data-component="match-card"]').first();
       if (await matchCard.count() > 0) {
         await matchCard.click();
-        
+
         // Chat panel should slide up
         await expect(page.locator('[data-panel="chat"], [data-component="chat-panel"]')).toBeVisible();
       }
     });
 
     test('should send a chat message', async ({ page }) => {
-      await page.click('[data-tab="now"]');
-      await page.waitForTimeout(3000);
-      
+      await page.click('[data-testid="nav-tab-now"]');
+      await waitForMatchesLoaded(page);
+
       const matchCard = page.locator('[data-component="match-card"]').first();
       if (await matchCard.count() > 0) {
         await matchCard.click();
-        
+
         // Type and send message
         await page.fill('textarea[placeholder*="message"], input[name="message"]', 'Hello!');
         await page.click('button:has-text("Send"), button[type="submit"]');
-        
+
         // Message should appear in chat
         await expect(page.locator('text=Hello!')).toBeVisible({ timeout: 3000 });
       }
     });
 
     test('should close chat panel', async ({ page }) => {
-      await page.click('[data-tab="now"]');
-      await page.waitForTimeout(3000);
-      
+      await page.click('[data-testid="nav-tab-now"]');
+      await waitForMatchesLoaded(page);
+
       const matchCard = page.locator('[data-component="match-card"]').first();
       if (await matchCard.count() > 0) {
         await matchCard.click();
-        
+
         // Close panel
         await page.click('[data-action="close-chat"], button:has-text("Close")');
-        
+
         // Panel should be hidden
         await expect(page.locator('[data-panel="chat"]')).not.toBeVisible();
       }
@@ -197,61 +199,61 @@ test.describe('ISC Browser E2E', () => {
     });
 
     test('should display For You feed', async ({ page }) => {
-      await page.click('[data-tab="now"]');
-      
+      await page.click('[data-testid="nav-tab-now"]');
+
       // Feed should load
       await page.waitForSelector('[data-component="feed"], [data-feed="for-you"]', { timeout: 5000 });
-      
+
       // Should show posts or empty state
       const hasPosts = await page.isVisible('[data-component="post"]');
       const hasEmpty = await page.isVisible('text=no posts yet, text=No posts');
-      
+
       expect(hasPosts || hasEmpty).toBe(true);
     });
 
     test('should like a post', async ({ page }) => {
-      await page.click('[data-tab="now"]');
-      await page.waitForTimeout(2000);
-      
+      await page.click('[data-testid="nav-tab-now"]');
+      await waitForPostsLoaded(page);
+
       const likeButton = page.locator('[data-action="like"]').first();
       if (await likeButton.count() > 0) {
         await likeButton.click();
-        
+
         // Like count should increment or button should change state
         await expect(likeButton).toHaveAttribute('data-liked', 'true', { timeout: 3000 });
       }
     });
 
     test('should reply to a post', async ({ page }) => {
-      await page.click('[data-tab="now"]');
-      await page.waitForTimeout(2000);
-      
+      await page.click('[data-testid="nav-tab-now"]');
+      await waitForPostsLoaded(page);
+
       const replyButton = page.locator('[data-action="reply"]').first();
       if (await replyButton.count() > 0) {
         await replyButton.click();
-        
+
         // Reply box should appear
         await expect(page.locator('textarea[placeholder*="reply"]')).toBeVisible();
-        
+
         // Type and submit reply
         await page.fill('textarea[placeholder*="reply"]', 'Great point!');
         await page.click('button:has-text("Reply")');
-        
+
         // Reply count should increment
-        await page.waitForTimeout(1000);
+        await page.waitForTimeout(500); // Minimal wait for UI update
       }
     });
 
     test('should repost', async ({ page }) => {
-      await page.click('[data-tab="now"]');
-      await page.waitForTimeout(2000);
-      
+      await page.click('[data-testid="nav-tab-now"]');
+      await waitForPostsLoaded(page);
+
       const repostButton = page.locator('[data-action="repost"]').first();
       if (await repostButton.count() > 0) {
         await repostButton.click();
-        
+
         // Should show confirmation or increment count
-        await page.waitForTimeout(1000);
+        await page.waitForTimeout(500); // Minimal wait for UI update
       }
     });
   });
@@ -309,15 +311,15 @@ test.describe('ISC Browser E2E', () => {
     test('should work offline after caching', async ({ page, context }) => {
       // Go online first to cache resources
       await page.goto('/');
-      await page.waitForTimeout(5000);
-      
+      await waitForAppReady(page, 5000);
+
       // Go offline
       await context.setOffline(true);
-      
+
       // Reload should still work (cached)
       await page.reload();
       await expect(page.locator('#app')).toBeVisible({ timeout: 5000 });
-      
+
       // Go back online
       await context.setOffline(false);
     });
@@ -325,8 +327,8 @@ test.describe('ISC Browser E2E', () => {
 
   test.describe('Accessibility', () => {
     test('should have proper heading structure', async ({ page }) => {
-      await page.click('[data-tab="now"]');
-      
+      await page.click('[data-testid="nav-tab-now"]');
+
       // Should have exactly one h1
       const h1Count = await page.locator('h1').count();
       expect(h1Count).toBe(1);
@@ -335,12 +337,12 @@ test.describe('ISC Browser E2E', () => {
     test('should have accessible button labels', async ({ page }) => {
       const buttons = page.locator('button');
       const count = await buttons.count();
-      
+
       for (let i = 0; i < Math.min(count, 10); i++) {
         const button = buttons.nth(i);
         const hasText = await button.textContent();
         const hasAriaLabel = await button.getAttribute('aria-label');
-        
+
         expect(hasText || hasAriaLabel).toBeTruthy();
       }
     });
@@ -350,7 +352,7 @@ test.describe('ISC Browser E2E', () => {
       await page.keyboard.press('Tab');
       await page.keyboard.press('Tab');
       await page.keyboard.press('Tab');
-      
+
       // Focused element should be visible
       const focusedElement = page.locator(':focus');
       await expect(focusedElement).toBeVisible();

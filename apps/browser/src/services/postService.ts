@@ -1,15 +1,17 @@
 /**
  * Post Service
- * 
+ *
  * Business logic layer for post operations.
- * Handles creation, signing, storage, and retrieval of posts.
+ * All posts MUST be signed - unsigned posts are rejected.
  */
 
 import type { Post } from '../types/extended.js';
 import { getDB } from '../db/factory.js';
-import { getIdentity } from '../identity/index.js';
-import { encode } from '@isc/core';
+import { getIdentity, ensureIdentityInitialized } from '../identity/index.js';
+import { encode, sign } from '@isc/core';
+import { loggers } from '../utils/logger.js';
 
+const logger = loggers.social;
 const DB_NAME = 'isc-posts';
 const DB_VERSION = 1;
 const POST_STORE = 'posts';
@@ -31,6 +33,16 @@ export interface PostService {
   replyToPost(postId: string, content: string): Promise<Post>;
 }
 
+/**
+ * Error thrown when identity is required but not available
+ */
+export class IdentityRequiredError extends Error {
+  constructor(message: string = 'Identity required for this operation') {
+    super(message);
+    this.name = 'IdentityRequiredError';
+  }
+}
+
 async function getDBInstance(): Promise<IDBDatabase> {
   return getDB(DB_NAME, DB_VERSION, [POST_STORE]);
 }
@@ -39,7 +51,7 @@ async function storePost(post: Post): Promise<void> {
   const db = await getDBInstance();
   const tx = db.transaction(POST_STORE, 'readwrite');
   const store = tx.objectStore(POST_STORE);
-  await new Promise<void>((resolve, reject) => {
+  return new Promise<void>((resolve, reject) => {
     const request = store.put(post, post.id);
     request.onsuccess = () => resolve();
     request.onerror = () => reject(request.error);
@@ -57,6 +69,21 @@ async function getAllPostsFromDB(): Promise<Post[]> {
   });
 }
 
+/**
+ * Sign post content with user's keypair
+ */
+async function signPost(post: Omit<Post, 'signature'>): Promise<Uint8Array> {
+  const identity = getIdentity();
+  
+  if (!identity.keypair) {
+    throw new IdentityRequiredError('Cannot sign post: identity not initialized. Please complete onboarding.');
+  }
+
+  const encoded = encode(post);
+  const signature = await sign(encoded, identity.keypair.privateKey);
+  return signature;
+}
+
 export function createPostService(): PostService {
   return {
     async createPost(input: CreatePostInput): Promise<Post> {
@@ -69,42 +96,46 @@ export function createPostService(): PostService {
         throw new Error('Post content must be less than 500 characters');
       }
 
-      const identity = getIdentity();
-      if (!identity.keypair) {
-        // For demo purposes, create unsigned post
-        const post: Post = {
-          id: crypto.randomUUID(),
-          author: 'anonymous',
-          content: input.content.trim(),
-          channelID: input.channelId,
-          timestamp: Date.now(),
-          signature: new Uint8Array(0),
-        };
-        await storePost(post);
-        return post;
+      // Ensure identity is initialized BEFORE creating post
+      try {
+        await ensureIdentityInitialized();
+      } catch (err) {
+        logger.error('Identity not available for post creation', err as Error);
+        throw new IdentityRequiredError('Please complete onboarding to create posts');
       }
 
-      // Create post object
-      const post: Post = {
+      const identity = getIdentity();
+      if (!identity.keypair) {
+        throw new IdentityRequiredError('Identity not initialized');
+      }
+
+      // Create post object (without signature)
+      const postWithoutSig: Omit<Post, 'signature'> = {
         id: crypto.randomUUID(),
         author: identity.publicKeyFingerprint || 'anonymous',
         content: input.content.trim(),
         channelID: input.channelId,
         timestamp: Date.now(),
-        signature: new Uint8Array(0),
       };
 
-      // Sign the post (simplified - full implementation would use crypto)
+      // Sign the post
+      let signature: Uint8Array;
       try {
-        const encoded = encode(post);
-        // Signature handling simplified for demo
-        post.signature = new Uint8Array(0);
-      } catch (e) {
-        console.warn('Signing failed, using empty signature:', e);
+        signature = await signPost(postWithoutSig);
+      } catch (err) {
+        logger.error('Failed to sign post', err as Error);
+        throw new IdentityRequiredError('Failed to sign post: ' + (err as Error).message);
       }
+
+      // Create signed post
+      const post: Post = {
+        ...postWithoutSig,
+        signature,
+      };
 
       // Store locally
       await storePost(post);
+      logger.info('Post created and signed', { postId: post.id, author: post.author });
 
       return post;
     },
@@ -122,7 +153,7 @@ export function createPostService(): PostService {
 
     async getAllPosts(channelId?: string): Promise<Post[]> {
       let posts = await getAllPostsFromDB();
-      
+
       // Filter by channel if specified
       if (channelId) {
         posts = posts.filter(p => p.channelID === channelId);
@@ -169,24 +200,19 @@ export function createPostService(): PostService {
       const post = await this.getPost(postId);
       if (!post) throw new Error('Post not found');
 
-      // Create a repost
-      const repost: Post = {
-        id: crypto.randomUUID(),
-        author: post.author,
+      // Create a repost (requires identity)
+      const repost = await this.createPost({
         content: post.content,
-        channelID: post.channelID,
-        timestamp: Date.now(),
-        signature: new Uint8Array(0),
-      };
+        channelId: post.channelID,
+      });
       (repost as any).repostedFrom = postId;
-      await storePost(repost);
     },
 
     async replyToPost(postId: string, content: string): Promise<Post> {
       const parentPost = await this.getPost(postId);
       if (!parentPost) throw new Error('Parent post not found');
 
-      // Create reply post
+      // Create reply post (requires identity)
       const reply = await this.createPost({
         content,
         channelId: parentPost.channelID,
@@ -232,7 +258,7 @@ export function computeEngagementScore(post: Post): number {
   const likes = (post as any).likeCount || 0;
   const reposts = (post as any).repostCount || 0;
   const replies = (post as any).replyCount || 0;
-  
+
   // Weighted score
   return likes + (reposts * 2) + (replies * 3);
 }
@@ -243,15 +269,15 @@ export function computeEngagementScore(post: Post): number {
 export function formatPostTimestamp(timestamp: number): string {
   const now = Date.now();
   const diff = now - timestamp;
-  
+
   const minutes = Math.floor(diff / 60000);
   const hours = Math.floor(diff / 3600000);
   const days = Math.floor(diff / 86400000);
-  
+
   if (minutes < 1) return 'Just now';
   if (minutes < 60) return `${minutes}m ago`;
   if (hours < 24) return `${hours}h ago`;
   if (days < 7) return `${days}d ago`;
-  
+
   return new Date(timestamp).toLocaleDateString();
 }

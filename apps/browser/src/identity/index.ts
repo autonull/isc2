@@ -217,5 +217,22 @@ export const announcePublicKey = async (): Promise<void> => {
   await client.announce(key, new TextEncoder().encode(payload), 86400 * 30);
 };
 
+/**
+ * Ensure identity is initialized, throwing if not available
+ * Use this before operations that require a signed identity
+ */
+export async function ensureIdentityInitialized(): Promise<IdentityManager> {
+  if (identityState.isInitialized && identityState.keypair) {
+    return identityState;
+  }
+  
+  // Try to initialize from storage
+  try {
+    return await initializeIdentity();
+  } catch (err) {
+    throw new Error('Identity not initialized: ' + (err as Error).message);
+  }
+}
+
 // Note: Embedding service is NOT re-exported here to avoid module initialization issues.
 // Import directly from './embedding-service.js' when needed.
