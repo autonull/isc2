@@ -6,7 +6,7 @@
 
 import { h } from 'preact';
 import { useState } from 'preact/hooks';
-import { usePostService } from '../di/container.jsx';
+import { usePostService } from '../di/container.js';
 import { toast } from '../utils/toast.js';
 
 interface ComposePostProps {

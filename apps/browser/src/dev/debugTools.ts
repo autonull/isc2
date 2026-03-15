@@ -5,7 +5,7 @@
  * These should only be used in development mode.
  */
 
-import type { AppDependencies } from '../di/container.jsx';
+import type { AppDependencies } from '../di/container.js';
 
 const isDev = process.env.NODE_ENV !== 'production';
 

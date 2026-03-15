@@ -5,7 +5,7 @@
  */
 
 import { useState, useEffect, useCallback } from 'preact/hooks';
-import { useDependencies } from '../di/container.jsx';
+import { useDependencies } from '../di/container.js';
 import type { Channel } from '@isc/core';
 import type { Post } from '../types/extended.js';
 

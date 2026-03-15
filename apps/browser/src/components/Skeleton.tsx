@@ -1,11 +1,11 @@
 /**
  * Skeleton Loader Components
- * 
+ *
  * Placeholder UI shown while content loads.
  * Improves perceived performance and reduces layout shift.
  */
 
-import { h } from 'preact';
+import { h, Fragment } from 'preact';
 
 interface SkeletonProps {
   width?: string | number;

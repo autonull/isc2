@@ -121,7 +121,7 @@ export function DiscoverScreen() {
   return (
     <div style={styles.screen}>
       <div style={styles.header}>
-        <h1 style={styles.title}>📡 Discover</h1>
+        <h1 style={styles.title} data-testid="discover-title">📡 Discover</h1>
         <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
           {/* Status indicator */}
           <span style={{
@@ -150,7 +150,7 @@ export function DiscoverScreen() {
         {matches.length === 0 ? (
           <>
             {/* Empty state */}
-            <div style={styles.emptyState}>
+            <div style={styles.emptyState} data-testid="empty-state">
               <div style={{ fontSize: '48px', marginBottom: '16px' }}>
                 {loading ? '🔄' : '🔍'}
               </div>
@@ -196,7 +196,7 @@ export function DiscoverScreen() {
         ) : (
           <>
             {/* Results header */}
-            <div style={{ marginBottom: '16px', fontSize: '14px', color: '#657786' }}>
+            <div style={{ marginBottom: '16px', fontSize: '14px', color: '#657786' }} data-testid="match-list">
               Found <strong>{matches.length}</strong> matching peers
               {lastDiscovered && (
                 <span style={{ marginLeft: '8px' }}>

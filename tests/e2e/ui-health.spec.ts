@@ -21,10 +21,15 @@ test.describe('UI Health Checks', () => {
       }
       console.log('Page error:', error.message);
     });
+
+    // Skip onboarding for tests
+    await page.goto('/');
+    await page.evaluate(() => {
+      localStorage.setItem('isc-onboarding-completed', 'true');
+    });
   });
 
   test('all tabs are clickable and respond', async ({ page }) => {
-    await page.goto('/');
     // Wait for app to render - look for any sign of the app
     await page.waitForSelector('#app', { timeout: 10000 });
     await page.waitForTimeout(3000); // Wait for JS to execute

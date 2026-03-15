@@ -1,8 +1,9 @@
-import { h } from 'preact';
+import { h, Fragment } from 'preact';
 import { useState, useEffect } from 'preact/hooks';
 import { useNavigation } from '@isc/navigation';
 import { ErrorBoundary } from './components/ErrorBoundary.js';
 import { SplashScreen } from './components/SplashScreen.js';
+import { Onboarding } from './components/Onboarding.js';
 import { useDefaultShortcuts, KeyboardHelp } from './hooks/useKeyboardShortcuts.js';
 import { IRCSidebar } from './components/IRCSidebar.js';
 import { NowScreen } from './screens/Now.js';
@@ -12,7 +13,7 @@ import { ChatsScreen } from './screens/Chats.js';
 import { SettingsScreen } from './screens/Settings.js';
 import { ComposeScreen } from './screens/Compose.js';
 import { useConnectionStatus } from './hooks/index.js';
-import { useDependencies } from './di/container.jsx';
+import { useDependencies } from './di/container.js';
 
 type Route = 'now' | 'discover' | 'video' | 'chats' | 'settings' | 'compose';
 type ConnectionStatus = 'online' | 'offline' | 'slow';
@@ -29,6 +30,7 @@ export function App() {
   const [initProgress, setInitProgress] = useState(0);
   const [initError, setInitError] = useState<string | null>(null);
   const [showKeyboardHelp, setShowKeyboardHelp] = useState(false);
+  const [showOnboarding, setShowOnboarding] = useState(false);
 
   // Enable keyboard shortcuts
   useDefaultShortcuts();
@@ -54,27 +56,46 @@ export function App() {
       try {
         setInitStatus('Loading identity');
         setInitProgress(20);
-        
+
+        // Network service is optional - app works without it
         if (networkService) {
-          setInitStatus('Connecting to network');
-          setInitProgress(40);
-          
-          await networkService.initialize();
-          setInitProgress(80);
-          
-          setInitStatus('Ready');
+          try {
+            setInitStatus('Connecting to network');
+            setInitProgress(40);
+
+            await networkService.initialize();
+            setInitProgress(80);
+
+            setInitStatus('Ready');
+            setInitProgress(100);
+          } catch (networkErr) {
+            console.warn('[App] Network initialization failed, continuing without network:', networkErr);
+            setInitStatus('Offline mode');
+            setInitProgress(100);
+          }
+        } else {
+          console.log('[App] No network service available, running in offline mode');
+          setInitStatus('Offline mode');
           setInitProgress(100);
         }
-        
-        setTimeout(() => setLoading(false), 500);
+
+        // Small delay for smooth UX
+        setTimeout(() => {
+          // Check if user needs onboarding
+          const completed = localStorage.getItem('isc-onboarding-completed');
+          if (!completed) {
+            setShowOnboarding(true);
+          }
+          setLoading(false);
+        }, 300);
       } catch (err) {
         console.error('[App] Initialization failed:', err);
         setInitError(err instanceof Error ? err.message : 'Failed to initialize');
       }
     }
-    
+
     initialize();
-  }, [networkService]);
+  }, []); // Empty deps - don't depend on networkService
 
   const handleRetry = async () => {
     setLoading(true);
@@ -106,6 +127,9 @@ export function App() {
 
       {/* Keyboard Help Modal */}
       {showKeyboardHelp && <KeyboardHelp onClose={() => setShowKeyboardHelp(false)} />}
+
+      {/* Onboarding Flow */}
+      {showOnboarding && <Onboarding onComplete={() => setShowOnboarding(false)} />}
 
       {/* Main App (only show when not loading) */}
       {!loading && (

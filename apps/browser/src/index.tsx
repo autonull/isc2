@@ -1,7 +1,7 @@
 import { h, render } from 'preact';
 import { BrowserNavigator, setNavigator } from '@isc/navigation';
 import { App } from './App.js';
-import { DependencyProvider } from './di/container.jsx';
+import { DependencyProvider } from './di/container.js';
 import { getChannelManager } from './channels/manager.lazy.js';
 import { createChannelService } from './services/channelService.js';
 import { createPostService } from './services/postService.js';

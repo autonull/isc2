@@ -1,11 +1,11 @@
 /**
  * Splash Screen Component
- * 
+ *
  * Initial loading screen shown during app initialization.
  * Provides visual feedback while network and identity load.
  */
 
-import { h } from 'preact';
+import { h, Fragment } from 'preact';
 import { useState, useEffect } from 'preact/hooks';
 
 interface SplashProps {

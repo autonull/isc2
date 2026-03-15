@@ -203,7 +203,7 @@ export function SettingsScreen() {
   return (
     <div style={styles.screen}>
       <div style={styles.header}>
-        <h1 style={styles.title}>⚙️ Settings</h1>
+        <h1 style={styles.title} data-testid="settings-title">⚙️ Settings</h1>
         <span style={{
           ...styles.statusBadge,
           background: networkStatus === 'connected' ? '#edf9ef' : '#fef3f2',
@@ -349,6 +349,9 @@ export function SettingsScreen() {
             <div
               style={toggleStyle(notifications)}
               onClick={() => setNotifications(!notifications)}
+              data-testid="notifications-toggle"
+              role="switch"
+              aria-checked={notifications}
             >
               <div style={knobStyle(notifications)} />
             </div>

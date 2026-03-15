@@ -1,10 +1,11 @@
 /**
  * Keyboard Shortcuts Hook
- * 
+ *
  * Provides global keyboard shortcuts for the Web UI.
  * Improves power user experience and accessibility.
  */
 
+import { h } from 'preact';
 import { useEffect } from 'preact/hooks';
 import { useNavigation } from '@isc/navigation';
 

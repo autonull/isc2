@@ -79,7 +79,7 @@ export function NowScreen() {
       <div style={styles.screen}>
         <div style={styles.header}>
           <h1 style={styles.title}>🏠 Now</h1>
-          <button style={styles.composeBtn} onClick={handleComposeClick}>+ Post</button>
+          <button style={styles.composeBtn} onClick={handleComposeClick} data-testid="create-channel-button">+ Post</button>
         </div>
         <div style={styles.content}>
           <FeedSkeleton count={5} />
@@ -118,7 +118,7 @@ export function NowScreen() {
         <h1 style={styles.title}>🏠 Now</h1>
         <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
           <RefreshButton onClick={handleRefresh} loading={loading} />
-          <button style={styles.composeBtn} onClick={handleComposeClick}>+ Post</button>
+          <button style={styles.composeBtn} onClick={handleComposeClick} data-testid="create-channel-button">+ Post</button>
         </div>
       </div>
 

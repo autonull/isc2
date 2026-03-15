@@ -1,6 +1,6 @@
 /**
  * Compose Screen - Channel Creation
- * 
+ *
  * Allows users to create new channels with semantic matching configuration.
  */
 
@@ -103,7 +103,7 @@ export function ComposeScreen() {
         const channel = await networkService.createChannel(name.trim(), description.trim());
         console.log('[ComposeScreen] Channel created via network service:', channel);
         toast.success(`Channel "#${name.trim()}" created!`);
-      } 
+      }
       // Fallback to channel service
       else if (channelService) {
         const channel = await channelService.createChannel({
@@ -132,39 +132,22 @@ export function ComposeScreen() {
     }
   };
 
-  const handleNameInput = (e: Event) => {
-    const value = (e.target as HTMLInputElement).value;
-    setName(value);
-    if (value.length >= 3) setError('');
-  };
-
-  const handleDescriptionInput = (e: Event) => {
-    const value = (e.target as HTMLTextAreaElement).value;
-    setDescription(value);
-    if (value.length >= 10) setError('');
-  };
-
-  const handleSpreadInput = (e: Event) => {
-    const value = parseFloat((e.target as HTMLInputElement).value);
-    setSpread(value);
-  };
-
   return (
     <div style={styles.screen} data-testid="compose-screen">
       <div style={styles.header}>
-        <button 
-          style={{ ...styles.button, ...styles.cancelBtn }} 
+        <button
+          style={{ ...styles.button, ...styles.cancelBtn }}
           onClick={() => navigate({ name: 'now', path: '/now' })}
           data-testid="compose-cancel"
         >
           Cancel
         </button>
         <h1 style={styles.title}>New Channel</h1>
-        <button 
-          style={{ 
-            ...styles.button, 
-            ...(canSubmit && !submitting ? styles.saveBtn : styles.saveBtnDisabled) 
-          }} 
+        <button
+          style={{
+            ...styles.button,
+            ...(canSubmit && !submitting ? styles.saveBtn : styles.saveBtnDisabled)
+          }}
           onClick={handleSave}
           disabled={!canSubmit || submitting}
           data-testid="compose-save"
@@ -195,40 +178,46 @@ export function ComposeScreen() {
 
         <div style={styles.card}>
           <label style={styles.label}>Channel Name</label>
-          <input 
-            type="text" 
-            value={name} 
-            onInput={handleNameInput} 
-            placeholder="What are you thinking about?" 
-            style={styles.input} 
+          <input
+            type="text"
+            value={name}
+            onInput={(e) => setName((e.target as HTMLInputElement).value)}
+            placeholder="What are you thinking about?"
+            style={styles.input}
             maxLength={50}
             data-testid="compose-name-input"
+            autoComplete="off"
+            autoCorrect="off"
+            spellCheck={false}
           />
           <div style={styles.helpText}>{name.length}/50 characters (minimum 3)</div>
         </div>
 
         <div style={styles.card}>
           <label style={styles.label}>Description</label>
-          <textarea 
-            value={description} 
-            onInput={handleDescriptionInput} 
-            placeholder="Describe your thoughts in detail..." 
-            style={styles.textarea} 
+          <textarea
+            value={description}
+            onInput={(e) => setDescription((e.target as HTMLTextAreaElement).value)}
+            placeholder="Describe your thoughts in detail..."
+            style={styles.textarea}
             maxLength={500}
             data-testid="compose-description-input"
+            autoComplete="off"
+            autoCorrect="off"
+            spellCheck={false}
           />
           <div style={styles.helpText}>{description.length}/500 characters (minimum 10)</div>
         </div>
 
         <div style={styles.card}>
           <label style={styles.label}>How specific are you being?</label>
-          <input 
-            type="range" 
-            min="0" 
-            max="100" 
-            step="1" 
-            value={spread} 
-            onInput={handleSpreadInput} 
+          <input
+            type="range"
+            min="0"
+            max="100"
+            step="1"
+            value={spread}
+            onInput={(e) => setSpread(parseFloat((e.target as HTMLInputElement).value))}
             style={styles.slider}
             data-testid="compose-spread-slider"
           />
@@ -243,8 +232,8 @@ export function ComposeScreen() {
           <label style={styles.label}>Add Context (optional)</label>
           <div style={{ display: 'flex', flexWrap: 'wrap' as const, gap: '8px' }}>
             {['📍 Location', '🕐 Time', '💭 Mood', '🔬 Domain', '⚡ Causal'].map((opt) => (
-              <button 
-                key={opt} 
+              <button
+                key={opt}
                 style={{ padding: '8px 12px', background: '#f7f9fa', border: '1px solid #e1e8ed', borderRadius: '16px', cursor: 'pointer', fontSize: '14px' }}
                 type="button"
               >
