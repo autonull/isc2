@@ -1,0 +1,35 @@
+{
+  "name": "@isc/apps/tui",
+  "version": "0.1.0",
+  "type": "module",
+  "private": true,
+  "main": "./dist/index.js",
+  "scripts": {
+    "dev": "tsx src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "lint": "eslint src",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@isc/adapters": "workspace:*",
+    "@isc/core": "workspace:*",
+    "@libp2p/identify": "^4.0.13",
+    "@libp2p/kad-dht": "^16.1.5",
+    "@libp2p/peer-id-factory": "^4.2.4",
+    "@libp2p/ping": "^3.0.13",
+    "@libp2p/websockets": "^10.1.5",
+    "blessed": "^0.1.81",
+    "libp2p": "^3.1.5",
+    "onnxruntime-node": "^1.24.3"
+  },
+  "devDependencies": {
+    "@types/blessed": "^0.1.27",
+    "@types/node": "^20.10.0",
+    "tsx": "^4.7.0",
+    "typescript": "^5.3.3",
+    "vitest": "^1.1.0"
+  }
+}
