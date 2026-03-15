@@ -1,0 +1,20 @@
+[
+  {
+    "id": "channel_94cbcfe2-bb96-4e0e-8080-c436f82117e9",
+    "name": "Test Channel",
+    "description": "",
+    "createdAt": 1773553717918,
+    "members": [
+      "local-user"
+    ]
+  },
+  {
+    "id": "channel_4e5b0c57-83d7-498f-b35e-c58c4d87f2b0",
+    "name": "General",
+    "description": "",
+    "createdAt": 1773554572520,
+    "members": [
+      "local-user"
+    ]
+  }
+]

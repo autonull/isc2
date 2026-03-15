@@ -1,0 +1,8 @@
+{
+  "identityPath": "isc-data/identity.json",
+  "dataDir": "./isc-data",
+  "cacheDir": "./isc-cache",
+  "connectTimeout": 5000,
+  "defaultFeedLimit": 20,
+  "colors": true
+}

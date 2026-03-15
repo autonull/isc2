@@ -1,12 +1,11 @@
 /**
  * Peer Discovery Hook
- * 
+ *
  * Discovers and ranks peers based on semantic similarity using real embeddings.
  */
 
 import { useState, useCallback, useEffect } from 'preact/hooks';
 import { channelManager } from '../../../channels/manager.js';
-import { computeEmbedding, isModelLoaded, isModelLoading } from '../../../identity/embedding-service.js';
 import { PeerDiscoveryService } from '../services/PeerDiscoveryService.js';
 import { MatchService } from '../services/MatchService.js';
 import { DISCOVER_CONFIG } from '../config/discoverConfig.js';
@@ -28,10 +27,19 @@ export function usePeerDiscovery() {
 
   const computeChannelVector = useCallback(
     async (channel: Channel): Promise<number[]> => {
-      // computeEmbedding falls back to word-hash if model not loaded
-      const embedding = await computeEmbedding(channel.description);
-      setModelStatus(isModelLoaded() ? 'ready' : 'fallback');
-      return embedding;
+      try {
+        // Lazy import embedding functions to avoid module-level initialization
+        const { computeEmbedding, isModelLoaded } = await import('../../../identity/embedding-service.js');
+        // computeEmbedding falls back to word-hash if model not loaded
+        const embedding = await computeEmbedding(channel.description);
+        setModelStatus(isModelLoaded() ? 'ready' : 'fallback');
+        return embedding;
+      } catch (err) {
+        console.warn('Embedding not available, using fallback', err);
+        setModelStatus('fallback');
+        // Fallback: simple hash-based embedding
+        return computeFallbackEmbedding(channel.description);
+      }
     },
     []
   );
@@ -116,4 +124,32 @@ export function usePeerDiscovery() {
     loadMatches,
     refreshMatches,
   };
+}
+
+/**
+ * Fallback embedding using simple word hashing
+ */
+function computeFallbackEmbedding(text: string): number[] {
+  const words = text.toLowerCase().match(/\w+/g) || [];
+  const embedding = new Array(384).fill(0);
+  
+  for (let i = 0; i < words.length && i < 384; i++) {
+    const word = words[i];
+    let hash = 0;
+    for (let j = 0; j < word.length; j++) {
+      hash = ((hash << 5) - hash) + word.charCodeAt(j);
+      hash = hash & hash;
+    }
+    embedding[i % 384] += Math.abs(hash) / 1000000;
+  }
+  
+  // Normalize
+  const norm = Math.sqrt(embedding.reduce((s, v) => s + v * v, 0));
+  if (norm > 0) {
+    for (let i = 0; i < 384; i++) {
+      embedding[i] /= norm;
+    }
+  }
+  
+  return embedding;
 }

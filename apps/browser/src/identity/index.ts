@@ -217,17 +217,5 @@ export const announcePublicKey = async (): Promise<void> => {
   await client.announce(key, new TextEncoder().encode(payload), 86400 * 30);
 };
 
-// Re-export embedding service for convenience
-export {
-  EmbeddingService,
-  loadEmbeddingModel,
-  getModel,
-  isModelLoaded,
-  isModelLoading,
-  getLoadProgress,
-  computeEmbedding,
-  computeEmbeddings,
-  unloadModel,
-  clearCache,
-  getCacheStats,
-} from './embedding-service.js';
+// Note: Embedding service is NOT re-exported here to avoid module initialization issues.
+// Import directly from './embedding-service.js' when needed.

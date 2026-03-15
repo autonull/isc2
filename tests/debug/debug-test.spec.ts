@@ -5,50 +5,64 @@
 import { test, expect } from '@playwright/test';
 
 test('App should load and show sidebar', async ({ page }) => {
-  // Capture console errors
-  const errors: string[] = [];
+  // Capture all console messages
+  const messages: string[] = [];
   page.on('console', msg => {
-    if (msg.type() === 'error') {
-      errors.push(msg.text());
-    }
+    messages.push(`${msg.type()}: ${msg.text()}`);
   });
   page.on('pageerror', err => {
-    errors.push(err.message);
+    messages.push(`PAGE ERROR: ${err.message}`);
+    messages.push(`Stack: ${err.stack}`);
   });
 
   await page.goto('/');
   
-  // Wait for any content
+  // Wait for network to be idle
   await page.waitForLoadState('networkidle');
-  await page.waitForTimeout(5000);
+  await page.waitForTimeout(8000);
   
-  // Take a screenshot to see what's on the page
+  // Take a screenshot
   await page.screenshot({ path: 'test-results/debug-page.png', fullPage: true });
   
-  console.log('Console errors:', errors);
+  // Get all messages
+  console.log('All console messages:', messages);
   
-  // Get page content
-  const content = await page.content();
-  console.log('Page has app container:', content.includes('id="app"'));
-  console.log('Page has script tags:', content.includes('script'));
-  
-  // Check for JavaScript bundle loading
-  const jsLoaded = await page.evaluate(() => {
-    return typeof window !== 'undefined';
+  // Check for JS errors in the page
+  const jsErrors = await page.evaluate(() => {
+    return (window as any).__jsErrors || [];
   });
-  console.log('JS loaded:', jsLoaded);
+  console.log('JS errors from page:', jsErrors);
   
-  // Try to find any data-testid elements
-  const testIds = await page.evaluate(() => {
-    return Array.from(document.querySelectorAll('[data-testid]')).map(el => el.getAttribute('data-testid'));
+  // Check if app div has content
+  const appContent = await page.innerHTML('#app').catch(() => 'NOT FOUND');
+  console.log('App innerHTML length:', appContent.length);
+  console.log('App innerHTML (first 200 chars):', appContent.substring(0, 200));
+  
+  // Check for any rendered elements
+  const elementCount = await page.evaluate(() => {
+    return document.body.querySelectorAll('*').length;
   });
-  console.log('Found data-testid elements:', testIds);
+  console.log('Total elements on page:', elementCount);
   
   // Check for sidebar
   const sidebar = page.locator('[data-testid="sidebar"]');
   const sidebarVisible = await sidebar.isVisible().catch(() => false);
-  
   console.log('Sidebar visible:', sidebarVisible);
+  
+  // If sidebar not visible, find what IS visible
+  if (!sidebarVisible) {
+    const visibleElements = await page.evaluate(() => {
+      const elements: string[] = [];
+      document.querySelectorAll('*').forEach(el => {
+        const style = window.getComputedStyle(el);
+        if (style.display !== 'none' && style.visibility !== 'hidden' && el.offsetWidth > 0) {
+          elements.push(el.tagName + (el.className ? '.' + el.className.split(' ').join('.') : '') + (el.id ? '#' + el.id : ''));
+        }
+      });
+      return elements.slice(0, 20);
+    });
+    console.log('Visible elements:', visibleElements);
+  }
   
   expect(sidebarVisible).toBe(true);
 });

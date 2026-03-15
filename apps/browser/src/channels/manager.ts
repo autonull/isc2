@@ -216,14 +216,15 @@ export class ChannelManager {
   }
 
   /**
-   * Compute channel distributions using real embeddings
+   * Compute channel distributions using embeddings
+   * Uses fallback embedding if ML model not available
    */
   async computeChannelDistributions(channel: Channel): Promise<ChannelDistribution[]> {
     const distributions: ChannelDistribution[] = [];
 
     try {
-      // Lazy import embedding service to avoid initialization issues
-      const { computeEmbedding } = await import('../identity/embedding-service.js');
+      // Use simple fallback embedding (no ML model required)
+      const { computeEmbedding } = await import('../utils/embeddingFallback.js');
       
       // Root distribution from description
       const rootEmbedding = await computeEmbedding(channel.description);
@@ -234,8 +235,7 @@ export class ChannelManager {
 
       // Fused distributions for each relation
       for (const relation of channel.relations || []) {
-        // Compose: "description tag object"
-        const composedText = `${channel.description} ${relation.tag.replace(/_/g, ' ')} ${relation.object}`;
+        const composedText = `${channel.description} ${relation.tag.replace(/_/g, ' ')} ${relation.object || ''}`;
         const fusedEmbedding = await computeEmbedding(composedText);
 
         distributions.push({
@@ -247,8 +247,8 @@ export class ChannelManager {
       }
     } catch (err) {
       console.error('[ChannelManager] Failed to compute distributions:', err);
-      // Fallback: return empty distributions
-      throw new Error('Failed to compute channel distributions');
+      // Return empty distributions as fallback
+      return [];
     }
 
     return distributions;

@@ -1,5 +1,4 @@
 import { EmbeddingModelAdapter } from '../interfaces/model.js';
-import { pipeline, env, type PipelineType } from '@xenova/transformers';
 
 const EMBEDDING_DIM = 384;
 
@@ -11,13 +10,16 @@ export class BrowserModel implements EmbeddingModelAdapter {
 
   async load(modelId: string): Promise<void> {
     try {
+      // Lazy import transformers to avoid onnxruntime initialization at module load
+      const { pipeline, env } = await import('@xenova/transformers');
+      
       // Configure env for browser
       env.allowLocalModels = false;
       env.useBrowserCache = true;
 
       // Load feature-extraction pipeline
-      this.extractor = await pipeline('feature-extraction' as PipelineType, modelId);
-      
+      this.extractor = await pipeline('feature-extraction' as any, modelId);
+
       this.modelId = modelId;
       this.isLoadedFlag = true;
     } catch (err) {

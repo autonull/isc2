@@ -1,12 +1,11 @@
 /**
  * Embedding Service
- * 
+ *
  * Manages transformer model loading, caching, and inference with fallback support.
  * Provides lazy loading, IndexedDB caching, and graceful degradation.
  */
 
 import type { EmbeddingModelAdapter } from '@isc/adapters';
-import { BrowserModel } from '@isc/adapters';
 import { loggers } from '../utils/logger.js';
 
 const logger = loggers.embed;
@@ -25,7 +24,7 @@ interface EmbeddingCache {
 class EmbeddingServiceClass {
   private model: EmbeddingModelAdapter | null = null;
   private loadPromise: Promise<void> | null = null;
-  private instance: BrowserModel | null = null;
+  private instance: any | null = null;
   private isLoading = false;
   private isLoaded = false;
   private loadProgress = 0;
@@ -63,7 +62,9 @@ class EmbeddingServiceClass {
           this.notifyProgress();
         }
 
+        // Lazy import BrowserModel to avoid onnxruntime initialization at module load
         if (!this.instance) {
+          const { BrowserModel } = await import('@isc/adapters');
           this.instance = new BrowserModel();
         }
 

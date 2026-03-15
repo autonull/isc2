@@ -97,8 +97,13 @@ export default defineConfig({
   server: {
     port: 3000,
   },
+  build: {
+    rollupOptions: {
+      external: ['@xenova/transformers', 'onnxruntime-web'],
+    },
+  },
   optimizeDeps: {
-    exclude: ['@xenova/transformers'],
+    exclude: ['@xenova/transformers', 'onnxruntime-web'],
   },
   resolve: {
     alias: {

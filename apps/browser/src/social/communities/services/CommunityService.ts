@@ -7,7 +7,6 @@
 import { lshHash } from '@isc/core';
 import { DelegationClient } from '../../../delegation/fallback.js';
 import { getPeerID } from '../../../identity/index.js';
-import { EmbeddingService } from '../../../identity/embedding-service.js';
 import { CommunityRepository } from './CommunityRepository.js';
 import { CommunitySigningService } from './CommunitySigningService.js';
 import { validateCommunity, hasPermission } from '../utils/communityValidator.js';
@@ -49,6 +48,7 @@ export class CommunityService {
     const members = [...new Set([...initialMembers, peerID])];
     const editors = [...new Set([...coEditors, peerID])];
 
+    // Embedding is optional - use fallback if model not available
     const embedding = await this.computeEmbedding(name, description);
 
     const payload: CommunityPayload = {
@@ -245,12 +245,49 @@ export class CommunityService {
 
   /**
    * Compute embedding from text
+   * Falls back to word-hash based embedding if model is not available
    */
   private async computeEmbedding(
     name: string,
     description: string
   ): Promise<number[]> {
-    const model = await EmbeddingService.loadModel();
-    return model.embed(`${name} ${description}`);
+    try {
+      // Lazy import EmbeddingService to avoid module-level initialization
+      const { EmbeddingService } = await import('../../../identity/embedding-service.js');
+      const model = await EmbeddingService.loadModel();
+      return model.embed(`${name} ${description}`);
+    } catch (err) {
+      console.warn('Embedding model not available, using fallback', err);
+      // Fallback: simple hash-based embedding
+      return this.computeFallbackEmbedding(`${name} ${description}`);
+    }
+  }
+
+  /**
+   * Fallback embedding using simple word hashing
+   */
+  private computeFallbackEmbedding(text: string): number[] {
+    const words = text.toLowerCase().match(/\w+/g) || [];
+    const embedding = new Array(384).fill(0);
+    
+    for (let i = 0; i < words.length && i < 384; i++) {
+      const word = words[i];
+      let hash = 0;
+      for (let j = 0; j < word.length; j++) {
+        hash = ((hash << 5) - hash) + word.charCodeAt(j);
+        hash = hash & hash;
+      }
+      embedding[i % 384] += Math.abs(hash) / 1000000;
+    }
+    
+    // Normalize
+    const norm = Math.sqrt(embedding.reduce((s, v) => s + v * v, 0));
+    if (norm > 0) {
+      for (let i = 0; i < 384; i++) {
+        embedding[i] /= norm;
+      }
+    }
+    
+    return embedding;
   }
 }
