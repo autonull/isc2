@@ -235,6 +235,55 @@ importers:
         specifier: ^1.0.0
         version: 1.6.1(@types/node@20.19.37)(happy-dom@12.10.3)
 
+  apps/tui:
+    dependencies:
+      '@isc/adapters':
+        specifier: workspace:*
+        version: link:../../packages/adapters
+      '@isc/core':
+        specifier: workspace:*
+        version: link:../../packages/core
+      '@libp2p/identify':
+        specifier: ^4.0.13
+        version: 4.0.13
+      '@libp2p/kad-dht':
+        specifier: ^16.1.5
+        version: 16.1.5
+      '@libp2p/peer-id-factory':
+        specifier: ^4.2.4
+        version: 4.2.4
+      '@libp2p/ping':
+        specifier: ^3.0.13
+        version: 3.0.13
+      '@libp2p/websockets':
+        specifier: ^10.1.5
+        version: 10.1.5
+      blessed:
+        specifier: ^0.1.81
+        version: 0.1.81
+      libp2p:
+        specifier: ^3.1.5
+        version: 3.1.5
+      onnxruntime-node:
+        specifier: ^1.24.3
+        version: 1.24.3
+    devDependencies:
+      '@types/blessed':
+        specifier: ^0.1.27
+        version: 0.1.27
+      '@types/node':
+        specifier: ^20.10.0
+        version: 20.19.37
+      tsx:
+        specifier: ^4.7.0
+        version: 4.21.0
+      typescript:
+        specifier: ^5.3.3
+        version: 5.9.3
+      vitest:
+        specifier: ^1.1.0
+        version: 1.6.1(@types/node@20.19.37)(happy-dom@12.10.3)
+
   packages/a11y:
     dependencies:
       '@isc/core':
@@ -2659,7 +2708,7 @@ packages:
     dependencies:
       '@libp2p/interface': 3.1.0
       '@libp2p/peer-id': 6.0.4
-      '@libp2p/utils': 7.0.12
+      '@libp2p/utils': 7.0.13
       multiformats: 13.4.2
     dev: false
 
@@ -2950,7 +2999,7 @@ packages:
     resolution: {integrity: sha512-pz/MoipMf69ytbl8+Pd/9OCfmfjmtqKUYVLp/LC8cfYIHMpAQE7DYEEtfHoZ/hN7husDZoe4zuHR8iyqphIixA==}
     dependencies:
       '@libp2p/interface': 3.1.0
-      '@libp2p/utils': 7.0.12
+      '@libp2p/utils': 7.0.13
       '@multiformats/multiaddr': 13.0.1
       '@multiformats/multiaddr-matcher': 3.0.1
       '@multiformats/multiaddr-to-uri': 12.0.0
@@ -3758,6 +3807,12 @@ packages:
     dependencies:
       '@babel/types': 7.29.0
     dev: false
+
+  /@types/blessed@0.1.27:
+    resolution: {integrity: sha512-ZOQGjLvWDclAXp0rW5iuUBXeD6Gr1PkitN7tj7/G8FCoSzTsij6OhXusOzMKhwrZ9YlL2Pmu0d6xJ9zVvk+Hsg==}
+    dependencies:
+      '@types/node': 20.19.37
+    dev: true
 
   /@types/esrecurse@4.3.1:
     resolution: {integrity: sha512-xJBAbDifo5hpffDBuHl0Y8ywswbiAp/Wi7Y/GtAgSlZyIABppyurxVueOPE8LUQOxdlgi6Zqce7uoEpqNTeiUw==}
@@ -4637,6 +4692,12 @@ packages:
       buffer: 5.7.1
       inherits: 2.0.4
       readable-stream: 3.6.2
+
+  /blessed@0.1.81:
+    resolution: {integrity: sha512-LoF5gae+hlmfORcG1M5+5XZi4LBmvlXTzwJWzUlPryN/SJdSflZvROM2TwkT0GMpq7oqT48NRd4GS7BiVBc5OQ==}
+    engines: {node: '>= 0.8.0'}
+    hasBin: true
+    dev: false
 
   /boolean@3.2.0:
     resolution: {integrity: sha512-d0II/GO9uf9lfUHH2BQsjxzRJZBdsjgsBiW4BvhWk/3qoKwQFjIDVN19PfX8F2D/r9PCMTtLWjYVCFrpeYUzsw==}
