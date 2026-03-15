@@ -1,33 +1,86 @@
 /**
  * Error Boundary Component
- *
- * Catches and displays errors in child components with recovery options.
- * Includes detailed logging for debugging.
+ * 
+ * Catches React rendering errors and displays fallback UI.
+ * Prevents entire app from crashing on component errors.
  */
 
 import { h, Component } from 'preact';
-import type { ComponentChildren } from 'preact';
+import { useState } from 'preact/hooks';
+
+interface ErrorBoundaryProps {
+  children: any;
+  fallback?: any;
+  onError?: (error: Error, errorInfo: any) => void;
+}
 
 interface ErrorBoundaryState {
   hasError: boolean;
   error: Error | null;
-  errorInfo: { componentStack?: string } | null;
 }
 
-interface ErrorBoundaryProps {
-  children: ComponentChildren;
-  fallback?: (error: Error, retry: () => void) => ComponentChildren;
-  onError?: (error: Error, errorInfo: any) => void;
-}
+const styles = {
+  container: {
+    padding: '40px 20px',
+    textAlign: 'center' as const,
+    maxWidth: '500px',
+    margin: '0 auto',
+  },
+  icon: {
+    fontSize: '64px',
+    marginBottom: '24px',
+  },
+  title: {
+    fontSize: '24px',
+    fontWeight: 'bold' as const,
+    color: '#14171a',
+    marginBottom: '16px',
+  },
+  message: {
+    fontSize: '16px',
+    color: '#657786',
+    marginBottom: '24px',
+    lineHeight: 1.5,
+  },
+  button: {
+    padding: '12px 24px',
+    background: '#1da1f2',
+    color: 'white',
+    border: 'none',
+    borderRadius: '8px',
+    cursor: 'pointer',
+    fontWeight: 'bold' as const,
+    fontSize: '14px',
+    marginRight: '12px',
+  },
+  secondaryButton: {
+    padding: '12px 24px',
+    background: '#e8f4fd',
+    color: '#1da1f2',
+    border: 'none',
+    borderRadius: '8px',
+    cursor: 'pointer',
+    fontWeight: 'bold' as const,
+    fontSize: '14px',
+  },
+  details: {
+    marginTop: '24px',
+    padding: '16px',
+    background: '#f7f9fa',
+    borderRadius: '8px',
+    textAlign: 'left' as const,
+    fontSize: '12px',
+    fontFamily: 'monospace',
+    color: '#657786',
+    overflow: 'auto' as const,
+    maxHeight: '200px',
+  },
+};
 
-export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
+class ErrorBoundaryClass extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
   constructor(props: ErrorBoundaryProps) {
     super(props);
-    this.state = {
-      hasError: false,
-      error: null,
-      errorInfo: null,
-    };
+    this.state = { hasError: false, error: null };
   }
 
   static getDerivedStateFromError(error: Error): Partial<ErrorBoundaryState> {
@@ -35,195 +88,92 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
   }
 
   componentDidCatch(error: Error, errorInfo: any): void {
-    this.setState({ errorInfo });
-    
-    // Comprehensive error logging for debugging
-    const errorReport = {
-      timestamp: new Date().toISOString(),
-      url: window.location.href,
-      userAgent: navigator.userAgent,
-      error: {
-        name: error.name,
-        message: error.message,
-        stack: error.stack,
-      },
-      componentStack: errorInfo?.componentStack,
-      viewport: {
-        width: window.innerWidth,
-        height: window.innerHeight,
-      },
-      online: navigator.onLine,
-      language: navigator.language,
-    };
-
-    console.error('[ErrorBoundary] Caught error:', errorReport);
-
-    // Store error in sessionStorage for debugging
-    try {
-      const errors = JSON.parse(sessionStorage.getItem('isc-errors') || '[]');
-      errors.push(errorReport);
-      sessionStorage.setItem('isc-errors', JSON.stringify(errors.slice(-10))); // Keep last 10
-    } catch (e) {
-      // Ignore storage errors
-    }
-
-    // Log to error reporting service (if configured)
-    if (this.props.onError) {
-      this.props.onError(error, errorInfo);
-    }
+    console.error('[ErrorBoundary] Caught error:', error, errorInfo);
+    this.props.onError?.(error, errorInfo);
   }
 
   handleRetry = (): void => {
-    this.setState({
-      hasError: false,
-      error: null,
-      errorInfo: null,
-    });
+    this.setState({ hasError: false, error: null });
   };
 
-  handleReset = (): void => {
-    // Clear all cached state and reload
-    localStorage.clear();
-    sessionStorage.clear();
+  handleReload = (): void => {
     window.location.reload();
   };
 
-  handleDownloadErrorReport = (): void => {
-    const errors = sessionStorage.getItem('isc-errors');
-    if (!errors) return;
+  render(): any {
+    const { hasError, error } = this.state;
+    const { children, fallback } = this.props;
 
-    const blob = new Blob([errors], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `isc-error-report-${new Date().toISOString().slice(0, 10)}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
-  };
-
-  render(): ComponentChildren {
-    if (this.state.hasError && this.state.error) {
-      if (this.props.fallback) {
-        return this.props.fallback(this.state.error, this.handleRetry);
+    if (hasError) {
+      if (fallback) {
+        return fallback;
       }
 
       return (
-        <div style={{
-          padding: '24px',
-          maxWidth: '600px',
-          margin: '48px auto',
-          background: '#fef3f2',
-          border: '1px solid #fda29b',
-          borderRadius: '8px',
-          fontFamily: 'system-ui, -apple-system, sans-serif',
-        }}>
-          <h2 style={{ color: '#d93025', margin: '0 0 16px 0', fontSize: '20px' }}>
-            ⚠️ Something went wrong
-          </h2>
-
-          <div style={{ marginBottom: '16px' }}>
-            <p style={{ margin: '0 0 8px 0', color: '#666', fontWeight: 500 }}>
-              {this.state.error.message}
-            </p>
-            
-            <p style={{ margin: '0 0 8px 0', fontSize: '12px', color: '#999' }}>
-              Error: {this.state.error.name} at {new Date().toLocaleTimeString()}
-            </p>
-
-            {this.state.errorInfo?.componentStack && (
-              <details style={{ fontSize: '12px', color: '#888' }}>
-                <summary style={{ cursor: 'pointer', padding: '8px 0' }}>Component stack trace</summary>
-                <pre style={{
-                  background: '#f5f5f5',
-                  padding: '12px',
-                  borderRadius: '4px',
-                  overflow: 'auto',
-                  maxHeight: '200px',
-                  fontSize: '11px',
-                  whiteSpace: 'pre-wrap',
-                  wordBreak: 'break-word',
-                }}>
-                  {this.state.errorInfo.componentStack}
-                </pre>
-              </details>
-            )}
-
-            {this.state.error.stack && (
-              <details style={{ fontSize: '12px', color: '#888', marginTop: '8px' }}>
-                <summary style={{ cursor: 'pointer', padding: '8px 0' }}>Full stack trace</summary>
-                <pre style={{
-                  background: '#f5f5f5',
-                  padding: '12px',
-                  borderRadius: '4px',
-                  overflow: 'auto',
-                  maxHeight: '300px',
-                  fontSize: '11px',
-                  whiteSpace: 'pre-wrap',
-                  wordBreak: 'break-word',
-                }}>
-                  {this.state.error.stack}
-                </pre>
-              </details>
-            )}
-          </div>
-
-          <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' as const }}>
-            <button
+        <div style={styles.container} role="alert">
+          <div style={styles.icon}>⚠️</div>
+          <h2 style={styles.title}>Something went wrong</h2>
+          <p style={styles.message}>
+            We're sorry, but there was an error loading this content.
+            Please try again or reload the page.
+          </p>
+          <div>
+            <button 
+              style={styles.button}
               onClick={this.handleRetry}
-              style={{
-                padding: '10px 20px',
-                background: '#1a73e8',
-                color: 'white',
-                border: 'none',
-                borderRadius: '4px',
-                cursor: 'pointer',
-                fontSize: '14px',
-                fontWeight: 500,
-              }}
             >
               🔄 Try Again
             </button>
-
-            <button
-              onClick={this.handleReset}
-              style={{
-                padding: '10px 20px',
-                background: '#f5f5f5',
-                color: '#666',
-                border: '1px solid #ddd',
-                borderRadius: '4px',
-                cursor: 'pointer',
-                fontSize: '14px',
-              }}
+            <button 
+              style={styles.secondaryButton}
+              onClick={this.handleReload}
             >
-              🔄 Reset App
-            </button>
-
-            <button
-              onClick={this.handleDownloadErrorReport}
-              style={{
-                padding: '10px 20px',
-                background: '#fff',
-                color: '#666',
-                border: '1px solid #ddd',
-                borderRadius: '4px',
-                cursor: 'pointer',
-                fontSize: '14px',
-              }}
-            >
-              📥 Download Error Report
+              🔄 Reload Page
             </button>
           </div>
-          
-          <p style={{ marginTop: '16px', fontSize: '12px', color: '#999' }}>
-            💡 Tip: Download the error report and share it with developers for debugging.
-          </p>
+          {error && (
+            <details style={styles.details}>
+              <summary style={{ cursor: 'pointer', marginBottom: '8px' }}>
+                Error Details
+              </summary>
+              <pre>{error.toString()}</pre>
+            </details>
+          )}
         </div>
       );
     }
 
-    return this.props.children;
+    return children;
   }
 }
 
-export default ErrorBoundary;
+/**
+ * Hook-based Error Boundary for functional components
+ */
+export function useErrorHandler(): [(error: Error) => void, Error | null] {
+  const [error, setError] = useState<Error | null>(null);
+
+  const handleError = (err: Error): void => {
+    console.error('[useErrorHandler] Error:', err);
+    setError(err);
+  };
+
+  return [handleError, error];
+}
+
+/**
+ * Higher Order Component for error handling
+ */
+export function withErrorBoundary<P extends object>(
+  WrappedComponent: preact.FunctionalComponent<P>,
+  fallback?: any
+): preact.FunctionalComponent<P> {
+  return (props: P) => (
+    <ErrorBoundaryClass fallback={fallback}>
+      <WrappedComponent {...props} />
+    </ErrorBoundaryClass>
+  );
+}
+
+export const ErrorBoundary = ErrorBoundaryClass;
+export default ErrorBoundaryClass;

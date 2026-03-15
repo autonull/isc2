@@ -21,6 +21,7 @@
     "@isc/core": "workspace:*",
     "@isc/forms": "workspace:*",
     "@isc/navigation": "workspace:*",
+    "@isc/network": "workspace:*",
     "@isc/protocol": "workspace:*",
     "@isc/state": "workspace:*",
     "@isc/ui": "workspace:*",

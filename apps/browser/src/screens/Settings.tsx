@@ -7,7 +7,7 @@
 import { h } from 'preact';
 import { useState, useEffect } from 'preact/hooks';
 import { useNavigation } from '@isc/navigation';
-import { useDependencies } from '../di/container.jsx';
+import { useDependencies } from '../di/container.tsx';
 import { toast, showConfirm, showLoading } from '../utils/toast.js';
 
 const styles = {

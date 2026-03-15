@@ -7,8 +7,8 @@
 import { h } from 'preact';
 import { useState, useEffect } from 'preact/hooks';
 import { useNavigation } from '@isc/navigation';
-import { useChannelService } from '../di/container.jsx';
-import { useDependencies } from '../di/container.jsx';
+import { useChannelService } from '../di/container.tsx';
+import { useDependencies } from '../di/container.tsx';
 import { validateChannelInput } from '../services/channelService.js';
 import { toast } from '../utils/toast.js';
 

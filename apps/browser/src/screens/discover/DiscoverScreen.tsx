@@ -7,7 +7,7 @@
 
 import { h } from 'preact';
 import { useState, useEffect } from 'preact/hooks';
-import { useDependencies } from '../di/container.jsx';
+import { useDependencies } from '../di/container.tsx';
 import type { PeerMatch } from '@isc/network';
 import { toast, showConfirm } from '../utils/toast.js';
 

@@ -9,9 +9,11 @@ import { h, Fragment } from 'preact';
 import { useState, useEffect } from 'preact/hooks';
 import { useNavigation } from '@isc/navigation';
 import { useFeed, useActiveChannel } from '../hooks/index.js';
-import { useDependencies } from '../di/container.jsx';
+import { useDependencies } from '../di/container.tsx';
 import { PostList } from '../components/PostList.js';
 import { ComposePost } from '../components/ComposePost.js';
+import { FeedSkeleton } from '../components/Skeleton.js';
+import { RefreshButton } from '../components/PullToRefresh.js';
 import type { PostData } from '@isc/network';
 
 const styles = {
@@ -65,7 +67,7 @@ export function NowScreen() {
     navigate({ name: 'compose', path: '/compose' });
   };
 
-  const handleRefresh = () => {
+  const handleRefresh = async () => {
     refresh();
     if (networkService) {
       setNetworkPosts(networkService.getPosts());
@@ -79,9 +81,8 @@ export function NowScreen() {
           <h1 style={styles.title}>🏠 Now</h1>
           <button style={styles.composeBtn} onClick={handleComposeClick}>+ Post</button>
         </div>
-        <div style={styles.loading}>
-          <div style={{ fontSize: '48px', marginBottom: '16px' }}>⏳</div>
-          <p>Loading your feed...</p>
+        <div style={styles.content}>
+          <FeedSkeleton count={5} />
         </div>
       </div>
     );
@@ -113,9 +114,12 @@ export function NowScreen() {
 
   return (
     <div style={styles.screen} data-testid="now-screen">
-      <div style={styles.header}>
+      <div style={{ ...styles.header, position: 'sticky' as const, top: 0, zIndex: 100 }}>
         <h1 style={styles.title}>🏠 Now</h1>
-        <button style={styles.composeBtn} onClick={handleComposeClick}>+ Post</button>
+        <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+          <RefreshButton onClick={handleRefresh} loading={loading} />
+          <button style={styles.composeBtn} onClick={handleComposeClick}>+ Post</button>
+        </div>
       </div>
 
       <div style={styles.content}>
