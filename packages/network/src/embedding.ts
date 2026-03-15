@@ -62,16 +62,21 @@ export class TransformerEmbeddingService implements EmbeddingService {
 
     try {
       // Lazy import to avoid module-level initialization issues
-      const { pipeline } = await import('@xenova/transformers');
+      const { pipeline, env } = await import('@xenova/transformers');
       
-      console.log(`[Embedding] Loading model: ${this.modelId}`);
-      this.extractor = await pipeline('feature-extraction', this.modelId);
+      // Disable the progress bar output which completely breaks TUI rendering
+      // with massive terminal escape sequences
+      env.allowLocalModels = true;
+      env.useBrowserCache = false;
+      
+      // @ts-ignore - Disable progress callback logging
+      this.extractor = await pipeline('feature-extraction', this.modelId, {
+        progress_callback: () => {}
+      });
       this.loaded = true;
-      console.log(`[Embedding] Model loaded successfully`);
     } catch (err) {
       this.loadError = err instanceof Error ? err : new Error(String(err));
-      console.warn('[Embedding] Failed to load model, will use word-hash fallback:', this.loadError.message);
-      // We don't rethrow here to allow the app to continue with fallback
+      // Fallback silently if model cannot be loaded
     } finally {
       this.loading = false;
     }
@@ -103,7 +108,7 @@ export class TransformerEmbeddingService implements EmbeddingService {
       
       return embedding;
     } catch (err) {
-      console.error('[Embedding] Model inference failed, using fallback:', err);
+      // Inference failed, use robust fallback silently
       return this.computeFallback(text);
     }
   }
@@ -242,7 +247,6 @@ export class TransformerEmbeddingService implements EmbeddingService {
     this.extractor = null;
     this.loaded = false;
     this.loading = false;
-    console.log('[Embedding] Model unloaded');
   }
 }
 

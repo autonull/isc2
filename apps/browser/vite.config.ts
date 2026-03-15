@@ -4,6 +4,9 @@ import { VitePWA } from 'vite-plugin-pwa';
 import preact from '@preact/preset-vite';
 
 export default defineConfig({
+  server: {
+    port: 3000,
+  },
   plugins: [
     preact(),
     VitePWA({

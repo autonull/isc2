@@ -17,10 +17,14 @@ export class NodeModel implements EmbeddingModelAdapter {
 
   async load(modelId: string): Promise<void> {
     try {
-      // In node, we can allow local models or just use the HF hub cache
-      // The default behavior of env usually works fine in node
-      
-      this.extractor = await pipeline('feature-extraction' as PipelineType, modelId);
+      // Disable the progress bar output to prevent terminal corruption
+      env.allowLocalModels = true;
+      env.useBrowserCache = false;
+
+      // @ts-ignore - Disable progress callback logging
+      this.extractor = await pipeline('feature-extraction' as PipelineType, modelId, {
+        progress_callback: () => {}
+      });
       
       this.modelId = modelId;
       this.isLoadedFlag = true;

@@ -55,7 +55,15 @@ function main(): void {
   supernodeCommands(program);
   initCommand(program);
 
-  program.parse(process.argv);
+  program.parseAsync(process.argv)
+    .then(() => {
+      // Cleanly exit after async command finishes
+      process.exit(0);
+    })
+    .catch((err) => {
+      console.error(err);
+      process.exit(1);
+    });
 
   // Show help if no command provided
   if (!process.argv.slice(2).length) {
