@@ -3,7 +3,7 @@ import { useState, useEffect } from 'preact/hooks';
 import { useNavigation } from '@isc/navigation';
 import { ErrorBoundary } from './components/ErrorBoundary.js';
 import { SplashScreen } from './components/SplashScreen.js';
-import { useDefaultShortcuts, KeyboardHelp } from './hooks/useKeyboardShortcuts.tsx';
+import { useDefaultShortcuts, KeyboardHelp } from './hooks/useKeyboardShortcuts.js';
 import { IRCSidebar } from './components/IRCSidebar.js';
 import { NowScreen } from './screens/Now.js';
 import { DiscoverScreen } from './screens/discover/DiscoverScreen.js';

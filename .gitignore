@@ -65,3 +65,5 @@ models/
 **/src/**/*.js
 !**/src/**/*.spec.d.ts
 playwright-report
+/isc-data/
+/isc-cache/

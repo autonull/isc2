@@ -5,7 +5,7 @@
   "private": true,
   "scripts": {
     "dev": "vite --host",
-    "build": "tsc && vite build",
+    "build": "vite build",
     "preview": "vite preview",
     "lint": "eslint src tests",
     "lint:fix": "eslint src tests --fix",

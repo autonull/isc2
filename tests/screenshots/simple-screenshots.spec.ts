@@ -22,13 +22,13 @@ test.describe('ISC Screenshots', () => {
     
     // 3. Click Compose  
     console.log('📸 Capturing Compose screen...');
-    await page.click('text=✏️');
+    await page.click('[data-tab="compose"]');
     await page.waitForTimeout(1000);
     await page.screenshot({ path: 'screenshots/compose-screen.png', fullPage: true });
     
     // 4. Click Settings
     console.log('📸 Capturing Settings screen...');
-    await page.click('text=⚙️');
+    await page.click('[data-tab="settings"]');
     await page.waitForTimeout(1000);
     await page.screenshot({ path: 'screenshots/settings-screen.png', fullPage: true });
     

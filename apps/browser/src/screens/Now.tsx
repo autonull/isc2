@@ -9,7 +9,7 @@ import { h, Fragment } from 'preact';
 import { useState, useEffect } from 'preact/hooks';
 import { useNavigation } from '@isc/navigation';
 import { useFeed, useActiveChannel } from '../hooks/index.js';
-import { useDependencies } from '../di/container.tsx';
+import { useDependencies } from '../di/container.js';
 import { PostList } from '../components/PostList.js';
 import { ComposePost } from '../components/ComposePost.js';
 import { FeedSkeleton } from '../components/Skeleton.js';
@@ -47,10 +47,10 @@ export function NowScreen() {
     const unsubscribe = () => {};
 
     networkService.on({
-      onStatusChange: (status) => {
+      onStatusChange: (status: string) => {
         setNetworkStatus(status);
       },
-      onPostCreated: (post) => {
+      onPostCreated: (post: PostData) => {
         setNetworkPosts(prev => [post, ...prev]);
       },
     });
@@ -60,7 +60,7 @@ export function NowScreen() {
 
   // Combine posts from both sources
   const allPosts = [...networkPosts, ...hookPosts].sort(
-    (a, b) => (b.createdAt || b.timestamp || 0) - (a.createdAt || a.timestamp || 0)
+    (a, b) => ((b as any).createdAt || (b as any).timestamp || 0) - ((a as any).createdAt || (a as any).timestamp || 0)
   );
 
   const handleComposeClick = () => {
@@ -178,7 +178,7 @@ export function NowScreen() {
             <ComposePost />
 
             {/* Posts list */}
-            <PostList posts={allPosts} />
+            <PostList posts={allPosts as any} />
           </>
         )}
       </div>

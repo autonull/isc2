@@ -7,9 +7,9 @@
 
 import { h } from 'preact';
 import { useState, useEffect } from 'preact/hooks';
-import { useDependencies } from '../di/container.tsx';
+import { useDependencies } from '../../di/container.js';
 import type { PeerMatch } from '@isc/network';
-import { toast, showConfirm } from '../utils/toast.js';
+import { toast, showConfirm } from '../../utils/toast.js';
 
 const styles = {
   screen: { display: 'flex', flexDirection: 'column' as const, minHeight: '100%', background: '#f5f8fa' } as const,
@@ -53,14 +53,14 @@ export function DiscoverScreen() {
     };
 
     networkService.on({
-      onStatusChange: (newStatus) => {
+      onStatusChange: (newStatus: string) => {
         setStatus(newStatus);
       },
-      onMatchesUpdated: (newMatches) => {
+      onMatchesUpdated: (newMatches: any[]) => {
         setMatches([...newMatches]);
         setLastDiscovered(new Date());
       },
-      onPeerDiscovered: (match) => {
+      onPeerDiscovered: (match: any) => {
         console.log('[Discover] New peer discovered:', match.peer.name);
       },
     });
@@ -206,7 +206,7 @@ export function DiscoverScreen() {
             </div>
 
             {/* Peer list */}
-            {matches.map((match) => (
+            {matches.map((match: any) => (
               <div key={match.peer.id} style={styles.peerCard}>
                 <div style={styles.peerHeader}>
                   <span style={styles.peerName}>
@@ -227,7 +227,7 @@ export function DiscoverScreen() {
 
                 {match.matchedTopics && match.matchedTopics.length > 0 && (
                   <div style={styles.peerTopics}>
-                    {match.matchedTopics.slice(0, 5).map((topic, i) => (
+                    {match.matchedTopics.slice(0, 5).map((topic: any, i: number) => (
                       <span key={i} style={styles.topic}>
                         {topic}
                       </span>

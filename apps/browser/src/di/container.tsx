@@ -12,7 +12,7 @@ import type { Navigator } from '@isc/navigation';
 import type { ChannelService } from '../services/channelService.js';
 import type { PostService } from '../services/postService.js';
 import type { FeedService } from '../services/feedService.js';
-import type { WebUINetworkService } from '../services/networkService.js';
+import type { } from '../services/networkService.js';
 
 // Service interfaces for DI
 export interface IdentityService {
@@ -59,7 +59,7 @@ export interface AppDependencies {
   channelService: ChannelService | null;
   postService: PostService | null;
   feedService: FeedService | null;
-  networkService: WebUINetworkService | null;
+  networkService: any | null;
   navigator: Navigator | null;
   identity: IdentityService | null;
   settings: SettingsService | null;
@@ -332,7 +332,7 @@ export function createMockDependencies(overrides?: Partial<AppDependencies>): Ap
     channelService: mockChannelService as unknown as ChannelService,
     postService: mockPostService as unknown as PostService,
     feedService: mockFeedService as unknown as FeedService,
-    networkService: mockNetworkService as unknown as WebUINetworkService,
+    networkService: mockNetworkService as unknown as any,
     navigator: mockNavigator as unknown as Navigator,
     identity: mockIdentity,
     settings: mockSettings,

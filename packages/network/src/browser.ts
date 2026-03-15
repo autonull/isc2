@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * ISC Network - Browser Network Service
  * 

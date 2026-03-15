@@ -4,7 +4,7 @@
  * Shared types for network communication, DHT, and peer discovery.
  */
 
-import type { SignedAnnouncement } from '@isc/core';
+
 
 /**
  * Peer information stored in DHT

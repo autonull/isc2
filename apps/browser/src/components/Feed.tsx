@@ -3,7 +3,7 @@ import { useState, useEffect, useCallback } from 'preact/hooks';
 import type { SignedPost } from '../social/types.js';
 import { Post } from './Post.js';
 import { getForYouFeed, getFollowingFeed, refreshFeed } from '../social/index.js';
-import { SkeletonPost } from './Skeleton.js';
+import { PostSkeleton } from './Skeleton.js';
 
 type FeedType = 'for-you' | 'following';
 
@@ -123,7 +123,7 @@ export function Feed({ type = 'for-you', channelID, limit = 50 }: FeedProps) {
     return (
       <div style={styles.feed}>
         {Array.from({ length: 3 }).map((_, i) => (
-          <SkeletonPost key={i} />
+          <PostSkeleton key={i} />
         ))}
       </div>
     );

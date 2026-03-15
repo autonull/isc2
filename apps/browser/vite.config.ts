@@ -92,13 +92,6 @@ export default defineConfig({
       input: {
         main: resolve(__dirname, 'index.html'),
       },
-    },
-  },
-  server: {
-    port: 3000,
-  },
-  build: {
-    rollupOptions: {
       external: ['@xenova/transformers', 'onnxruntime-web'],
     },
   },
