@@ -7,6 +7,11 @@ import { createChannelService } from './services/channelService.js';
 import { createPostService } from './services/postService.js';
 import { createFeedService } from './services/feedService.js';
 import { getWebUINetworkService } from './services/networkService.js';
+import { createIdentityService } from './services/identityService.js';
+import { createSettingsService } from './services/settingsService.js';
+import { createVideoService } from './services/videoService.js';
+import { createChatService } from './services/chatService.js';
+import { createDiscoveryService } from './services/discoveryService.js';
 import { exposeDebugAPI, createDebugOverlay } from './dev/debugTools.js';
 import './styles/main.css';
 
@@ -42,8 +47,13 @@ async function init() {
     const channelService = createChannelService(channelManager);
     const postService = createPostService();
     const feedService = createFeedService(postService, channelManager);
+    const identityService = createIdentityService();
+    const settingsService = createSettingsService();
+    const videoService = createVideoService();
+    const chatService = createChatService();
+    const discoveryService = createDiscoveryService();
 
-    // Create dependencies
+    // Create dependencies (all wired up)
     const dependencies = {
       channelManager,
       channelService,
@@ -51,11 +61,11 @@ async function init() {
       feedService,
       networkService,
       navigator,
-      identity: null, // TODO: Implement
-      settings: null, // TODO: Implement
-      video: null, // TODO: Implement
-      chat: null, // TODO: Implement
-      discovery: null, // TODO: Implement
+      identity: identityService,
+      settings: settingsService,
+      video: videoService,
+      chat: chatService,
+      discovery: discoveryService,
     };
 
     // Expose debug tools in development
