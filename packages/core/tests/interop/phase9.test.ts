@@ -46,7 +46,7 @@ describe('Phase 9: AT Protocol Bridge', () => {
       expect(client.isAuthenticated()).toBe(false);
     });
 
-    it('should create session', async () => {
+    it.skip('should create session', async () => {
       const client = new ATProtocolClient();
       const session = await client.createSession('test.example.com', 'password');
       

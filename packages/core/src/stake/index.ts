@@ -8,7 +8,7 @@
 
 // Re-export stake modules
 export { StakeManager } from './manager.js';
-export { MockLightningAdapter, LNDAdapter, createLightningAdapter } from './lightning.js';
+export { LNDAdapter, createLightningAdapter } from './lightning.js';
 export { SlashingConditions, AutomatedSlashingDetector } from './slashing.js';
 
 // Types - use 'export type' for isolatedModules

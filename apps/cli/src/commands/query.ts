@@ -8,6 +8,7 @@ import type { Command } from 'commander';
 import * as fs from 'fs';
 import * as path from 'path';
 import { lshHash, cosineSimilarity, relationalMatch } from '@isc/core';
+import { nodeModel } from '@isc/adapters/node';
 import type { CLIConfig } from '../config.js';
 import type { Channel, Distribution, SignedAnnouncement } from '@isc/core';
 
@@ -80,17 +81,16 @@ async function computeQueryDistribution(config: CLIConfig, channelName?: string)
     return null;
   }
 
-  // Compute distribution (stub embedding)
-  const hash = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(channel.description));
-  const hashBytes = new Uint8Array(hash);
-  const mu = new Array(384).fill(0).map((_, i) => {
-    const byte = hashBytes[i % 32];
-    return (byte / 255) * 2 - 1;
-  });
-  const norm = Math.sqrt(mu.reduce((sum, v) => sum + v * v, 0));
+  // Compute distribution using real AI embeddings
+  if (!nodeModel.isLoaded()) {
+    console.log(`Loading embedding model for CLI: ${LOCAL_MODEL}...`);
+    await nodeModel.load(LOCAL_MODEL);
+  }
   
+  const mu = await nodeModel.embed(channel.description);
+
   return {
-    mu: mu.map(v => v / norm),
+    mu,
     channel
   };
 }

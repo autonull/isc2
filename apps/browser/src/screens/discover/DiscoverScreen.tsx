@@ -1,238 +1,50 @@
 /**
- * Discover Screen - Find Nearby Peers
- *
- * Main container component using modular architecture.
+ * Discover Screen - Self-contained
  */
 
-import { h, Fragment } from 'preact';
-import { useEffect, useState } from 'preact/hooks';
-import { usePeerDiscovery } from './hooks/usePeerDiscovery.js';
-import { usePeerFiltering } from './hooks/usePeerFiltering.js';
-import { useMatchScoring } from './hooks/useMatchScoring.js';
-import { PeerList } from './components/PeerList.js';
-import { FilterBar } from './components/FilterBar.js';
-import { EmptyState } from './components/EmptyState.js';
-import { MatchIndicator } from './components/MatchIndicator.js';
-import { SkeletonMatch } from '../../components/Skeleton.js';
-import { discoverStyles as styles } from './styles/Discover.css.js';
-import type { Match } from './types/discover.js';
-import { getChatHandler } from '../../chat/webrtc.js';
-import { getDHTClient } from '../../network/dht.js';
-import { useNavigation } from '@isc/navigation';
+import { h } from 'preact';
+
+const styles = {
+  screen: { display: 'flex', flexDirection: 'column' as const, minHeight: '100%', background: '#f5f8fa' } as const,
+  header: { padding: '16px 20px', borderBottom: '1px solid #e1e8ed', background: 'white' } as const,
+  title: { fontSize: '20px', fontWeight: 'bold', margin: 0, color: '#14171a' } as const,
+  content: { flex: 1, padding: '20px' } as const,
+  card: { background: 'white', borderRadius: '12px', padding: '20px', marginBottom: '16px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' } as const,
+  emptyState: { textAlign: 'center' as const, padding: '60px 20px', color: '#657786' } as const,
+};
 
 export function DiscoverScreen() {
-  const { navigate } = useNavigation();
-  const [dialError, setDialError] = useState<string | null>(null);
-  const [dialSuccess, setDialSuccess] = useState<string | null>(null);
-
-  const { matches, loading, error, activeChannel, modelStatus, loadMatches, refreshMatches } =
-    usePeerDiscovery();
-
-  const { filteredMatches, groupedMatches } = usePeerFiltering(matches);
-  const { scoredMatches } = useMatchScoring(matches);
-
-  useEffect(() => {
-    loadMatches();
-  }, [loadMatches]);
-
-  const handleDial = async (match: Match) => {
-    try {
-      const dhtClient = getDHTClient();
-      const node = dhtClient.getNode();
-
-      if (!node) {
-        setDialError('Not connected to network');
-        setTimeout(() => setDialError(null), 5000);
-        return;
-      }
-
-      const chatHandler = getChatHandler();
-
-      if (!chatHandler['registeredNode']) {
-        chatHandler.registerWithNode(node);
-      }
-
-      const greeting = {
-        channelID: match.channelID,
-        msg: 'Hey, our thoughts are proximal!',
-        timestamp: Date.now(),
-        sender: 'me',
-      };
-
-      await chatHandler.sendMessage(match.peerId, greeting, node);
-
-      const newConvo = {
-        peerId: match.peerId,
-        channelID: match.channelID,
-        lastMessage: greeting.msg,
-        lastMessageTime: greeting.timestamp,
-        unreadCount: 0,
-      };
-
-      const savedConvos = localStorage.getItem('isc-conversations');
-      const convos = savedConvos ? JSON.parse(savedConvos) : [];
-      const existing = convos.findIndex((c: any) => c.peerId === newConvo.peerId);
-      if (existing >= 0) {
-        convos[existing] = newConvo;
-      } else {
-        convos.unshift(newConvo);
-      }
-      localStorage.setItem('isc-conversations', JSON.stringify(convos));
-
-      const msgKey = `isc-messages-${match.peerId}`;
-      localStorage.setItem(msgKey, JSON.stringify([greeting]));
-
-      setDialSuccess(
-        `Chat started with peer ${match.peerId.slice(0, 8)}! Go to the Chats tab to continue.`
-      );
-      setTimeout(() => setDialSuccess(null), 5000);
-    } catch (err) {
-      setDialError((err as Error).message);
-      setTimeout(() => setDialError(null), 5000);
-    }
-  };
-
-  if (loading) {
-    return (
-      <div style={styles.screen}>
-        <header style={styles.header}>
-          <h1 style={styles.title}>Discover</h1>
-          <p style={styles.subtitle}>Finding nearby peers...</p>
-        </header>
-        <div style={styles.content}>
-          {Array.from({ length: 3 }).map((_, i) => (
-            <SkeletonMatch key={i} />
-          ))}
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div style={styles.screen}>
-      <header style={styles.header}>
-        <div>
-          <h1 style={styles.title}>Discover</h1>
-          <p style={styles.subtitle}>
-            {activeChannel ? `Querying: ${activeChannel.name}` : 'No active channel'}
-          </p>
-        </div>
-        {modelStatus === 'ready' && (
-          <span
-            style={{
-              fontSize: '12px',
-              color: '#17bf63',
-              background: '#d4edda',
-              padding: '4px 8px',
-              borderRadius: '4px',
-            }}
-          >
-            ✓ Real embeddings
-          </span>
-        )}
-        {modelStatus === 'fallback' && (
-          <span
-            style={{
-              fontSize: '12px',
-              color: '#856404',
-              background: '#fff3cd',
-              padding: '4px 8px',
-              borderRadius: '4px',
-            }}
-          >
-            ⚠️ Fallback mode
-          </span>
-        )}
-      </header>
-
-      {dialError && (
-        <div
-          style={{
-            background: '#ef4444',
-            color: 'white',
-            padding: '12px 16px',
-            margin: '0 16px 8px',
-            borderRadius: '4px',
-            fontSize: '14px',
-          }}
-          role="alert"
-        >
-          {dialError}
-        </div>
-      )}
-
-      {dialSuccess && (
-        <div
-          style={{
-            background: '#17bf63',
-            color: 'white',
-            padding: '12px 16px',
-            margin: '0 16px 8px',
-            borderRadius: '4px',
-            fontSize: '14px',
-          }}
-          role="status"
-        >
-          {dialSuccess}
-        </div>
-      )}
+      <div style={styles.header}>
+        <h1 style={styles.title}>📡 Discover</h1>
+      </div>
 
       <div style={styles.content}>
-        {error && (
-          <EmptyState
-            icon="⚠️"
-            title="Connection Error"
-            message={error}
-            actions={[{ label: 'Try Again', onClick: refreshMatches, primary: true }]}
-          />
-        )}
+        <div style={styles.emptyState}>
+          <div style={{ fontSize: '48px', marginBottom: '16px' }}>🔍</div>
+          <h3 style={{ margin: '0 0 8px 0', fontSize: '18px' }}>Discover Nearby Peers</h3>
+          <p style={{ margin: '0 0 20px 0', fontSize: '14px' }}>
+            Find and connect with users who have similar interests.
+          </p>
+        </div>
 
-        {!error && matches.length === 0 && (
-          <EmptyState
-            icon="🔍"
-            title="No matches found"
-            message={
-              activeChannel
-                ? 'Try editing your channel description or wait for more peers to announce'
-                : 'Create a channel to start discovering peers'
-            }
-            actions={[
-              {
-                label: 'Create Channel',
-                onClick: () => navigate({ name: 'compose', path: '/compose' }),
-                primary: true,
-              },
-              { label: 'Refresh', onClick: refreshMatches },
-            ]}
-          />
-        )}
+        <div style={styles.card}>
+          <h4 style={{ margin: '0 0 15px 0', color: '#1da1f2' }}>🎯 How Discovery Works</h4>
+          <ul style={{ margin: 0, paddingLeft: '20px', fontSize: '14px', color: '#657786', lineHeight: 2 }}>
+            <li>Create channels with detailed descriptions</li>
+            <li>Semantic matching finds similar channels</li>
+            <li>LSH hashing enables efficient peer discovery</li>
+            <li>Connect directly via P2P network</li>
+          </ul>
+        </div>
 
-        {!error && matches.length > 0 && (
-          <>
-            <FilterBar />
-
-            {groupedMatches.VERY_CLOSE.length > 0 && (
-              <div style={styles.section}>
-                <h2 style={styles.sectionTitle}>Very Close ({groupedMatches.VERY_CLOSE.length})</h2>
-                <PeerList matches={groupedMatches.VERY_CLOSE} onDial={handleDial} />
-              </div>
-            )}
-
-            {groupedMatches.NEARBY.length > 0 && (
-              <div style={styles.section}>
-                <h2 style={styles.sectionTitle}>Nearby ({groupedMatches.NEARBY.length})</h2>
-                <PeerList matches={groupedMatches.NEARBY} onDial={handleDial} />
-              </div>
-            )}
-
-            {groupedMatches.ORBITING.length > 0 && (
-              <div style={styles.section}>
-                <h2 style={styles.sectionTitle}>Orbiting ({groupedMatches.ORBITING.length})</h2>
-                <PeerList matches={groupedMatches.ORBITING} onDial={handleDial} />
-              </div>
-            )}
-          </>
-        )}
+        <div style={{ ...styles.card, background: '#fff3cd' }}>
+          <h4 style={{ margin: '0 0 10px 0', color: '#856404' }}>⚠️ Getting Started</h4>
+          <p style={{ margin: 0, fontSize: '14px', color: '#856404' }}>
+            Create a channel first to start discovering peers.
+          </p>
+        </div>
       </div>
     </div>
   );

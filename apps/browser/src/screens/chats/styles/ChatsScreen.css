@@ -4,6 +4,7 @@
   display: flex;
   flex-direction: column;
   height: 100%;
+  position: relative;
 }
 
 .chats-header {
@@ -85,13 +86,13 @@
 
 /* Chat Panel */
 .chat-panel {
-  position: fixed;
+  position: absolute;
+  top: 0;
   bottom: 0;
   left: 0;
   right: 0;
-  height: 70%;
+  height: 100%;
   background: white;
-  border-top: 1px solid #e1e8ed;
   display: flex;
   flex-direction: column;
   z-index: 100;

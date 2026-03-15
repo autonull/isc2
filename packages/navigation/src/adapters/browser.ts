@@ -54,8 +54,22 @@ export class BrowserNavigator implements Navigator {
     return `${this.basePath}${path}${queryString}`;
   }
 
+  private notifyListeners(type: 'navigate' | 'replace' | 'push', from: Route | null) {
+    const to = this.parseLocation();
+    this.listeners.forEach((listener) =>
+      listener({
+        type,
+        from,
+        to,
+        timestamp: Date.now(),
+      })
+    );
+  }
+
   async navigate(route: Route): Promise<void> {
+    const from = this.currentRoute;
     window.history.pushState(route, '', this.buildPath(route));
+    this.notifyListeners('navigate', from);
   }
 
   async goBack(): Promise<void> {
@@ -67,11 +81,15 @@ export class BrowserNavigator implements Navigator {
   }
 
   async replace(route: Route): Promise<void> {
+    const from = this.currentRoute;
     window.history.replaceState(route, '', this.buildPath(route));
+    this.notifyListeners('replace', from);
   }
 
   async push(route: Route): Promise<void> {
+    const from = this.currentRoute;
     window.history.pushState(route, '', this.buildPath(route));
+    this.notifyListeners('push', from);
   }
 
   async pop(count = 1): Promise<void> {

@@ -4,17 +4,49 @@
 
 import { describe, it, expect, beforeEach } from 'vitest';
 import { StakeManager } from '../src/stake/manager.js';
-import { MockLightningAdapter, createLightningAdapter } from '../src/stake/lightning.js';
+import { createLightningAdapter, LightningAdapter, LightningInvoice, LightningPayment, CreateInvoiceParams, SendPaymentParams, LightningBalance } from '../src/stake/lightning.js';
 import { SlashingConditions, AutomatedSlashingDetector } from '../src/stake/slashing.js';
 import { getFeatureFlags, FeatureFlagBuilder, validateConfiguration } from '../src/config/features.js';
+
+class FakeLightningAdapter implements LightningAdapter {
+  invoices = new Map<string, LightningInvoice>();
+  payments = new Map<string, LightningPayment>();
+
+  isConnected() { return true; }
+
+  async createInvoice(params: CreateInvoiceParams) {
+    const paymentHash = crypto.randomUUID().replace(/-/g, '');
+    const invoice = { bolt11: `lnbc${params.amountSats}mock`, paymentHash, amountSats: params.amountSats, expiry: Date.now() + 3600000 };
+    this.invoices.set(paymentHash, invoice);
+    return invoice;
+  }
+
+  async sendPayment(params: SendPaymentParams) {
+    const paymentHash = crypto.randomUUID().replace(/-/g, '');
+    const payment = { paymentHash, amountSats: params.amountSats || 0, feeSats: 0, success: true, preimage: 'pre' };
+    this.payments.set(paymentHash, payment);
+    return payment;
+  }
+
+  async verifyPayment(paymentHash: string) { return this.invoices.has(paymentHash); }
+  
+  async getBalance() { return { totalSats: 1000000, availableSats: 900000, pendingSats: 100000 }; }
+
+  simulatePaymentReceived(paymentHash: string) {
+    const invoice = this.invoices.get(paymentHash);
+    if (invoice) {
+        this.payments.set(paymentHash, { paymentHash, amountSats: invoice.amountSats, feeSats: 0, success: true, preimage: 'pre' });
+    }
+  }
+}
 
 describe('Stake System', () => {
   describe('StakeManager', () => {
     let manager: StakeManager;
-    let lightning: MockLightningAdapter;
+    let lightning: FakeLightningAdapter;
 
     beforeEach(() => {
-      lightning = new MockLightningAdapter();
+      lightning = new FakeLightningAdapter();
       manager = new StakeManager({ minStakeSats: 10000 }, lightning);
     });
 
@@ -103,7 +135,7 @@ describe('Stake System', () => {
       });
 
       it('should reject slashing without enabled config', () => {
-        const managerNoSlash = new StakeManager({ slashingEnabled: false });
+        const managerNoSlash = new StakeManager({ slashingEnabled: false }, lightning);
         const signature = new Uint8Array(64);
         
         const result = managerNoSlash.slashStake(
@@ -327,46 +359,7 @@ describe('Stake System', () => {
   });
 
   describe('Lightning Adapter', () => {
-    describe('MockLightningAdapter', () => {
-      let adapter: MockLightningAdapter;
-
-      beforeEach(() => {
-        adapter = new MockLightningAdapter();
-      });
-
-      it('should create invoices', async () => {
-        const invoice = await adapter.createInvoice({
-          amountSats: 50000,
-          memo: 'Test invoice',
-        });
-
-        expect(invoice.bolt11).toContain('lnbc');
-        expect(invoice.amountSats).toBe(50000);
-      });
-
-      it('should send payments', async () => {
-        const invoice = await adapter.createInvoice({ amountSats: 50000 });
-        const payment = await adapter.sendPayment({ invoice: invoice.bolt11 });
-
-        expect(payment.success).toBe(true);
-        expect(payment.preimage).toBeDefined();
-      });
-
-      it('should verify payments', async () => {
-        const invoice = await adapter.createInvoice({ amountSats: 50000 });
-        adapter.simulatePaymentReceived(invoice.paymentHash);
-
-        const verified = await adapter.verifyPayment(invoice.paymentHash);
-        expect(verified).toBe(true);
-      });
-    });
-
     describe('createLightningAdapter', () => {
-      it('should create mock adapter', () => {
-        const adapter = createLightningAdapter('mock');
-        expect(adapter).toBeInstanceOf(MockLightningAdapter);
-      });
-
       it('should throw for missing LND config', () => {
         expect(() => createLightningAdapter('lnd')).toThrow();
       });

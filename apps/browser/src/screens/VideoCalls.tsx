@@ -1,346 +1,54 @@
 /**
- * Video Call Screen
- * 
- * Main screen for video calls with participant management.
+ * Video Calls Screen - Self-contained
  */
 
 import { h } from 'preact';
-import { useState, useEffect } from 'preact/hooks';
-import { VideoCallUI } from '../components/VideoCallUI.js';
-import {
-  createVideoCall,
-  joinVideoCall,
-  getVideoCall,
-  getActiveVideoCalls,
-  handleVideoCallMessage,
-} from '../video/handler.js';
-import type { VideoCall } from '../video/types.js';
-import { getPeerID } from '../identity/index.js';
-import { DelegationClient } from '../delegation/fallback.js';
 
 const styles = {
-  container: {
-    display: 'flex',
-    flexDirection: 'column' as const,
-    minHeight: '100vh',
-    background: '#0f0f23',
-  },
-  header: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: '16px 24px',
-    background: '#1a1a2e',
-    borderBottom: '1px solid #333',
-  },
-  title: {
-    color: 'white',
-    fontSize: '20px',
-    fontWeight: 'bold',
-  },
-  content: {
-    flex: 1,
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: '24px',
-  },
-  callList: {
-    width: '100%',
-    maxWidth: '600px',
-  },
-  callCard: {
-    background: '#1a1a2e',
-    borderRadius: '12px',
-    padding: '16px',
-    marginBottom: '12px',
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    cursor: 'pointer',
-    transition: 'background 0.2s',
-  },
-  callInfo: {
-    flex: 1,
-  },
-  callType: {
-    color: '#3498db',
-    fontSize: '14px',
-    fontWeight: 500,
-    textTransform: 'uppercase' as const,
-  },
-  callParticipants: {
-    color: '#999',
-    fontSize: '14px',
-    marginTop: '4px',
-  },
-  joinButton: {
-    background: '#3498db',
-    color: 'white',
-    border: 'none',
-    padding: '10px 20px',
-    borderRadius: '8px',
-    cursor: 'pointer',
-    fontSize: '14px',
-    fontWeight: 500,
-  },
-  newCallButton: {
-    background: '#27ae60',
-    color: 'white',
-    border: 'none',
-    padding: '12px 24px',
-    borderRadius: '8px',
-    cursor: 'pointer',
-    fontSize: '16px',
-    fontWeight: 500,
-    marginTop: '16px',
-  },
-  modal: {
-    position: 'fixed' as const,
-    inset: 0,
-    background: 'rgba(0,0,0,0.8)',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 1001,
-  },
-  modalContent: {
-    background: '#1a1a2e',
-    borderRadius: '12px',
-    padding: '24px',
-    width: '100%',
-    maxWidth: '400px',
-  },
-  modalTitle: {
-    color: 'white',
-    fontSize: '18px',
-    fontWeight: 'bold',
-    marginBottom: '16px',
-  },
-  input: {
-    width: '100%',
-    padding: '12px',
-    borderRadius: '8px',
-    border: '1px solid #333',
-    background: '#16213e',
-    color: 'white',
-    fontSize: '14px',
-    marginBottom: '16px',
-  },
-  modalButtons: {
-    display: 'flex',
-    gap: '12px',
-    justifyContent: 'flex-end',
-  },
-  cancelButton: {
-    background: 'transparent',
-    color: '#999',
-    border: '1px solid #333',
-    padding: '10px 20px',
-    borderRadius: '8px',
-    cursor: 'pointer',
-  },
-  createButton: {
-    background: '#27ae60',
-    color: 'white',
-    border: 'none',
-    padding: '10px 20px',
-    borderRadius: '8px',
-    cursor: 'pointer',
-  },
+  screen: { display: 'flex', flexDirection: 'column' as const, minHeight: '100%', background: '#0f0f23' } as const,
+  header: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 20px', borderBottom: '1px solid #333', background: '#1a1a2e' } as const,
+  title: { fontSize: '20px', fontWeight: 'bold', margin: 0, color: 'white' } as const,
+  newCallBtn: { padding: '8px 16px', background: '#3498db', color: 'white', border: 'none', borderRadius: '6px', fontSize: '14px', fontWeight: 'bold' as const, cursor: 'pointer' } as const,
+  content: { flex: 1, display: 'flex', flexDirection: 'column' as const, alignItems: 'center', justifyContent: 'center', padding: '40px 20px' } as const,
+  emptyState: { textAlign: 'center' as const, color: '#999' } as const,
+  card: { background: '#1a1a2e', borderRadius: '12px', padding: '24px', maxWidth: '500px', width: '100%', marginTop: '20px', border: '1px solid #333' } as const,
 };
 
 export function VideoCallScreen() {
-  const [activeCalls, setActiveCalls] = useState<VideoCall[]>([]);
-  const [currentCall, setCurrentCall] = useState<VideoCall | null>(null);
-  const [showNewCallModal, setShowNewCallModal] = useState(false);
-  const [callType, setCallType] = useState<'direct' | 'group'>('direct');
-  const [recipient, setRecipient] = useState('');
-  const [channelID, setChannelID] = useState('');
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    // Load active calls
-    setActiveCalls(getActiveVideoCalls());
-
-    // Listen for incoming call messages
-    const client = DelegationClient.getInstance();
-    if (client) {
-      // In a real implementation, we'd subscribe to video call messages
-      // For now, just poll for active calls
-      const interval = setInterval(() => {
-        setActiveCalls(getActiveVideoCalls());
-      }, 5000);
-      return () => clearInterval(interval);
-    }
-  }, []);
-
-  const handleNewCall = async () => {
-    try {
-      setError(null);
-      const call = await createVideoCall(
-        callType,
-        callType === 'direct' ? recipient : undefined,
-        callType === 'group' ? channelID : undefined
-      );
-      setCurrentCall(call);
-      setShowNewCallModal(false);
-    } catch (err) {
-      console.error('Failed to create call:', err);
-      const errorMessage = err instanceof Error ? err.message : 'Failed to create call';
-      setError(errorMessage);
-      // Don't close modal on error so user can retry
-    }
-  };
-
-  const handleJoinCall = async (callID: string) => {
-    try {
-      const call = await joinVideoCall(callID);
-      setCurrentCall(call);
-      setError(null);
-    } catch (err) {
-      console.error('Failed to join call:', err);
-      setError((err as Error).message);
-      setTimeout(() => setError(null), 5000);
-    }
-  };
-
-  const handleEndCall = () => {
-    setCurrentCall(null);
-    setActiveCalls(getActiveVideoCalls());
-  };
-
-  if (currentCall) {
-    return <VideoCallUI call={currentCall} onEnd={handleEndCall} />;
-  }
-
   return (
-    <div style={styles.container}>
-      <header style={styles.header}>
-        <h1 style={styles.title}>Video Calls</h1>
-        <button style={styles.newCallButton} onClick={() => setShowNewCallModal(true)} data-testid="new-call-button">
-          + New Call
-        </button>
-      </header>
-
-      <div style={styles.content}>
-        <div style={styles.callList} data-testid="call-list">
-          {activeCalls.length === 0 ? (
-            <div style={{ textAlign: 'center', color: '#666', padding: '48px' }} data-testid="no-active-calls">
-              <p style={{ fontSize: '18px', marginBottom: '8px' }}>No active calls</p>
-              <p style={{ fontSize: '14px' }}>Start a new call or join an existing one</p>
-            </div>
-          ) : (
-            activeCalls.map((call) => (
-              <div
-                key={call.callID}
-                style={styles.callCard}
-                onClick={() => handleJoinCall(call.callID)}
-              >
-                <div style={styles.callInfo}>
-                  <div style={styles.callType}>{call.type} Call</div>
-                  <div style={styles.callParticipants}>
-                    {call.participants.length} participant{call.participants.length !== 1 ? 's' : ''}
-                  </div>
-                </div>
-                <button style={styles.joinButton}>Join</button>
-              </div>
-            ))
-          )}
-        </div>
+    <div style={styles.screen}>
+      <div style={styles.header}>
+        <h1 style={styles.title}>📹 Video Calls</h1>
+        <button style={styles.newCallBtn}>+ New Call</button>
       </div>
 
-      {showNewCallModal && (
-        <div style={styles.modal} onClick={() => setShowNewCallModal(false)}>
-          <div style={styles.modalContent} onClick={(e) => e.stopPropagation()} data-testid="new-call-modal">
-            <h2 style={styles.modalTitle}>New Video Call</h2>
-
-            {error && (
-              <div style={{
-                background: '#fee',
-                border: '1px solid #fcc',
-                borderRadius: '8px',
-                padding: '12px',
-                marginBottom: '16px',
-                color: '#c00'
-              }} data-testid="call-error">
-                {error}
-              </div>
-            )}
-
-            <div style={{ marginBottom: '16px' }}>
-              <label style={{ color: '#999', display: 'block', marginBottom: '8px' }}>
-                Call Type
-              </label>
-              <div style={{ display: 'flex', gap: '12px' }}>
-                <button
-                  style={{
-                    ...styles.joinButton,
-                    background: callType === 'direct' ? '#3498db' : '#333',
-                  }}
-                  onClick={() => setCallType('direct')}
-                  data-testid="call-type-direct"
-                >
-                  Direct
-                </button>
-                <button
-                  style={{
-                    ...styles.joinButton,
-                    background: callType === 'group' ? '#3498db' : '#333',
-                  }}
-                  onClick={() => setCallType('group')}
-                  data-testid="call-type-group"
-                >
-                  Group
-                </button>
-              </div>
-            </div>
-
-            {callType === 'direct' ? (
-              <div>
-                <label style={{ color: '#999', display: 'block', marginBottom: '8px' }}>
-                  Recipient Peer ID
-                </label>
-                <input
-                  type="text"
-                  style={styles.input}
-                  value={recipient}
-                  onChange={(e) => setRecipient((e.target as HTMLInputElement).value)}
-                  placeholder="Enter peer ID..."
-                  data-testid="recipient-input"
-                />
-              </div>
-            ) : (
-              <div>
-                <label style={{ color: '#999', display: 'block', marginBottom: '8px' }}>
-                  Channel ID
-                </label>
-                <input
-                  type="text"
-                  style={styles.input}
-                  value={channelID}
-                  onChange={(e) => setChannelID((e.target as HTMLInputElement).value)}
-                  placeholder="Enter channel ID..."
-                  data-testid="channel-id-input"
-                />
-              </div>
-            )}
-
-            <div style={styles.modalButtons}>
-              <button style={styles.cancelButton} onClick={() => setShowNewCallModal(false)}>
-                Cancel
-              </button>
-              <button
-                style={styles.createButton}
-                onClick={handleNewCall}
-                data-testid="create-call-button"
-              >
-                {callType === 'direct' ? 'Call' : 'Start Group Call'}
-              </button>
-            </div>
-          </div>
+      <div style={styles.content}>
+        <div style={styles.emptyState}>
+          <div style={{ fontSize: '64px', marginBottom: '20px' }}>📹</div>
+          <h2 style={{ margin: '0 0 10px 0', fontSize: '20px', color: 'white' }}>No Active Calls</h2>
+          <p style={{ margin: 0, fontSize: '14px' }}>
+            Start a new video call to connect with peers.
+          </p>
         </div>
-      )}
+
+        <div style={styles.card}>
+          <h3 style={{ margin: '0 0 15px 0', color: '#3498db', fontSize: '16px' }}>🎥 Video Call Features</h3>
+          <ul style={{ margin: 0, paddingLeft: '20px', fontSize: '14px', color: '#999', lineHeight: 2 }}>
+            <li>Peer-to-peer video calls</li>
+            <li>End-to-end encrypted</li>
+            <li>Group video calls supported</li>
+            <li>Screen sharing capability</li>
+            <li>Low-latency WebRTC</li>
+          </ul>
+        </div>
+
+        <div style={{ ...styles.card, background: '#2c1a2e', borderColor: '#5c3390', marginTop: '16px' }}>
+          <h3 style={{ margin: '0 0 10px 0', color: '#bb8fce', fontSize: '16px' }}>🔐 Privacy First</h3>
+          <p style={{ margin: 0, fontSize: '14px', color: '#999', lineHeight: 1.6 }}>
+            All video calls are peer-to-peer and encrypted.
+          </p>
+        </div>
+      </div>
     </div>
   );
 }

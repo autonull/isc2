@@ -69,95 +69,6 @@ export interface LightningAdapter {
   isConnected(): boolean;
 }
 
-/**
- * Mock Lightning adapter for testing/development
- */
-export class MockLightningAdapter implements LightningAdapter {
-  private invoices: Map<string, LightningInvoice> = new Map();
-  private payments: Map<string, LightningPayment> = new Map();
-  private connectedFlag = true;
-
-  isConnected(): boolean {
-    return this.connectedFlag;
-  }
-
-  async createInvoice(params: CreateInvoiceParams): Promise<LightningInvoice> {
-    const paymentHash = crypto.randomUUID().replace(/-/g, '');
-    const bolt11 = `lnbc${params.amountSats}1p${paymentHash}mock`;
-
-    const invoice: LightningInvoice = {
-      bolt11,
-      paymentHash,
-      amountSats: params.amountSats,
-      expiry: Date.now() + (params.expirySeconds || 3600) * 1000,
-      memo: params.memo,
-    };
-
-    this.invoices.set(paymentHash, invoice);
-    return invoice;
-  }
-
-  async sendPayment(params: SendPaymentParams): Promise<LightningPayment> {
-    // Find invoice by payment hash or simulate
-    const paymentHash = crypto.randomUUID().replace(/-/g, '');
-    const preimage = crypto.randomUUID().replace(/-/g, '');
-
-    const payment: LightningPayment = {
-      paymentHash,
-      amountSats: params.amountSats || 0,
-      feeSats: Math.floor((params.amountSats || 0) * 0.001), // 0.1% fee
-      success: true,
-      preimage,
-    };
-
-    this.payments.set(paymentHash, payment);
-    return payment;
-  }
-
-  async verifyPayment(paymentHash: string): Promise<boolean> {
-    // In mock, verify if we created the invoice
-    return this.invoices.has(paymentHash);
-  }
-
-  async getBalance(): Promise<LightningBalance> {
-    return {
-      totalSats: 1000000, // 1M sats mock balance
-      availableSats: 900000,
-      pendingSats: 100000,
-    };
-  }
-
-  /**
-   * Simulate payment receipt for testing
-   */
-  simulatePaymentReceived(paymentHash: string): void {
-    const invoice = this.invoices.get(paymentHash);
-    if (invoice) {
-      this.payments.set(paymentHash, {
-        paymentHash,
-        amountSats: invoice.amountSats,
-        feeSats: 0,
-        success: true,
-        preimage: crypto.randomUUID().replace(/-/g, ''),
-      });
-    }
-  }
-
-  /**
-   * Clear mock state
-   */
-  clear(): void {
-    this.invoices.clear();
-    this.payments.clear();
-  }
-
-  /**
-   * Set connection state
-   */
-  setConnected(connected: boolean): void {
-    this.connectedFlag = connected;
-  }
-}
 
 /**
  * LND (Lightning Network Daemon) adapter
@@ -280,12 +191,10 @@ export class LNDAdapter implements LightningAdapter {
  * Factory function to create Lightning adapter
  */
 export function createLightningAdapter(
-  type: 'mock' | 'lnd' | 'cln',
+  type: 'lnd' | 'cln',
   config?: Record<string, string>
 ): LightningAdapter {
   switch (type) {
-    case 'mock':
-      return new MockLightningAdapter();
     case 'lnd':
       if (!config?.baseUrl || !config?.macaroon) {
         throw new Error('LND adapter requires baseUrl and macaroon');

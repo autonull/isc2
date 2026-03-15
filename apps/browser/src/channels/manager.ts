@@ -1,7 +1,10 @@
 import type { Channel, Relation } from '@isc/core';
-import type { DHTClient } from '@isc/adapters';
 import { computeEmbedding } from '../identity/embedding-service.js';
 import { getDB, dbGet, dbGetAll, dbPut, dbDelete } from '../db/factory.js';
+import { loggers } from '../utils/logger.js';
+import type { RealDHTClient } from '../network/dht.js';
+
+const logger = loggers.channel;
 
 const MAX_ACTIVE_CHANNELS = 5;
 const DB_NAME = 'isc-channels';
@@ -51,12 +54,12 @@ class IndexedDBChannelStore implements ChannelStore {
 
 export interface ChannelManagerConfig {
   store?: ChannelStore;
-  dhtClient?: DHTClient;
+  dhtClient?: RealDHTClient | null;
 }
 
 export class ChannelManager {
   private store: ChannelStore;
-  private dhtClient: DHTClient | null = null;
+  private dhtClient: RealDHTClient | null = null;
   private activeChannels = new Set<string>();
 
   constructor(config: ChannelManagerConfig = {}) {
@@ -64,7 +67,7 @@ export class ChannelManager {
     this.dhtClient = config.dhtClient ?? null;
   }
 
-  setDHTClient(client: DHTClient): void {
+  setDHTClient(client: RealDHTClient | null): void {
     this.dhtClient = client;
   }
 
@@ -107,15 +110,15 @@ export class ChannelManager {
     if (updates.relations) updated.relations = updates.relations.slice(0, MAX_RELATIONS);
 
     await this.store.save(updated);
-    if (this.activeChannels.has(id) && this.dhtClient) {
-      await this.dhtClient.deactivateChannel(id);
+    // RealDHTClient doesn't have deactivateChannel, just remove from active set
+    if (this.activeChannels.has(id)) {
+      this.activeChannels.delete(id);
     }
     return updated;
   }
 
   async deleteChannel(id: string): Promise<void> {
-    if (this.activeChannels.has(id) && this.dhtClient) {
-      await this.dhtClient.deactivateChannel(id);
+    if (this.activeChannels.has(id)) {
       this.activeChannels.delete(id);
     }
     await this.store.delete(id);
@@ -131,16 +134,52 @@ export class ChannelManager {
     if (this.activeChannels.size >= MAX_ACTIVE_CHANNELS) {
       throw new Error(`Maximum ${MAX_ACTIVE_CHANNELS} active channels allowed`);
     }
-    if (!this.dhtClient) throw new Error('DHT client not configured');
+    
+    // DHT is optional - allow local-only activation
+    if (!this.dhtClient) {
+      logger.warn('No DHT client configured, activating channel locally only');
+      this.activeChannels.add(id);
+      await this.store.save({ ...channel, active: true, updatedAt: Date.now() });
+      return;
+    }
 
-    await this.dhtClient.announceChannel(channel, distributions);
-    this.activeChannels.add(id);
-    await this.store.save({ ...channel, active: true, updatedAt: Date.now() });
+    try {
+      // Use RealDHTClient's announce method directly
+      const rootDist = distributions[0];
+      if (!rootDist) throw new Error('No root distribution');
+
+      const { lshHash } = await import('@isc/core');
+      const modelHash = 'XenovaallMiniLM'.slice(0, 12);
+      const hashes = lshHash(rootDist.mu, modelHash, 8, 16);
+
+      const announcement = {
+        peerID: this.dhtClient.getPeerId(),
+        channelID: channel.id,
+        model: 'Xenova/all-MiniLM-L6-v2',
+        vec: rootDist.mu,
+        ttl: 300,
+        updatedAt: Date.now(),
+      };
+
+      const encoded = new TextEncoder().encode(JSON.stringify(announcement));
+      for (const hash of hashes) {
+        const key = `/isc/announce/${modelHash}/${hash}`;
+        await this.dhtClient.announce(key, encoded, 300);
+      }
+
+      this.activeChannels.add(id);
+      await this.store.save({ ...channel, active: true, updatedAt: Date.now() });
+    } catch (err) {
+      logger.warn('Failed to announce to DHT, activating locally', { error: (err as Error).message });
+      // Still activate locally even if DHT fails
+      this.activeChannels.add(id);
+      await this.store.save({ ...channel, active: true, updatedAt: Date.now() });
+    }
   }
 
   async deactivateChannel(id: string): Promise<void> {
     if (!this.activeChannels.has(id)) return;
-    if (this.dhtClient) await this.dhtClient.deactivateChannel(id);
+    // RealDHTClient doesn't have deactivateChannel, just remove from active set
     this.activeChannels.delete(id);
 
     const channel = await this.store.get(id);
@@ -223,15 +262,12 @@ export class ChannelManager {
     if (this.activeChannels.size >= MAX_ACTIVE_CHANNELS) {
       throw new Error(`Maximum ${MAX_ACTIVE_CHANNELS} active channels allowed`);
     }
-    if (!this.dhtClient) throw new Error('DHT client not configured');
 
     // Compute distributions using real embeddings
     const distributions = await this.computeChannelDistributions(channel);
 
-    // Announce to DHT
-    await this.dhtClient.announceChannel(channel, distributions);
-    this.activeChannels.add(id);
-    await this.store.save({ ...channel, active: true, updatedAt: Date.now() });
+    // Activate (DHT announcement is optional)
+    await this.activateChannel(id, distributions);
   }
 }
 

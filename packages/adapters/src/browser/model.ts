@@ -1,38 +1,76 @@
 import { EmbeddingModelAdapter } from '../interfaces/model.js';
+import { pipeline, env, type PipelineType } from '@xenova/transformers';
 
 const EMBEDDING_DIM = 384;
 
 export class BrowserModel implements EmbeddingModelAdapter {
   private modelId: string | null = null;
   private isLoadedFlag = false;
+  // Use any here because transformers.js types can be tricky across versions
+  private extractor: any = null;
 
   async load(modelId: string): Promise<void> {
-    this.modelId = modelId;
-    this.isLoadedFlag = true;
+    try {
+      // Configure env for browser
+      env.allowLocalModels = false;
+      env.useBrowserCache = true;
+
+      // Load feature-extraction pipeline
+      this.extractor = await pipeline('feature-extraction' as PipelineType, modelId);
+      
+      this.modelId = modelId;
+      this.isLoadedFlag = true;
+    } catch (err) {
+      console.error(`Failed to load model ${modelId}:`, err);
+      throw err;
+    }
   }
 
   async embed(text: string): Promise<number[]> {
-    if (!this.isLoadedFlag) throw new Error('Model not loaded');
-
-    let hash = 0;
-    for (let i = 0; i < text.length; i++) {
-      hash = ((hash << 5) - hash + text.charCodeAt(i)) | 0;
+    if (!this.isLoadedFlag || !this.extractor) {
+      throw new Error('Model not loaded');
     }
 
-    const seed = Math.abs(hash);
-    const random = () => {
-      const x = Math.sin(seed * 9999) * 10000;
-      return x - Math.floor(x);
-    };
+    try {
+      // Generate embeddings
+      const output = await this.extractor(text, {
+        pooling: 'mean',
+        normalize: true,
+      });
 
-    const mockEmbed = Array.from({ length: EMBEDDING_DIM }, (_, i) => random() * 2 - 1 + Math.sin(i * 0.1) * 0.3);
-    const norm = Math.sqrt(mockEmbed.reduce((sum, x) => sum + x * x, 0));
-    return mockEmbed.map((x) => x / norm);
+      // output is a Tensor. The data is in a Float32Array under output.data
+      const data = Array.from(output.data as Float32Array);
+      
+      if (data.length !== EMBEDDING_DIM) {
+        console.warn(`Unexpected embedding dimension: ${data.length}, expected ${EMBEDDING_DIM}`);
+        // Handle dimension mismatch if necessary, though all-MiniLM-L6-v2 should be 384
+        if (data.length > EMBEDDING_DIM) {
+          return data.slice(0, EMBEDDING_DIM);
+        } else {
+          const padded = new Array(EMBEDDING_DIM).fill(0);
+          data.forEach((val, i) => padded[i] = val);
+          return padded;
+        }
+      }
+
+      return data;
+    } catch (err) {
+      console.error('Embedding generation failed:', err);
+      throw err;
+    }
   }
 
   async unload(): Promise<void> {
     this.isLoadedFlag = false;
     this.modelId = null;
+    
+    // Help garbage collection
+    if (this.extractor) {
+      if (typeof this.extractor.dispose === 'function') {
+        this.extractor.dispose();
+      }
+      this.extractor = null;
+    }
   }
 
   isLoaded(): boolean {
@@ -43,3 +81,4 @@ export class BrowserModel implements EmbeddingModelAdapter {
     return this.modelId;
   }
 }
+

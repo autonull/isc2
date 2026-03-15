@@ -64,3 +64,4 @@ models/
 **/src/**/*.d.ts
 **/src/**/*.js
 !**/src/**/*.spec.d.ts
+playwright-report

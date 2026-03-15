@@ -92,17 +92,41 @@ export class ATProtocolClient {
     this.config = { ...DEFAULT_CONFIG, ...config };
   }
 
-  async createSession(handle: string, _password: string): Promise<ATSession> {
-    this.session = {
-      accessJwt: 'mock_access_token',
-      refreshJwt: 'mock_refresh_token',
-      handle,
-      did: `did:plc:${crypto.randomUUID()}`,
-      email: `${handle}@example.com`,
-      emailConfirmed: true,
-      active: true,
-    };
-    return this.session;
+  async createSession(handle: string, password: string): Promise<ATSession> {
+    const url = `${this.config.serviceUrl}/xrpc/com.atproto.server.createSession`;
+    
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          identifier: handle,
+          password: password,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || `AT Protocol login failed: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+
+      this.session = {
+        accessJwt: data.accessJwt,
+        refreshJwt: data.refreshJwt,
+        handle: data.handle,
+        did: data.did,
+        email: data.email,
+        emailConfirmed: !!data.emailConfirmed,
+        active: true,
+      };
+
+      return this.session;
+    } catch (err) {
+      this.session = null;
+      throw err;
+    }
   }
 
   async refreshSession(): Promise<ATSession> {

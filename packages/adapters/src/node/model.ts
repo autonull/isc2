@@ -1,41 +1,76 @@
 import { EmbeddingModelAdapter } from '../interfaces/model.js';
+import { pipeline, env, type PipelineType } from '@xenova/transformers';
 
 interface NodeModelOptions {
   maxBatchSize?: number;
 }
 
+const EMBEDDING_DIM = 384;
+
 export class NodeModel implements EmbeddingModelAdapter {
   private modelId: string | null = null;
   private isLoadedFlag = false;
-  private session: any = null;
+  // Use any here because transformers.js types can be tricky across versions
+  private extractor: any = null;
 
   constructor(private options: Required<NodeModelOptions> = { maxBatchSize: 32 }) {}
 
   async load(modelId: string): Promise<void> {
-    this.modelId = modelId;
-    const ort = await import('onnxruntime-node');
-    this.session = await ort.InferenceSession.create(modelId);
-    this.isLoadedFlag = true;
+    try {
+      // In node, we can allow local models or just use the HF hub cache
+      // The default behavior of env usually works fine in node
+      
+      this.extractor = await pipeline('feature-extraction' as PipelineType, modelId);
+      
+      this.modelId = modelId;
+      this.isLoadedFlag = true;
+    } catch (err) {
+      console.error(`Failed to load model ${modelId} in Node:`, err);
+      throw err;
+    }
   }
 
   async embed(text: string): Promise<number[]> {
-    if (!this.isLoadedFlag || !this.session) {
+    if (!this.isLoadedFlag || !this.extractor) {
       throw new Error('Model not loaded');
     }
 
-    const tokens = this.tokenize(text);
-    const inputTensor = this.tokensToTensor(tokens);
-    const feeds: Record<string, any> = { [this.session.inputNames[0]]: inputTensor };
-    const results = await this.session.run(feeds);
-    const outputTensor = results[this.session.outputNames[0]];
-    const embedding = Array.from(outputTensor.data as Float32Array).slice(0, 384);
-    return this.normalize(embedding);
+    try {
+      const output = await this.extractor(text, {
+        pooling: 'mean',
+        normalize: true,
+      });
+
+      const data = Array.from(output.data as Float32Array);
+      
+      if (data.length !== EMBEDDING_DIM) {
+        console.warn(`Unexpected embedding dimension: ${data.length}, expected ${EMBEDDING_DIM}`);
+        if (data.length > EMBEDDING_DIM) {
+          return data.slice(0, EMBEDDING_DIM);
+        } else {
+          const padded = new Array(EMBEDDING_DIM).fill(0);
+          data.forEach((val, i) => padded[i] = val);
+          return padded;
+        }
+      }
+
+      return data;
+    } catch (err) {
+      console.error('Embedding generation failed:', err);
+      throw err;
+    }
   }
 
   async unload(): Promise<void> {
     this.isLoadedFlag = false;
-    this.session = null;
     this.modelId = null;
+    
+    if (this.extractor) {
+      if (typeof this.extractor.dispose === 'function') {
+        this.extractor.dispose();
+      }
+      this.extractor = null;
+    }
   }
 
   isLoaded(): boolean {
@@ -44,32 +79,6 @@ export class NodeModel implements EmbeddingModelAdapter {
 
   getModelId(): string | null {
     return this.modelId;
-  }
-
-  private tokenize(text: string): number[] {
-    const words = text.toLowerCase().split(/\s+/).filter((w) => w.length > 0);
-    return words.slice(0, 512).map((w) => this.hashToId(w));
-  }
-
-  private hashToId(word: string): number {
-    let hash = 0;
-    for (let i = 0; i < word.length; i++) {
-      hash = ((hash << 5) - hash + word.charCodeAt(i)) | 0;
-    }
-    return Math.abs(hash) % 10000;
-  }
-
-  private tokensToTensor(tokens: number[]): any {
-    const ort = require('onnxruntime-node');
-    const tensorData = new Float32Array(tokens.length + 1);
-    tensorData[0] = tokens.length;
-    tokens.forEach((t, i) => (tensorData[i + 1] = t));
-    return new ort.InferenceSession.Tensor({ data: tensorData, dims: [1, tokens.length + 1], type: 'int64' });
-  }
-
-  private normalize(embedding: number[]): number[] {
-    const norm = Math.sqrt(embedding.reduce((sum, x) => sum + x * x, 0));
-    return norm > 0 ? embedding.map((x) => x / norm) : embedding;
   }
 
   async embedBatch(texts: string[]): Promise<number[][]> {
@@ -89,3 +98,4 @@ export class NodeModel implements EmbeddingModelAdapter {
 }
 
 export const nodeModel = new NodeModel();
+

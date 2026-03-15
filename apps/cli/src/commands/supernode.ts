@@ -9,6 +9,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as http from 'http';
 import { cosineSimilarity, sampleFromDistribution } from '@isc/core';
+import { nodeModel } from '@isc/adapters/node';
 import type { CLIConfig } from '../config.js';
 import type { DelegateRequest, DelegateResponse } from '@isc/core';
 
@@ -52,15 +53,11 @@ function getRateLimitForPeer(state: SupernodeState, peerID: string): { allowed: 
 }
 
 async function computeEmbedding(text: string): Promise<number[]> {
-  // Stub embedding - in production would use transformers.js or ONNX
-  const hash = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
-  const hashBytes = new Uint8Array(hash);
-  const vec = new Array(384).fill(0).map((_, i) => {
-    const byte = hashBytes[i % 32];
-    return (byte / 255) * 2 - 1;
-  });
-  const norm = Math.sqrt(vec.reduce((sum, v) => sum + v * v, 0));
-  return vec.map(v => v / norm);
+  if (!nodeModel.isLoaded()) {
+    console.log('Loading embedding model for Supernode...');
+    await nodeModel.load('Xenova/all-MiniLM-L6-v2');
+  }
+  return nodeModel.embed(text);
 }
 
 async function handleDelegationRequest(

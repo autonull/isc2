@@ -8,6 +8,7 @@ import type { Command } from 'commander';
 import * as fs from 'fs';
 import * as path from 'path';
 import { lshHash, seededRng, computeRelationalDistributions } from '@isc/core';
+import { nodeModel } from '@isc/adapters/node';
 import { DHT_KEYS } from '@isc/protocol';
 import type { CLIConfig } from '../config.js';
 import type { Channel, SignedAnnouncement } from '@isc/core';
@@ -170,21 +171,15 @@ export function announceCommands(program: Command): void {
             })
           : (channel.relations || []);
 
-        // Compute distributions (stub for now - in production would use transformers.js)
+        // Compute distributions using nodeModel
+        if (!nodeModel.isLoaded()) {
+          console.log(`Loading embedding model for CLI: ${LOCAL_MODEL}...`);
+          await nodeModel.load(LOCAL_MODEL);
+        }
+        
         const distributions = await computeRelationalDistributions(
           { ...channel, relations },
-          { embed: async (text: string) => {
-            // Stub embedding: SHA256-based deterministic vector
-            const hash = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
-            const hashBytes = new Uint8Array(hash);
-            const vec = new Array(384).fill(0).map((_, i) => {
-              const byte = hashBytes[i % 32];
-              return (byte / 255) * 2 - 1; // Normalize to [-1, 1]
-            });
-            // Normalize
-            const norm = Math.sqrt(vec.reduce((sum, v) => sum + v * v, 0));
-            return vec.map(v => v / norm);
-          }}
+          { embed: async (text: string) => nodeModel.embed(text) }
         );
 
         // Generate LSH hashes

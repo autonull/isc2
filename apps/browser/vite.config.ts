@@ -1,9 +1,11 @@
 import { defineConfig } from 'vite';
 import { resolve } from 'path';
 import { VitePWA } from 'vite-plugin-pwa';
+import preact from '@preact/preset-vite';
 
 export default defineConfig({
   plugins: [
+    preact(),
     VitePWA({
       registerType: 'prompt',
       includeAssets: ['icons/*.png', 'icons/*.svg'],
@@ -95,6 +97,9 @@ export default defineConfig({
   server: {
     port: 3000,
   },
+  optimizeDeps: {
+    exclude: ['@xenova/transformers'],
+  },
   resolve: {
     alias: {
       react: 'preact/compat',
@@ -108,6 +113,7 @@ export default defineConfig({
       '@isc/core/types': resolve(__dirname, '../../packages/core/dist/types.js'),
       '@isc/core/semantic': resolve(__dirname, '../../packages/core/dist/semantic/index.js'),
       '@isc/adapters': resolve(__dirname, '../../packages/adapters/dist'),
+      '@isc/navigation': resolve(__dirname, '../../packages/navigation/dist'),
     },
   },
   test: {

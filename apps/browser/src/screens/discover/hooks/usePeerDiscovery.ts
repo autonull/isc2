@@ -28,35 +28,10 @@ export function usePeerDiscovery() {
 
   const computeChannelVector = useCallback(
     async (channel: Channel): Promise<number[]> => {
-      try {
-        // Use real embedding model
-        const embedding = await computeEmbedding(channel.description);
-        
-        if (isModelLoaded()) {
-          setModelStatus('ready');
-        } else {
-          setModelStatus('fallback');
-        }
-        
-        return embedding;
-      } catch (err) {
-        console.warn('[usePeerDiscovery] Embedding failed, using fallback:', err);
-        setModelStatus('fallback');
-        
-        // Fallback to stub embedding
-        const encoder = new TextEncoder();
-        const hash = await crypto.subtle.digest(
-          'SHA-256',
-          encoder.encode(channel.description)
-        );
-        const hashBytes = new Uint8Array(hash);
-        const vec = Array.from({ length: 384 }, (_, i) => {
-          const byte = hashBytes[i % 32];
-          return (byte / 255) * 2 - 1;
-        });
-        const norm = Math.sqrt(vec.reduce((sum, v) => sum + v * v, 0));
-        return vec.map((v) => v / norm);
-      }
+      // computeEmbedding falls back to word-hash if model not loaded
+      const embedding = await computeEmbedding(channel.description);
+      setModelStatus(isModelLoaded() ? 'ready' : 'fallback');
+      return embedding;
     },
     []
   );

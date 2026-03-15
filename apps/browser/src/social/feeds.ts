@@ -2,7 +2,7 @@ import type { SignedPost, RankedPost } from './types.js';
 import { getAllPosts, getPostsByChannel } from './posts.js';
 import { getFollowees } from './graph.js';
 import { cosineSimilarity, type Distribution } from '@isc/core';
-import { getActiveChannel, getChannel } from '../channels/manager.js';
+import { getChannelManager } from '../channels/manager.lazy.js';
 import { loggers } from '../utils/logger.js';
 
 const logger = loggers.app;
@@ -19,7 +19,8 @@ interface ScoredPost {
  */
 export async function getForYouFeed(limit: number = 50): Promise<RankedPost[]> {
   const allPosts = await getAllPosts();
-  const activeChannel = await getActiveChannel();
+  const cm = await getChannelManager();
+  const activeChannel = await cm.getActiveChannel();
 
   if (!activeChannel || !activeChannel.distributions || activeChannel.distributions.length === 0) {
     logger.warn('No active channel distributions, using chronological fallback');
