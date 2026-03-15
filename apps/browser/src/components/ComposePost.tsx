@@ -1,12 +1,13 @@
 /**
  * Compose Post Component
- * 
+ *
  * Allows users to create new posts in a channel.
  */
 
 import { h } from 'preact';
 import { useState } from 'preact/hooks';
 import { usePostService } from '../di/container.jsx';
+import { toast } from '../utils/toast.js';
 
 interface ComposePostProps {
   channelId?: string;
@@ -66,11 +67,13 @@ export function ComposePost({ channelId, onSuccess }: ComposePostProps) {
 
   const handleSubmit = async (e: Event) => {
     e.preventDefault();
-    
+
     if (!canSubmit) return;
-    
+
     if (!channelId) {
-      setError('Please select a channel first');
+      const msg = 'Please select a channel first';
+      setError(msg);
+      toast.warning(msg);
       return;
     }
 
@@ -86,12 +89,15 @@ export function ComposePost({ channelId, onSuccess }: ComposePostProps) {
 
       setContent('');
       setSuccess(true);
+      toast.success('Post created!');
       onSuccess?.();
 
       // Clear success message after 3 seconds
       setTimeout(() => setSuccess(false), 3000);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to create post');
+      const msg = err instanceof Error ? err.message : 'Failed to create post';
+      setError(msg);
+      toast.error(msg);
     } finally {
       setSubmitting(false);
     }

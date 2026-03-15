@@ -45,6 +45,15 @@ export {
   type Storage,
 } from './storage.js';
 
+// Identity
+export {
+  IdentityService,
+  createIdentityService,
+  type Keypair,
+  type IdentityData,
+  type IdentityStorage,
+} from './identity.js';
+
 // Browser Network Service
 export {
   BrowserNetworkService,

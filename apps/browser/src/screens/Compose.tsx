@@ -10,6 +10,7 @@ import { useNavigation } from '@isc/navigation';
 import { useChannelService } from '../di/container.jsx';
 import { useDependencies } from '../di/container.jsx';
 import { validateChannelInput } from '../services/channelService.js';
+import { toast } from '../utils/toast.js';
 
 const styles = {
   screen: { display: 'flex', flexDirection: 'column' as const, height: '100%', background: '#f7f9fa' } as const,
@@ -67,9 +68,13 @@ export function ComposeScreen() {
 
     if (!canSubmit) {
       if (name.trim().length < 3) {
-        setError('Channel name must be at least 3 characters');
+        const msg = 'Channel name must be at least 3 characters';
+        setError(msg);
+        toast.warning(msg);
       } else if (description.trim().length < 10) {
-        setError('Description must be at least 10 characters');
+        const msg = 'Description must be at least 10 characters';
+        setError(msg);
+        toast.warning(msg);
       }
       return;
     }
@@ -83,7 +88,9 @@ export function ComposeScreen() {
     });
 
     if (!validation.valid) {
-      setError(validation.errors.join('. '));
+      const msg = validation.errors.join('. ');
+      setError(msg);
+      toast.warning(msg);
       return;
     }
 
@@ -95,6 +102,7 @@ export function ComposeScreen() {
       if (networkService && networkService.getStatus() === 'connected') {
         const channel = await networkService.createChannel(name.trim(), description.trim());
         console.log('[ComposeScreen] Channel created via network service:', channel);
+        toast.success(`Channel "#${name.trim()}" created!`);
       } 
       // Fallback to channel service
       else if (channelService) {
@@ -105,6 +113,7 @@ export function ComposeScreen() {
           relations: [],
         });
         console.log('[ComposeScreen] Channel created via channel service:', channel);
+        toast.success(`Channel "#${name.trim()}" created!`);
       }
 
       setSuccess(true);
@@ -115,7 +124,9 @@ export function ComposeScreen() {
       }, 1500);
     } catch (err) {
       console.error('[ComposeScreen] Error creating channel:', err);
-      setError(err instanceof Error ? err.message : 'Failed to create channel');
+      const msg = err instanceof Error ? err.message : 'Failed to create channel';
+      setError(msg);
+      toast.error(msg);
     } finally {
       setSubmitting(false);
     }

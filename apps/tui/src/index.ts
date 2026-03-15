@@ -15,6 +15,8 @@ import {
   createEmbeddingService,
   createDHT,
   VirtualPeer,
+  createIdentityService,
+  createStorage,
   type PeerMatch,
 } from '@isc/network';
 
@@ -123,6 +125,8 @@ function saveMatches(matches: PeerMatch[]) {
 
 // Network state
 const config = loadConfig();
+const storage = createStorage();
+const identityService = createIdentityService(storage);
 const embeddingService = createEmbeddingService();
 const dht = createDHT();
 let localPeer: VirtualPeer | null = null;
@@ -327,14 +331,24 @@ async function initializeNetwork() {
     networkStatus = 'loading';
     updateStatusBar();
 
+    // Create/load identity first
+    console.log('[TUI] Initializing identity...');
+    await identityService.initialize();
+    const identity = identityService.getIdentity();
+    console.log(`[TUI] Identity: ${identity?.name} (${identity?.peerId})`);
+
+    // Update screen title with identity name
+    screen.title = `ISC - ${identity?.name || 'Anonymous'}`;
+    screen.render();
+
     console.log('[TUI] Loading embedding model...');
     await embeddingService.load();
     console.log('[TUI] Model loaded');
 
     // Create local peer
     localPeer = await VirtualPeer.create(
-      `tui-${Date.now()}`,
-      config.identity.bio,
+      identity?.peerId || `tui-${Date.now()}`,
+      identity?.bio || 'ISC User',
       embeddingService
     );
 
@@ -447,13 +461,40 @@ function createChannelDialog() {
     descBox.on('submit', async (desc: string) => {
       descBox.destroy();
 
+      // Compute embedding for semantic matching
+      let embedding: number[] | undefined;
+      try {
+        embedding = await embeddingService.compute(desc || 'No description');
+      } catch (err) {
+        console.error('[TUI] Failed to compute embedding:', err);
+      }
+
       const newChannel = {
         id: `channel_${Date.now()}`,
         name: name.trim(),
         description: desc.trim() || 'No description',
+        embedding,
         createdAt: Date.now(),
         members: [localPeer?.id || 'unknown'],
       };
+
+      // Announce to DHT if we have embedding
+      if (embedding && localPeer) {
+        try {
+          await dht.announce({
+            peerID: localPeer.id,
+            channelID: newChannel.id,
+            model: 'allminilm',
+            vec: embedding,
+            ttl: 300000,
+            updatedAt: Date.now(),
+            signature: new Uint8Array(64),
+          }, 300000);
+          console.log(`[TUI] Announced channel #${name.trim()} to DHT`);
+        } catch (err) {
+          console.error('[TUI] DHT announce failed:', err);
+        }
+      }
 
       channels.push(newChannel);
       saveChannels(channels);
@@ -627,12 +668,8 @@ screen.key(['down', 'j'], () => {
 async function main() {
   console.clear();
   console.log('═══════════════════════════════════════════════════════════');
-  console.log('           ISC Terminal UI v2');
+  console.log('           Welcome to ISC Terminal UI');
   console.log('═══════════════════════════════════════════════════════════\n');
-
-  console.log('Identity:', config.identity.name);
-  console.log('Bio:', config.identity.bio);
-  console.log('');
 
   updateChannelList();
   updateMatchesDisplay();
@@ -642,10 +679,20 @@ async function main() {
   screen.render();
 
   // Initialize network in background
-  console.log('Initializing network...');
+  console.log('Initializing network...\n');
   await initializeNetwork();
 
-  console.log('TUI ready. Press ? for help.\n');
+  // Show identity info
+  const identity = identityService.getIdentity();
+  if (identity) {
+    console.log('═══════════════════════════════════════════════════════════');
+    console.log(`  Peer ID: ${identity.peerId}`);
+    console.log(`  Name: ${identity.name}`);
+    console.log(`  Bio: ${identity.bio}`);
+    console.log('═══════════════════════════════════════════════════════════\n');
+  }
+
+  console.log('TUI ready. Press ? for help, n to create your first channel.\n');
 
   // Handle resize
   screen.on('resize', () => {
