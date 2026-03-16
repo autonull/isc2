@@ -56,7 +56,7 @@ export function Onboarding({ onComplete }: OnboardingProps) {
     if (completed) {
       onComplete();
     }
-  }, []);
+  }, [onComplete]);
 
   const handleNext = async () => {
     setError(null);
