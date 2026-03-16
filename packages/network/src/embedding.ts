@@ -1,11 +1,12 @@
 /**
  * ISC Network - Transformer Embedding Service
- * 
+ *
  * Real LM embeddings using @xenova/transformers.
  * Lazy loading, caching, and batch processing support.
  */
 
 import type { EmbeddingService } from './types.js';
+import { computeWordHashEmbedding } from '@isc/core';
 
 /**
  * Transformer-based embedding service
@@ -107,7 +108,6 @@ export class TransformerEmbeddingService implements EmbeddingService {
    * Compute a fallback embedding using word-hashing (384-dim)
    */
   private computeFallback(text: string): number[] {
-    const { computeWordHashEmbedding } = require('@isc/core');
     return computeWordHashEmbedding(text);
   }
 

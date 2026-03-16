@@ -30,7 +30,9 @@
     "clean": "turbo run clean && rm -rf node_modules .turbo",
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md}\"",
     "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,json,md}\"",
-    "cleanup": "bash scripts/cleanup.sh"
+    "cleanup": "bash scripts/cleanup.sh",
+    "verify": "bash scripts/verify.sh",
+    "verify:full": "bash scripts/verify.sh --full"
   },
   "devDependencies": {
     "@libp2p/interface": "^3.1.0",

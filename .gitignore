@@ -67,3 +67,4 @@ models/
 playwright-report
 /isc-data/
 /isc-cache/
+*.map

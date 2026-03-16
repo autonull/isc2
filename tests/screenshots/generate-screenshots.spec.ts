@@ -13,6 +13,11 @@ const SCREENSHOT_DIR = path.join(process.cwd(), 'screenshots');
 
 test.describe('📸 Generate Marketing Screenshots', () => {
   test.beforeEach(async ({ page }) => {
+    // Skip onboarding for clean screenshots
+    await page.addInitScript(() => {
+      localStorage.setItem('isc-onboarding-completed', 'true');
+    });
+    
     await page.addStyleTag({
       content: `
         *, *::before, *::after {

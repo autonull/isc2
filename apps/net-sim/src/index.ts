@@ -297,7 +297,7 @@ class NetworkSimulatorTUI {
       width: '100%',
       height: '100%',
       parent: this.screen,
-    });
+    } as any);
 
     // Stats bar at top
     this.statsBox = blessed.box({
@@ -322,7 +322,7 @@ class NetworkSimulatorTUI {
       width: '100%',
       height: '60%',
       parent: layout,
-    });
+    } as any);
 
     // Create peer boxes in a grid
     const cols = Math.ceil(Math.sqrt(this.peers.length));
