@@ -3,6 +3,7 @@ package network.isc;
 import network.isc.adapters.EmbeddingAdapter;
 import network.isc.adapters.NetworkAdapter;
 import network.isc.adapters.StorageAdapter;
+import network.isc.adapters.JsonPostAdapter;
 import network.isc.adapters.ModelDownloader;
 import network.isc.core.Channel;
 import network.isc.core.Post;
@@ -38,6 +39,7 @@ public class ISCApplication {
     private NetworkAdapter network;
     private EmbeddingAdapter embedding;
     private StorageAdapter storage;
+    private JsonPostAdapter postStorage;
     private PrivKey libp2pKey;
     private MainFrame mainFrame;
     private PostService postService;
@@ -75,6 +77,9 @@ public class ISCApplication {
         String appDir = System.getProperty("user.home") + "/.isc-java";
         storage = new StorageAdapter(appDir + "/channels.json");
         channels = storage.loadChannels();
+
+        postStorage = new JsonPostAdapter(appDir + "/posts.json");
+        postService.setDatabaseAdapter(postStorage);
 
         mainFrame = new MainFrame();
 
@@ -117,6 +122,40 @@ public class ISCApplication {
         mainFrame.setOnCreateChannel(this::handleCreateChannel);
         mainFrame.setOnChannelSelected(this::handleChannelSelected);
 
+        // Settings Panel
+        mainFrame.getSettingsPanel().setPeerId(network.getHost().getPeerId().toString());
+        mainFrame.setOnSaveMessagesToggled(enabled -> postStorage.setEnabled(enabled));
+
+        // Network Panel
+        List<String> addrs = network.getHost().listenAddresses().stream().map(a -> a.toString()).toList();
+        mainFrame.getNetworkPanel().setMyAddresses(addrs);
+        network.setOnPeerConnected(peer -> mainFrame.getNetworkPanel().addPeer(peer));
+
+        mainFrame.setOnDialRequested(() -> {
+            String multiaddr = JOptionPane.showInputDialog(mainFrame, "Enter Multiaddr (e.g., /ip4/127.0.0.1/tcp/4001/p2p/Qm...):");
+            if (multiaddr != null && !multiaddr.isEmpty()) {
+                network.dialPeer(multiaddr).exceptionally(ex -> {
+                    JOptionPane.showMessageDialog(mainFrame, "Dial failed: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+                    return null;
+                });
+            }
+        });
+
+        // Discover Panel
+        mainFrame.setOnJoinRequested(ann -> {
+            Channel newChan = new Channel(ann.getChannelID(), "Discovered Channel", "Discovered from " + ann.getPeerID(), null, null, null, null);
+            // Verify if exists
+            boolean exists = channels.stream().anyMatch(c -> c.getId().equals(newChan.getId()));
+            if (!exists) {
+                channels.add(newChan);
+                storage.saveChannels(channels);
+                mainFrame.setChannels(channels);
+                JOptionPane.showMessageDialog(mainFrame, "Channel added to your workspace!");
+            } else {
+                JOptionPane.showMessageDialog(mainFrame, "You already have this channel.", "Info", JOptionPane.INFORMATION_MESSAGE);
+            }
+        });
+
         mainFrame.getChatPanel().addSendListener(e -> {
             String msg = mainFrame.getChatPanel().getAndClearInput();
             if (!msg.isEmpty() && activeChannel != null) {
@@ -135,25 +174,7 @@ public class ISCApplication {
 
         JMenuBar menuBar = new JMenuBar();
         JMenu fileMenu = new JMenu("File");
-        JMenuItem exitItem = new JMenuItem("Exit");
-        exitItem.addActionListener(e -> System.exit(0));
-        fileMenu.add(exitItem);
-        menuBar.add(fileMenu);
-
-        JMenu p2pMenu = new JMenu("Network");
-        JMenuItem connectItem = new JMenuItem("Dial Peer...");
-        connectItem.addActionListener(e -> {
-            String multiaddr = JOptionPane.showInputDialog(mainFrame, "Enter Multiaddr (e.g., /ip4/127.0.0.1/tcp/4001/p2p/Qm...):");
-            if (multiaddr != null && !multiaddr.isEmpty()) {
-                network.dialPeer(multiaddr).exceptionally(ex -> {
-                    JOptionPane.showMessageDialog(mainFrame, "Dial failed: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
-                    return null;
-                });
-            }
-        });
-        p2pMenu.add(connectItem);
-
-        JMenuItem queryItem = new JMenuItem("Query Proximal Peers");
+        JMenuItem queryItem = new JMenuItem("Query Proximal Peers for Current Channel");
         queryItem.addActionListener(e -> {
             if (activeChannel != null && embedding != null) {
                 new Thread(() -> {
@@ -170,9 +191,13 @@ public class ISCApplication {
                  JOptionPane.showMessageDialog(mainFrame, "Must select a channel and have embeddings enabled.", "Query Error", JOptionPane.ERROR_MESSAGE);
             }
         });
-        p2pMenu.add(queryItem);
+        fileMenu.add(queryItem);
+        fileMenu.addSeparator();
+        JMenuItem exitItem = new JMenuItem("Exit");
+        exitItem.addActionListener(e -> System.exit(0));
+        fileMenu.add(exitItem);
+        menuBar.add(fileMenu);
 
-        menuBar.add(p2pMenu);
         mainFrame.setJMenuBar(menuBar);
 
         mainFrame.setVisible(true);
@@ -200,6 +225,7 @@ public class ISCApplication {
             if (activeChannel != null) {
                 mainFrame.getChatPanel().appendMessage("System", "Discovered new peer thinking about a similar topic!", System.currentTimeMillis());
             }
+            mainFrame.getDiscoverPanel().addDiscovery(ann);
         });
     }
 

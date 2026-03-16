@@ -17,12 +17,10 @@ public class MainFrame extends JFrame {
     private final JList<String> channelList;
     private final ChatPanel chatPanel;
 
-    private JTabbedPane tabbedPane;
     private JPanel nowPanel;
-    private JPanel discoverPanel;
-    private JPanel chatsPanel;
-    private JPanel settingsPanel;
-    private JPanel composePanel;
+    private DiscoverPanel discoverPanel;
+    private NetworkPanel networkPanel;
+    private SettingsPanel settingsPanel;
 
     private List<Channel> activeChannels;
     private Consumer<Channel> onChannelSelected;
@@ -88,8 +86,8 @@ public class MainFrame extends JFrame {
         tabsPanel.setLayout(new BoxLayout(tabsPanel, BoxLayout.Y_AXIS));
         tabsPanel.setBackground(Color.WHITE);
 
-        String[] tabNames = {"Now", "Discover", "Chats", "Settings"};
-        String[] tabIcons = {"🏠", "📡", "💬", "⚙️"};
+        String[] tabNames = {"Now", "Discover", "Network", "Settings"};
+        String[] tabIcons = {"🏠", "📡", "🌐", "⚙️"};
 
         for (int i = 0; i < tabNames.length; i++) {
             JPanel tabPanel = createTabPanel(tabNames[i], tabIcons[i]);
@@ -130,7 +128,6 @@ public class MainFrame extends JFrame {
         // Chat Workspace / Main Content
         chatPanel = new ChatPanel();
 
-        tabbedPane = new JTabbedPane();
         JPanel mainContent = createMainContent();
 
         JSplitPane splitPane = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, sidebarPanel, mainContent);
@@ -182,19 +179,45 @@ public class MainFrame extends JFrame {
         mainContent.add(nowPanel, "now");
 
         // Discover tab
-        discoverPanel = createPlaceholderPanel("Discover", "Discover new channels and peers on the network.\n(Future implementation)");
+        discoverPanel = new DiscoverPanel(ann -> {
+            if (onJoinRequested != null) onJoinRequested.accept(ann);
+        });
         mainContent.add(discoverPanel, "discover");
 
-        // Chats tab
-        chatsPanel = createPlaceholderPanel("Chats", "Direct messages and group chats.\n(Future implementation)");
-        mainContent.add(chatsPanel, "chats");
+        // Network tab
+        networkPanel = new NetworkPanel(() -> {
+            if (onDialRequested != null) onDialRequested.run();
+        });
+        mainContent.add(networkPanel, "network");
 
         // Settings tab
-        settingsPanel = createPlaceholderPanel("Settings", "Application settings and identity management.\n(Future implementation)");
+        settingsPanel = new SettingsPanel(enabled -> {
+            if (onSaveMessagesToggled != null) onSaveMessagesToggled.accept(enabled);
+        });
         mainContent.add(settingsPanel, "settings");
 
         return mainContent;
     }
+
+    private Consumer<network.isc.core.SignedAnnouncement> onJoinRequested;
+    private Runnable onDialRequested;
+    private Consumer<Boolean> onSaveMessagesToggled;
+
+    public void setOnJoinRequested(Consumer<network.isc.core.SignedAnnouncement> onJoinRequested) {
+        this.onJoinRequested = onJoinRequested;
+    }
+
+    public void setOnDialRequested(Runnable onDialRequested) {
+        this.onDialRequested = onDialRequested;
+    }
+
+    public void setOnSaveMessagesToggled(Consumer<Boolean> onSaveMessagesToggled) {
+        this.onSaveMessagesToggled = onSaveMessagesToggled;
+    }
+
+    public DiscoverPanel getDiscoverPanel() { return discoverPanel; }
+    public NetworkPanel getNetworkPanel() { return networkPanel; }
+    public SettingsPanel getSettingsPanel() { return settingsPanel; }
 
     private JPanel createPlaceholderPanel(String title, String text) {
         JPanel panel = new JPanel(new BorderLayout(10, 10));

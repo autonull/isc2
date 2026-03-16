@@ -41,6 +41,8 @@ public class NetworkAdapter {
     private final List<AnnounceProtocol.AnnounceController> activeAnnouncers = new ArrayList<>();
     private final List<QueryProtocol.QueryController> activeQueries = new ArrayList<>();
 
+    private Consumer<String> onPeerConnected;
+
     public NetworkAdapter(PrivKey privKey, int port,
                           Consumer<ChatMessage> onMessageReceived,
                           Consumer<SignedAnnouncement> onAnnounceReceived,
@@ -90,6 +92,10 @@ public class NetworkAdapter {
         });
     }
 
+    public void setOnPeerConnected(Consumer<String> onPeerConnected) {
+        this.onPeerConnected = onPeerConnected;
+    }
+
     public CompletableFuture<Void> stop() {
         return host.stop();
     }
@@ -102,6 +108,10 @@ public class NetworkAdapter {
 
         return host.getNetwork().connect(target).thenCompose(conn -> {
             log.info("Connected to peer: {}", conn.remoteAddress());
+
+            if (onPeerConnected != null) {
+                onPeerConnected.accept(conn.remoteAddress().toString());
+            }
 
             host.newStream(Collections.singletonList(chatPid), conn).getController().thenAccept(c -> {
                 synchronized (activeChats) {

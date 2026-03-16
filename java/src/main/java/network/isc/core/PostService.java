@@ -15,9 +15,14 @@ public class PostService {
     private final Map<String, Post> postStore = new ConcurrentHashMap<>();
     private PrivKey identityKeypair;
     private boolean identityInitialized = false;
+    private network.isc.adapters.JsonPostAdapter dbAdapter;
 
     public PostService() {
-        // In-memory store for simplicity
+        // Default to in-memory store
+    }
+
+    public void setDatabaseAdapter(network.isc.adapters.JsonPostAdapter dbAdapter) {
+        this.dbAdapter = dbAdapter;
     }
 
     /**
@@ -56,6 +61,9 @@ public class PostService {
 
         // Store locally
         postStore.put(postWithoutSig.getId(), postWithoutSig);
+        if (dbAdapter != null) {
+            dbAdapter.savePost(postWithoutSig);
+        }
 
         return postWithoutSig;
     }
@@ -66,6 +74,9 @@ public class PostService {
     public void storePost(Post post) {
         if (post != null && post.getId() != null) {
             postStore.put(post.getId(), post);
+            if (dbAdapter != null) {
+                dbAdapter.savePost(post);
+            }
         }
     }
 
@@ -80,6 +91,12 @@ public class PostService {
      * Get all posts, optionally filtered by channel
      */
     public List<Post> getAllPosts(String channelId) {
+        if (dbAdapter != null && dbAdapter.isEnabled() && channelId != null && !channelId.isEmpty()) {
+            // Retrieve from persistent store if configured
+            // Our DB returns them in DESC order (newest first), which is what we want.
+            return dbAdapter.getPostsByChannel(channelId);
+        }
+
         List<Post> posts = new ArrayList<>(postStore.values());
 
         // Filter by channel if specified
