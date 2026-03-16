@@ -113,6 +113,7 @@ public class ChatPanel extends JPanel {
             .replaceAll("\\*(.*?)\\*", "<i>$1</i>")
             .replaceAll("__(.*?)__", "<u>$1</u>")
             .replaceAll("`(.*?)`", "<code style='background-color: #f0f0f0; padding: 2px 4px; border-radius: 4px;'>$1</code>")
+            .replaceAll("\\[FILE: (.*?)\\]", "<a href='$1' style='color: #1d9bf0; text-decoration: none;'>📎 Attachment: $1</a>")
             .replaceAll("\n", "<br>");
 
         String imgSrc = "";
