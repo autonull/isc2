@@ -2,7 +2,7 @@ package network.isc.protocol;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import java.util.Arrays;
+import network.isc.core.Post;
 
 public class ChatMessage {
     private final String channelID;
@@ -25,4 +25,16 @@ public class ChatMessage {
     public String getMsg() { return msg; }
     public long getTimestamp() { return timestamp; }
     public byte[] getSignature() { return signature; }
+
+    // Utility to convert to a Post object
+    public Post toPost(String author) {
+        return new Post(
+            java.util.UUID.randomUUID().toString(),
+            author,
+            this.msg,
+            this.channelID,
+            this.timestamp,
+            this.signature
+        );
+    }
 }

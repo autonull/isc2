@@ -1,4 +1,4 @@
-package org.isc.java.types;
+package network.isc.core;
 
 import java.util.Base64;
 

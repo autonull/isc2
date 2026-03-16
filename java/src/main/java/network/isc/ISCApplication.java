@@ -5,6 +5,8 @@ import network.isc.adapters.NetworkAdapter;
 import network.isc.adapters.StorageAdapter;
 import network.isc.adapters.ModelDownloader;
 import network.isc.core.Channel;
+import network.isc.core.Post;
+import network.isc.core.PostService;
 import network.isc.core.CryptoUtils;
 import network.isc.core.SignedAnnouncement;
 import network.isc.core.SemanticMath;
@@ -36,9 +38,9 @@ public class ISCApplication {
     private NetworkAdapter network;
     private EmbeddingAdapter embedding;
     private StorageAdapter storage;
-    private CryptoUtils.Keypair keypair;
     private PrivKey libp2pKey;
     private MainFrame mainFrame;
+    private PostService postService;
     private List<Channel> channels;
     private Channel activeChannel;
 
@@ -60,8 +62,10 @@ public class ISCApplication {
     private void initialize() throws Exception {
         log.info("Initializing ISC Java Client...");
 
-        keypair = CryptoUtils.generateKeypair();
         libp2pKey = KeyKt.generateKeyPair(KeyType.ED25519).component1();
+
+        postService = new PostService();
+        postService.initializeIdentity(libp2pKey);
 
         // Network
         network = new NetworkAdapter(libp2pKey, 0, this::handleNetworkMessage, this::handleAnnouncement, this::handleQuery);
@@ -116,19 +120,26 @@ public class ISCApplication {
         mainFrame.getChatPanel().addSendListener(e -> {
             String msg = mainFrame.getChatPanel().getAndClearInput();
             if (!msg.isEmpty() && activeChannel != null) {
-                mainFrame.getChatPanel().appendMessage("You", msg, System.currentTimeMillis());
+                try {
+                    Post post = postService.createPost(msg, activeChannel.getId());
+                    mainFrame.getChatPanel().appendMessage(post.getAuthor(), post.getContent(), post.getTimestamp());
 
-                long ts = System.currentTimeMillis();
-                byte[] rawPayload = (activeChannel.getId() + msg + ts).getBytes(StandardCharsets.UTF_8);
-                byte[] sig = libp2pKey.sign(rawPayload);
-
-                ChatMessage chatMsg = new ChatMessage(activeChannel.getId(), msg, ts, sig);
-                network.broadcastChat(chatMsg);
-                log.info("Message sent in channel {}: {}", activeChannel.getName(), msg);
+                    ChatMessage chatMsg = new ChatMessage(post.getChannelID(), post.getContent(), post.getTimestamp(), post.getSignature());
+                    network.broadcastChat(chatMsg);
+                    log.info("Message sent in channel {}: {}", activeChannel.getName(), msg);
+                } catch (Exception ex) {
+                    JOptionPane.showMessageDialog(mainFrame, "Failed to post message: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+                }
             }
         });
 
         JMenuBar menuBar = new JMenuBar();
+        JMenu fileMenu = new JMenu("File");
+        JMenuItem exitItem = new JMenuItem("Exit");
+        exitItem.addActionListener(e -> System.exit(0));
+        fileMenu.add(exitItem);
+        menuBar.add(fileMenu);
+
         JMenu p2pMenu = new JMenu("Network");
         JMenuItem connectItem = new JMenuItem("Dial Peer...");
         connectItem.addActionListener(e -> {
@@ -168,8 +179,13 @@ public class ISCApplication {
     }
 
     private void handleNetworkMessage(ChatMessage chatMsg) {
+        Post post = chatMsg.toPost("Peer");
+        postService.storePost(post);
         SwingUtilities.invokeLater(() -> {
-            mainFrame.getChatPanel().appendMessage("Peer", chatMsg.getMsg(), chatMsg.getTimestamp());
+            // Only show message if it belongs to the active channel
+            if (activeChannel != null && chatMsg.getChannelID().equals(activeChannel.getId())) {
+                mainFrame.getChatPanel().appendMessage(post.getAuthor(), post.getContent(), post.getTimestamp());
+            }
         });
     }
 
@@ -181,7 +197,9 @@ public class ISCApplication {
         }
 
         SwingUtilities.invokeLater(() -> {
-            mainFrame.getChatPanel().appendMessage("System", "Discovered new peer thinking about a similar topic!", System.currentTimeMillis());
+            if (activeChannel != null) {
+                mainFrame.getChatPanel().appendMessage("System", "Discovered new peer thinking about a similar topic!", System.currentTimeMillis());
+            }
         });
     }
 
@@ -258,7 +276,13 @@ public class ISCApplication {
     private void handleChannelSelected(Channel c) {
         activeChannel = c;
         mainFrame.getChatPanel().setChannelName(c.getName(), c.getDescription());
-        mainFrame.getChatPanel().appendMessage("System", "Joined channel space: " + c.getDescription(), System.currentTimeMillis());
+
+        // Load past messages for this channel
+        List<Post> pastPosts = postService.getAllPosts(c.getId());
+        for (Post p : pastPosts) {
+            mainFrame.getChatPanel().appendMessage(p.getAuthor(), p.getContent(), p.getTimestamp());
+        }
+
         log.info("Switched to channel {} (DHT announce loop would start here)", c.getId());
 
         if (embedding != null) {
