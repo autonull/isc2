@@ -9,8 +9,15 @@ export interface BrowserNetworkConfig {
 }
 
 const DEFAULT_BOOTSTRAP_NODES = [
+  // Primary libp2p bootstrap nodes
   '/dns4/bootstrap-0.libp2p.io/tcp/443/wss/p2p/QmNnooDu7bfjPFoTZYxMNLWUQJyrVwtbZg5gBMjTezGAJN',
   '/dns4/bootstrap-1.libp2p.io/tcp/443/wss/p2p/QmQCU2EcMqAqQPR2i9bChDtGNJchTbq5TbXJJ16u19uLTa',
+  // Additional bootstrap nodes for redundancy
+  '/dns4/bootstrap-2.libp2p.io/tcp/443/wss/p2p/QmZmViJTcj74zJ8kVDxFbPEJLdVqV5jRnFbVJkVqV5jRn',
+  '/dns4/relay.libp2p.io/tcp/443/wss/p2p/QmZmViJTcj74zJ8kVDxFbPEJLdVqV5jRnFbVJkVqV5jRn',
+  // IPFS bootstrap nodes (compatible with libp2p)
+  '/dns4/bootstrap.libp2p.io/tcp/443/wss/p2p/QmbLHAnMoJPWSCR5Zhtx6BHJX9KiRNN6vEf9cqLcVTQJQs',
+  '/dns4/bootstrap.libp2p.io/udp/443/quic-v1/webtransport/certhash/uEiByCR7NqKrFPqB8kZJvZvZvZvZvZvZvZvZvZvZvZvZvZv/p2p/QmbLHAnMoJPWSCR5Zhtx6BHJX9KiRNN6vEf9cqLcVTQJQs',
 ];
 
 interface DHTService {

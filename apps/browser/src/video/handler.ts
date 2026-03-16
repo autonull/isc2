@@ -14,9 +14,32 @@ const screenShareStates = new Map<string, ScreenShareState>();
 
 const RTC_CONFIG: RTCConfiguration = {
   iceServers: [
+    // Google STUN servers (free, no auth)
     { urls: 'stun:stun.l.google.com:19302' },
     { urls: 'stun:stun1.l.google.com:19302' },
     { urls: 'stun:stun2.l.google.com:19302' },
+    { urls: 'stun:stun3.l.google.com:19302' },
+    { urls: 'stun:stun4.l.google.com:19302' },
+    // Additional public STUN servers
+    { urls: 'stun:stun.services.mozilla.com' },
+    { urls: 'stun:stun.voip.blackberry.com:3478' },
+    // TURN servers for NAT traversal (production should use authenticated TURN)
+    // OpenRelay (free tier, limited)
+    {
+      urls: 'turn:openrelay.metered.ca:80',
+      username: 'openrelayproject',
+      credential: 'openrelayproject',
+    },
+    {
+      urls: 'turn:openrelay.metered.ca:443',
+      username: 'openrelayproject',
+      credential: 'openrelayproject',
+    },
+    {
+      urls: 'turn:openrelay.metered.ca:443?transport=tcp',
+      username: 'openrelayproject',
+      credential: 'openrelayproject',
+    },
   ],
 };
 

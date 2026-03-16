@@ -114,8 +114,8 @@ export function ChatsScreen() {
     setMessages(stored ? JSON.parse(stored) : []);
   };
 
-  // Send message
-  const handleSendMessage = () => {
+  // Send message via WebRTC with localStorage fallback
+  const handleSendMessage = async () => {
     if (!inputValue.trim() || !selectedConversation) return;
 
     const newMessage: Message = {
@@ -130,16 +130,24 @@ export function ChatsScreen() {
     localStorage.setItem(`isc-messages-${selectedConversation}`, JSON.stringify([...messages, newMessage]));
 
     // Update conversation preview
-    setConversations(prev => prev.map(c => 
-      c.id === selectedConversation 
+    setConversations(prev => prev.map(c =>
+      c.id === selectedConversation
         ? { ...c, lastMessage: inputValue.trim(), timestamp: Date.now() }
         : c
     ));
 
     setInputValue('');
 
-    // TODO: Send via WebRTC when connected
-    console.log('[Chats] Would send via WebRTC:', newMessage);
+    // Send via WebRTC using chat service
+    try {
+      const chatService = await import('../services/chatService.js');
+      const service = chatService.getChatService();
+      await service.send(selectedConversation, newMessage.content);
+      console.log('[Chats] Message sent via WebRTC:', newMessage.id);
+    } catch (err) {
+      // Fallback: message already stored locally, will sync when online
+      console.warn('[Chats] WebRTC send failed, message queued locally:', err);
+    }
   };
 
   // Navigate to discover to find more peers

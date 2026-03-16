@@ -11,6 +11,7 @@
  */
 
 import { test, expect, Browser, BrowserContext, Page } from '@playwright/test';
+import { waitForAppReady, waitForMatchesLoaded, waitForOnboardingComplete, completeOnboarding } from './utils/waitHelpers.js';
 
 test.describe('E2E Communication Flow', () => {
   test.setTimeout(120000); // 2 minutes for full flow
@@ -41,35 +42,19 @@ test.describe('E2E Communication Flow', () => {
     // ========== PHASE 1: Both users complete onboarding ==========
     await test.step('Alice completes onboarding', async () => {
       await alicePage.goto('/');
-      await alicePage.waitForSelector('#app', { timeout: 10000 });
-      await alicePage.waitForTimeout(2000); // Wait for app to initialize
+      await waitForAppReady(alicePage, 10000);
 
       // Check if onboarding appears
       const onboardingOverlay = alicePage.locator('[style*="position: fixed"]').first();
       const hasOnboarding = await onboardingOverlay.count() > 0;
 
       if (hasOnboarding) {
-        // Step 1: Enter name
-        const nameInput = alicePage.locator('input[placeholder="Your name"]').first();
-        await nameInput.fill('Alice');
-        await alicePage.getByText('Continue').first().click();
-        await alicePage.waitForTimeout(500);
-
-        // Step 2: Enter bio
-        const bioInput = alicePage.locator('textarea[placeholder*="interested"]').first();
-        await bioInput.fill('I am interested in artificial intelligence, machine learning, and AI ethics. I love discussing the future of technology.');
-        await alicePage.getByText('Continue').first().click();
-        await alicePage.waitForTimeout(500);
-
-        // Step 3: Create first channel
-        const channelNameInput = alicePage.locator('input[placeholder*="AI Ethics"]').first();
-        await channelNameInput.fill('AI Ethics Discussion');
-
-        const channelDescInput = alicePage.locator('textarea[placeholder*="about"]').first();
-        await channelDescInput.fill('A channel for discussing ethical implications of artificial intelligence, including bias, fairness, transparency, and the societal impact of AI systems.');
-
-        await alicePage.getByText('Complete Setup').click();
-        await alicePage.waitForTimeout(3000); // Wait for channel creation and peer discovery
+        await completeOnboarding(alicePage, {
+          name: 'Alice',
+          bio: 'I am interested in artificial intelligence, machine learning, and AI ethics. I love discussing the future of technology.',
+          channel: 'AI Ethics Discussion',
+        });
+        await waitForMatchesLoaded(alicePage, 5000);
       }
 
       // Verify Alice is on main app
@@ -78,35 +63,19 @@ test.describe('E2E Communication Flow', () => {
 
     await test.step('Bob completes onboarding', async () => {
       await bobPage.goto('/');
-      await bobPage.waitForSelector('#app', { timeout: 10000 });
-      await bobPage.waitForTimeout(2000);
+      await waitForAppReady(bobPage, 10000);
 
       // Check if onboarding appears
       const onboardingOverlay = bobPage.locator('[style*="position: fixed"]').first();
       const hasOnboarding = await onboardingOverlay.count() > 0;
 
       if (hasOnboarding) {
-        // Step 1: Enter name
-        const nameInput = bobPage.locator('input[placeholder="Your name"]').first();
-        await nameInput.fill('Bob');
-        await bobPage.getByText('Continue').first().click();
-        await bobPage.waitForTimeout(500);
-
-        // Step 2: Enter bio (similar interests to Alice for matching)
-        const bioInput = bobPage.locator('textarea[placeholder*="interested"]').first();
-        await bioInput.fill('I am passionate about machine learning, AI safety, and the ethics of artificial intelligence. Building responsible AI systems.');
-        await bobPage.getByText('Continue').first().click();
-        await bobPage.waitForTimeout(500);
-
-        // Step 3: Create first channel
-        const channelNameInput = bobPage.locator('input[placeholder*="AI Ethics"]').first();
-        await channelNameInput.fill('Machine Learning Research');
-
-        const channelDescInput = bobPage.locator('textarea[placeholder*="about"]').first();
-        await channelDescInput.fill('Discussing latest research in machine learning, deep learning architectures, neural networks, and ML applications in various domains.');
-
-        await bobPage.getByText('Complete Setup').click();
-        await bobPage.waitForTimeout(3000);
+        await completeOnboarding(bobPage, {
+          name: 'Bob',
+          bio: 'I am passionate about machine learning, AI safety, and the ethics of artificial intelligence. Building responsible AI systems.',
+          channel: 'Machine Learning Research',
+        });
+        await waitForMatchesLoaded(bobPage, 5000);
       }
 
       // Verify Bob is on main app
@@ -117,7 +86,7 @@ test.describe('E2E Communication Flow', () => {
     await test.step('Alice creates another channel', async () => {
       // Navigate to Compose screen
       await alicePage.click('[data-testid="nav-tab-compose"], [data-tab="compose"]');
-      await alicePage.waitForTimeout(500);
+      await alicePage.waitForTimeout(300); // Minimal animation wait
 
       // Fill in channel details
       const nameInput = alicePage.locator('[data-testid="compose-name-input"]');
@@ -128,7 +97,7 @@ test.describe('E2E Communication Flow', () => {
 
       // Save channel
       await alicePage.click('[data-testid="compose-save"]');
-      await alicePage.waitForTimeout(2000);
+      await alicePage.waitForTimeout(500); // Minimal wait for redirect
 
       // Verify channel was created (should redirect to Now screen)
       await expect(alicePage.locator('[data-testid="now-screen"]')).toBeVisible({ timeout: 5000 });
@@ -137,7 +106,7 @@ test.describe('E2E Communication Flow', () => {
     await test.step('Bob creates another channel', async () => {
       // Navigate to Compose screen
       await bobPage.click('[data-testid="nav-tab-compose"], [data-tab="compose"]');
-      await bobPage.waitForTimeout(500);
+      await bobPage.waitForTimeout(300); // Minimal animation wait
 
       // Fill in channel details
       const nameInput = bobPage.locator('[data-testid="compose-name-input"]');
@@ -148,7 +117,7 @@ test.describe('E2E Communication Flow', () => {
 
       // Save channel
       await bobPage.click('[data-testid="compose-save"]');
-      await bobPage.waitForTimeout(2000);
+      await bobPage.waitForTimeout(500); // Minimal wait for redirect
 
       // Verify channel was created
       await expect(bobPage.locator('[data-testid="now-screen"]')).toBeVisible({ timeout: 5000 });
@@ -158,13 +127,13 @@ test.describe('E2E Communication Flow', () => {
     await test.step('Alice discovers Bob', async () => {
       // Navigate to Discover screen
       await alicePage.click('[data-testid="nav-tab-discover"], [data-tab="discover"]');
-      await alicePage.waitForTimeout(500);
+      await alicePage.waitForTimeout(300); // Minimal animation wait
 
       // Click discover button
       const discoverBtn = alicePage.locator('button:has-text("Discover"), button:has-text("🔍")');
       if (await discoverBtn.count() > 0) {
         await discoverBtn.first().click();
-        await alicePage.waitForTimeout(3000); // Wait for discovery
+        await alicePage.waitForTimeout(1000); // Wait for discovery
       }
 
       // Check if any peers were discovered (may or may not find Bob depending on DHT)

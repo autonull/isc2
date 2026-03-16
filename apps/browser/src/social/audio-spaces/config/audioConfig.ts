@@ -6,8 +6,22 @@ import type { WebRTCConfig } from '../types/audioSpace.js';
 
 export const AUDIO_CONFIG: WebRTCConfig = {
   iceServers: [
+    // Google STUN servers (free, no auth)
     { urls: 'stun:stun.l.google.com:19302' },
     { urls: 'stun:stun1.l.google.com:19302' },
+    { urls: 'stun:stun2.l.google.com:19302' },
+    { urls: 'stun:stun.services.mozilla.com' },
+    // TURN servers for NAT traversal
+    {
+      urls: 'turn:openrelay.metered.ca:80',
+      username: 'openrelayproject',
+      credential: 'openrelayproject',
+    },
+    {
+      urls: 'turn:openrelay.metered.ca:443',
+      username: 'openrelayproject',
+      credential: 'openrelayproject',
+    },
   ],
   maxParticipants: 10,
   audioConstraints: {

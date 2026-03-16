@@ -1,6 +1,6 @@
 /**
  * Feed Service
- * 
+ *
  * Business logic layer for feed generation.
  * Handles For You, Following, and Channel feeds with scoring.
  */
@@ -9,17 +9,35 @@ import type { Post } from '../types/extended.js';
 import type { Channel } from '@isc/core';
 import { cosineSimilarity } from '@isc/core';
 
+const FOLLOWING_KEY = 'isc-following';
+
 export interface FeedService {
   getForYouFeed(channelId?: string): Promise<Post[]>;
   getFollowingFeed(): Promise<Post[]>;
   getChannelFeed(channelId: string): Promise<Post[]>;
   getExploreFeed(): Promise<Post[]>;
   refresh(): Promise<void>;
+  followUser(authorId: string): void;
+  unfollowUser(authorId: string): void;
+  getFollowingList(): string[];
 }
 
 // In-memory cache for feeds
 const feedCache = new Map<string, { posts: Post[]; timestamp: number }>();
 const CACHE_DURATION = 30000; // 30 seconds
+
+function getFollowingList(): string[] {
+  try {
+    const stored = localStorage.getItem(FOLLOWING_KEY);
+    return stored ? JSON.parse(stored) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveFollowingList(following: string[]): void {
+  localStorage.setItem(FOLLOWING_KEY, JSON.stringify(following));
+}
 
 export function createFeedService(
   postService: any,
@@ -28,7 +46,7 @@ export function createFeedService(
   return {
     async getForYouFeed(channelId?: string): Promise<Post[]> {
       const cacheKey = channelId ? `foryou-${channelId}` : 'foryou';
-      
+
       // Check cache
       const cached = feedCache.get(cacheKey);
       if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
@@ -37,10 +55,10 @@ export function createFeedService(
 
       // Get all posts
       let posts = await postService.getAllPosts(channelId);
-      
+
       // Score and sort posts
       const scored = await scorePosts(posts, channelManager);
-      
+
       // Cache result
       feedCache.set(cacheKey, {
         posts: scored,
@@ -51,14 +69,41 @@ export function createFeedService(
     },
 
     async getFollowingFeed(): Promise<Post[]> {
-      // TODO: Get posts from followed users
-      // For now, return all posts
-      return postService.getAllPosts();
+      const following = getFollowingList();
+      
+      if (following.length === 0) {
+        return [];
+      }
+
+      const cacheKey = `following-${following.join(',')}`;
+
+      // Check cache
+      const cached = feedCache.get(cacheKey);
+      if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
+        return cached.posts;
+      }
+
+      // Get all posts and filter by followed users
+      const allPosts = await postService.getAllPosts();
+      const followedPosts = allPosts.filter(post => 
+        following.includes(post.author)
+      );
+
+      // Sort by timestamp (newest first)
+      const sorted = followedPosts.sort((a: Post, b: Post) => b.timestamp - a.timestamp);
+
+      // Cache result
+      feedCache.set(cacheKey, {
+        posts: sorted,
+        timestamp: Date.now(),
+      });
+
+      return sorted;
     },
 
     async getChannelFeed(channelId: string): Promise<Post[]> {
       const cacheKey = `channel-${channelId}`;
-      
+
       // Check cache
       const cached = feedCache.get(cacheKey);
       if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
@@ -66,10 +111,10 @@ export function createFeedService(
       }
 
       const posts = await postService.getPostsByChannel(channelId);
-      
+
       // Sort by timestamp (newest first)
       const sorted = posts.sort((a: Post, b: Post) => b.timestamp - a.timestamp);
-      
+
       // Cache result
       feedCache.set(cacheKey, {
         posts: sorted,
@@ -82,7 +127,7 @@ export function createFeedService(
     async getExploreFeed(): Promise<Post[]> {
       // Get all posts and sort by engagement
       const posts = await postService.getAllPosts();
-      
+
       return posts.sort((a: Post, b: Post) => {
         const scoreA = computeEngagementScore(a);
         const scoreB = computeEngagementScore(b);
@@ -93,6 +138,29 @@ export function createFeedService(
     async refresh(): Promise<void> {
       // Clear all caches
       feedCache.clear();
+    },
+
+    followUser(authorId: string): void {
+      const following = getFollowingList();
+      if (!following.includes(authorId)) {
+        following.push(authorId);
+        saveFollowingList(following);
+        this.refresh();
+      }
+    },
+
+    unfollowUser(authorId: string): void {
+      const following = getFollowingList();
+      const index = following.indexOf(authorId);
+      if (index >= 0) {
+        following.splice(index, 1);
+        saveFollowingList(following);
+        this.refresh();
+      }
+    },
+
+    getFollowingList(): string[] {
+      return getFollowingList();
     },
   };
 }
