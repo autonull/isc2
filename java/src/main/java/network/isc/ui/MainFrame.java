@@ -3,6 +3,7 @@ package network.isc.ui;
 import network.isc.core.Channel;
 
 import javax.swing.*;
+import javax.swing.border.EmptyBorder;
 import java.awt.*;
 import java.util.List;
 import java.util.function.Consumer;
@@ -17,7 +18,7 @@ public class MainFrame extends JFrame {
 
     public MainFrame() {
         setTitle("ISC - Internet Semantic Chat");
-        setSize(900, 600);
+        setSize(1000, 700);
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setLocationRelativeTo(null);
 
@@ -25,6 +26,9 @@ public class MainFrame extends JFrame {
         channelListModel = new DefaultListModel<>();
         channelList = new JList<>(channelListModel);
         channelList.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+        channelList.setFont(new Font(Font.SANS_SERIF, Font.PLAIN, 14));
+        channelList.setFixedCellHeight(30);
+        channelList.setBorder(new EmptyBorder(5, 5, 5, 5));
 
         channelList.addListSelectionListener(e -> {
             if (!e.getValueIsAdjusting() && channelList.getSelectedIndex() != -1 && activeChannels != null) {
@@ -38,13 +42,25 @@ public class MainFrame extends JFrame {
         });
 
         JScrollPane sidebarScroll = new JScrollPane(channelList);
-        sidebarScroll.setPreferredSize(new Dimension(200, 0));
+        sidebarScroll.setBorder(BorderFactory.createEmptyBorder());
+        sidebarScroll.setPreferredSize(new Dimension(250, 0));
 
         JPanel sidebarPanel = new JPanel(new BorderLayout());
-        sidebarPanel.add(new JLabel(" Channels", SwingConstants.LEFT), BorderLayout.NORTH);
+        sidebarPanel.setBackground(Color.WHITE);
+        sidebarPanel.setBorder(BorderFactory.createMatteBorder(0, 0, 0, 1, Color.LIGHT_GRAY));
+
+        JLabel channelsLabel = new JLabel(" My Channels", SwingConstants.LEFT);
+        channelsLabel.setFont(channelsLabel.getFont().deriveFont(Font.BOLD, 14f));
+        channelsLabel.setBorder(BorderFactory.createEmptyBorder(15, 10, 15, 10));
+        sidebarPanel.add(channelsLabel, BorderLayout.NORTH);
+
         sidebarPanel.add(sidebarScroll, BorderLayout.CENTER);
 
         JButton createButton = new JButton("+ New Channel");
+        createButton.setFont(createButton.getFont().deriveFont(Font.BOLD));
+        createButton.setBackground(new Color(240, 240, 240));
+        createButton.setFocusPainted(false);
+        createButton.setBorder(BorderFactory.createEmptyBorder(15, 15, 15, 15));
         createButton.addActionListener(e -> {
             if (onCreateChannel != null) onCreateChannel.run();
         });
@@ -54,7 +70,9 @@ public class MainFrame extends JFrame {
         chatPanel = new ChatPanel();
 
         JSplitPane splitPane = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, sidebarPanel, chatPanel);
-        splitPane.setDividerLocation(200);
+        splitPane.setDividerLocation(250);
+        splitPane.setDividerSize(1);
+        splitPane.setBorder(null);
 
         add(splitPane);
     }
@@ -63,7 +81,7 @@ public class MainFrame extends JFrame {
         this.activeChannels = channels;
         channelListModel.clear();
         for (Channel c : channels) {
-            channelListModel.addElement(c.getName());
+            channelListModel.addElement("# " + c.getName());
         }
     }
 

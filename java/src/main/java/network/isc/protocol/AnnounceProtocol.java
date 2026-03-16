@@ -5,36 +5,39 @@ import io.libp2p.core.multistream.ProtocolBinding;
 import io.libp2p.core.multistream.ProtocolDescriptor;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
+import network.isc.core.SignedAnnouncement;
+
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.nio.charset.StandardCharsets;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 
-public class ChatProtocol implements ProtocolBinding<ChatProtocol.ChatController> {
-    private static final Logger log = LoggerFactory.getLogger(ChatProtocol.class);
+public class AnnounceProtocol implements ProtocolBinding<AnnounceProtocol.AnnounceController> {
+    private static final Logger log = LoggerFactory.getLogger(AnnounceProtocol.class);
 
-    private final Consumer<ChatMessage> onMessageReceived;
+    private final Consumer<SignedAnnouncement> onAnnouncementReceived;
     private final ObjectMapper mapper = new ObjectMapper();
 
-    public ChatProtocol(Consumer<ChatMessage> onMessageReceived) {
-        this.onMessageReceived = onMessageReceived;
+    public AnnounceProtocol(Consumer<SignedAnnouncement> onAnnouncementReceived) {
+        this.onAnnouncementReceived = onAnnouncementReceived;
     }
 
     @NotNull
     @Override
     public ProtocolDescriptor getProtocolDescriptor() {
-        return new ProtocolDescriptor(ProtocolConstants.PROTOCOL_CHAT);
+        return new ProtocolDescriptor(ProtocolConstants.PROTOCOL_ANNOUNCE);
     }
 
     @NotNull
     @Override
-    public CompletableFuture<ChatController> initChannel(@NotNull io.libp2p.core.P2PChannel ch, @NotNull String selectedProtocol) {
-        CompletableFuture<ChatController> future = new CompletableFuture<>();
+    public CompletableFuture<AnnounceController> initChannel(@NotNull io.libp2p.core.P2PChannel ch, @NotNull String selectedProtocol) {
+        CompletableFuture<AnnounceController> future = new CompletableFuture<>();
         Stream stream = (Stream) ch;
-        ChatController controller = new ChatController(stream, mapper);
+        AnnounceController controller = new AnnounceController(stream, mapper);
 
         stream.pushHandler(new io.netty.channel.ChannelInboundHandlerAdapter() {
             @Override
@@ -45,12 +48,12 @@ public class ChatProtocol implements ProtocolBinding<ChatProtocol.ChatController
                     buf.readBytes(bytes);
 
                     try {
-                        ChatMessage chatMsg = mapper.readValue(bytes, ChatMessage.class);
-                        if (onMessageReceived != null) {
-                            onMessageReceived.accept(chatMsg);
+                        SignedAnnouncement ann = mapper.readValue(bytes, SignedAnnouncement.class);
+                        if (onAnnouncementReceived != null) {
+                            onAnnouncementReceived.accept(ann);
                         }
                     } catch (Exception e) {
-                        log.warn("Failed to parse chat message", e);
+                        log.warn("Failed to parse announcement", e);
                     }
                 }
                 ctx.fireChannelRead(msg);
@@ -58,7 +61,7 @@ public class ChatProtocol implements ProtocolBinding<ChatProtocol.ChatController
 
             @Override
             public void exceptionCaught(io.netty.channel.ChannelHandlerContext ctx, Throwable cause) {
-                log.error("Error in chat stream", cause);
+                log.error("Error in announce stream", cause);
                 ctx.close();
             }
         });
@@ -67,19 +70,19 @@ public class ChatProtocol implements ProtocolBinding<ChatProtocol.ChatController
         return future;
     }
 
-    public static class ChatController {
+    public static class AnnounceController {
         private final Stream stream;
         private final ObjectMapper mapper;
 
-        public ChatController(Stream stream, ObjectMapper mapper) {
+        public AnnounceController(Stream stream, ObjectMapper mapper) {
             this.stream = stream;
             this.mapper = mapper;
         }
 
-        public CompletableFuture<Void> send(ChatMessage message) {
+        public CompletableFuture<Void> send(SignedAnnouncement ann) {
             CompletableFuture<Void> cf = new CompletableFuture<>();
             try {
-                byte[] bytes = mapper.writeValueAsBytes(message);
+                byte[] bytes = mapper.writeValueAsBytes(ann);
                 ByteBuf buf = Unpooled.wrappedBuffer(bytes);
                 stream.writeAndFlush(buf);
                 cf.complete(null);
