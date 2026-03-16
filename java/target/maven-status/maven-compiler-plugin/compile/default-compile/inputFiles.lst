@@ -1,0 +1,15 @@
+/app/java/src/main/java/network/isc/core/Distribution.java
+/app/java/src/main/java/network/isc/adapters/StorageAdapter.java
+/app/java/src/main/java/network/isc/adapters/EmbeddingAdapter.java
+/app/java/src/main/java/network/isc/core/CryptoUtils.java
+/app/java/src/main/java/network/isc/ISCApplication.java
+/app/java/src/main/java/network/isc/ui/MainFrame.java
+/app/java/src/main/java/network/isc/protocol/ChatMessage.java
+/app/java/src/main/java/network/isc/core/SemanticMath.java
+/app/java/src/main/java/network/isc/core/Relation.java
+/app/java/src/main/java/network/isc/core/Channel.java
+/app/java/src/main/java/network/isc/adapters/NetworkAdapter.java
+/app/java/src/main/java/network/isc/protocol/ProtocolConstants.java
+/app/java/src/main/java/network/isc/protocol/ChatProtocol.java
+/app/java/src/main/java/network/isc/core/SignedAnnouncement.java
+/app/java/src/main/java/network/isc/ui/ChatPanel.java
