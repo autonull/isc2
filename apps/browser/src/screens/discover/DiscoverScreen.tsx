@@ -5,7 +5,7 @@
  * Allows connecting with similar users.
  */
 
-import { h } from 'preact';
+import { h, Fragment } from 'preact';
 import { useState, useEffect } from 'preact/hooks';
 import { useDependencies } from '../../di/container.js';
 import type { PeerMatch } from '@isc/network';
@@ -48,24 +48,29 @@ export function DiscoverScreen() {
     setStatus(networkService.getStatus());
 
     // Subscribe to updates
-    const unsubscribe = () => {
-      // Cleanup if needed
+    let unsubscribeFn: () => void = () => {};
+    try {
+      unsubscribeFn = networkService.on({
+        onStatusChange: (newStatus: string) => {
+          setStatus(newStatus);
+        },
+        onMatchesUpdated: (newMatches: any[]) => {
+          setMatches([...newMatches]);
+          setLastDiscovered(new Date());
+        },
+        onPeerDiscovered: (match: any) => {
+          console.log('[Discover] New peer discovered:', match.peer.name);
+        },
+      });
+    } catch (e) {
+      console.warn('[Discover] Failed to subscribe to network updates:', e);
+    }
+
+    return () => {
+      if (typeof unsubscribeFn === 'function') {
+        unsubscribeFn();
+      }
     };
-
-    networkService.on({
-      onStatusChange: (newStatus: string) => {
-        setStatus(newStatus);
-      },
-      onMatchesUpdated: (newMatches: any[]) => {
-        setMatches([...newMatches]);
-        setLastDiscovered(new Date());
-      },
-      onPeerDiscovered: (match: any) => {
-        console.log('[Discover] New peer discovered:', match.peer.name);
-      },
-    });
-
-    return unsubscribe;
   }, [networkService]);
 
   // Handle discover button click
@@ -74,9 +79,9 @@ export function DiscoverScreen() {
 
     setLoading(true);
     try {
-      const matches = await networkService.discoverPeers();
-      if (matches.length > 0) {
-        toast.success(`Found ${matches.length} matching peer${matches.length > 1 ? 's' : ''}!`);
+      const discovered = await networkService.discoverPeers();
+      if (discovered && discovered.length > 0) {
+        toast.success(`Found ${discovered.length} matching peer${discovered.length > 1 ? 's' : ''}!`);
       } else {
         toast.info('No new matches found. Try adjusting your bio.');
       }

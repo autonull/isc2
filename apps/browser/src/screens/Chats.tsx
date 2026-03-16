@@ -5,7 +5,7 @@
  * Uses WebRTC for peer-to-peer encrypted messaging.
  */
 
-import { h } from 'preact';
+import { h, Fragment } from 'preact';
 import { useState, useEffect } from 'preact/hooks';
 import { useDependencies } from '../di/container.js';
 import { useNavigation } from '@isc/navigation';
@@ -77,21 +77,30 @@ export function ChatsScreen() {
 
     setConversations(convos);
 
-    const unsubscribe = networkService.on({
-      onPeerDiscovered: (match: any) => {
-        setConversations(prev => {
-          if (prev.some(c => c.id === match.peer.id)) return prev;
-          return [{
-            id: match.peer.id,
-            peer: match.peer,
-            similarity: match.similarity,
-            unread: 0,
-          }, ...prev];
-        });
-      },
-    });
+    let unsubscribeFn: () => void = () => {};
+    try {
+      unsubscribeFn = networkService.on({
+        onPeerDiscovered: (match: any) => {
+          setConversations(prev => {
+            if (prev.some(c => c.id === match.peer.id)) return prev;
+            return [{
+              id: match.peer.id,
+              peer: match.peer,
+              similarity: match.similarity,
+              unread: 0,
+            }, ...prev];
+          });
+        },
+      });
+    } catch (e) {
+      console.warn('[Chats] Failed to subscribe to network updates:', e);
+    }
 
-    return unsubscribe;
+    return () => {
+      if (typeof unsubscribeFn === 'function') {
+        unsubscribeFn();
+      }
+    };
   }, [networkService]);
 
   // Handle online/offline

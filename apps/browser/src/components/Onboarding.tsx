@@ -7,7 +7,7 @@
  * 3. Create first channel
  */
 
-import { h } from 'preact';
+import { h, Fragment } from 'preact';
 import { useState, useEffect } from 'preact/hooks';
 import { useDependencies } from '../di/container.js';
 
@@ -56,7 +56,7 @@ export function Onboarding({ onComplete }: OnboardingProps) {
     if (completed) {
       onComplete();
     }
-  }, []);
+  }, [onComplete]);
 
   const handleNext = async () => {
     setError(null);
