@@ -5,7 +5,7 @@
  * Allows connecting with similar users.
  */
 
-import { h } from 'preact';
+import { h, Fragment } from 'preact';
 import { useState, useEffect } from 'preact/hooks';
 import { useDependencies } from '../../di/container.js';
 import type { PeerMatch } from '@isc/network';
