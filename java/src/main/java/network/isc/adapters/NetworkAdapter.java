@@ -16,7 +16,10 @@ import network.isc.protocol.ChatProtocol;
 import network.isc.protocol.DirectMessageProtocol;
 import network.isc.protocol.ChatMessage;
 import network.isc.protocol.QueryProtocol;
+import network.isc.protocol.FileProtocol;
+import network.isc.protocol.SocialProtocol;
 import network.isc.protocol.ProtocolConstants;
+import io.libp2p.core.Stream;
 
 import kotlin.Unit;
 
@@ -25,6 +28,7 @@ import org.slf4j.LoggerFactory;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
+import java.util.function.BiConsumer;
 import java.util.List;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -39,6 +43,8 @@ public class NetworkAdapter {
     private final QueryProtocol queryProtocol;
     private final network.isc.protocol.PostProtocol postProtocol;
     private final network.isc.protocol.DelegateProtocol delegateProtocol;
+    private final FileProtocol fileProtocol;
+    private final SocialProtocol socialProtocol;
 
     private final List<ChatProtocol.ChatController> activeChats = new ArrayList<>();
     private final List<DirectMessageProtocol.DMController> activeDMs = new ArrayList<>();
@@ -46,8 +52,12 @@ public class NetworkAdapter {
     private final List<QueryProtocol.QueryController> activeQueries = new ArrayList<>();
     private final List<network.isc.protocol.PostProtocol.PostController> activePosts = new ArrayList<>();
     private final List<network.isc.protocol.DelegateProtocol.DelegateController> activeDelegates = new ArrayList<>();
+    private final List<FileProtocol.FileController> activeFiles = new ArrayList<>();
+    private final List<SocialProtocol.SocialController> activeSocials = new ArrayList<>();
 
     private Consumer<String> onPeerConnected;
+    private BiConsumer<Stream, byte[]> onFileProtocolChunkReceived;
+    private Consumer<Object> onSocialEventReceived;
 
     public NetworkAdapter(PrivKey privKey, int port,
                           Consumer<ChatMessage> onMessageReceived,
@@ -62,6 +72,16 @@ public class NetworkAdapter {
         this.queryProtocol = new QueryProtocol(onQueryReceived);
         this.postProtocol = new network.isc.protocol.PostProtocol(onHistoricalPostReceived);
         this.delegateProtocol = new network.isc.protocol.DelegateProtocol(onDelegationReceived);
+        this.fileProtocol = new FileProtocol((stream, bytes) -> {
+            if (onFileProtocolChunkReceived != null) {
+                onFileProtocolChunkReceived.accept(stream, bytes);
+            }
+        });
+        this.socialProtocol = new SocialProtocol(event -> {
+            if (onSocialEventReceived != null) {
+                onSocialEventReceived.accept(event);
+            }
+        });
 
         this.host = new Builder()
             .identity(i -> {
@@ -93,6 +113,8 @@ public class NetworkAdapter {
                 p.add(queryProtocol);
                 p.add(postProtocol);
                 p.add(delegateProtocol);
+                p.add(fileProtocol);
+                p.add(socialProtocol);
 
                 return Unit.INSTANCE;
             })
@@ -130,6 +152,14 @@ public class NetworkAdapter {
         this.onPeerConnected = onPeerConnected;
     }
 
+    public void setOnFileProtocolChunkReceived(BiConsumer<Stream, byte[]> onFileProtocolChunkReceived) {
+        this.onFileProtocolChunkReceived = onFileProtocolChunkReceived;
+    }
+
+    public void setOnSocialEventReceived(Consumer<Object> onSocialEventReceived) {
+        this.onSocialEventReceived = onSocialEventReceived;
+    }
+
     public CompletableFuture<Void> stop() {
         return host.stop();
     }
@@ -142,6 +172,8 @@ public class NetworkAdapter {
         String queryPid = ProtocolConstants.PROTOCOL_QUERY;
         String postPid = ProtocolConstants.PROTOCOL_POST;
         String delegatePid = ProtocolConstants.PROTOCOL_DELEGATE;
+        String filePid = ProtocolConstants.PROTOCOL_FILE;
+        String socialPid = ProtocolConstants.PROTOCOL_SOCIAL;
 
         return host.getNetwork().connect(target).thenCompose(conn -> {
             log.info("Connected to peer: {}", conn.remoteAddress());
@@ -180,6 +212,18 @@ public class NetworkAdapter {
                 }
             });
 
+            host.newStream(Collections.singletonList(filePid), conn).getController().thenAccept(c -> {
+                synchronized (activeFiles) {
+                    activeFiles.add((FileProtocol.FileController) c);
+                }
+            });
+
+            host.newStream(Collections.singletonList(socialPid), conn).getController().thenAccept(c -> {
+                synchronized (activeSocials) {
+                    activeSocials.add((SocialProtocol.SocialController) c);
+                }
+            });
+
             return host.newStream(Collections.singletonList(queryPid), conn).getController();
 
         }).thenAccept(controller -> {
@@ -188,6 +232,66 @@ public class NetworkAdapter {
                 activeQueries.add((QueryProtocol.QueryController) controller);
             }
         });
+    }
+
+    public void broadcastFileProtocolData(byte[] data) {
+        broadcastFileProtocolData(data, null);
+    }
+
+    public void broadcastFileProtocolData(byte[] data, Consumer<Stream> streamTracker) {
+        synchronized (activeFiles) {
+            for (FileProtocol.FileController controller : activeFiles) {
+                try {
+                    controller.send(data);
+                    if (streamTracker != null) {
+                        streamTracker.accept(controller.getStream());
+                    }
+                } catch (Exception e) {
+                    log.error("Failed to broadcast file data to peer", e);
+                }
+            }
+        }
+    }
+
+    public void sendFileProtocolData(Stream stream, byte[] data) {
+        try {
+            io.netty.buffer.ByteBuf buf = io.netty.buffer.Unpooled.wrappedBuffer(data);
+            stream.writeAndFlush(buf);
+        } catch (Exception e) {
+            log.error("Failed to send file data to specific stream", e);
+        }
+    }
+
+    public CompletableFuture<Void> sendFileData(Stream stream, java.io.File file) {
+        return CompletableFuture.runAsync(() -> {
+            try (java.io.InputStream is = new java.io.FileInputStream(file)) {
+                byte[] buffer = new byte[8192]; // 8KB chunks
+                int read;
+                while ((read = is.read(buffer)) > 0) {
+                    byte[] chunk = new byte[read];
+                    System.arraycopy(buffer, 0, chunk, 0, read);
+                    sendFileProtocolData(stream, chunk);
+
+                    // Simple sleep to prevent immediate OOM / backpressure overwhelming on large files
+                    // A proper implementation would monitor the Netty channel's writability.
+                    Thread.sleep(1);
+                }
+            } catch (Exception e) {
+                log.error("Failed sending file data chunks", e);
+            }
+        });
+    }
+
+    public void broadcastSocialEvent(Object event) {
+        synchronized (activeSocials) {
+            for (SocialProtocol.SocialController controller : activeSocials) {
+                try {
+                    controller.send(event);
+                } catch (Exception e) {
+                    log.error("Failed to broadcast social event to peer", e);
+                }
+            }
+        }
     }
 
     public void broadcastChat(ChatMessage message) {

@@ -10,8 +10,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class StorageAdapter {
-    private final File storageFile;
-    private final ObjectMapper mapper;
+    protected final File storageFile;
+    protected final ObjectMapper mapper;
 
     public StorageAdapter(String filepath) {
         this.storageFile = new File(filepath);

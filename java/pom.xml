@@ -66,6 +66,13 @@
     </dependency>
 
     <!-- CBOR / JSON Serialization -->
+    <!-- Netty Codecs (needed for proper framing, jvm-libp2p brings netty-core but not always netty-codec explicitly) -->
+    <dependency>
+      <groupId>io.netty</groupId>
+      <artifactId>netty-codec</artifactId>
+      <version>4.1.100.Final</version>
+    </dependency>
+
     <dependency>
       <groupId>com.fasterxml.jackson.core</groupId>
       <artifactId>jackson-databind</artifactId>
@@ -102,6 +109,13 @@
       <artifactId>junit-jupiter-api</artifactId>
       <version>5.10.0</version>
       <scope>test</scope>
+    </dependency>
+
+    <!-- Pure Java DB -->
+    <dependency>
+      <groupId>org.mapdb</groupId>
+      <artifactId>mapdb</artifactId>
+      <version>3.0.9</version>
     </dependency>
   </dependencies>
 

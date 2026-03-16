@@ -14,6 +14,7 @@ public class ChatPanel extends JPanel {
     private final JLabel headerLabel;
     private final SimpleDateFormat timeFormat = new SimpleDateFormat("HH:mm");
     private final JButton sendButton;
+    private final JButton attachButton;
 
     public ChatPanel() {
         setLayout(new BorderLayout(0, 10));
@@ -68,6 +69,11 @@ public class ChatPanel extends JPanel {
         composePanel.add(composeScroll, BorderLayout.CENTER);
 
         JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+
+        attachButton = new JButton("📎 Attach");
+        attachButton.setFocusPainted(false);
+        buttonPanel.add(attachButton);
+
         sendButton = new JButton("Post");
         sendButton.setFont(sendButton.getFont().deriveFont(Font.BOLD));
         sendButton.setBackground(new Color(29, 161, 242)); // Brand blue
@@ -82,12 +88,14 @@ public class ChatPanel extends JPanel {
 
         composeArea.setEnabled(false);
         sendButton.setEnabled(false);
+        attachButton.setEnabled(false);
     }
 
     public void setChannelName(String name, String description) {
         headerLabel.setText(String.format("<html><div style='text-align: center;'><b># %s</b><br><span style='font-size: 10px; font-weight: normal; color: #666;'>%s</span></div></html>", name, description));
         composeArea.setEnabled(true);
         sendButton.setEnabled(true);
+        attachButton.setEnabled(true);
         composeArea.requestFocusInWindow();
 
         feedHtml.setLength(0); // Clear builder
@@ -99,9 +107,14 @@ public class ChatPanel extends JPanel {
     public void disableInput() {
         composeArea.setEnabled(false);
         sendButton.setEnabled(false);
+        attachButton.setEnabled(false);
     }
 
     public void appendMessage(String sender, String message, long timestamp, String avatarBase64) {
+        appendMessage(sender, message, timestamp, avatarBase64, null, 0, 0);
+    }
+
+    public void appendMessage(String sender, String message, long timestamp, String avatarBase64, String postId, int likes, int reposts) {
         String time = timeFormat.format(new Date(timestamp));
 
         // Basic Markdown replacement
@@ -113,7 +126,7 @@ public class ChatPanel extends JPanel {
             .replaceAll("\\*(.*?)\\*", "<i>$1</i>")
             .replaceAll("__(.*?)__", "<u>$1</u>")
             .replaceAll("`(.*?)`", "<code style='background-color: #f0f0f0; padding: 2px 4px; border-radius: 4px;'>$1</code>")
-            .replaceAll("\\[FILE: (.*?)\\]", "<a href='$1' style='color: #1d9bf0; text-decoration: none;'>📎 Attachment: $1</a>")
+            .replaceAll("\\[FILE: (.*?)\\]", "<a href='file://$1' style='color: #1d9bf0; text-decoration: none;'>📎 Attachment: $1</a>")
             .replaceAll("\n", "<br>");
 
         String imgSrc = "";
@@ -124,21 +137,58 @@ public class ChatPanel extends JPanel {
             imgSrc = "<span style='display:inline-block; width:32px; height:32px; background-color:#ccc; border-radius:16px; text-align:center; line-height:32px; margin-right:8px; vertical-align: middle;'>" + sender.substring(0, Math.min(1, sender.length())) + "</span>";
         }
 
+        String socialHtml = "";
+        if (postId != null) {
+             socialHtml = String.format("<div style='font-size: 9pt; color: #888; margin-top: 4px;'>" +
+                                        "<a href='like://%s' style='color: #e0245e; text-decoration: none;'>❤️ %d</a> &nbsp;&nbsp;" +
+                                        "<a href='repost://%s' style='color: #17bf63; text-decoration: none;'>🔁 %d</a>" +
+                                        "</div>", postId, likes, postId, reposts);
+        }
+
         feedHtml.append("<div style='margin-bottom: 15px; display: flex; align-items: flex-start;'>")
                 .append(imgSrc)
                 .append("<div>")
                 .append("<span style='color: gray; font-size: 10pt;'>[").append(time).append("] </span>")
                 .append("<b>").append(sender).append(":</b> <br>")
                 .append(formattedMsg)
+                .append(socialHtml)
                 .append("</div></div>");
 
         feedArea.setText(feedHtml.toString() + "</body></html>");
+    }
+
+    public void setSocialActionHandler(java.util.function.Consumer<String> actionHandler) {
+        feedArea.addHyperlinkListener(e -> {
+            if (e.getEventType() == javax.swing.event.HyperlinkEvent.EventType.ACTIVATED) {
+                String desc = e.getDescription();
+                if (desc.startsWith("like://") || desc.startsWith("repost://") || desc.startsWith("file://")) {
+                    actionHandler.accept(desc);
+                }
+            }
+        });
+    }
+
+    public void refreshChatDisplay() {
+        // Required when social states update. This simple panel would ideally just re-render the whole list.
+        // For now, this is a marker that a controller can call to re-render.
     }
 
     public void addSendListener(ActionListener listener) {
         // Since composeArea is a JTextArea, we'll only attach to the Send button.
         // Or we could attach a KeyListener for Enter without Shift.
         sendButton.addActionListener(listener);
+    }
+
+    public void addAttachListener(ActionListener listener) {
+        attachButton.addActionListener(listener);
+    }
+
+    public void appendToInput(String text) {
+        String current = composeArea.getText();
+        if (!current.isEmpty() && !current.endsWith(" ")) {
+            composeArea.append(" ");
+        }
+        composeArea.append(text);
     }
 
     public String getAndClearInput() {

@@ -13,6 +13,11 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 public class PostService {
     private final Map<String, Post> postStore = new ConcurrentHashMap<>();
+    // Social state stores
+    private final Map<String, Set<String>> postLikes = new ConcurrentHashMap<>();
+    private final Map<String, Set<String>> postReposts = new ConcurrentHashMap<>();
+    private final Map<String, Set<String>> userFollowers = new ConcurrentHashMap<>();
+
     private PrivKey identityKeypair;
     private boolean identityInitialized = false;
     private network.isc.adapters.JsonPostAdapter dbAdapter;
@@ -85,6 +90,48 @@ public class PostService {
      */
     public Post getPost(String id) {
         return postStore.get(id);
+    }
+
+    /**
+     * Social Interactions
+     */
+    public void addLike(String postId, String likerId) {
+        postLikes.computeIfAbsent(postId, k -> ConcurrentHashMap.newKeySet()).add(likerId);
+    }
+
+    public void removeLike(String postId, String likerId) {
+        Set<String> likers = postLikes.get(postId);
+        if (likers != null) {
+            likers.remove(likerId);
+        }
+    }
+
+    public int getLikeCount(String postId) {
+        Set<String> likers = postLikes.get(postId);
+        return likers != null ? likers.size() : 0;
+    }
+
+    public boolean hasLiked(String postId, String likerId) {
+        Set<String> likers = postLikes.get(postId);
+        return likers != null && likers.contains(likerId);
+    }
+
+    public void addRepost(String postId, String reposterId) {
+        postReposts.computeIfAbsent(postId, k -> ConcurrentHashMap.newKeySet()).add(reposterId);
+    }
+
+    public int getRepostCount(String postId) {
+        Set<String> reposters = postReposts.get(postId);
+        return reposters != null ? reposters.size() : 0;
+    }
+
+    public void addFollower(String followeeId, String followerId) {
+        userFollowers.computeIfAbsent(followeeId, k -> ConcurrentHashMap.newKeySet()).add(followerId);
+    }
+
+    public int getFollowerCount(String followeeId) {
+        Set<String> followers = userFollowers.get(followeeId);
+        return followers != null ? followers.size() : 0;
     }
 
     /**
