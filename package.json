@@ -34,6 +34,7 @@
     "verify": "bash scripts/verify.sh",
     "verify:full": "bash scripts/verify.sh --full",
     "verify:extended": "bash scripts/verify-extended.sh",
+    "verify:protocol": "bash scripts/verify-protocol.sh",
     "reality-check": "bash scripts/reality-check.sh"
   },
   "devDependencies": {
