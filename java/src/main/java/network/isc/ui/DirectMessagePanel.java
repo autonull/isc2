@@ -11,7 +11,8 @@ import java.util.function.Consumer;
 public class DirectMessagePanel extends JPanel {
     private final DefaultListModel<String> peersListModel;
     private final JList<String> peersList;
-    private final JTextArea chatArea;
+    private final JEditorPane chatArea;
+    private final StringBuilder chatHtml = new StringBuilder();
     private final JTextArea inputArea;
     private final JButton sendButton;
     private final JLabel headerLabel;
@@ -26,13 +27,21 @@ public class DirectMessagePanel extends JPanel {
         headerLabel = new JLabel(" Select a peer to start messaging", SwingConstants.CENTER);
         headerLabel.setFont(headerLabel.getFont().deriveFont(Font.BOLD, 16f));
 
-        chatArea = new JTextArea();
+        chatArea = new JEditorPane();
+        chatArea.setContentType("text/html");
         chatArea.setEditable(false);
-        chatArea.setLineWrap(true);
-        chatArea.setWrapStyleWord(true);
         chatArea.setMargin(new Insets(10, 10, 10, 10));
-        DefaultCaret caret = (DefaultCaret) chatArea.getCaret();
-        caret.setUpdatePolicy(DefaultCaret.ALWAYS_UPDATE);
+
+        chatHtml.append("<html><body style='font-family: sans-serif; font-size: 14pt; margin: 0; padding: 0;'>");
+        chatArea.setText(chatHtml.toString() + "</body></html>");
+
+        chatArea.addPropertyChangeListener("page", e -> {
+            SwingUtilities.invokeLater(() -> {
+                JScrollPane sp = (JScrollPane) chatArea.getParent().getParent();
+                JScrollBar vertical = sp.getVerticalScrollBar();
+                vertical.setValue(vertical.getMaximum());
+            });
+        });
 
         inputArea = new JTextArea(3, 20);
         inputArea.setLineWrap(true);
@@ -62,7 +71,12 @@ public class DirectMessagePanel extends JPanel {
                 headerLabel.setText("DM with " + activePeer);
                 inputArea.setEnabled(true);
                 sendButton.setEnabled(true);
-                chatArea.setText("Opened chat with " + activePeer + "\n\n");
+
+                chatHtml.setLength(0);
+                chatHtml.append("<html><body style='font-family: sans-serif; font-size: 12pt; margin: 0; padding: 0;'>");
+                chatHtml.append("<div style='color: gray; margin-bottom: 10px;'>Opened chat with ").append(activePeer).append("</div>");
+                chatArea.setText(chatHtml.toString() + "</body></html>");
+
                 onPeerSelected.accept(activePeer);
             }
         });
@@ -95,9 +109,36 @@ public class DirectMessagePanel extends JPanel {
         });
     }
 
-    public void appendMessage(String sender, String message, long timestamp) {
+    public void appendMessage(String sender, String message, long timestamp, String avatarBase64) {
         String time = timeFormat.format(new Date(timestamp));
-        chatArea.append(String.format("[%s] %s: %s\n\n", time, sender, message));
+
+        // Basic Markdown replacement
+        String formattedMsg = message
+            .replace("&", "&amp;")
+            .replace("<", "&lt;")
+            .replace(">", "&gt;")
+            .replaceAll("\\*\\*(.*?)\\*\\*", "<b>$1</b>")
+            .replaceAll("\\*(.*?)\\*", "<i>$1</i>")
+            .replaceAll("__(.*?)__", "<u>$1</u>")
+            .replaceAll("`(.*?)`", "<code style='background-color: #f0f0f0; padding: 2px 4px; border-radius: 4px;'>$1</code>")
+            .replaceAll("\n", "<br>");
+
+        String imgSrc = "";
+        if (avatarBase64 != null && !avatarBase64.isEmpty()) {
+            imgSrc = "<img src='data:image/png;base64," + avatarBase64 + "' width='32' height='32' style='vertical-align: middle; border-radius: 16px; margin-right: 8px;'/>";
+        } else {
+            imgSrc = "<span style='display:inline-block; width:32px; height:32px; background-color:#ccc; border-radius:16px; text-align:center; line-height:32px; margin-right:8px; vertical-align: middle;'>" + sender.substring(0, Math.min(1, sender.length())) + "</span>";
+        }
+
+        chatHtml.append("<div style='margin-bottom: 15px; display: flex; align-items: flex-start;'>")
+                .append(imgSrc)
+                .append("<div>")
+                .append("<span style='color: gray; font-size: 10pt;'>[").append(time).append("] </span>")
+                .append("<b>").append(sender).append(":</b> <br>")
+                .append(formattedMsg)
+                .append("</div></div>");
+
+        chatArea.setText(chatHtml.toString() + "</body></html>");
     }
 
     public String getActivePeer() {

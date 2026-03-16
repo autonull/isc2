@@ -11,16 +11,37 @@ public class DiscoverPanel extends JPanel {
     private final JList<String> discoveriesList;
     private final java.util.Map<String, SignedAnnouncement> announcementMap = new java.util.HashMap<>();
     private final JButton joinButton;
+    private final JTextField searchField;
+    private final JButton searchButton;
 
-    public DiscoverPanel(Consumer<SignedAnnouncement> onJoinRequested) {
+    public DiscoverPanel(Consumer<SignedAnnouncement> onJoinRequested, Consumer<String> onSearchRequested) {
         setLayout(new BorderLayout(10, 10));
         setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
 
+        discoveriesModel = new DefaultListModel<>();
+
+        JPanel topPanel = new JPanel(new BorderLayout(10, 10));
         JLabel titleLabel = new JLabel("Discovered Channels (DHT)");
         titleLabel.setFont(titleLabel.getFont().deriveFont(Font.BOLD, 18f));
-        add(titleLabel, BorderLayout.NORTH);
+        topPanel.add(titleLabel, BorderLayout.NORTH);
 
-        discoveriesModel = new DefaultListModel<>();
+        JPanel searchPanel = new JPanel(new BorderLayout(5, 0));
+        searchField = new JTextField();
+        searchField.setToolTipText("Search for semantic topics...");
+        searchButton = new JButton("Search DHT");
+        searchButton.addActionListener(e -> {
+            String query = searchField.getText().trim();
+            if (!query.isEmpty() && onSearchRequested != null) {
+                discoveriesModel.clear();
+                announcementMap.clear();
+                onSearchRequested.accept(query);
+            }
+        });
+        searchPanel.add(searchField, BorderLayout.CENTER);
+        searchPanel.add(searchButton, BorderLayout.EAST);
+        topPanel.add(searchPanel, BorderLayout.SOUTH);
+
+        add(topPanel, BorderLayout.NORTH);
         discoveriesList = new JList<>(discoveriesModel);
         discoveriesList.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
 

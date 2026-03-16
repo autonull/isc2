@@ -9,6 +9,8 @@ public class SettingsPanel extends JPanel {
     private final JTextField displayNameField;
     private final JTextArea bioArea;
     private final JCheckBox saveMessagesCheckbox;
+    private final JLabel avatarLabel;
+    private String currentAvatarBase64 = "";
 
     public SettingsPanel(Consumer<Boolean> onSaveMessagesToggled, Consumer<String[]> onProfileUpdated) {
         setLayout(new BorderLayout(10, 10));
@@ -36,12 +38,46 @@ public class SettingsPanel extends JPanel {
         identityPanel.add(peerIdLabel, gbc);
 
         gbc.gridx = 0; gbc.gridy = 1;
+        identityPanel.add(new JLabel("Avatar:"), gbc);
+        gbc.gridx = 1;
+        JPanel avatarPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
+        avatarLabel = new JLabel("[No Avatar]");
+        avatarLabel.setPreferredSize(new Dimension(64, 64));
+        avatarLabel.setBorder(BorderFactory.createLineBorder(Color.GRAY));
+        avatarLabel.setHorizontalAlignment(SwingConstants.CENTER);
+        JButton loadAvatarBtn = new JButton("Load Image...");
+        loadAvatarBtn.addActionListener(e -> {
+            JFileChooser fileChooser = new JFileChooser();
+            int res = fileChooser.showOpenDialog(this);
+            if (res == JFileChooser.APPROVE_OPTION) {
+                try {
+                    java.io.File file = fileChooser.getSelectedFile();
+                    java.awt.image.BufferedImage img = javax.imageio.ImageIO.read(file);
+                    if (img != null) {
+                        Image scaled = img.getScaledInstance(64, 64, Image.SCALE_SMOOTH);
+                        avatarLabel.setIcon(new ImageIcon(scaled));
+                        avatarLabel.setText("");
+
+                        java.io.ByteArrayOutputStream baos = new java.io.ByteArrayOutputStream();
+                        javax.imageio.ImageIO.write(img, "png", baos);
+                        currentAvatarBase64 = java.util.Base64.getEncoder().encodeToString(baos.toByteArray());
+                    }
+                } catch (Exception ex) {
+                    JOptionPane.showMessageDialog(this, "Error loading image: " + ex.getMessage());
+                }
+            }
+        });
+        avatarPanel.add(avatarLabel);
+        avatarPanel.add(loadAvatarBtn);
+        identityPanel.add(avatarPanel, gbc);
+
+        gbc.gridx = 0; gbc.gridy = 2;
         identityPanel.add(new JLabel("Display Name:"), gbc);
         gbc.gridx = 1;
         displayNameField = new JTextField(15);
         identityPanel.add(displayNameField, gbc);
 
-        gbc.gridx = 0; gbc.gridy = 2;
+        gbc.gridx = 0; gbc.gridy = 3;
         identityPanel.add(new JLabel("Bio:"), gbc);
         gbc.gridx = 1;
         bioArea = new JTextArea(3, 20);
@@ -49,10 +85,10 @@ public class SettingsPanel extends JPanel {
         bioArea.setBorder(BorderFactory.createLineBorder(Color.LIGHT_GRAY));
         identityPanel.add(new JScrollPane(bioArea), gbc);
 
-        gbc.gridx = 1; gbc.gridy = 3;
+        gbc.gridx = 1; gbc.gridy = 4;
         JButton saveProfileBtn = new JButton("Save Profile");
         saveProfileBtn.addActionListener(e -> {
-            onProfileUpdated.accept(new String[]{displayNameField.getText(), bioArea.getText()});
+            onProfileUpdated.accept(new String[]{displayNameField.getText(), bioArea.getText(), currentAvatarBase64});
             JOptionPane.showMessageDialog(this, "Profile Saved locally.", "Success", JOptionPane.INFORMATION_MESSAGE);
         });
         identityPanel.add(saveProfileBtn, gbc);

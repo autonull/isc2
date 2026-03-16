@@ -182,6 +182,8 @@ public class MainFrame extends JFrame {
         // Discover tab
         discoverPanel = new DiscoverPanel(ann -> {
             if (onJoinRequested != null) onJoinRequested.accept(ann);
+        }, query -> {
+            if (onSearchRequested != null) onSearchRequested.accept(query);
         });
         mainContent.add(discoverPanel, "discover");
 
@@ -212,9 +214,14 @@ public class MainFrame extends JFrame {
     private Runnable onDialRequested;
     private Consumer<Boolean> onSaveMessagesToggled;
     private Consumer<String[]> onProfileUpdated;
+    private Consumer<String> onSearchRequested;
 
     public void setOnJoinRequested(Consumer<network.isc.core.SignedAnnouncement> onJoinRequested) {
         this.onJoinRequested = onJoinRequested;
+    }
+
+    public void setOnSearchRequested(Consumer<String> onSearchRequested) {
+        this.onSearchRequested = onSearchRequested;
     }
 
     public void setOnProfileUpdated(Consumer<String[]> onProfileUpdated) {
@@ -227,6 +234,16 @@ public class MainFrame extends JFrame {
 
     public void setOnSaveMessagesToggled(Consumer<Boolean> onSaveMessagesToggled) {
         this.onSaveMessagesToggled = onSaveMessagesToggled;
+    }
+
+    public void displayTrayNotification(String title, String message, TrayIcon.MessageType type) {
+        if (SystemTray.isSupported()) {
+            SystemTray tray = SystemTray.getSystemTray();
+            TrayIcon[] icons = tray.getTrayIcons();
+            if (icons.length > 0) {
+                icons[0].displayMessage(title, message, type);
+            }
+        }
     }
 
     public DiscoverPanel getDiscoverPanel() { return discoverPanel; }

@@ -8,7 +8,8 @@ import java.text.SimpleDateFormat;
 import java.util.Date;
 
 public class ChatPanel extends JPanel {
-    private final JTextArea feedArea;
+    private final JEditorPane feedArea;
+    private final StringBuilder feedHtml = new StringBuilder();
     private final JTextArea composeArea;
     private final JLabel headerLabel;
     private final SimpleDateFormat timeFormat = new SimpleDateFormat("HH:mm");
@@ -30,15 +31,22 @@ public class ChatPanel extends JPanel {
         add(headerPanel, BorderLayout.NORTH);
 
         // Feed Area (like "Now Feed")
-        feedArea = new JTextArea();
+        feedArea = new JEditorPane();
+        feedArea.setContentType("text/html");
         feedArea.setEditable(false);
-        feedArea.setLineWrap(true);
-        feedArea.setWrapStyleWord(true);
-        feedArea.setFont(new Font(Font.SANS_SERIF, Font.PLAIN, 14));
         feedArea.setMargin(new Insets(10, 10, 10, 10));
 
-        DefaultCaret caret = (DefaultCaret) feedArea.getCaret();
-        caret.setUpdatePolicy(DefaultCaret.ALWAYS_UPDATE);
+        feedHtml.append("<html><body style='font-family: sans-serif; font-size: 14pt; margin: 0; padding: 0;'>");
+        feedArea.setText(feedHtml.toString() + "</body></html>");
+
+        // Try to auto-scroll when new HTML is appended
+        feedArea.addPropertyChangeListener("page", e -> {
+            SwingUtilities.invokeLater(() -> {
+                JScrollPane sp = (JScrollPane) feedArea.getParent().getParent();
+                JScrollBar vertical = sp.getVerticalScrollBar();
+                vertical.setValue(vertical.getMaximum());
+            });
+        });
 
         JScrollPane scrollPane = new JScrollPane(feedArea);
         scrollPane.setBorder(BorderFactory.createLineBorder(Color.LIGHT_GRAY));
@@ -81,7 +89,11 @@ public class ChatPanel extends JPanel {
         composeArea.setEnabled(true);
         sendButton.setEnabled(true);
         composeArea.requestFocusInWindow();
-        feedArea.setText("Joined #" + name + "\n\n");
+
+        feedHtml.setLength(0); // Clear builder
+        feedHtml.append("<html><body style='font-family: sans-serif; font-size: 12pt; margin: 0; padding: 0;'>");
+        feedHtml.append("<div style='color: gray; margin-bottom: 10px;'>Joined #").append(name).append("</div>");
+        feedArea.setText(feedHtml.toString() + "</body></html>");
     }
 
     public void disableInput() {
@@ -89,9 +101,37 @@ public class ChatPanel extends JPanel {
         sendButton.setEnabled(false);
     }
 
-    public void appendMessage(String sender, String message, long timestamp) {
+    public void appendMessage(String sender, String message, long timestamp, String avatarBase64) {
         String time = timeFormat.format(new Date(timestamp));
-        feedArea.append(String.format("[%s] %s: %s\n\n", time, sender, message));
+
+        // Basic Markdown replacement
+        String formattedMsg = message
+            .replace("&", "&amp;")
+            .replace("<", "&lt;")
+            .replace(">", "&gt;")
+            .replaceAll("\\*\\*(.*?)\\*\\*", "<b>$1</b>")
+            .replaceAll("\\*(.*?)\\*", "<i>$1</i>")
+            .replaceAll("__(.*?)__", "<u>$1</u>")
+            .replaceAll("`(.*?)`", "<code style='background-color: #f0f0f0; padding: 2px 4px; border-radius: 4px;'>$1</code>")
+            .replaceAll("\n", "<br>");
+
+        String imgSrc = "";
+        if (avatarBase64 != null && !avatarBase64.isEmpty()) {
+            imgSrc = "<img src='data:image/png;base64," + avatarBase64 + "' width='32' height='32' style='vertical-align: middle; border-radius: 16px; margin-right: 8px;'/>";
+        } else {
+            // Identicon placeholder logic could go here, or just a default box
+            imgSrc = "<span style='display:inline-block; width:32px; height:32px; background-color:#ccc; border-radius:16px; text-align:center; line-height:32px; margin-right:8px; vertical-align: middle;'>" + sender.substring(0, Math.min(1, sender.length())) + "</span>";
+        }
+
+        feedHtml.append("<div style='margin-bottom: 15px; display: flex; align-items: flex-start;'>")
+                .append(imgSrc)
+                .append("<div>")
+                .append("<span style='color: gray; font-size: 10pt;'>[").append(time).append("] </span>")
+                .append("<b>").append(sender).append(":</b> <br>")
+                .append(formattedMsg)
+                .append("</div></div>");
+
+        feedArea.setText(feedHtml.toString() + "</body></html>");
     }
 
     public void addSendListener(ActionListener listener) {

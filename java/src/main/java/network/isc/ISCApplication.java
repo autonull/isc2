@@ -28,6 +28,13 @@ import java.util.HashMap;
 import java.nio.charset.StandardCharsets;
 import java.nio.ByteBuffer;
 import java.util.concurrent.CompletableFuture;
+import java.awt.SystemTray;
+import java.awt.Image;
+import java.awt.Toolkit;
+import java.awt.TrayIcon;
+import java.awt.PopupMenu;
+import java.awt.MenuItem;
+import java.awt.AWTException;
 
 import io.libp2p.core.crypto.PrivKey;
 import io.libp2p.core.crypto.KeyKt;
@@ -45,6 +52,7 @@ public class ISCApplication {
     private PostService postService;
     private List<Channel> channels;
     private Channel activeChannel;
+    private String localAvatarBase64 = "";
 
     private final Map<String, SignedAnnouncement> mockDht = new HashMap<>();
 
@@ -59,6 +67,40 @@ public class ISCApplication {
                 JOptionPane.showMessageDialog(null, "Initialization Error: " + e.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
             }
         });
+    }
+
+    private void setupSystemTray() {
+        if (!SystemTray.isSupported()) return;
+
+        SystemTray tray = SystemTray.getSystemTray();
+        Image image = Toolkit.getDefaultToolkit().createImage(new byte[0]); // Transparent placeholder if no real icon
+        TrayIcon trayIcon = new TrayIcon(image, "ISC Java Client");
+        trayIcon.setImageAutoSize(true);
+
+        PopupMenu popup = new PopupMenu();
+        MenuItem openItem = new MenuItem("Open ISC");
+        openItem.addActionListener(e -> {
+            mainFrame.setVisible(true);
+            mainFrame.setExtendedState(JFrame.NORMAL);
+        });
+
+        MenuItem exitItem = new MenuItem("Exit");
+        exitItem.addActionListener(e -> System.exit(0));
+
+        popup.add(openItem);
+        popup.add(exitItem);
+        trayIcon.setPopupMenu(popup);
+
+        trayIcon.addActionListener(e -> {
+            mainFrame.setVisible(true);
+            mainFrame.setExtendedState(JFrame.NORMAL);
+        });
+
+        try {
+            tray.add(trayIcon);
+        } catch (AWTException e) {
+            log.warn("TrayIcon could not be added.", e);
+        }
     }
 
     private void initialize() throws Exception {
@@ -82,6 +124,7 @@ public class ISCApplication {
         postService.setDatabaseAdapter(postStorage);
 
         mainFrame = new MainFrame();
+        setupSystemTray();
 
         // Model Downloading & Loading
         String modelDir = appDir + "/models";
@@ -128,8 +171,10 @@ public class ISCApplication {
         mainFrame.setOnProfileUpdated(profile -> {
             String name = profile[0];
             String bio = profile[1];
+            if (profile.length > 2) {
+                localAvatarBase64 = profile[2];
+            }
             log.info("Saved local identity. Name: {}, Bio: {}", name, bio);
-            // Future step: Announce profile to DHT or attach to Protocol Payload
         });
 
         // Network Panel
@@ -171,15 +216,40 @@ public class ISCApplication {
             }
         });
 
+        mainFrame.setOnSearchRequested(query -> {
+            if (embedding != null) {
+                new Thread(() -> {
+                    try {
+                        float[] vector = embedding.embed(query);
+                        List<String> hashes = SemanticMath.lshHash(vector, "Xenova/all-MiniLM-L6-v2", ProtocolConstants.TIER_NUM_HASHES);
+                        log.info("Searching network for hashes: {}", hashes);
+                        network.query(hashes.toArray(new String[0]));
+
+                        // Also search local mock DHT
+                        for (String hash : hashes) {
+                            if (mockDht.containsKey(hash)) {
+                                mainFrame.getDiscoverPanel().addDiscovery(mockDht.get(hash));
+                            }
+                        }
+                    } catch (Exception ex) {
+                        log.error("Failed to query DHT", ex);
+                        JOptionPane.showMessageDialog(mainFrame, "Search failed: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+                    }
+                }).start();
+            } else {
+                JOptionPane.showMessageDialog(mainFrame, "Embeddings not initialized yet.", "Wait", JOptionPane.WARNING_MESSAGE);
+            }
+        });
+
         mainFrame.getChatPanel().addSendListener(e -> {
             String msg = mainFrame.getChatPanel().getAndClearInput();
             if (!msg.isEmpty() && activeChannel != null) {
                 try {
                     Post post = postService.createPost(msg, activeChannel.getId());
-                    mainFrame.getChatPanel().appendMessage(post.getAuthor(), post.getContent(), post.getTimestamp());
+                    mainFrame.getChatPanel().appendMessage(post.getAuthor(), post.getContent(), post.getTimestamp(), localAvatarBase64);
 
                     byte[] pubKey = libp2pKey.publicKey().bytes();
-                    ChatMessage chatMsg = new ChatMessage(post.getChannelID(), post.getContent(), post.getTimestamp(), post.getSignature(), pubKey);
+                    ChatMessage chatMsg = new ChatMessage(post.getChannelID(), post.getContent(), post.getTimestamp(), post.getSignature(), pubKey, localAvatarBase64);
                     network.broadcastChat(chatMsg);
                     log.info("Message sent in channel {}: {}", activeChannel.getName(), msg);
                 } catch (Exception ex) {
@@ -199,10 +269,10 @@ public class ISCApplication {
                     byte[] sig = libp2pKey.sign(rawPayload);
                     byte[] pubKey = libp2pKey.publicKey().bytes();
 
-                    ChatMessage chatMsg = new ChatMessage(targetPeer, msg, ts, sig, pubKey);
+                    ChatMessage chatMsg = new ChatMessage(targetPeer, msg, ts, sig, pubKey, localAvatarBase64);
                     network.sendDirectMessage(targetPeer, chatMsg);
 
-                    mainFrame.getDmPanel().appendMessage("You", msg, ts);
+                    mainFrame.getDmPanel().appendMessage("You", msg, ts, localAvatarBase64);
                 } catch (Exception ex) {
                     JOptionPane.showMessageDialog(mainFrame, "Failed to send DM: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
                 }
@@ -246,7 +316,13 @@ public class ISCApplication {
         SwingUtilities.invokeLater(() -> {
             // Only show message if it belongs to the active channel
             if (activeChannel != null && chatMsg.getChannelID().equals(activeChannel.getId())) {
-                mainFrame.getChatPanel().appendMessage(post.getAuthor(), post.getContent(), post.getTimestamp());
+                mainFrame.getChatPanel().appendMessage(post.getAuthor(), post.getContent(), post.getTimestamp(), chatMsg.getAvatarBase64());
+            }
+
+            // Check for mentions
+            String myPubKeyStr = libp2pKey.publicKey().toString();
+            if (chatMsg.getMsg().contains("@" + myPubKeyStr) || chatMsg.getMsg().contains("@Me")) {
+                mainFrame.displayTrayNotification("New Mention", "You were mentioned in a channel.", TrayIcon.MessageType.INFO);
             }
         });
     }
@@ -255,7 +331,8 @@ public class ISCApplication {
         SwingUtilities.invokeLater(() -> {
             // Since DMs aren't tied to channels but to Peers, we'll route to DM Panel
             // Note: chatMsg.getChannelID() is overloaded to be targetPeer from sender
-            mainFrame.getDmPanel().appendMessage("Peer", chatMsg.getMsg(), chatMsg.getTimestamp());
+            mainFrame.getDmPanel().appendMessage("Peer", chatMsg.getMsg(), chatMsg.getTimestamp(), chatMsg.getAvatarBase64());
+            mainFrame.displayTrayNotification("New Direct Message", "You received a new DM.", TrayIcon.MessageType.INFO);
         });
     }
 
@@ -268,7 +345,7 @@ public class ISCApplication {
 
         SwingUtilities.invokeLater(() -> {
             if (activeChannel != null) {
-                mainFrame.getChatPanel().appendMessage("System", "Discovered new peer thinking about a similar topic!", System.currentTimeMillis());
+                mainFrame.getChatPanel().appendMessage("System", "Discovered new peer thinking about a similar topic!", System.currentTimeMillis(), "");
             }
             mainFrame.getDiscoverPanel().addDiscovery(ann);
         });
@@ -279,6 +356,10 @@ public class ISCApplication {
         for (String hash : hashes) {
             if (mockDht.containsKey(hash)) {
                 log.info("Query matched local mock DHT for hash {}", hash);
+                // Return matched announcement back via announce protocol to querying peer
+                // In a robust implementation, this would target the specific querying peer.
+                // For now, we broadcast our matched announcement.
+                network.announce(mockDht.get(hash));
             }
         }
     }
@@ -350,8 +431,9 @@ public class ISCApplication {
 
         // Load past messages for this channel
         List<Post> pastPosts = postService.getAllPosts(c.getId());
-        for (Post p : pastPosts) {
-            mainFrame.getChatPanel().appendMessage(p.getAuthor(), p.getContent(), p.getTimestamp());
+        for (int i = pastPosts.size() - 1; i >= 0; i--) {
+            Post p = pastPosts.get(i);
+            mainFrame.getChatPanel().appendMessage(p.getAuthor(), p.getContent(), p.getTimestamp(), "");
         }
 
         log.info("Switched to channel {} (DHT announce loop would start here)", c.getId());
