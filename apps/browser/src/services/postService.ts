@@ -8,7 +8,8 @@
 import type { Post } from '../types/extended.js';
 import { getDB } from '../db/factory.js';
 import { getIdentity, ensureIdentityInitialized } from '../identity/index.js';
-import { encode, sign } from '@isc/core';
+import { encode, sign, computeEngagementScore } from '@isc/core';
+import { formatRelativeTime as formatPostTimestamp } from '@isc/core';
 import { loggers } from '../utils/logger.js';
 
 const logger = loggers.social;
@@ -251,33 +252,4 @@ export function validatePostInput(input: CreatePostInput): { valid: boolean; err
   };
 }
 
-/**
- * Compute engagement score for a post
- */
-export function computeEngagementScore(post: Post): number {
-  const likes = (post as any).likeCount || 0;
-  const reposts = (post as any).repostCount || 0;
-  const replies = (post as any).replyCount || 0;
-
-  // Weighted score
-  return likes + (reposts * 2) + (replies * 3);
-}
-
-/**
- * Format timestamp for display
- */
-export function formatPostTimestamp(timestamp: number): string {
-  const now = Date.now();
-  const diff = now - timestamp;
-
-  const minutes = Math.floor(diff / 60000);
-  const hours = Math.floor(diff / 3600000);
-  const days = Math.floor(diff / 86400000);
-
-  if (minutes < 1) return 'Just now';
-  if (minutes < 60) return `${minutes}m ago`;
-  if (hours < 24) return `${hours}h ago`;
-  if (days < 7) return `${days}d ago`;
-
-  return new Date(timestamp).toLocaleDateString();
-}
+// Note: computeEngagementScore and formatPostTimestamp are imported from @isc/core

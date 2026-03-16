@@ -54,6 +54,9 @@ export * from './crypto/index.js';
 // Encoding utilities
 export * from './encoding.js';
 
+// Time formatting utilities
+export * from './utils/time.js';
+
 // Type definitions
 export * from './types.js';
 

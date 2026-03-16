@@ -7,7 +7,8 @@
 
 import type { Post } from '../types/extended.js';
 import type { Channel } from '@isc/core';
-import { cosineSimilarity } from '@isc/core';
+import { cosineSimilarity, computeEngagementScore as coreComputeEngagementScore } from '@isc/core';
+import { formatRelativeTime } from '@isc/core';
 
 const FOLLOWING_KEY = 'isc-following';
 
@@ -172,7 +173,7 @@ async function scorePosts(posts: Post[], channelManager: any): Promise<Post[]> {
 
   // If no active channels, sort by engagement
   if (activeChannels.length === 0) {
-    return posts.sort((a, b) => computeEngagementScore(b) - computeEngagementScore(a));
+    return posts.sort((a, b) => coreComputeEngagementScore(b) - coreComputeEngagementScore(a));
   }
 
   // Score each post based on channel similarity
@@ -190,7 +191,7 @@ async function scorePosts(posts: Post[], channelManager: any): Promise<Post[]> {
  */
 function computeRelevanceScore(post: Post, channels: Channel[]): number {
   // Base score from engagement
-  const engagementScore = computeEngagementScore(post);
+  const engagementScore = coreComputeEngagementScore(post);
   
   // Check if post matches any active channel
   let channelMatchScore = 0;
@@ -207,18 +208,6 @@ function computeRelevanceScore(post: Post, channels: Channel[]): number {
 
   // Combined score
   return engagementScore + channelMatchScore + (recencyScore * 5);
-}
-
-/**
- * Compute engagement score for a post
- */
-function computeEngagementScore(post: Post): number {
-  const likes = post.likeCount || 0;
-  const reposts = post.repostCount || 0;
-  const replies = post.replyCount || 0;
-  
-  // Weighted score
-  return likes + (reposts * 2) + (replies * 3);
 }
 
 /**

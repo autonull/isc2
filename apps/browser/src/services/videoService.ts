@@ -23,8 +23,9 @@ class VideoServiceImpl implements IVideoService {
       logger.info('Video call started', { callId: call.id, target: targetUserId });
       return call;
     } catch (err) {
-      logger.error('Failed to start video call', err as Error, { target: targetUserId });
-      throw err;
+      const error = err instanceof Error ? err : new Error(String(err));
+      logger.error('Failed to start video call', error, { target: targetUserId });
+      return null;
     }
   }
 
@@ -38,8 +39,9 @@ class VideoServiceImpl implements IVideoService {
       }
       logger.info('Video call ended', { callId });
     } catch (err) {
-      logger.error('Failed to end video call', err as Error, { callId });
-      throw err;
+      const error = err instanceof Error ? err : new Error(String(err));
+      logger.error('Failed to end video call', error, { callId });
+      // Don't rethrow - end call failure should not block UI
     }
   }
 
@@ -48,7 +50,8 @@ class VideoServiceImpl implements IVideoService {
       const activeCalls = getActiveVideoCalls();
       return activeCalls.length > 0 ? activeCalls[0] : null;
     } catch (err) {
-      logger.error('Failed to get active call', err as Error);
+      const error = err instanceof Error ? err : new Error(String(err));
+      logger.error('Failed to get active call', error);
       return null;
     }
   }
@@ -56,8 +59,8 @@ class VideoServiceImpl implements IVideoService {
   async getCallHistory(): Promise<VideoCall[]> {
     try {
       return callHistory.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
-    } catch (err) {
-      logger.error('Failed to get call history', err as Error);
+    } catch {
+      // Return empty array on error - non-critical operation
       return [];
     }
   }

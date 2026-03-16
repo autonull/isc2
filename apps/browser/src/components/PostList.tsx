@@ -7,7 +7,7 @@
 import { h } from 'preact';
 import { useState, useCallback } from 'preact/hooks';
 import type { Post } from '../types/extended.js';
-import { formatPostTimestamp, computeEngagementScore } from '../services/postService.js';
+import { computeEngagementScore, formatRelativeTime as formatPostTimestamp } from '@isc/core';
 import { usePostService } from '../di/container.js';
 import { toast } from '../utils/toast.js';
 

@@ -66,6 +66,13 @@ export {
   type ReportStats,
 } from './reports.js';
 
+// Scoring utilities
+export {
+  computeEngagementScore,
+  computeContentRelevance,
+  type EngagementMetrics,
+} from './scoring.js';
+
 // Post coherence (from isc1)
 export {
   checkPostCoherence,

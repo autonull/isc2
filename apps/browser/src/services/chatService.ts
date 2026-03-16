@@ -33,14 +33,22 @@ interface Message {
   read: boolean;
 }
 
+/**
+ * Handle database errors consistently
+ */
+function handleDbError(operation: string, err: unknown, context?: Record<string, unknown>): never[] {
+  const error = err instanceof Error ? err : new Error(String(err));
+  logger.error(`Failed to ${operation}`, error, context);
+  return [];
+}
+
 class ChatServiceImpl implements IChatService {
   async getConversations(): Promise<Conversation[]> {
     try {
       const conversations = await dbGetAll<Conversation>(CONVERSATIONS_STORE);
       return conversations.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
     } catch (err) {
-      logger.error('Failed to get conversations', err as Error);
-      return [];
+      return handleDbError('get conversations', err);
     }
   }
 
@@ -49,8 +57,7 @@ class ChatServiceImpl implements IChatService {
       const messages = await dbFilter<Message>(MESSAGES_STORE, m => m.conversationId === conversationId);
       return messages.sort((a, b) => a.timestamp - b.timestamp);
     } catch (err) {
-      logger.error('Failed to get messages', err as Error, { conversationId });
-      return [];
+      return handleDbError('get messages', err, { conversationId });
     }
   }
 
@@ -80,8 +87,9 @@ class ChatServiceImpl implements IChatService {
 
       logger.info('Message sent', { conversationId, messageId: message.id });
     } catch (err) {
-      logger.error('Failed to send message', err as Error, { conversationId });
-      throw err;
+      const error = err instanceof Error ? err : new Error(String(err));
+      logger.error('Failed to send message', error, { conversationId });
+      throw error;
     }
   }
 
@@ -106,8 +114,9 @@ class ChatServiceImpl implements IChatService {
       logger.info('Conversation created', { conversationId: conversation.id, participant: userId });
       return conversation;
     } catch (err) {
-      logger.error('Failed to create conversation', err as Error, { userId });
-      throw err;
+      const error = err instanceof Error ? err : new Error(String(err));
+      logger.error('Failed to create conversation', error, { userId });
+      throw error;
     }
   }
 }
