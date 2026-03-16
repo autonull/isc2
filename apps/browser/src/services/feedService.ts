@@ -77,22 +77,19 @@ export function createFeedService(
 
       const cacheKey = `following-${following.join(',')}`;
 
-      // Check cache
       const cached = feedCache.get(cacheKey);
       if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
         return cached.posts;
       }
 
-      // Get all posts and filter by followed users
       const allPosts = await postService.getAllPosts();
+      const followingSet = new Set(following);
       const followedPosts = allPosts.filter(post => 
-        following.includes(post.author)
+        followingSet.has(post.author)
       );
 
-      // Sort by timestamp (newest first)
       const sorted = followedPosts.sort((a: Post, b: Post) => b.timestamp - a.timestamp);
 
-      // Cache result
       feedCache.set(cacheKey, {
         posts: sorted,
         timestamp: Date.now(),

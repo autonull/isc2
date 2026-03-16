@@ -1,8 +1,8 @@
+import { sign, encode } from '@isc/core';
 import type { VideoCall, VideoParticipant, VideoCallMessage, VideoCallSettings, ScreenShareState, VideoCallStats } from './types.js';
 import { DEFAULT_VIDEO_SETTINGS, VIDEO_QUALITY_CONSTRAINTS } from './types.js';
-import { getPeerID, getKeypair } from '../identity/index.js';
 import { DelegationClient } from '../delegation/fallback.js';
-import { sign, encode } from '@isc/core';
+import { getPeerID, getKeypair } from '../identity/index.js';
 
 const VIDEO_CALL_PROTOCOL = '/isc/video/1.0';
 const MAX_PARTICIPANTS = 8;
@@ -140,8 +140,8 @@ async function sendVideoCallMessage(message: VideoCallMessage): Promise<void> {
 function createParticipant(initiator: string, settings: Partial<VideoCallSettings>): VideoParticipant {
   return {
     peerID: initiator,
-    isMuted: settings.audioEnabled !== undefined ? !settings.audioEnabled : !DEFAULT_VIDEO_SETTINGS.audioEnabled,
-    isVideoOff: settings.videoEnabled !== undefined ? !settings.videoEnabled : !DEFAULT_VIDEO_SETTINGS.videoEnabled,
+    isMuted: !(settings.audioEnabled ?? DEFAULT_VIDEO_SETTINGS.audioEnabled),
+    isVideoOff: !(settings.videoEnabled ?? DEFAULT_VIDEO_SETTINGS.videoEnabled),
     isScreenSharing: false,
     joinedAt: Date.now(),
   };

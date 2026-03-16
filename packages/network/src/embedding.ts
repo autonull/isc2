@@ -49,7 +49,6 @@ export class TransformerEmbeddingService implements EmbeddingService {
   async load(): Promise<void> {
     if (this.loaded) return;
     if (this.loading) {
-      // Wait for existing load
       while (this.loading) {
         await new Promise(resolve => setTimeout(resolve, 100));
       }
@@ -61,14 +60,11 @@ export class TransformerEmbeddingService implements EmbeddingService {
     this.loadError = null;
 
     try {
-      // Lazy import to avoid module-level initialization issues
       const { pipeline, env } = await import('@xenova/transformers');
-      
-      // Disable the progress bar output which completely breaks TUI rendering
-      // with massive terminal escape sequences
+
       env.allowLocalModels = true;
       env.useBrowserCache = false;
-      
+
       // @ts-ignore - Disable progress callback logging
       this.extractor = await pipeline('feature-extraction', this.modelId, {
         progress_callback: () => {}
@@ -76,7 +72,6 @@ export class TransformerEmbeddingService implements EmbeddingService {
       this.loaded = true;
     } catch (err) {
       this.loadError = err instanceof Error ? err : new Error(String(err));
-      // Fallback silently if model cannot be loaded
     } finally {
       this.loading = false;
     }
@@ -86,11 +81,9 @@ export class TransformerEmbeddingService implements EmbeddingService {
    * Compute embedding for text
    */
   async compute(text: string): Promise<number[]> {
-    // Check cache
     const cached = this.cache.get(text);
     if (cached) return cached;
 
-    // Ensure model is loaded
     if (!this.isLoaded()) {
       await this.load();
     }
@@ -102,13 +95,10 @@ export class TransformerEmbeddingService implements EmbeddingService {
       });
 
       const embedding = Array.from(output.data as Float32Array);
-      
-      // Cache result
       this.cache.set(text, embedding);
-      
+
       return embedding;
-    } catch (err) {
-      // Inference failed, use robust fallback silently
+    } catch {
       return this.computeFallback(text);
     }
   }
@@ -117,44 +107,8 @@ export class TransformerEmbeddingService implements EmbeddingService {
    * Compute a fallback embedding using word-hashing (384-dim)
    */
   private computeFallback(text: string): number[] {
-    const vocab = [
-      'ai', 'distributed', 'consensus', 'blockchain', 'p2p', 'social', 'chat',
-      'privacy', 'security', 'crypto', 'decentralized', 'network', 'protocol',
-      'semantic', 'vector', 'embedding', 'match', 'search', 'discovery',
-      'channel', 'post', 'identity', 'trust', 'reputation', 'community'
-    ];
-    
-    const words = text.toLowerCase().match(/\w+/g) || [];
-    const wordSet = new Set(words);
-    const vector = new Array(384).fill(0);
-
-    for (let i = 0; i < 384; i++) {
-      let sum = 0;
-      for (const word of vocab) {
-        if (wordSet.has(word)) {
-          // Simple deterministic hash based on word and dimension index
-          let hash = 0;
-          const str = word + i;
-          for (let j = 0; j < str.length; j++) {
-            hash = ((hash << 5) - hash) + str.charCodeAt(j);
-            hash |= 0;
-          }
-          sum += (Math.abs(hash) % 100) / 100;
-        }
-      }
-      vector[i] = sum;
-    }
-
-    // Normalize
-    const norm = Math.sqrt(vector.reduce((s, v) => s + v * v, 0));
-    if (norm > 0) {
-      for (let i = 0; i < 384; i++) vector[i] /= norm;
-    } else {
-      // Return a stable random-ish vector for empty strings
-      for (let i = 0; i < 384; i++) vector[i] = Math.sin(i * 0.1);
-    }
-
-    return vector;
+    const { computeWordHashEmbedding } = require('@isc/core');
+    return computeWordHashEmbedding(text);
   }
 
   /**

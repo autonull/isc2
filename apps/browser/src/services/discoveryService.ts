@@ -25,20 +25,19 @@ class DiscoveryServiceImpl implements IDiscoveryService {
       const networkService = getWebUINetworkService();
       const matches = await networkService.discoverPeers();
 
-      // Filter by query
       const queryLower = query.toLowerCase();
       const filtered = matches.filter(match => {
-        const name = (match as any).name || '';
-        const bio = (match as any).bio || '';
+        const name = (match as any).name ?? '';
+        const bio = (match as any).bio ?? '';
         return name.toLowerCase().includes(queryLower) || bio.toLowerCase().includes(queryLower);
       });
 
       return filtered.map(match => ({
         id: match.id,
-        name: (match as any).name || `@${match.id.slice(0, 8)}`,
-        bio: (match as any).bio || '',
+        name: (match as any).name ?? `@${match.id.slice(0, 8)}`,
+        bio: (match as any).bio ?? '',
         similarity: (match as any).similarity,
-        online: (match as any).online || false,
+        online: (match as any).online ?? false,
         lastSeen: (match as any).lastSeen,
       }));
     } catch (err) {
