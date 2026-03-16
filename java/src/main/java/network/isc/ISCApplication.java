@@ -3,6 +3,7 @@ package network.isc;
 import network.isc.adapters.EmbeddingAdapter;
 import network.isc.adapters.NetworkAdapter;
 import network.isc.adapters.StorageAdapter;
+import network.isc.adapters.ModelDownloader;
 import network.isc.core.Channel;
 import network.isc.core.CryptoUtils;
 import network.isc.core.SignedAnnouncement;
@@ -10,6 +11,7 @@ import network.isc.core.SemanticMath;
 import network.isc.protocol.ProtocolConstants;
 import network.isc.protocol.ChatMessage;
 import network.isc.ui.MainFrame;
+import network.isc.ui.DownloadDialog;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -22,6 +24,7 @@ import java.util.Map;
 import java.util.HashMap;
 import java.nio.charset.StandardCharsets;
 import java.nio.ByteBuffer;
+import java.util.concurrent.CompletableFuture;
 
 import io.libp2p.core.crypto.PrivKey;
 import io.libp2p.core.crypto.KeyKt;
@@ -58,9 +61,6 @@ public class ISCApplication {
         log.info("Initializing ISC Java Client...");
 
         keypair = CryptoUtils.generateKeypair();
-
-        // We will just use the libp2p generated key for network and signature signing
-        // since libp2p KeyKt provides a clean abstraction for ED25519
         libp2pKey = KeyKt.generateKeyPair(KeyType.ED25519).component1();
 
         // Network
@@ -72,23 +72,42 @@ public class ISCApplication {
         storage = new StorageAdapter(appDir + "/channels.json");
         channels = storage.loadChannels();
 
-        // Download/Copy minimal models for ONNX Runtime to test
-        File modelFile = new File("model/model_quantized.onnx");
-        File tokenizerFile = new File("model/tokenizer.json");
+        mainFrame = new MainFrame();
 
-        if (modelFile.exists() && tokenizerFile.exists()) {
-            try {
-                embedding = new EmbeddingAdapter(modelFile.getAbsolutePath(), tokenizerFile.getAbsolutePath());
-                log.info("Embedding adapter initialized.");
-            } catch (Exception e) {
-                log.warn("Failed to init ONNX runtime. Embeddings will be mocked.", e);
-            }
+        // Model Downloading & Loading
+        String modelDir = appDir + "/models";
+        File modelFile = new File(modelDir, "model_quantized.onnx");
+        File tokenizerFile = new File(modelDir, "tokenizer.json");
+
+        if (!modelFile.exists() || !tokenizerFile.exists()) {
+            DownloadDialog downloadDialog = new DownloadDialog(mainFrame);
+            CompletableFuture<Void> dlFuture = ModelDownloader.ensureModelsExist(modelDir, downloadDialog::setProgress);
+
+            dlFuture.whenComplete((res, ex) -> {
+                SwingUtilities.invokeLater(() -> {
+                    downloadDialog.dispose();
+                    if (ex != null) {
+                        JOptionPane.showMessageDialog(mainFrame, "Failed to download models: " + ex.getMessage(), "Download Error", JOptionPane.ERROR_MESSAGE);
+                    } else {
+                        finishInitialization(modelFile, tokenizerFile);
+                    }
+                });
+            });
+
+            downloadDialog.setVisible(true); // blocks until dispose is called
         } else {
-            log.warn("Model files not found at ./model/. Embeddings will be mocked for demo.");
+            finishInitialization(modelFile, tokenizerFile);
+        }
+    }
+
+    private void finishInitialization(File modelFile, File tokenizerFile) {
+        try {
+            embedding = new EmbeddingAdapter(modelFile.getAbsolutePath(), tokenizerFile.getAbsolutePath());
+            log.info("Embedding adapter initialized.");
+        } catch (Exception e) {
+            log.warn("Failed to init ONNX runtime. Embeddings will be mocked.", e);
         }
 
-        // UI
-        mainFrame = new MainFrame();
         mainFrame.setChannels(channels);
 
         mainFrame.setOnCreateChannel(this::handleCreateChannel);
@@ -101,7 +120,6 @@ public class ISCApplication {
 
                 long ts = System.currentTimeMillis();
                 byte[] rawPayload = (activeChannel.getId() + msg + ts).getBytes(StandardCharsets.UTF_8);
-                // Sign using libp2p's Ed25519 private key
                 byte[] sig = libp2pKey.sign(rawPayload);
 
                 ChatMessage chatMsg = new ChatMessage(activeChannel.getId(), msg, ts, sig);
@@ -150,8 +168,6 @@ public class ISCApplication {
     }
 
     private void handleNetworkMessage(ChatMessage chatMsg) {
-        // Validation of signature: In a real system, we'd retrieve the sender's pubkey from the connection/DHT
-        // For MVP, we just parse and display.
         SwingUtilities.invokeLater(() -> {
             mainFrame.getChatPanel().appendMessage("Peer", chatMsg.getMsg(), chatMsg.getTimestamp());
         });
