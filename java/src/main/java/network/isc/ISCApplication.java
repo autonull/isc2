@@ -3,7 +3,9 @@ package network.isc;
 import network.isc.adapters.EmbeddingAdapter;
 import network.isc.adapters.NetworkAdapter;
 import network.isc.adapters.StorageAdapter;
+import network.isc.adapters.MapDBStorageAdapter;
 import network.isc.adapters.JsonPostAdapter;
+import network.isc.adapters.P2PFileTransferAdapter;
 import network.isc.adapters.ModelDownloader;
 import network.isc.controllers.ChatController;
 import network.isc.controllers.DirectMessageController;
@@ -48,7 +50,8 @@ public class ISCApplication {
 
     private NetworkAdapter network;
     private EmbeddingAdapter embedding;
-    private StorageAdapter storage;
+    private MapDBStorageAdapter storage;
+    private P2PFileTransferAdapter fileTransfer;
     private JsonPostAdapter postStorage;
     private PrivKey libp2pKey;
     private MainFrame mainFrame;
@@ -64,15 +67,30 @@ public class ISCApplication {
     private DiscoveryController discoveryController;
 
     private boolean serverMode = false;
+    private int port = 4001;
+    private String[] bootstrapNodes = new String[0];
+    private String dbPath = "isc-data.db";
 
     public static void main(String[] args) {
-        boolean serverMode = args.length > 0 && Arrays.asList(args).contains("--server");
+        List<String> argList = Arrays.asList(args);
+        boolean serverMode = argList.contains("--server");
+
+        ISCApplication app = new ISCApplication();
+        app.serverMode = serverMode;
+
+        for (int i = 0; i < args.length; i++) {
+            if (args[i].equals("--port") && i + 1 < args.length) {
+                app.port = Integer.parseInt(args[i + 1]);
+            } else if (args[i].equals("--bootstrap-nodes") && i + 1 < args.length) {
+                app.bootstrapNodes = args[i + 1].split(",");
+            } else if (args[i].equals("--db-path") && i + 1 < args.length) {
+                app.dbPath = args[i + 1];
+            }
+        }
 
         if (serverMode) {
             log.info("Starting ISC in SERVER mode (Headless)");
             try {
-                ISCApplication app = new ISCApplication();
-                app.serverMode = true;
                 app.initialize();
             } catch (Exception e) {
                 log.error("Failed to start application in server mode", e);
@@ -82,7 +100,6 @@ public class ISCApplication {
             SwingUtilities.invokeLater(() -> {
                 try {
                     UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
-                    ISCApplication app = new ISCApplication();
                     app.initialize();
                 } catch (Exception e) {
                     log.error("Failed to start application", e);
@@ -135,18 +152,32 @@ public class ISCApplication {
         postService.initializeIdentity(libp2pKey);
 
         // Network
-        network = new NetworkAdapter(libp2pKey, 0,
+        network = new NetworkAdapter(libp2pKey, this.port,
             msg -> { if (chatController != null) chatController.handleNetworkMessage(msg); else handleNetworkMessageHeadless(msg); },
             sync -> { if (chatController != null) chatController.handleHistoricalPostSync(sync); else handleHistoricalPostSyncHeadless(sync); },
             dm -> { if (dmController != null) dmController.handleDirectMessage(dm); else log.info("Received DM in server mode"); },
             ann -> { if (discoveryController != null) discoveryController.handleAnnouncement(ann); else handleAnnouncementHeadless(ann); },
             query -> { if (discoveryController != null) discoveryController.handleQuery(query); else handleQueryHeadless(query); },
             this::handleDelegation);
+
+        fileTransfer = new P2PFileTransferAdapter(network);
+        network.setOnFileProtocolChunkReceived(fileTransfer::handleIncomingChunk);
+
         network.start().join();
+
+        for (String peer : this.bootstrapNodes) {
+            if (peer != null && !peer.trim().isEmpty()) {
+                log.info("Connecting to explicit bootstrap node: {}", peer);
+                network.dialPeer(peer).exceptionally(ex -> {
+                    log.error("Failed to connect to bootstrap node {}: {}", peer, ex.getMessage());
+                    return null;
+                });
+            }
+        }
 
         // Storage
         String appDir = System.getProperty("user.home") + "/.isc-java";
-        storage = new StorageAdapter(appDir + "/channels.json");
+        storage = new MapDBStorageAdapter(appDir + "/" + this.dbPath);
         channels = storage.loadChannels();
 
         postStorage = new JsonPostAdapter(appDir + "/posts.json");
@@ -242,7 +273,8 @@ public class ISCApplication {
             embedding = new EmbeddingAdapter(modelFile.getAbsolutePath(), tokenizerFile.getAbsolutePath());
             log.info("Embedding adapter initialized.");
         } catch (Exception e) {
-            log.warn("Failed to init ONNX runtime. Embeddings will be mocked.", e);
+            log.error("Failed to init ONNX runtime. Mocks are forbidden. The application cannot proceed.", e);
+            throw new RuntimeException("Fatal Error: Embedding Initialization Failed", e);
         }
 
         if (serverMode) {
@@ -314,7 +346,7 @@ public class ISCApplication {
         JMenu fileMenu = new JMenu("File");
         JMenuItem queryItem = new JMenuItem("Query Proximal Peers for Current Channel");
         queryItem.addActionListener(e -> {
-            if (activeChannel != null && embedding != null) {
+            if (activeChannel != null) {
                 new Thread(() -> {
                     try {
                         float[] vector = embedding.embed(activeChannel.getDescription());
@@ -326,7 +358,7 @@ public class ISCApplication {
                     }
                 }).start();
             } else {
-                 JOptionPane.showMessageDialog(mainFrame, "Must select a channel and have embeddings enabled.", "Query Error", JOptionPane.ERROR_MESSAGE);
+                 JOptionPane.showMessageDialog(mainFrame, "Must select a channel.", "Query Error", JOptionPane.ERROR_MESSAGE);
             }
         });
         fileMenu.add(queryItem);
@@ -374,16 +406,9 @@ public class ISCApplication {
 
                 new Thread(() -> {
                     try {
-                        if (embedding != null) {
-                            float[] vector = embedding.embed(desc);
-                            log.info("Embedded channel {} successfully. Vector dim: {}", name, vector.length);
-                            broadcastAnnouncement(c, vector);
-                        } else {
-                            log.info("Mock Embedded channel {}", name);
-                            float[] mockVector = new float[384];
-                            Arrays.fill(mockVector, 0.1f);
-                            broadcastAnnouncement(c, mockVector);
-                        }
+                        float[] vector = embedding.embed(desc);
+                        log.info("Embedded channel {} successfully. Vector dim: {}", name, vector.length);
+                        broadcastAnnouncement(c, vector);
                     } catch (Exception ex) {
                         log.error("Embedding failed", ex);
                     }
@@ -425,15 +450,13 @@ public class ISCApplication {
         chatController.setActiveChannel(c);
         log.info("Switched to channel {}", c.getId());
 
-        if (embedding != null) {
-            new Thread(() -> {
-                try {
-                    float[] vector = embedding.embed(c.getDescription());
-                    broadcastAnnouncement(c, vector);
-                } catch (Exception e) {
-                    log.error("Failed to embed on switch", e);
-                }
-            }).start();
-        }
+        new Thread(() -> {
+            try {
+                float[] vector = embedding.embed(c.getDescription());
+                broadcastAnnouncement(c, vector);
+            } catch (Exception e) {
+                log.error("Failed to embed on switch", e);
+            }
+        }).start();
     }
 }

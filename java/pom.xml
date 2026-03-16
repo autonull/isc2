@@ -103,6 +103,13 @@
       <version>5.10.0</version>
       <scope>test</scope>
     </dependency>
+
+    <!-- Pure Java DB -->
+    <dependency>
+      <groupId>org.mapdb</groupId>
+      <artifactId>mapdb</artifactId>
+      <version>3.0.9</version>
+    </dependency>
   </dependencies>
 
   <build>
