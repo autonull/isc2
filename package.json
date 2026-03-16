@@ -32,7 +32,8 @@
     "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,json,md}\"",
     "cleanup": "bash scripts/cleanup.sh",
     "verify": "bash scripts/verify.sh",
-    "verify:full": "bash scripts/verify.sh --full"
+    "verify:full": "bash scripts/verify.sh --full",
+    "verify:extended": "bash scripts/verify-extended.sh"
   },
   "devDependencies": {
     "@libp2p/interface": "^3.1.0",
