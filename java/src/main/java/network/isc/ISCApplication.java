@@ -163,6 +163,14 @@ public class ISCApplication {
         fileTransfer = new P2PFileTransferAdapter(network);
         network.setOnFileProtocolChunkReceived(fileTransfer::handleIncomingChunk);
 
+        network.setOnSocialEventReceived(event -> {
+            if (chatController != null) {
+                chatController.handleSocialEvent(event);
+            } else {
+                log.info("Received social event in server mode: " + event.getClass().getSimpleName());
+            }
+        });
+
         network.start().join();
 
         for (String peer : this.bootstrapNodes) {

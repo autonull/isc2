@@ -17,6 +17,7 @@ import network.isc.protocol.DirectMessageProtocol;
 import network.isc.protocol.ChatMessage;
 import network.isc.protocol.QueryProtocol;
 import network.isc.protocol.FileProtocol;
+import network.isc.protocol.SocialProtocol;
 import network.isc.protocol.ProtocolConstants;
 import io.libp2p.core.Stream;
 
@@ -43,6 +44,7 @@ public class NetworkAdapter {
     private final network.isc.protocol.PostProtocol postProtocol;
     private final network.isc.protocol.DelegateProtocol delegateProtocol;
     private final FileProtocol fileProtocol;
+    private final SocialProtocol socialProtocol;
 
     private final List<ChatProtocol.ChatController> activeChats = new ArrayList<>();
     private final List<DirectMessageProtocol.DMController> activeDMs = new ArrayList<>();
@@ -51,9 +53,11 @@ public class NetworkAdapter {
     private final List<network.isc.protocol.PostProtocol.PostController> activePosts = new ArrayList<>();
     private final List<network.isc.protocol.DelegateProtocol.DelegateController> activeDelegates = new ArrayList<>();
     private final List<FileProtocol.FileController> activeFiles = new ArrayList<>();
+    private final List<SocialProtocol.SocialController> activeSocials = new ArrayList<>();
 
     private Consumer<String> onPeerConnected;
     private BiConsumer<Stream, byte[]> onFileProtocolChunkReceived;
+    private Consumer<Object> onSocialEventReceived;
 
     public NetworkAdapter(PrivKey privKey, int port,
                           Consumer<ChatMessage> onMessageReceived,
@@ -71,6 +75,11 @@ public class NetworkAdapter {
         this.fileProtocol = new FileProtocol((stream, bytes) -> {
             if (onFileProtocolChunkReceived != null) {
                 onFileProtocolChunkReceived.accept(stream, bytes);
+            }
+        });
+        this.socialProtocol = new SocialProtocol(event -> {
+            if (onSocialEventReceived != null) {
+                onSocialEventReceived.accept(event);
             }
         });
 
@@ -105,6 +114,7 @@ public class NetworkAdapter {
                 p.add(postProtocol);
                 p.add(delegateProtocol);
                 p.add(fileProtocol);
+                p.add(socialProtocol);
 
                 return Unit.INSTANCE;
             })
@@ -146,6 +156,10 @@ public class NetworkAdapter {
         this.onFileProtocolChunkReceived = onFileProtocolChunkReceived;
     }
 
+    public void setOnSocialEventReceived(Consumer<Object> onSocialEventReceived) {
+        this.onSocialEventReceived = onSocialEventReceived;
+    }
+
     public CompletableFuture<Void> stop() {
         return host.stop();
     }
@@ -159,6 +173,7 @@ public class NetworkAdapter {
         String postPid = ProtocolConstants.PROTOCOL_POST;
         String delegatePid = ProtocolConstants.PROTOCOL_DELEGATE;
         String filePid = ProtocolConstants.PROTOCOL_FILE;
+        String socialPid = ProtocolConstants.PROTOCOL_SOCIAL;
 
         return host.getNetwork().connect(target).thenCompose(conn -> {
             log.info("Connected to peer: {}", conn.remoteAddress());
@@ -203,6 +218,12 @@ public class NetworkAdapter {
                 }
             });
 
+            host.newStream(Collections.singletonList(socialPid), conn).getController().thenAccept(c -> {
+                synchronized (activeSocials) {
+                    activeSocials.add((SocialProtocol.SocialController) c);
+                }
+            });
+
             return host.newStream(Collections.singletonList(queryPid), conn).getController();
 
         }).thenAccept(controller -> {
@@ -214,10 +235,17 @@ public class NetworkAdapter {
     }
 
     public void broadcastFileProtocolData(byte[] data) {
+        broadcastFileProtocolData(data, null);
+    }
+
+    public void broadcastFileProtocolData(byte[] data, Consumer<Stream> streamTracker) {
         synchronized (activeFiles) {
             for (FileProtocol.FileController controller : activeFiles) {
                 try {
                     controller.send(data);
+                    if (streamTracker != null) {
+                        streamTracker.accept(controller.getStream());
+                    }
                 } catch (Exception e) {
                     log.error("Failed to broadcast file data to peer", e);
                 }
@@ -252,6 +280,18 @@ public class NetworkAdapter {
                 log.error("Failed sending file data chunks", e);
             }
         });
+    }
+
+    public void broadcastSocialEvent(Object event) {
+        synchronized (activeSocials) {
+            for (SocialProtocol.SocialController controller : activeSocials) {
+                try {
+                    controller.send(event);
+                } catch (Exception e) {
+                    log.error("Failed to broadcast social event to peer", e);
+                }
+            }
+        }
     }
 
     public void broadcastChat(ChatMessage message) {

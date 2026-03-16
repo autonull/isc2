@@ -27,6 +27,8 @@ public class P2PFileTransferAdapter implements FileTransferManager {
 
     // Track file streams we're downloading
     private final ConcurrentHashMap<String, FileOutputStream> incomingDownloads = new ConcurrentHashMap<>();
+    // Track which stream is downloading which file
+    private final ConcurrentHashMap<Stream, String> streamToHash = new ConcurrentHashMap<>();
     // Track pending futures for downloads
     private final ConcurrentHashMap<String, CompletableFuture<File>> downloadFutures = new ConcurrentHashMap<>();
 
@@ -117,8 +119,11 @@ public class P2PFileTransferAdapter implements FileTransferManager {
 
             downloadFutures.put(fileHash, transferFuture);
 
+            // Send request to all active file streams and track the association
             byte[] requestPayload = ("REQ:" + fileHash).getBytes(StandardCharsets.UTF_8);
-            network.broadcastFileProtocolData(requestPayload);
+            network.broadcastFileProtocolData(requestPayload, stream -> {
+                streamToHash.put(stream, fileHash);
+            });
             log.info("Broadcasted request for file hash: {}", fileHash);
 
             // Timeout handling could be added here
@@ -140,51 +145,59 @@ public class P2PFileTransferAdapter implements FileTransferManager {
      * Can be either a REQ for a file, or actual file DATA.
      */
     public void handleIncomingChunk(Stream stream, byte[] data) {
-        // This is a naive protocol implementation and is subject to packet boundary issues.
-        // For a production app, chunks should be length-prefixed and typed.
-        String msg = new String(data, StandardCharsets.UTF_8);
-        if (msg.startsWith("REQ:")) {
-            String requestedHash = msg.substring(4);
-            if (isValidHash(requestedHash)) {
-                serveFileToStream(stream, requestedHash);
-            } else {
-                log.warn("Invalid file request hash format: {}", requestedHash);
-            }
-        } else if (msg.startsWith("EOF:")) {
-            String finishedHash = msg.substring(4);
-            if (!isValidHash(finishedHash)) return;
-
-            FileOutputStream fos = incomingDownloads.remove(finishedHash);
-            if (fos != null) {
-                try {
-                    fos.close();
-                    File downloadedFile = new File(storageDir, finishedHash + ".downloading");
-                    File finalFile = new File(storageDir, finishedHash);
-                    downloadedFile.renameTo(finalFile);
-
-                    CompletableFuture<File> future = downloadFutures.remove(finishedHash);
-                    if (future != null) {
-                        future.complete(finalFile);
-                    }
-                    log.info("Successfully downloaded file: {}", finishedHash);
-                } catch (IOException e) {
-                    log.error("Failed closing download stream for " + finishedHash, e);
+        // Check if this chunk is a control message (REQ/EOF)
+        // With LengthFieldBasedFrameDecoder, we get whole frames. We can use a simple heuristic
+        // or a prefix byte to differentiate, but since our control messages are short UTF-8 strings:
+        if (data.length < 256) {
+            String msg = new String(data, StandardCharsets.UTF_8);
+            if (msg.startsWith("REQ:")) {
+                String requestedHash = msg.substring(4);
+                if (isValidHash(requestedHash)) {
+                    serveFileToStream(stream, requestedHash);
+                } else {
+                    log.warn("Invalid file request hash format: {}", requestedHash);
                 }
+                return;
+            } else if (msg.startsWith("EOF:")) {
+                String finishedHash = msg.substring(4);
+                if (!isValidHash(finishedHash)) return;
+
+                streamToHash.remove(stream);
+                FileOutputStream fos = incomingDownloads.remove(finishedHash);
+                if (fos != null) {
+                    try {
+                        fos.close();
+                        File downloadedFile = new File(storageDir, finishedHash + ".downloading");
+                        File finalFile = new File(storageDir, finishedHash);
+                        downloadedFile.renameTo(finalFile);
+
+                        CompletableFuture<File> future = downloadFutures.remove(finishedHash);
+                        if (future != null) {
+                            future.complete(finalFile);
+                        }
+                        log.info("Successfully downloaded file: {}", finishedHash);
+                    } catch (IOException e) {
+                        log.error("Failed closing download stream for " + finishedHash, e);
+                    }
+                }
+                return;
             }
-        } else {
-            // It's raw file data for a download we requested.
-            // Since our simplistic protocol doesn't mux multiple files well on a single raw stream without headers,
-            // we assume if we have exactly 1 active download, this data is for that download.
-            // In a robust implementation, chunks would be prefixed with the hash or sequence number.
-            if (incomingDownloads.size() == 1) {
-                String hash = incomingDownloads.keys().nextElement();
-                FileOutputStream fos = incomingDownloads.get(hash);
+        }
+
+        // It's raw file data for a download we requested.
+        // Resolve the hash from the stream that sent it
+        String hash = streamToHash.get(stream);
+        if (hash != null) {
+            FileOutputStream fos = incomingDownloads.get(hash);
+            if (fos != null) {
                 try {
                     fos.write(data);
                 } catch (IOException e) {
                     log.error("Error writing incoming chunk for " + hash, e);
                 }
             }
+        } else {
+            log.warn("Received raw data chunk from stream but no download is mapped to it.");
         }
     }
 
@@ -235,5 +248,6 @@ public class P2PFileTransferAdapter implements FileTransferManager {
         }
         incomingDownloads.clear();
         downloadFutures.clear();
+        streamToHash.clear();
     }
 }

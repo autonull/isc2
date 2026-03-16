@@ -8,6 +8,8 @@ import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
+import io.netty.handler.codec.LengthFieldBasedFrameDecoder;
+import io.netty.handler.codec.LengthFieldPrepender;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -39,6 +41,10 @@ public class FileProtocol implements ProtocolBinding<FileProtocol.FileController
         CompletableFuture<FileController> future = new CompletableFuture<>();
         Stream stream = (Stream) ch;
         FileController controller = new FileController(stream);
+
+        // Max frame size: 10MB, length field offset: 0, length field bytes: 4
+        stream.pushHandler(new LengthFieldBasedFrameDecoder(10 * 1024 * 1024, 0, 4, 0, 4));
+        stream.pushHandler(new LengthFieldPrepender(4));
 
         stream.pushHandler(new ChannelInboundHandlerAdapter() {
             @Override

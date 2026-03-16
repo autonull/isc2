@@ -102,6 +102,10 @@ public class ChatPanel extends JPanel {
     }
 
     public void appendMessage(String sender, String message, long timestamp, String avatarBase64) {
+        appendMessage(sender, message, timestamp, avatarBase64, null, 0, 0);
+    }
+
+    public void appendMessage(String sender, String message, long timestamp, String avatarBase64, String postId, int likes, int reposts) {
         String time = timeFormat.format(new Date(timestamp));
 
         // Basic Markdown replacement
@@ -124,15 +128,40 @@ public class ChatPanel extends JPanel {
             imgSrc = "<span style='display:inline-block; width:32px; height:32px; background-color:#ccc; border-radius:16px; text-align:center; line-height:32px; margin-right:8px; vertical-align: middle;'>" + sender.substring(0, Math.min(1, sender.length())) + "</span>";
         }
 
+        String socialHtml = "";
+        if (postId != null) {
+             socialHtml = String.format("<div style='font-size: 9pt; color: #888; margin-top: 4px;'>" +
+                                        "<a href='like://%s' style='color: #e0245e; text-decoration: none;'>❤️ %d</a> &nbsp;&nbsp;" +
+                                        "<a href='repost://%s' style='color: #17bf63; text-decoration: none;'>🔁 %d</a>" +
+                                        "</div>", postId, likes, postId, reposts);
+        }
+
         feedHtml.append("<div style='margin-bottom: 15px; display: flex; align-items: flex-start;'>")
                 .append(imgSrc)
                 .append("<div>")
                 .append("<span style='color: gray; font-size: 10pt;'>[").append(time).append("] </span>")
                 .append("<b>").append(sender).append(":</b> <br>")
                 .append(formattedMsg)
+                .append(socialHtml)
                 .append("</div></div>");
 
         feedArea.setText(feedHtml.toString() + "</body></html>");
+    }
+
+    public void setSocialActionHandler(java.util.function.Consumer<String> actionHandler) {
+        feedArea.addHyperlinkListener(e -> {
+            if (e.getEventType() == javax.swing.event.HyperlinkEvent.EventType.ACTIVATED) {
+                String desc = e.getDescription();
+                if (desc.startsWith("like://") || desc.startsWith("repost://")) {
+                    actionHandler.accept(desc);
+                }
+            }
+        });
+    }
+
+    public void refreshChatDisplay() {
+        // Required when social states update. This simple panel would ideally just re-render the whole list.
+        // For now, this is a marker that a controller can call to re-render.
     }
 
     public void addSendListener(ActionListener listener) {
