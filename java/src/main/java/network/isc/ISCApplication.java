@@ -291,8 +291,8 @@ public class ISCApplication {
         }
 
         // Initialize Controllers
-        chatController = new ChatController(network, postService, mainFrame, libp2pKey, localAvatarBase64);
-        dmController = new DirectMessageController(network, mainFrame, libp2pKey, localAvatarBase64);
+        chatController = new ChatController(network, postService, fileTransfer, mainFrame, libp2pKey, localAvatarBase64);
+        dmController = new DirectMessageController(network, storage, fileTransfer, mainFrame, libp2pKey, localAvatarBase64);
         discoveryController = new DiscoveryController(network, embedding, mainFrame, mockDht);
 
         mainFrame.setChannels(channels);

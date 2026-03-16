@@ -15,13 +15,16 @@ public class DirectMessagePanel extends JPanel {
     private final StringBuilder chatHtml = new StringBuilder();
     private final JTextArea inputArea;
     private final JButton sendButton;
+    private final JButton attachButton;
     private final JLabel headerLabel;
 
     private final SimpleDateFormat timeFormat = new SimpleDateFormat("HH:mm");
     private String activePeer;
+    private Consumer<String> onPeerSelectedExternal;
 
     public DirectMessagePanel(Consumer<String> onPeerSelected) {
         setLayout(new BorderLayout());
+        this.onPeerSelectedExternal = onPeerSelected;
 
         // First instantiate variables to avoid compilation errors on lambda reference
         headerLabel = new JLabel(" Select a peer to start messaging", SwingConstants.CENTER);
@@ -47,6 +50,10 @@ public class DirectMessagePanel extends JPanel {
         inputArea.setLineWrap(true);
         inputArea.setEnabled(false);
 
+        attachButton = new JButton("📎");
+        attachButton.setEnabled(false);
+        attachButton.setToolTipText("Attach File");
+
         sendButton = new JButton("Send");
         sendButton.setEnabled(false);
         sendButton.setBackground(new Color(29, 161, 242));
@@ -71,13 +78,16 @@ public class DirectMessagePanel extends JPanel {
                 headerLabel.setText("DM with " + activePeer);
                 inputArea.setEnabled(true);
                 sendButton.setEnabled(true);
+                attachButton.setEnabled(true);
 
                 chatHtml.setLength(0);
                 chatHtml.append("<html><body style='font-family: sans-serif; font-size: 12pt; margin: 0; padding: 0;'>");
                 chatHtml.append("<div style='color: gray; margin-bottom: 10px;'>Opened chat with ").append(activePeer).append("</div>");
                 chatArea.setText(chatHtml.toString() + "</body></html>");
 
-                onPeerSelected.accept(activePeer);
+                if (onPeerSelectedExternal != null) {
+                    onPeerSelectedExternal.accept(activePeer);
+                }
             }
         });
         sidebar.add(new JScrollPane(peersList), BorderLayout.CENTER);
@@ -90,7 +100,12 @@ public class DirectMessagePanel extends JPanel {
 
         JPanel inputPanel = new JPanel(new BorderLayout(10, 10));
         inputPanel.add(new JScrollPane(inputArea), BorderLayout.CENTER);
-        inputPanel.add(sendButton, BorderLayout.EAST);
+
+        JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 5, 0));
+        buttonPanel.add(attachButton);
+        buttonPanel.add(sendButton);
+        inputPanel.add(buttonPanel, BorderLayout.EAST);
+
         workspace.add(inputPanel, BorderLayout.SOUTH);
 
         JSplitPane splitPane = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, sidebar, workspace);
@@ -109,6 +124,22 @@ public class DirectMessagePanel extends JPanel {
         });
     }
 
+    public void setOnPeerSelectedListener(Consumer<String> listener) {
+        // Wrap existing listener logic to chain them if necessary, or just overwrite since we only use one external listener.
+        this.onPeerSelectedExternal = listener;
+    }
+
+    public void setSocialActionHandler(java.util.function.Consumer<String> actionHandler) {
+        chatArea.addHyperlinkListener(e -> {
+            if (e.getEventType() == javax.swing.event.HyperlinkEvent.EventType.ACTIVATED) {
+                String desc = e.getDescription();
+                if (desc.startsWith("file://")) {
+                    actionHandler.accept(desc);
+                }
+            }
+        });
+    }
+
     public void appendMessage(String sender, String message, long timestamp, String avatarBase64) {
         String time = timeFormat.format(new Date(timestamp));
 
@@ -121,7 +152,7 @@ public class DirectMessagePanel extends JPanel {
             .replaceAll("\\*(.*?)\\*", "<i>$1</i>")
             .replaceAll("__(.*?)__", "<u>$1</u>")
             .replaceAll("`(.*?)`", "<code style='background-color: #f0f0f0; padding: 2px 4px; border-radius: 4px;'>$1</code>")
-            .replaceAll("\\[FILE: (.*?)\\]", "<a href='$1' style='color: #1d9bf0; text-decoration: none;'>📎 Attachment: $1</a>")
+            .replaceAll("\\[FILE: (.*?)\\]", "<a href='file://$1' style='color: #1d9bf0; text-decoration: none;'>📎 Attachment: $1</a>")
             .replaceAll("\n", "<br>");
 
         String imgSrc = "";
@@ -148,6 +179,18 @@ public class DirectMessagePanel extends JPanel {
 
     public void addSendListener(ActionListener listener) {
         sendButton.addActionListener(listener);
+    }
+
+    public void addAttachListener(ActionListener listener) {
+        attachButton.addActionListener(listener);
+    }
+
+    public void appendToInput(String text) {
+        String current = inputArea.getText();
+        if (!current.isEmpty() && !current.endsWith(" ")) {
+            inputArea.append(" ");
+        }
+        inputArea.append(text);
     }
 
     public String getAndClearInput() {

@@ -19,6 +19,7 @@ public class MapDBStorageAdapter extends StorageAdapter {
     private final ConcurrentMap<String, String> map;
     private final ObjectMapper mapper;
     private static final String CHANNELS_KEY = "channels";
+    private static final String DM_PREFIX = "dm:";
 
     public MapDBStorageAdapter(String filepath) {
         // Call super with a dummy filepath to maintain compatibility if StorageAdapter is a concrete class.
@@ -57,6 +58,29 @@ public class MapDBStorageAdapter extends StorageAdapter {
         try {
             String json = mapper.writeValueAsString(channels);
             map.put(CHANNELS_KEY, json);
+            db.commit();
+        } catch (JsonProcessingException e) {
+            e.printStackTrace();
+        }
+    }
+
+    public List<network.isc.protocol.ChatMessage> loadDirectMessages(String peerId) {
+        String json = map.get(DM_PREFIX + peerId);
+        if (json == null || json.isEmpty()) {
+            return new ArrayList<>();
+        }
+        try {
+            return mapper.readValue(json, new TypeReference<List<network.isc.protocol.ChatMessage>>() {});
+        } catch (JsonProcessingException e) {
+            e.printStackTrace();
+            return new ArrayList<>();
+        }
+    }
+
+    public void saveDirectMessages(String peerId, List<network.isc.protocol.ChatMessage> messages) {
+        try {
+            String json = mapper.writeValueAsString(messages);
+            map.put(DM_PREFIX + peerId, json);
             db.commit();
         } catch (JsonProcessingException e) {
             e.printStackTrace();

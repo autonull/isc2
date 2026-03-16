@@ -5,6 +5,7 @@ import network.isc.core.Channel;
 import network.isc.core.Post;
 import network.isc.core.PostService;
 import network.isc.protocol.ChatMessage;
+import network.isc.adapters.FileTransferManager;
 import network.isc.ui.ChatPanel;
 import network.isc.ui.MainFrame;
 
@@ -24,11 +25,13 @@ public class ChatController {
     private final ChatPanel chatPanel;
     private final PrivKey libp2pKey;
     private final String getLocalAvatarBase64;
+    private final FileTransferManager fileTransfer;
     private Channel activeChannel;
 
-    public ChatController(NetworkAdapter network, PostService postService, MainFrame mainFrame, PrivKey libp2pKey, String getLocalAvatarBase64) {
+    public ChatController(NetworkAdapter network, PostService postService, FileTransferManager fileTransfer, MainFrame mainFrame, PrivKey libp2pKey, String getLocalAvatarBase64) {
         this.network = network;
         this.postService = postService;
+        this.fileTransfer = fileTransfer;
         this.mainFrame = mainFrame;
         this.chatPanel = mainFrame.getChatPanel();
         this.libp2pKey = libp2pKey;
@@ -75,6 +78,45 @@ public class ChatController {
                 network.isc.core.RepostEvent repost = new network.isc.core.RepostEvent(myId, postId, System.currentTimeMillis(), new byte[0]);
                 network.broadcastSocialEvent(repost);
                 refreshChatDisplayOnly();
+            } else if (action.startsWith("file://")) {
+                String fileHash = action.substring("file://".length());
+                JFileChooser fileChooser = new JFileChooser();
+                fileChooser.setDialogTitle("Save Downloaded File");
+                int userSelection = fileChooser.showSaveDialog(mainFrame);
+
+                if (userSelection == JFileChooser.APPROVE_OPTION) {
+                    java.io.File dest = fileChooser.getSelectedFile();
+                    fileTransfer.downloadFile(fileHash, dest.getAbsolutePath()).thenAccept(f -> {
+                        SwingUtilities.invokeLater(() -> {
+                            JOptionPane.showMessageDialog(mainFrame, "File downloaded successfully to: " + f.getAbsolutePath());
+                        });
+                    }).exceptionally(ex -> {
+                        SwingUtilities.invokeLater(() -> {
+                            JOptionPane.showMessageDialog(mainFrame, "Failed to download file: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+                        });
+                        return null;
+                    });
+                }
+            }
+        });
+
+        chatPanel.addAttachListener(e -> {
+            JFileChooser fileChooser = new JFileChooser();
+            int option = fileChooser.showOpenDialog(mainFrame);
+            if (option == JFileChooser.APPROVE_OPTION) {
+                java.io.File file = fileChooser.getSelectedFile();
+                if (file != null && file.exists()) {
+                    fileTransfer.stageFile(file).thenAccept(hash -> {
+                        SwingUtilities.invokeLater(() -> {
+                            chatPanel.appendToInput("[FILE: " + hash + "]");
+                        });
+                    }).exceptionally(ex -> {
+                        SwingUtilities.invokeLater(() -> {
+                            JOptionPane.showMessageDialog(mainFrame, "Failed to stage file: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+                        });
+                        return null;
+                    });
+                }
             }
         });
     }
