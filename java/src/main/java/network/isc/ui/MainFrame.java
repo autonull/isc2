@@ -21,6 +21,7 @@ public class MainFrame extends JFrame {
     private DiscoverPanel discoverPanel;
     private NetworkPanel networkPanel;
     private SettingsPanel settingsPanel;
+    private DirectMessagePanel dmPanel;
 
     private List<Channel> activeChannels;
     private Consumer<Channel> onChannelSelected;
@@ -86,8 +87,8 @@ public class MainFrame extends JFrame {
         tabsPanel.setLayout(new BoxLayout(tabsPanel, BoxLayout.Y_AXIS));
         tabsPanel.setBackground(Color.WHITE);
 
-        String[] tabNames = {"Now", "Discover", "Network", "Settings"};
-        String[] tabIcons = {"🏠", "📡", "🌐", "⚙️"};
+        String[] tabNames = {"Now", "Discover", "Network", "DMs", "Settings"};
+        String[] tabIcons = {"🏠", "📡", "🌐", "💬", "⚙️"};
 
         for (int i = 0; i < tabNames.length; i++) {
             JPanel tabPanel = createTabPanel(tabNames[i], tabIcons[i]);
@@ -190,9 +191,17 @@ public class MainFrame extends JFrame {
         });
         mainContent.add(networkPanel, "network");
 
+        // DMs tab
+        dmPanel = new DirectMessagePanel(peer -> {
+            // Load history if any
+        });
+        mainContent.add(dmPanel, "dms");
+
         // Settings tab
         settingsPanel = new SettingsPanel(enabled -> {
             if (onSaveMessagesToggled != null) onSaveMessagesToggled.accept(enabled);
+        }, profile -> {
+            if (onProfileUpdated != null) onProfileUpdated.accept(profile);
         });
         mainContent.add(settingsPanel, "settings");
 
@@ -202,9 +211,14 @@ public class MainFrame extends JFrame {
     private Consumer<network.isc.core.SignedAnnouncement> onJoinRequested;
     private Runnable onDialRequested;
     private Consumer<Boolean> onSaveMessagesToggled;
+    private Consumer<String[]> onProfileUpdated;
 
     public void setOnJoinRequested(Consumer<network.isc.core.SignedAnnouncement> onJoinRequested) {
         this.onJoinRequested = onJoinRequested;
+    }
+
+    public void setOnProfileUpdated(Consumer<String[]> onProfileUpdated) {
+        this.onProfileUpdated = onProfileUpdated;
     }
 
     public void setOnDialRequested(Runnable onDialRequested) {
@@ -218,6 +232,7 @@ public class MainFrame extends JFrame {
     public DiscoverPanel getDiscoverPanel() { return discoverPanel; }
     public NetworkPanel getNetworkPanel() { return networkPanel; }
     public SettingsPanel getSettingsPanel() { return settingsPanel; }
+    public DirectMessagePanel getDmPanel() { return dmPanel; }
 
     private JPanel createPlaceholderPanel(String title, String text) {
         JPanel panel = new JPanel(new BorderLayout(10, 10));

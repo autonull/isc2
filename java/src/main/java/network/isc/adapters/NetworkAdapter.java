@@ -8,12 +8,12 @@ import io.libp2p.core.multiformats.Multiaddr;
 import io.libp2p.transport.tcp.TcpTransport;
 import io.libp2p.transport.ws.WsTransport;
 import io.libp2p.security.noise.NoiseXXSecureChannel;
-import io.libp2p.mux.mplex.MplexStreamMuxer;
 import io.libp2p.mux.yamux.YamuxStreamMuxer;
 import io.libp2p.core.mux.StreamMuxerProtocol;
 import network.isc.core.SignedAnnouncement;
 import network.isc.protocol.AnnounceProtocol;
 import network.isc.protocol.ChatProtocol;
+import network.isc.protocol.DirectMessageProtocol;
 import network.isc.protocol.ChatMessage;
 import network.isc.protocol.QueryProtocol;
 import network.isc.protocol.ProtocolConstants;
@@ -34,10 +34,12 @@ public class NetworkAdapter {
 
     private final Host host;
     private final ChatProtocol chatProtocol;
+    private final DirectMessageProtocol dmProtocol;
     private final AnnounceProtocol announceProtocol;
     private final QueryProtocol queryProtocol;
 
     private final List<ChatProtocol.ChatController> activeChats = new ArrayList<>();
+    private final List<DirectMessageProtocol.DMController> activeDMs = new ArrayList<>();
     private final List<AnnounceProtocol.AnnounceController> activeAnnouncers = new ArrayList<>();
     private final List<QueryProtocol.QueryController> activeQueries = new ArrayList<>();
 
@@ -45,9 +47,11 @@ public class NetworkAdapter {
 
     public NetworkAdapter(PrivKey privKey, int port,
                           Consumer<ChatMessage> onMessageReceived,
+                          Consumer<ChatMessage> onDMReceived,
                           Consumer<SignedAnnouncement> onAnnounceReceived,
                           Consumer<String[]> onQueryReceived) {
         this.chatProtocol = new ChatProtocol(onMessageReceived);
+        this.dmProtocol = new DirectMessageProtocol(onDMReceived);
         this.announceProtocol = new AnnounceProtocol(onAnnounceReceived);
         this.queryProtocol = new QueryProtocol(onQueryReceived);
 
@@ -76,8 +80,10 @@ public class NetworkAdapter {
             })
             .protocols(p -> {
                 p.add(chatProtocol);
+                p.add(dmProtocol);
                 p.add(announceProtocol);
                 p.add(queryProtocol);
+
                 return Unit.INSTANCE;
             })
             .build(Defaults.None);
@@ -88,6 +94,24 @@ public class NetworkAdapter {
             log.info("Node started: {}", host.getPeerId());
             for (Multiaddr addr : host.listenAddresses()) {
                 log.info("Listening on {}", addr);
+            }
+
+            // Bootstrap to known nodes (demo bootstrap peers)
+            String[] bootstrapPeers = {
+                // Examples. In production, real stable nodes would go here
+                "/ip4/127.0.0.1/tcp/4001/p2p/QmBootstrapNodeExample1",
+            };
+
+            for (String peer : bootstrapPeers) {
+                try {
+                    log.info("Attempting bootstrap to: {}", peer);
+                    dialPeer(peer).exceptionally(ex -> {
+                        log.debug("Bootstrap dial failed (expected if node offline): {}", ex.getMessage());
+                        return null;
+                    });
+                } catch (Exception e) {
+                    log.debug("Invalid bootstrap peer multiaddr format: {}", peer);
+                }
             }
         });
     }
@@ -103,6 +127,7 @@ public class NetworkAdapter {
     public CompletableFuture<Void> dialPeer(String multiaddrStr) {
         Multiaddr target = new Multiaddr(multiaddrStr);
         String chatPid = ProtocolConstants.PROTOCOL_CHAT;
+        String dmPid = ProtocolConstants.PROTOCOL_DM;
         String annPid = ProtocolConstants.PROTOCOL_ANNOUNCE;
         String queryPid = ProtocolConstants.PROTOCOL_QUERY;
 
@@ -116,6 +141,12 @@ public class NetworkAdapter {
             host.newStream(Collections.singletonList(chatPid), conn).getController().thenAccept(c -> {
                 synchronized (activeChats) {
                     activeChats.add((ChatProtocol.ChatController) c);
+                }
+            });
+
+            host.newStream(Collections.singletonList(dmPid), conn).getController().thenAccept(c -> {
+                synchronized (activeDMs) {
+                    activeDMs.add((DirectMessageProtocol.DMController) c);
                 }
             });
 
@@ -142,6 +173,20 @@ public class NetworkAdapter {
                     controller.send(message);
                 } catch (Exception e) {
                     log.error("Failed to send message to peer", e);
+                }
+            }
+        }
+    }
+
+    public void sendDirectMessage(String targetPeerId, ChatMessage message) {
+        synchronized (activeDMs) {
+            for (DirectMessageProtocol.DMController controller : activeDMs) {
+                if (controller.getRemotePeerId().equals(targetPeerId) || targetPeerId.equals(controller.getRemotePeerId())) {
+                    try {
+                        controller.send(message);
+                    } catch (Exception e) {
+                        log.error("Failed to send DM to peer", e);
+                    }
                 }
             }
         }

@@ -10,35 +10,34 @@ import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import io.libp2p.core.crypto.PubKey;
-import io.libp2p.core.crypto.KeyKt;
-
 import java.nio.charset.StandardCharsets;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 
-public class ChatProtocol implements ProtocolBinding<ChatProtocol.ChatController> {
-    private static final Logger log = LoggerFactory.getLogger(ChatProtocol.class);
+public class DirectMessageProtocol implements ProtocolBinding<DirectMessageProtocol.DMController> {
+    private static final Logger log = LoggerFactory.getLogger(DirectMessageProtocol.class);
 
     private final Consumer<ChatMessage> onMessageReceived;
     private final ObjectMapper mapper = new ObjectMapper();
 
-    public ChatProtocol(Consumer<ChatMessage> onMessageReceived) {
+    public DirectMessageProtocol(Consumer<ChatMessage> onMessageReceived) {
         this.onMessageReceived = onMessageReceived;
     }
 
     @NotNull
     @Override
     public ProtocolDescriptor getProtocolDescriptor() {
-        return new ProtocolDescriptor(ProtocolConstants.PROTOCOL_CHAT);
+        return new ProtocolDescriptor(ProtocolConstants.PROTOCOL_DM);
     }
 
     @NotNull
     @Override
-    public CompletableFuture<ChatController> initChannel(@NotNull io.libp2p.core.P2PChannel ch, @NotNull String selectedProtocol) {
-        CompletableFuture<ChatController> future = new CompletableFuture<>();
+    public CompletableFuture<DMController> initChannel(@NotNull io.libp2p.core.P2PChannel ch, @NotNull String selectedProtocol) {
+        CompletableFuture<DMController> future = new CompletableFuture<>();
         Stream stream = (Stream) ch;
-        ChatController controller = new ChatController(stream, mapper);
+
+        String remotePeerId = stream.remotePeerId().toString();
+        DMController controller = new DMController(stream, mapper, remotePeerId);
 
         stream.pushHandler(new io.netty.channel.ChannelInboundHandlerAdapter() {
             @Override
@@ -50,29 +49,12 @@ public class ChatProtocol implements ProtocolBinding<ChatProtocol.ChatController
 
                     try {
                         ChatMessage chatMsg = mapper.readValue(bytes, ChatMessage.class);
-
-                        // Verify signature
-                        if (chatMsg.getSignature() != null && chatMsg.getPublicKey() != null) {
-                            try {
-                                PubKey pubKey = KeyKt.unmarshalPublicKey(chatMsg.getPublicKey());
-                                byte[] rawPayload = (chatMsg.getChannelID() + chatMsg.getMsg() + chatMsg.getTimestamp()).getBytes(StandardCharsets.UTF_8);
-
-                                if (pubKey.verify(rawPayload, chatMsg.getSignature())) {
-                                    if (onMessageReceived != null) {
-                                        onMessageReceived.accept(chatMsg);
-                                    }
-                                } else {
-                                    log.warn("Signature verification failed for chat message in channel {}", chatMsg.getChannelID());
-                                }
-                            } catch (Exception ex) {
-                                log.error("Error verifying signature", ex);
-                            }
-                        } else {
-                            log.warn("Message missing signature or public key. Dropping.");
+                        // Optional: Add signature verification here as well if needed
+                        if (onMessageReceived != null) {
+                            onMessageReceived.accept(chatMsg);
                         }
-
                     } catch (Exception e) {
-                        log.warn("Failed to parse chat message", e);
+                        log.warn("Failed to parse DM message", e);
                     }
                 }
                 ctx.fireChannelRead(msg);
@@ -80,7 +62,7 @@ public class ChatProtocol implements ProtocolBinding<ChatProtocol.ChatController
 
             @Override
             public void exceptionCaught(io.netty.channel.ChannelHandlerContext ctx, Throwable cause) {
-                log.error("Error in chat stream", cause);
+                log.error("Error in DM stream", cause);
                 ctx.close();
             }
         });
@@ -89,13 +71,19 @@ public class ChatProtocol implements ProtocolBinding<ChatProtocol.ChatController
         return future;
     }
 
-    public static class ChatController {
+    public static class DMController {
         private final Stream stream;
         private final ObjectMapper mapper;
+        private final String remotePeerId;
 
-        public ChatController(Stream stream, ObjectMapper mapper) {
+        public DMController(Stream stream, ObjectMapper mapper, String remotePeerId) {
             this.stream = stream;
             this.mapper = mapper;
+            this.remotePeerId = remotePeerId;
+        }
+
+        public String getRemotePeerId() {
+            return remotePeerId;
         }
 
         public CompletableFuture<Void> send(ChatMessage message) {

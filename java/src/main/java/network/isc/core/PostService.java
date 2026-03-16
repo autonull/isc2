@@ -50,7 +50,7 @@ public class PostService {
         Post postWithoutSig = new Post();
         postWithoutSig.setId("post_" + UUID.randomUUID().toString());
         // For author, use a derived ID or just "Me" if not easily extractable
-        postWithoutSig.setAuthor("Me");
+        postWithoutSig.setAuthor(identityKeypair.publicKey().toString());
         postWithoutSig.setContent(content.trim());
         postWithoutSig.setChannelID(channelId);
         postWithoutSig.setTimestamp(System.currentTimeMillis());
@@ -117,10 +117,8 @@ public class PostService {
             throw new IllegalStateException("Cannot sign post: identity not initialized");
         }
 
-        // Simple concatenation for signing
-        String payload = postWithoutSig.getId() + postWithoutSig.getAuthor() +
-                         postWithoutSig.getContent() + postWithoutSig.getChannelID() +
-                         postWithoutSig.getTimestamp();
+        // Align payload with ChatMessage verification
+        String payload = postWithoutSig.getChannelID() + postWithoutSig.getContent() + postWithoutSig.getTimestamp();
 
         byte[] encoded = payload.getBytes(StandardCharsets.UTF_8);
         return identityKeypair.sign(encoded);

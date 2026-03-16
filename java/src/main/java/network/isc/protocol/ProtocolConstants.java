@@ -3,6 +3,7 @@ package network.isc.protocol;
 public class ProtocolConstants {
     public static final String PROTOCOL_CHAT = "/isc/chat/1.0";
     public static final String PROTOCOL_DELEGATE = "/isc/delegate/1.0";
+    public static final String PROTOCOL_DM = "/isc/dm/1.0";
     public static final String PROTOCOL_ANNOUNCE = "/isc/announce/1.0";
     public static final String PROTOCOL_POST = "/isc/post/1.0";
     public static final String PROTOCOL_QUERY = "/isc/query/1.0";

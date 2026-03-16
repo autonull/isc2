@@ -6,9 +6,11 @@ import java.util.function.Consumer;
 
 public class SettingsPanel extends JPanel {
     private final JLabel peerIdLabel;
+    private final JTextField displayNameField;
+    private final JTextArea bioArea;
     private final JCheckBox saveMessagesCheckbox;
 
-    public SettingsPanel(Consumer<Boolean> onSaveMessagesToggled) {
+    public SettingsPanel(Consumer<Boolean> onSaveMessagesToggled, Consumer<String[]> onProfileUpdated) {
         setLayout(new BorderLayout(10, 10));
         setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
 
@@ -20,11 +22,41 @@ public class SettingsPanel extends JPanel {
         contentPanel.setLayout(new BoxLayout(contentPanel, BoxLayout.Y_AXIS));
 
         // Identity Section
-        JPanel identityPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
+        JPanel identityPanel = new JPanel(new GridBagLayout());
         identityPanel.setBorder(BorderFactory.createTitledBorder("My Identity"));
-        peerIdLabel = new JLabel("Peer ID: Loading...");
+        GridBagConstraints gbc = new GridBagConstraints();
+        gbc.insets = new Insets(5, 5, 5, 5);
+        gbc.anchor = GridBagConstraints.WEST;
+
+        gbc.gridx = 0; gbc.gridy = 0;
+        identityPanel.add(new JLabel("Peer ID:"), gbc);
+        gbc.gridx = 1;
+        peerIdLabel = new JLabel("Loading...");
         peerIdLabel.setFont(new Font(Font.MONOSPACED, Font.PLAIN, 12));
-        identityPanel.add(peerIdLabel);
+        identityPanel.add(peerIdLabel, gbc);
+
+        gbc.gridx = 0; gbc.gridy = 1;
+        identityPanel.add(new JLabel("Display Name:"), gbc);
+        gbc.gridx = 1;
+        displayNameField = new JTextField(15);
+        identityPanel.add(displayNameField, gbc);
+
+        gbc.gridx = 0; gbc.gridy = 2;
+        identityPanel.add(new JLabel("Bio:"), gbc);
+        gbc.gridx = 1;
+        bioArea = new JTextArea(3, 20);
+        bioArea.setLineWrap(true);
+        bioArea.setBorder(BorderFactory.createLineBorder(Color.LIGHT_GRAY));
+        identityPanel.add(new JScrollPane(bioArea), gbc);
+
+        gbc.gridx = 1; gbc.gridy = 3;
+        JButton saveProfileBtn = new JButton("Save Profile");
+        saveProfileBtn.addActionListener(e -> {
+            onProfileUpdated.accept(new String[]{displayNameField.getText(), bioArea.getText()});
+            JOptionPane.showMessageDialog(this, "Profile Saved locally.", "Success", JOptionPane.INFORMATION_MESSAGE);
+        });
+        identityPanel.add(saveProfileBtn, gbc);
+
         contentPanel.add(identityPanel);
 
         // Data Storage Section

@@ -70,7 +70,7 @@ public class ISCApplication {
         postService.initializeIdentity(libp2pKey);
 
         // Network
-        network = new NetworkAdapter(libp2pKey, 0, this::handleNetworkMessage, this::handleAnnouncement, this::handleQuery);
+        network = new NetworkAdapter(libp2pKey, 0, this::handleNetworkMessage, this::handleDirectMessage, this::handleAnnouncement, this::handleQuery);
         network.start().join();
 
         // Storage
@@ -125,11 +125,26 @@ public class ISCApplication {
         // Settings Panel
         mainFrame.getSettingsPanel().setPeerId(network.getHost().getPeerId().toString());
         mainFrame.setOnSaveMessagesToggled(enabled -> postStorage.setEnabled(enabled));
+        mainFrame.setOnProfileUpdated(profile -> {
+            String name = profile[0];
+            String bio = profile[1];
+            log.info("Saved local identity. Name: {}, Bio: {}", name, bio);
+            // Future step: Announce profile to DHT or attach to Protocol Payload
+        });
 
         // Network Panel
         List<String> addrs = network.getHost().listenAddresses().stream().map(a -> a.toString()).toList();
         mainFrame.getNetworkPanel().setMyAddresses(addrs);
-        network.setOnPeerConnected(peer -> mainFrame.getNetworkPanel().addPeer(peer));
+        network.setOnPeerConnected(peer -> {
+            mainFrame.getNetworkPanel().addPeer(peer);
+
+            // Extract peerID from multiaddr to populate DM list
+            String[] parts = peer.split("/");
+            if (parts.length > 0) {
+                String peerIdStr = parts[parts.length - 1];
+                mainFrame.getDmPanel().addPeer(peerIdStr);
+            }
+        });
 
         mainFrame.setOnDialRequested(() -> {
             String multiaddr = JOptionPane.showInputDialog(mainFrame, "Enter Multiaddr (e.g., /ip4/127.0.0.1/tcp/4001/p2p/Qm...):");
@@ -163,11 +178,33 @@ public class ISCApplication {
                     Post post = postService.createPost(msg, activeChannel.getId());
                     mainFrame.getChatPanel().appendMessage(post.getAuthor(), post.getContent(), post.getTimestamp());
 
-                    ChatMessage chatMsg = new ChatMessage(post.getChannelID(), post.getContent(), post.getTimestamp(), post.getSignature());
+                    byte[] pubKey = libp2pKey.publicKey().bytes();
+                    ChatMessage chatMsg = new ChatMessage(post.getChannelID(), post.getContent(), post.getTimestamp(), post.getSignature(), pubKey);
                     network.broadcastChat(chatMsg);
                     log.info("Message sent in channel {}: {}", activeChannel.getName(), msg);
                 } catch (Exception ex) {
                     JOptionPane.showMessageDialog(mainFrame, "Failed to post message: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+                }
+            }
+        });
+
+        mainFrame.getDmPanel().addSendListener(e -> {
+            String msg = mainFrame.getDmPanel().getAndClearInput();
+            String targetPeer = mainFrame.getDmPanel().getActivePeer();
+
+            if (!msg.isEmpty() && targetPeer != null) {
+                try {
+                    long ts = System.currentTimeMillis();
+                    byte[] rawPayload = (targetPeer + msg + ts).getBytes(StandardCharsets.UTF_8);
+                    byte[] sig = libp2pKey.sign(rawPayload);
+                    byte[] pubKey = libp2pKey.publicKey().bytes();
+
+                    ChatMessage chatMsg = new ChatMessage(targetPeer, msg, ts, sig, pubKey);
+                    network.sendDirectMessage(targetPeer, chatMsg);
+
+                    mainFrame.getDmPanel().appendMessage("You", msg, ts);
+                } catch (Exception ex) {
+                    JOptionPane.showMessageDialog(mainFrame, "Failed to send DM: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
                 }
             }
         });
@@ -211,6 +248,14 @@ public class ISCApplication {
             if (activeChannel != null && chatMsg.getChannelID().equals(activeChannel.getId())) {
                 mainFrame.getChatPanel().appendMessage(post.getAuthor(), post.getContent(), post.getTimestamp());
             }
+        });
+    }
+
+    private void handleDirectMessage(ChatMessage chatMsg) {
+        SwingUtilities.invokeLater(() -> {
+            // Since DMs aren't tied to channels but to Peers, we'll route to DM Panel
+            // Note: chatMsg.getChannelID() is overloaded to be targetPeer from sender
+            mainFrame.getDmPanel().appendMessage("Peer", chatMsg.getMsg(), chatMsg.getTimestamp());
         });
     }
 
