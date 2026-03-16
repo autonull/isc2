@@ -104,6 +104,7 @@ public class NetworkAdapter {
             })
             .network(n -> {
                 n.listen("/ip4/0.0.0.0/tcp/" + port);
+                n.listen("/ip4/0.0.0.0/tcp/" + (port + 1) + "/ws");
                 return Unit.INSTANCE;
             })
             .protocols(p -> {

@@ -26,6 +26,7 @@ public class MainFrame extends JFrame {
     private List<Channel> activeChannels;
     private Consumer<Channel> onChannelSelected;
     private Runnable onCreateChannel;
+    private Runnable onCreateGroup;
 
     private Channel activeChannel;
 
@@ -123,7 +124,18 @@ public class MainFrame extends JFrame {
         createButton.addActionListener(e -> {
             if (onCreateChannel != null) onCreateChannel.run();
         });
+
+        JButton createGroupButton = new JButton("+ New Group");
+        createGroupButton.setFont(createButton.getFont().deriveFont(Font.BOLD));
+        createGroupButton.setBackground(new Color(240, 240, 240));
+        createGroupButton.setFocusPainted(false);
+        createGroupButton.setBorder(BorderFactory.createEmptyBorder(10, 15, 10, 15));
+        createGroupButton.addActionListener(e -> {
+            if (onCreateGroup != null) onCreateGroup.run();
+        });
+
         bottomSidebarPanel.add(createButton);
+        bottomSidebarPanel.add(createGroupButton);
         sidebarPanel.add(bottomSidebarPanel, BorderLayout.SOUTH);
 
         // Chat Workspace / Main Content
@@ -212,6 +224,7 @@ public class MainFrame extends JFrame {
 
     private Consumer<network.isc.core.SignedAnnouncement> onJoinRequested;
     private Runnable onDialRequested;
+    private Consumer<String> onFollowRequested;
     private Consumer<Boolean> onSaveMessagesToggled;
     private Consumer<String[]> onProfileUpdated;
     private Consumer<String> onSearchRequested;
@@ -230,6 +243,13 @@ public class MainFrame extends JFrame {
 
     public void setOnDialRequested(Runnable onDialRequested) {
         this.onDialRequested = onDialRequested;
+    }
+
+    public void setOnFollowRequested(Consumer<String> onFollowRequested) {
+        this.onFollowRequested = onFollowRequested;
+        if (discoverPanel != null) {
+            discoverPanel.setOnFollowRequested(onFollowRequested);
+        }
     }
 
     public void setOnSaveMessagesToggled(Consumer<Boolean> onSaveMessagesToggled) {
@@ -289,6 +309,10 @@ public class MainFrame extends JFrame {
 
     public void setOnCreateChannel(Runnable onCreateChannel) {
         this.onCreateChannel = onCreateChannel;
+    }
+
+    public void setOnCreateGroup(Runnable onCreateGroup) {
+        this.onCreateGroup = onCreateGroup;
     }
 
     public ChatPanel getChatPanel() {

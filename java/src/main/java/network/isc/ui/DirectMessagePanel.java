@@ -143,15 +143,21 @@ public class DirectMessagePanel extends JPanel {
     public void appendMessage(String sender, String message, long timestamp, String avatarBase64) {
         String time = timeFormat.format(new Date(timestamp));
 
-        // Basic Markdown replacement
+        // HTML Escaping First
         String formattedMsg = message
             .replace("&", "&amp;")
             .replace("<", "&lt;")
-            .replace(">", "&gt;")
+            .replace(">", "&gt;");
+
+        // Then Markdown replacement (matching the escaped strings if necessary, e.g., ^&gt; for blockquote)
+        formattedMsg = formattedMsg
+            .replaceAll("(?m)^&gt; (.*?)$", "<blockquote style='border-left: 3px solid #ccc; margin: 0; padding-left: 10px; color: #555;'>$1</blockquote>")
+            .replaceAll("(?m)^- (.*?)$", "<ul><li style='margin-left: -20px;'>$1</li></ul>")
+            .replaceAll("</ul>\n<ul>", "") // Merge adjacent lists
             .replaceAll("\\*\\*(.*?)\\*\\*", "<b>$1</b>")
             .replaceAll("\\*(.*?)\\*", "<i>$1</i>")
             .replaceAll("__(.*?)__", "<u>$1</u>")
-            .replaceAll("`(.*?)`", "<code style='background-color: #f0f0f0; padding: 2px 4px; border-radius: 4px;'>$1</code>")
+            .replaceAll("`(.*?)`", "<code style='background-color: #f0f0f0; padding: 2px 4px; border-radius: 4px; font-family: monospace;'>$1</code>")
             .replaceAll("\\[FILE: (.*?)\\]", "<a href='file://$1' style='color: #1d9bf0; text-decoration: none;'>📎 Attachment: $1</a>")
             .replaceAll("\n", "<br>");
 

@@ -4,7 +4,6 @@ import network.isc.adapters.EmbeddingAdapter;
 import network.isc.adapters.NetworkAdapter;
 import network.isc.adapters.StorageAdapter;
 import network.isc.adapters.MapDBStorageAdapter;
-import network.isc.adapters.JsonPostAdapter;
 import network.isc.adapters.P2PFileTransferAdapter;
 import network.isc.adapters.ModelDownloader;
 import network.isc.controllers.ChatController;
@@ -52,7 +51,6 @@ public class ISCApplication {
     private EmbeddingAdapter embedding;
     private MapDBStorageAdapter storage;
     private P2PFileTransferAdapter fileTransfer;
-    private JsonPostAdapter postStorage;
     private PrivKey libp2pKey;
     private MainFrame mainFrame;
     private PostService postService;
@@ -188,8 +186,7 @@ public class ISCApplication {
         storage = new MapDBStorageAdapter(appDir + "/" + this.dbPath);
         channels = storage.loadChannels();
 
-        postStorage = new JsonPostAdapter(appDir + "/posts.json");
-        postService.setDatabaseAdapter(postStorage);
+        postService.setDatabaseAdapter(storage);
 
         if (!serverMode) {
             mainFrame = new MainFrame();
@@ -298,11 +295,12 @@ public class ISCApplication {
         mainFrame.setChannels(channels);
 
         mainFrame.setOnCreateChannel(this::handleCreateChannel);
+        mainFrame.setOnCreateGroup(this::handleCreateGroup);
         mainFrame.setOnChannelSelected(this::handleChannelSelected);
 
         // Settings Panel
         mainFrame.getSettingsPanel().setPeerId(network.getHost().getPeerId().toString());
-        mainFrame.setOnSaveMessagesToggled(enabled -> postStorage.setEnabled(enabled));
+        mainFrame.setOnSaveMessagesToggled(enabled -> storage.setPostsEnabled(enabled));
         mainFrame.setOnProfileUpdated(profile -> {
             String name = profile[0];
             String bio = profile[1];
@@ -338,7 +336,7 @@ public class ISCApplication {
 
         // Discover Panel Join handling
         mainFrame.setOnJoinRequested(ann -> {
-            Channel newChan = new Channel(ann.getChannelID(), "Discovered Channel", "Discovered from " + ann.getPeerID(), null, null, null, null);
+            Channel newChan = new Channel(ann.getChannelID(), "Discovered Channel", "Discovered from " + ann.getPeerID(), null, null, null, null, false, null);
             boolean exists = channels.stream().anyMatch(c -> c.getId().equals(newChan.getId()));
             if (!exists) {
                 channels.add(newChan);
@@ -384,6 +382,48 @@ public class ISCApplication {
         log.info("Received Key Delegation from Master Key: {} to Ephemeral Key: {}", delegation.getMasterKey(), delegation.getEphemeralKey());
     }
 
+    private void handleCreateGroup() {
+        JTextField nameField = new JTextField();
+        JTextField descField = new JTextField();
+        JTextField peersField = new JTextField();
+        Object[] message = {
+            "Group Name:", nameField,
+            "Description (Topic):", descField,
+            "Peer IDs (comma separated):", peersField
+        };
+
+        int option = JOptionPane.showConfirmDialog(mainFrame, message, "New Group", JOptionPane.OK_CANCEL_OPTION);
+        if (option == JOptionPane.OK_OPTION) {
+            String name = nameField.getText().trim();
+            String desc = descField.getText().trim();
+            String peersStr = peersField.getText().trim();
+
+            if (!name.isEmpty() && !desc.isEmpty() && !peersStr.isEmpty()) {
+                CompletableFuture.runAsync(() -> {
+                    try {
+                        java.util.List<String> peersList = java.util.Arrays.asList(peersStr.split(","));
+                        for (int i = 0; i < peersList.size(); i++) {
+                            peersList.set(i, peersList.get(i).trim());
+                        }
+
+                        Channel c = new Channel(null, name, desc, 0.15, java.util.Collections.emptyList(), null, null, true, peersList);
+                        channels.add(c);
+                        storage.saveChannels(channels);
+
+                        SwingUtilities.invokeLater(() -> {
+                            mainFrame.setChannels(channels);
+                            JOptionPane.showMessageDialog(mainFrame, "Group created.");
+                        });
+
+                    } catch (Exception ex) {
+                        log.error("Failed creating group", ex);
+                        SwingUtilities.invokeLater(() -> JOptionPane.showMessageDialog(mainFrame, "Error: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE));
+                    }
+                });
+            }
+        }
+    }
+
     private void handleCreateChannel() {
         JTextField nameField = new JTextField();
         JTextField descField = new JTextField();
@@ -407,7 +447,7 @@ public class ISCApplication {
                         relations.add(new network.isc.core.Relation(t.trim(), "", 1.0));
                     }
                 }
-                Channel c = new Channel(null, name, desc, null, relations, null, null);
+                Channel c = new Channel(null, name, desc, null, relations, null, null, false, null);
                 channels.add(c);
                 storage.saveChannels(channels);
                 mainFrame.setChannels(channels);

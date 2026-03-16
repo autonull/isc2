@@ -15,6 +15,8 @@ public class Channel {
     private final List<Relation> relations;
     private final long createdAt;
     private final long updatedAt;
+    private final boolean isGroup;
+    private final List<String> groupPeers;
 
     @JsonCreator
     public Channel(@JsonProperty("id") String id,
@@ -23,7 +25,9 @@ public class Channel {
                    @JsonProperty("spread") Double spread,
                    @JsonProperty("relations") List<Relation> relations,
                    @JsonProperty("createdAt") Long createdAt,
-                   @JsonProperty("updatedAt") Long updatedAt) {
+                   @JsonProperty("updatedAt") Long updatedAt,
+                   @JsonProperty("isGroup") Boolean isGroup,
+                   @JsonProperty("groupPeers") List<String> groupPeers) {
         this.id = id != null ? id : "ch_" + UUID.randomUUID().toString().replace("-", "").substring(0, 16);
         this.name = name;
         this.description = description;
@@ -32,6 +36,8 @@ public class Channel {
         long now = System.currentTimeMillis();
         this.createdAt = createdAt != null ? createdAt : now;
         this.updatedAt = updatedAt != null ? updatedAt : now;
+        this.isGroup = isGroup != null ? isGroup : false;
+        this.groupPeers = groupPeers != null ? new ArrayList<>(groupPeers) : new ArrayList<>();
     }
 
     public String getId() { return id; }
@@ -41,6 +47,8 @@ public class Channel {
     public List<Relation> getRelations() { return new ArrayList<>(relations); }
     public long getCreatedAt() { return createdAt; }
     public long getUpdatedAt() { return updatedAt; }
+    public boolean isGroup() { return isGroup; }
+    public List<String> getGroupPeers() { return new ArrayList<>(groupPeers); }
 
     @Override
     public boolean equals(Object o) {
@@ -53,11 +61,13 @@ public class Channel {
                 Objects.equals(id, channel.id) &&
                 Objects.equals(name, channel.name) &&
                 Objects.equals(description, channel.description) &&
-                Objects.equals(relations, channel.relations);
+                Objects.equals(relations, channel.relations) &&
+                isGroup == channel.isGroup &&
+                Objects.equals(groupPeers, channel.groupPeers);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(id, name, description, spread, relations, createdAt, updatedAt);
+        return Objects.hash(id, name, description, spread, relations, createdAt, updatedAt, isGroup, groupPeers);
     }
 }

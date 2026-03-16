@@ -35,6 +35,17 @@ public class DiscoveryController {
     }
 
     private void initListeners() {
+        mainFrame.setOnFollowRequested(peerId -> {
+            try {
+                String myId = network.getHost().getPeerId().toString();
+                network.isc.core.FollowEvent follow = new network.isc.core.FollowEvent(myId, peerId, System.currentTimeMillis(), new byte[0]);
+                network.broadcastSocialEvent(follow);
+                JOptionPane.showMessageDialog(mainFrame, "Sent follow event to network for peer: " + peerId);
+            } catch (Exception ex) {
+                log.error("Failed to follow peer", ex);
+            }
+        });
+
         mainFrame.setOnSearchRequested(query -> {
             if (embedding != null) {
                 new Thread(() -> {

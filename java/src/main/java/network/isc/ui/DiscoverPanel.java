@@ -49,6 +49,18 @@ public class DiscoverPanel extends JPanel {
         add(new JScrollPane(discoveriesList), BorderLayout.CENTER);
 
         JPanel bottomPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+
+        JButton followButton = new JButton("Follow Peer");
+        followButton.setEnabled(false);
+        followButton.addActionListener(e -> {
+            String selected = discoveriesList.getSelectedValue();
+            if (selected != null && announcementMap.containsKey(selected)) {
+                if (onFollowRequested != null) {
+                    onFollowRequested.accept(announcementMap.get(selected).getPeerID());
+                }
+            }
+        });
+
         joinButton = new JButton("Join / Add Channel");
         joinButton.setEnabled(false);
         joinButton.addActionListener(e -> {
@@ -57,12 +69,21 @@ public class DiscoverPanel extends JPanel {
                 onJoinRequested.accept(announcementMap.get(selected));
             }
         });
+        bottomPanel.add(followButton);
         bottomPanel.add(joinButton);
         add(bottomPanel, BorderLayout.SOUTH);
 
         discoveriesList.addListSelectionListener(e -> {
-            joinButton.setEnabled(!discoveriesList.isSelectionEmpty());
+            boolean hasSelection = !discoveriesList.isSelectionEmpty();
+            joinButton.setEnabled(hasSelection);
+            followButton.setEnabled(hasSelection);
         });
+    }
+
+    private Consumer<String> onFollowRequested;
+
+    public void setOnFollowRequested(Consumer<String> onFollowRequested) {
+        this.onFollowRequested = onFollowRequested;
     }
 
     public void setCurrentSearchVector(float[] vector) {
