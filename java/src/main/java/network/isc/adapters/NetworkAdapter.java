@@ -37,23 +37,31 @@ public class NetworkAdapter {
     private final DirectMessageProtocol dmProtocol;
     private final AnnounceProtocol announceProtocol;
     private final QueryProtocol queryProtocol;
+    private final network.isc.protocol.PostProtocol postProtocol;
+    private final network.isc.protocol.DelegateProtocol delegateProtocol;
 
     private final List<ChatProtocol.ChatController> activeChats = new ArrayList<>();
     private final List<DirectMessageProtocol.DMController> activeDMs = new ArrayList<>();
     private final List<AnnounceProtocol.AnnounceController> activeAnnouncers = new ArrayList<>();
     private final List<QueryProtocol.QueryController> activeQueries = new ArrayList<>();
+    private final List<network.isc.protocol.PostProtocol.PostController> activePosts = new ArrayList<>();
+    private final List<network.isc.protocol.DelegateProtocol.DelegateController> activeDelegates = new ArrayList<>();
 
     private Consumer<String> onPeerConnected;
 
     public NetworkAdapter(PrivKey privKey, int port,
                           Consumer<ChatMessage> onMessageReceived,
+                          Consumer<ChatMessage> onHistoricalPostReceived,
                           Consumer<ChatMessage> onDMReceived,
                           Consumer<SignedAnnouncement> onAnnounceReceived,
-                          Consumer<String[]> onQueryReceived) {
+                          Consumer<String[]> onQueryReceived,
+                          Consumer<network.isc.core.SignedDelegation> onDelegationReceived) {
         this.chatProtocol = new ChatProtocol(onMessageReceived);
         this.dmProtocol = new DirectMessageProtocol(onDMReceived);
         this.announceProtocol = new AnnounceProtocol(onAnnounceReceived);
         this.queryProtocol = new QueryProtocol(onQueryReceived);
+        this.postProtocol = new network.isc.protocol.PostProtocol(onHistoricalPostReceived);
+        this.delegateProtocol = new network.isc.protocol.DelegateProtocol(onDelegationReceived);
 
         this.host = new Builder()
             .identity(i -> {
@@ -83,6 +91,8 @@ public class NetworkAdapter {
                 p.add(dmProtocol);
                 p.add(announceProtocol);
                 p.add(queryProtocol);
+                p.add(postProtocol);
+                p.add(delegateProtocol);
 
                 return Unit.INSTANCE;
             })
@@ -130,6 +140,8 @@ public class NetworkAdapter {
         String dmPid = ProtocolConstants.PROTOCOL_DM;
         String annPid = ProtocolConstants.PROTOCOL_ANNOUNCE;
         String queryPid = ProtocolConstants.PROTOCOL_QUERY;
+        String postPid = ProtocolConstants.PROTOCOL_POST;
+        String delegatePid = ProtocolConstants.PROTOCOL_DELEGATE;
 
         return host.getNetwork().connect(target).thenCompose(conn -> {
             log.info("Connected to peer: {}", conn.remoteAddress());
@@ -156,6 +168,18 @@ public class NetworkAdapter {
                 }
             });
 
+            host.newStream(Collections.singletonList(postPid), conn).getController().thenAccept(c -> {
+                synchronized (activePosts) {
+                    activePosts.add((network.isc.protocol.PostProtocol.PostController) c);
+                }
+            });
+
+            host.newStream(Collections.singletonList(delegatePid), conn).getController().thenAccept(c -> {
+                synchronized (activeDelegates) {
+                    activeDelegates.add((network.isc.protocol.DelegateProtocol.DelegateController) c);
+                }
+            });
+
             return host.newStream(Collections.singletonList(queryPid), conn).getController();
 
         }).thenAccept(controller -> {
@@ -173,6 +197,45 @@ public class NetworkAdapter {
                     controller.send(message);
                 } catch (Exception e) {
                     log.error("Failed to send message to peer", e);
+                }
+            }
+        }
+    }
+
+    public void broadcastDelegation(network.isc.core.SignedDelegation delegation) {
+        synchronized (activeDelegates) {
+            for (network.isc.protocol.DelegateProtocol.DelegateController controller : activeDelegates) {
+                try {
+                    controller.send(delegation);
+                } catch (Exception e) {
+                    log.error("Failed to broadcast delegation to peer", e);
+                }
+            }
+        }
+    }
+
+    public void requestHistoricalPosts(String channelID) {
+        synchronized (activePosts) {
+            // A request for historical posts can simply be a ChatMessage with a specific payload convention,
+            // or an empty message just containing the channelID so the remote peer knows to sync.
+            ChatMessage syncRequest = new ChatMessage(channelID, "SYNC_REQUEST", System.currentTimeMillis(), new byte[0], new byte[0], "");
+            for (network.isc.protocol.PostProtocol.PostController controller : activePosts) {
+                try {
+                    controller.send(syncRequest);
+                } catch (Exception e) {
+                    log.error("Failed to request historical posts from peer", e);
+                }
+            }
+        }
+    }
+
+    public void sendHistoricalPost(ChatMessage message) {
+        synchronized (activePosts) {
+            for (network.isc.protocol.PostProtocol.PostController controller : activePosts) {
+                try {
+                    controller.send(message);
+                } catch (Exception e) {
+                    log.error("Failed to send historical post to peer", e);
                 }
             }
         }

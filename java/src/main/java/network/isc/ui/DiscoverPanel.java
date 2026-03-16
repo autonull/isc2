@@ -10,6 +10,7 @@ public class DiscoverPanel extends JPanel {
     private final DefaultListModel<String> discoveriesModel;
     private final JList<String> discoveriesList;
     private final java.util.Map<String, SignedAnnouncement> announcementMap = new java.util.HashMap<>();
+    private float[] currentSearchVector = null; // Store query vector for similarity scoring
     private final JButton joinButton;
     private final JTextField searchField;
     private final JButton searchButton;
@@ -64,13 +65,40 @@ public class DiscoverPanel extends JPanel {
         });
     }
 
+    public void setCurrentSearchVector(float[] vector) {
+        this.currentSearchVector = vector;
+    }
+
     public void addDiscovery(SignedAnnouncement ann) {
         SwingUtilities.invokeLater(() -> {
-            String displayText = "Channel ID: " + ann.getChannelID() + " (Peer: " + ann.getPeerID() + ")";
-            if (!announcementMap.containsKey(displayText)) {
-                announcementMap.put(displayText, ann);
-                discoveriesModel.addElement(displayText);
+            // Calculate similarity if we have an active search vector
+            String matchScore = "";
+            if (currentSearchVector != null && ann.getVec() != null) {
+                double sim = network.isc.core.SemanticMath.cosineSimilarity(currentSearchVector, ann.getVec());
+                int percentage = (int) Math.round(Math.max(0, sim) * 100);
+                matchScore = " [" + percentage + "% match] ";
             }
+
+            String displayText = "Channel ID: " + ann.getChannelID() + matchScore + " (Peer: " + ann.getPeerID() + ")";
+
+            // To prevent duplicates but allow updates with score, remove old entry if it exists without score
+            String baseKey = "Channel ID: " + ann.getChannelID();
+
+            for (int i = 0; i < discoveriesModel.getSize(); i++) {
+                String existing = discoveriesModel.getElementAt(i);
+                if (existing.startsWith(baseKey)) {
+                    // Update existing
+                    if (!existing.equals(displayText)) {
+                        announcementMap.remove(existing);
+                        discoveriesModel.setElementAt(displayText, i);
+                        announcementMap.put(displayText, ann);
+                    }
+                    return;
+                }
+            }
+
+            announcementMap.put(displayText, ann);
+            discoveriesModel.addElement(displayText);
         });
     }
 }

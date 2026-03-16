@@ -112,7 +112,7 @@ public class ISCApplication {
         postService.initializeIdentity(libp2pKey);
 
         // Network
-        network = new NetworkAdapter(libp2pKey, 0, this::handleNetworkMessage, this::handleDirectMessage, this::handleAnnouncement, this::handleQuery);
+        network = new NetworkAdapter(libp2pKey, 0, this::handleNetworkMessage, this::handleHistoricalPostSync, this::handleDirectMessage, this::handleAnnouncement, this::handleQuery, this::handleDelegation);
         network.start().join();
 
         // Storage
@@ -221,6 +221,8 @@ public class ISCApplication {
                 new Thread(() -> {
                     try {
                         float[] vector = embedding.embed(query);
+                        mainFrame.getDiscoverPanel().setCurrentSearchVector(vector);
+
                         List<String> hashes = SemanticMath.lshHash(vector, "Xenova/all-MiniLM-L6-v2", ProtocolConstants.TIER_NUM_HASHES);
                         log.info("Searching network for hashes: {}", hashes);
                         network.query(hashes.toArray(new String[0]));
@@ -327,6 +329,41 @@ public class ISCApplication {
         });
     }
 
+    private void handleHistoricalPostSync(ChatMessage syncMsg) {
+        if ("SYNC_REQUEST".equals(syncMsg.getMsg())) {
+            // We received a request to send our historical posts for a channel
+            String channelID = syncMsg.getChannelID();
+            List<Post> historical = postService.getAllPosts(channelID);
+            for (Post p : historical) {
+                // Determine public key and avatar if they were cached, or just send raw signature
+                // For simplicity in this Java MVP, we relay the post properties we have
+                ChatMessage hm = new ChatMessage(p.getChannelID(), p.getContent(), p.getTimestamp(), p.getSignature(), new byte[0], "");
+                network.sendHistoricalPost(hm);
+            }
+        } else {
+            // We received a historical post from a peer (response to our sync request)
+            Post post = syncMsg.toPost("Peer (History)");
+
+            // Only store if we don't already have it
+            boolean isNew = postService.getPost(post.getId()) == null;
+            if (isNew) {
+                postService.storePost(post);
+                SwingUtilities.invokeLater(() -> {
+                    // Update UI if we are looking at this channel
+                    if (activeChannel != null && syncMsg.getChannelID().equals(activeChannel.getId())) {
+                        mainFrame.getChatPanel().appendMessage(post.getAuthor(), post.getContent(), post.getTimestamp(), syncMsg.getAvatarBase64());
+                    }
+                });
+            }
+        }
+    }
+
+    private void handleDelegation(network.isc.core.SignedDelegation delegation) {
+        log.info("Received Key Delegation from Master Key: {} to Ephemeral Key: {}", delegation.getMasterKey(), delegation.getEphemeralKey());
+        // A fully robust implementation would store this delegation map to verify signatures
+        // arriving from the ephemeral key against the master key's identity.
+    }
+
     private void handleDirectMessage(ChatMessage chatMsg) {
         SwingUtilities.invokeLater(() -> {
             // Since DMs aren't tied to channels but to Peers, we'll route to DM Panel
@@ -367,18 +404,27 @@ public class ISCApplication {
     private void handleCreateChannel() {
         JTextField nameField = new JTextField();
         JTextField descField = new JTextField();
+        JTextField tagsField = new JTextField();
         Object[] message = {
             "Channel Name:", nameField,
-            "Description (Thoughts):", descField
+            "Description (Thoughts):", descField,
+            "Tags/Relations (e.g. tech,social):", tagsField
         };
 
         int option = JOptionPane.showConfirmDialog(mainFrame, message, "New Channel", JOptionPane.OK_CANCEL_OPTION);
         if (option == JOptionPane.OK_OPTION) {
             String name = nameField.getText().trim();
             String desc = descField.getText().trim();
+            String tags = tagsField.getText().trim();
 
             if (!name.isEmpty() && !desc.isEmpty()) {
-                Channel c = new Channel(null, name, desc, null, null, null, null);
+                java.util.List<network.isc.core.Relation> relations = new java.util.ArrayList<>();
+                if (!tags.isEmpty()) {
+                    for (String t : tags.split(",")) {
+                        relations.add(new network.isc.core.Relation(t.trim(), "", 1.0));
+                    }
+                }
+                Channel c = new Channel(null, name, desc, null, relations, null, null);
                 channels.add(c);
                 storage.saveChannels(channels);
                 mainFrame.setChannels(channels);
@@ -411,12 +457,18 @@ public class ISCApplication {
         for (float v : vector) buffer.putFloat(v);
         byte[] sig = libp2pKey.sign(buffer.array());
 
+        // Serialize primary relation tag if exists
+        String relTag = "root";
+        if (c.getRelations() != null && !c.getRelations().isEmpty()) {
+            relTag = c.getRelations().get(0).getTag();
+        }
+
         SignedAnnouncement ann = new SignedAnnouncement(
             network.getHost().getPeerId().toString(),
             c.getId(),
             "Xenova/all-MiniLM-L6-v2",
             vector,
-            "root",
+            relTag,
             ttl,
             now,
             sig
@@ -437,6 +489,9 @@ public class ISCApplication {
         }
 
         log.info("Switched to channel {} (DHT announce loop would start here)", c.getId());
+
+        // Actively request historical posts for this channel from the network
+        network.requestHistoricalPosts(c.getId());
 
         if (embedding != null) {
             new Thread(() -> {
