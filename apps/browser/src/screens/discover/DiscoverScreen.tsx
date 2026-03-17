@@ -101,9 +101,14 @@ export function DiscoverScreen() {
     );
 
     if (confirmed) {
-      console.log('[Discover] Connect to:', peerId);
-      toast.success(`Connected with ${peerName || 'peer'}!`);
-      // TODO: Implement actual connection logic
+      try {
+        console.log('[Discover] Connect to:', peerId);
+        await networkService.connectToPeer?.(peerId);
+        toast.success(`Connected with ${peerName || 'peer'}!`);
+      } catch (err) {
+        console.error('[Discover] Failed to connect:', err);
+        toast.error(`Failed to connect with ${peerName || 'peer'}`);
+      }
     }
   };
 

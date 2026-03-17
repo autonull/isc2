@@ -3,9 +3,12 @@ package network.isc.protocol;
 public class ProtocolConstants {
     public static final String PROTOCOL_CHAT = "/isc/chat/1.0";
     public static final String PROTOCOL_DELEGATE = "/isc/delegate/1.0";
+    public static final String PROTOCOL_DM = "/isc/dm/1.0";
     public static final String PROTOCOL_ANNOUNCE = "/isc/announce/1.0";
     public static final String PROTOCOL_POST = "/isc/post/1.0";
     public static final String PROTOCOL_QUERY = "/isc/query/1.0";
+    public static final String PROTOCOL_FILE = "/isc/file/1.0";
+    public static final String PROTOCOL_SOCIAL = "/isc/social/1.0";
 
     // Tier-specific defaults for High tier (Desktop)
     public static final int TIER_NUM_HASHES = 20;

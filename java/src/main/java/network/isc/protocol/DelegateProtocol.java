@@ -5,39 +5,37 @@ import io.libp2p.core.multistream.ProtocolBinding;
 import io.libp2p.core.multistream.ProtocolDescriptor;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
-import network.isc.core.SignedAnnouncement;
-
 import com.fasterxml.jackson.databind.ObjectMapper;
+import network.isc.core.SignedDelegation;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.nio.charset.StandardCharsets;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 
-public class AnnounceProtocol implements ProtocolBinding<AnnounceProtocol.AnnounceController> {
-    private static final Logger log = LoggerFactory.getLogger(AnnounceProtocol.class);
+public class DelegateProtocol implements ProtocolBinding<DelegateProtocol.DelegateController> {
+    private static final Logger log = LoggerFactory.getLogger(DelegateProtocol.class);
 
-    private final Consumer<SignedAnnouncement> onAnnouncementReceived;
+    private final Consumer<SignedDelegation> onDelegationReceived;
     private final ObjectMapper mapper = network.isc.adapters.JsonUtils.createMapper();
 
-    public AnnounceProtocol(Consumer<SignedAnnouncement> onAnnouncementReceived) {
-        this.onAnnouncementReceived = onAnnouncementReceived;
+    public DelegateProtocol(Consumer<SignedDelegation> onDelegationReceived) {
+        this.onDelegationReceived = onDelegationReceived;
     }
 
     @NotNull
     @Override
     public ProtocolDescriptor getProtocolDescriptor() {
-        return new ProtocolDescriptor(ProtocolConstants.PROTOCOL_ANNOUNCE);
+        return new ProtocolDescriptor(ProtocolConstants.PROTOCOL_DELEGATE);
     }
 
     @NotNull
     @Override
-    public CompletableFuture<AnnounceController> initChannel(@NotNull io.libp2p.core.P2PChannel ch, @NotNull String selectedProtocol) {
-        CompletableFuture<AnnounceController> future = new CompletableFuture<>();
+    public CompletableFuture<DelegateController> initChannel(@NotNull io.libp2p.core.P2PChannel ch, @NotNull String selectedProtocol) {
+        CompletableFuture<DelegateController> future = new CompletableFuture<>();
         Stream stream = (Stream) ch;
-        AnnounceController controller = new AnnounceController(stream, mapper);
+        DelegateController controller = new DelegateController(stream, mapper);
 
         stream.pushHandler(new io.netty.channel.ChannelInboundHandlerAdapter() {
             @Override
@@ -48,12 +46,12 @@ public class AnnounceProtocol implements ProtocolBinding<AnnounceProtocol.Announ
                     buf.readBytes(bytes);
 
                     try {
-                        SignedAnnouncement ann = mapper.readValue(bytes, SignedAnnouncement.class);
-                        if (onAnnouncementReceived != null) {
-                            onAnnouncementReceived.accept(ann);
+                        SignedDelegation delMsg = mapper.readValue(bytes, SignedDelegation.class);
+                        if (onDelegationReceived != null) {
+                            onDelegationReceived.accept(delMsg);
                         }
                     } catch (Exception e) {
-                        log.warn("Failed to parse announcement", e);
+                        log.warn("Failed to parse delegation message", e);
                     }
                 }
                 ctx.fireChannelRead(msg);
@@ -61,7 +59,7 @@ public class AnnounceProtocol implements ProtocolBinding<AnnounceProtocol.Announ
 
             @Override
             public void exceptionCaught(io.netty.channel.ChannelHandlerContext ctx, Throwable cause) {
-                log.error("Error in announce stream", cause);
+                log.error("Error in delegate stream", cause);
                 ctx.close();
             }
         });
@@ -70,19 +68,19 @@ public class AnnounceProtocol implements ProtocolBinding<AnnounceProtocol.Announ
         return future;
     }
 
-    public static class AnnounceController {
+    public static class DelegateController {
         private final Stream stream;
         private final ObjectMapper mapper;
 
-        public AnnounceController(Stream stream, ObjectMapper mapper) {
+        public DelegateController(Stream stream, ObjectMapper mapper) {
             this.stream = stream;
             this.mapper = mapper;
         }
 
-        public CompletableFuture<Void> send(SignedAnnouncement ann) {
+        public CompletableFuture<Void> send(SignedDelegation message) {
             CompletableFuture<Void> cf = new CompletableFuture<>();
             try {
-                byte[] bytes = mapper.writeValueAsBytes(ann);
+                byte[] bytes = mapper.writeValueAsBytes(message);
                 ByteBuf buf = Unpooled.wrappedBuffer(bytes);
                 stream.writeAndFlush(buf);
                 cf.complete(null);

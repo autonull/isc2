@@ -10,6 +10,10 @@ import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import io.libp2p.core.crypto.PubKey;
+import io.libp2p.core.crypto.KeyKt;
+
+import java.nio.charset.StandardCharsets;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 
@@ -17,7 +21,7 @@ public class ChatProtocol implements ProtocolBinding<ChatProtocol.ChatController
     private static final Logger log = LoggerFactory.getLogger(ChatProtocol.class);
 
     private final Consumer<ChatMessage> onMessageReceived;
-    private final ObjectMapper mapper = new ObjectMapper();
+    private final ObjectMapper mapper = network.isc.adapters.JsonUtils.createMapper();
 
     public ChatProtocol(Consumer<ChatMessage> onMessageReceived) {
         this.onMessageReceived = onMessageReceived;
@@ -46,9 +50,27 @@ public class ChatProtocol implements ProtocolBinding<ChatProtocol.ChatController
 
                     try {
                         ChatMessage chatMsg = mapper.readValue(bytes, ChatMessage.class);
-                        if (onMessageReceived != null) {
-                            onMessageReceived.accept(chatMsg);
+
+                        // Verify signature
+                        if (chatMsg.getSignature() != null && chatMsg.getPublicKey() != null) {
+                            try {
+                                PubKey pubKey = KeyKt.unmarshalPublicKey(chatMsg.getPublicKey());
+                                byte[] rawPayload = (chatMsg.getChannelID() + chatMsg.getMsg() + chatMsg.getTimestamp()).getBytes(StandardCharsets.UTF_8);
+
+                                if (pubKey.verify(rawPayload, chatMsg.getSignature())) {
+                                    if (onMessageReceived != null) {
+                                        onMessageReceived.accept(chatMsg);
+                                    }
+                                } else {
+                                    log.warn("Signature verification failed for chat message in channel {}", chatMsg.getChannelID());
+                                }
+                            } catch (Exception ex) {
+                                log.error("Error verifying signature", ex);
+                            }
+                        } else {
+                            log.warn("Message missing signature or public key. Dropping.");
                         }
+
                     } catch (Exception e) {
                         log.warn("Failed to parse chat message", e);
                     }
@@ -87,6 +109,10 @@ public class ChatProtocol implements ProtocolBinding<ChatProtocol.ChatController
                 cf.completeExceptionally(e);
             }
             return cf;
+        }
+
+        public String getRemotePeerId() {
+            return stream.getConnection().secureSession().getRemoteId().toBase58();
         }
     }
 }

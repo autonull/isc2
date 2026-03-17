@@ -63,6 +63,29 @@ public class SemanticMath {
     }
 
     public static List<String> lshHash(float[] vec, String seed, int numHashes) {
+        return lshHashTsCompatible(vec, seed, numHashes, 32);
+    }
+
+    public static List<String> lshHashTsCompatible(float[] vec, String seed, int numHashes, int hashLen) {
+        List<String> hashes = new ArrayList<>(numHashes);
+        Mulberry32Rng rng = new Mulberry32Rng(seed);
+
+        for (int i = 0; i < numHashes; i++) {
+            StringBuilder hashBits = new StringBuilder();
+            for (int h = 0; h < hashLen; h++) {
+                float[] proj = generateRandomProjection(vec.length, rng);
+                double dotProduct = 0.0;
+                for (int j = 0; j < vec.length; j++) {
+                    dotProduct += vec[j] * proj[j];
+                }
+                hashBits.append(dotProduct >= 0 ? '1' : '0');
+            }
+            hashes.add(hashBits.toString());
+        }
+        return hashes;
+    }
+
+    public static List<String> lshHashLegacy(float[] vec, String seed, int numHashes) {
         List<String> hashes = new ArrayList<>(numHashes);
         SeededRng rng = new SeededRng(seed);
         int hashLen = 32;
@@ -84,6 +107,56 @@ public class SemanticMath {
             hashes.add(hashBits.toString());
         }
         return hashes;
+    }
+
+    private static float[] generateRandomProjection(int dimensions, Mulberry32Rng rng) {
+        float[] vec = new float[dimensions];
+        double sumSq = 0.0;
+
+        for (int i = 0; i < dimensions; i++) {
+            double u1 = rng.next();
+            if (u1 == 0.0) {
+                u1 = 1e-10;
+            }
+            double u2 = rng.next();
+
+            double z = Math.sqrt(-2.0 * Math.log(u1)) * Math.cos(2.0 * Math.PI * u2);
+            vec[i] = (float) z;
+            sumSq += z * z;
+        }
+
+        double norm = Math.sqrt(sumSq);
+        for (int i = 0; i < dimensions; i++) {
+            vec[i] /= (float) norm;
+        }
+        return vec;
+    }
+
+    private static class Mulberry32Rng {
+        private int state;
+
+        public Mulberry32Rng(String seed) {
+            this.state = fnv1aHash(seed);
+        }
+
+        private int fnv1aHash(String str) {
+            int hash = 0x811c9dc5;
+            for (int i = 0; i < str.length(); i++) {
+                hash ^= str.charAt(i);
+                // Math.imul equivalent
+                hash = hash * 0x01000193;
+            }
+            return hash;
+        }
+
+        public double next() {
+            state = (state + 0x6d2b79f5);
+            int t = state ^ (state >>> 15);
+            t = t * (1 | state);
+            t = (t + ((t ^ (t >>> 7)) * (61 | t))) ^ t;
+            long unsignedT = (t ^ (t >>> 14)) & 0xFFFFFFFFL;
+            return (double) unsignedT / 4294967296.0;
+        }
     }
 
     private static class SeededRng {
