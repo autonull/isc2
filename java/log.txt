@@ -1,0 +1,111 @@
+[INFO] Scanning for projects...
+[INFO]
+[INFO] ------------------------< network.isc:isc-java >------------------------
+[INFO] Building isc-java 1.0-SNAPSHOT
+[INFO]   from pom.xml
+[INFO] --------------------------------[ jar ]---------------------------------
+[INFO]
+[INFO] --- exec:3.6.3:java (default-cli) @ isc-java ---
+14:00:12.714 [network.isc.ISCApplication.main()] INFO network.isc.ISCApplication -- Starting ISC in SERVER mode (Headless)
+14:00:12.716 [network.isc.ISCApplication.main()] INFO network.isc.ISCApplication -- Initializing ISC Java Client...
+14:00:13.382 [network.isc.ISCApplication.main()] INFO network.isc.ISCApplication -- Loaded existing Ed25519 identity from storage.
+14:00:13.469 [network.isc.ISCApplication.main()] DEBUG io.netty.util.internal.logging.InternalLoggerFactory -- Using SLF4J as the default logging framework
+14:00:13.471 [network.isc.ISCApplication.main()] DEBUG io.netty.util.ResourceLeakDetector -- -Dio.netty.leakDetection.level: simple
+14:00:13.471 [network.isc.ISCApplication.main()] DEBUG io.netty.util.ResourceLeakDetector -- -Dio.netty.leakDetection.targetRecords: 4
+14:00:13.490 [network.isc.ISCApplication.main()] DEBUG io.netty.util.internal.PlatformDependent0 -- -Dio.netty.noUnsafe: false
+14:00:13.491 [network.isc.ISCApplication.main()] DEBUG io.netty.util.internal.PlatformDependent0 -- Java version: 21
+14:00:13.491 [network.isc.ISCApplication.main()] DEBUG io.netty.util.internal.PlatformDependent0 -- sun.misc.Unsafe.theUnsafe: available
+14:00:13.492 [network.isc.ISCApplication.main()] DEBUG io.netty.util.internal.PlatformDependent0 -- sun.misc.Unsafe base methods: all available
+14:00:13.492 [network.isc.ISCApplication.main()] DEBUG io.netty.util.internal.PlatformDependent0 -- sun.misc.Unsafe.storeFence: available
+14:00:13.493 [network.isc.ISCApplication.main()] DEBUG io.netty.util.internal.PlatformDependent0 -- java.nio.Buffer.address: available
+14:00:13.493 [network.isc.ISCApplication.main()] DEBUG io.netty.util.internal.PlatformDependent0 -- direct buffer constructor: unavailable: Reflective setAccessible(true) disabled
+14:00:13.493 [network.isc.ISCApplication.main()] DEBUG io.netty.util.internal.PlatformDependent0 -- java.nio.Bits.unaligned: available, true
+14:00:13.494 [network.isc.ISCApplication.main()] DEBUG io.netty.util.internal.PlatformDependent0 -- jdk.internal.misc.Unsafe.allocateUninitializedArray(int): unavailable: class io.netty.util.internal.PlatformDependent0$7 cannot access class jdk.internal.misc.Unsafe (in module java.base) because module java.base does not export jdk.internal.misc to unnamed module @4682b0cd
+14:00:13.495 [network.isc.ISCApplication.main()] DEBUG io.netty.util.internal.PlatformDependent0 -- java.nio.DirectByteBuffer.<init>(long, {int,long}): unavailable
+14:00:13.495 [network.isc.ISCApplication.main()] DEBUG io.netty.util.internal.PlatformDependent -- sun.misc.Unsafe: available
+14:00:13.496 [network.isc.ISCApplication.main()] DEBUG io.netty.util.internal.PlatformDependent -- -Dio.netty.tmpdir: /tmp (java.io.tmpdir)
+14:00:13.496 [network.isc.ISCApplication.main()] DEBUG io.netty.util.internal.PlatformDependent -- -Dio.netty.bitMode: 64 (sun.arch.data.model)
+14:00:13.497 [network.isc.ISCApplication.main()] DEBUG io.netty.util.internal.PlatformDependent -- -Dio.netty.maxDirectMemory: -1 bytes
+14:00:13.497 [network.isc.ISCApplication.main()] DEBUG io.netty.util.internal.PlatformDependent -- -Dio.netty.uninitializedArrayAllocationThreshold: -1
+14:00:13.498 [network.isc.ISCApplication.main()] DEBUG io.netty.util.internal.CleanerJava9 -- java.nio.ByteBuffer.cleaner(): available
+14:00:13.498 [network.isc.ISCApplication.main()] DEBUG io.netty.util.internal.PlatformDependent -- -Dio.netty.noPreferDirect: false
+14:00:13.500 [network.isc.ISCApplication.main()] DEBUG io.netty.util.internal.PlatformDependent -- Error while reading content of /etc/os-release
+java.io.IOException: Maximum number of bytes read: 8192
+	at io.netty.util.internal.BoundedInputStream.checkMaxBytesRead(BoundedInputStream.java:79)
+	at io.netty.util.internal.BoundedInputStream.read(BoundedInputStream.java:58)
+	at java.base/sun.nio.cs.StreamDecoder.readBytes(StreamDecoder.java:350)
+	at java.base/sun.nio.cs.StreamDecoder.implRead(StreamDecoder.java:393)
+	at java.base/sun.nio.cs.StreamDecoder.lockedRead(StreamDecoder.java:217)
+	at java.base/sun.nio.cs.StreamDecoder.read(StreamDecoder.java:171)
+	at java.base/java.io.InputStreamReader.read(InputStreamReader.java:188)
+	at java.base/java.io.BufferedReader.fill(BufferedReader.java:160)
+	at java.base/java.io.BufferedReader.implReadLine(BufferedReader.java:370)
+	at java.base/java.io.BufferedReader.readLine(BufferedReader.java:347)
+	at java.base/java.io.BufferedReader.readLine(BufferedReader.java:436)
+	at io.netty.util.internal.PlatformDependent$4.run(PlatformDependent.java:246)
+	at io.netty.util.internal.PlatformDependent$4.run(PlatformDependent.java:235)
+	at java.base/java.security.AccessController.doPrivileged(AccessController.java:319)
+	at io.netty.util.internal.PlatformDependent.addFilesystemOsClassifiers(PlatformDependent.java:235)
+	at io.netty.util.internal.PlatformDependent.<clinit>(PlatformDependent.java:226)
+	at io.netty.buffer.UnpooledByteBufAllocator.<clinit>(UnpooledByteBufAllocator.java:37)
+	at io.netty.buffer.Unpooled.<clinit>(Unpooled.java:75)
+	at io.libp2p.core.multiformats.Protocol.encode(Protocol.kt:65)
+	at io.libp2p.core.multiformats.Protocol.<init>(Protocol.kt:61)
+	at io.libp2p.core.multiformats.Protocol.<init>(Protocol.kt:24)
+	at io.libp2p.core.multiformats.Protocol.<clinit>(Protocol.kt:34)
+	at io.libp2p.core.multiformats.Multiaddr$Companion.parseString(Multiaddr.kt:182)
+	at io.libp2p.core.multiformats.Multiaddr$Companion.access$parseString(Multiaddr.kt:158)
+	at io.libp2p.core.multiformats.Multiaddr.<init>(Multiaddr.kt:28)
+	at io.libp2p.core.dsl.Builder.build(Builders.kt:206)
+	at network.isc.adapters.NetworkAdapter.<init>(NetworkAdapter.java:122)
+	at network.isc.ISCApplication.initialize(ISCApplication.java:179)
+	at network.isc.ISCApplication.main(ISCApplication.java:92)
+	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+	at org.codehaus.mojo.exec.AbstractExecJavaBase.executeMainMethod(AbstractExecJavaBase.java:402)
+	at org.codehaus.mojo.exec.ExecJavaMojo.executeMainMethod(ExecJavaMojo.java:142)
+	at org.codehaus.mojo.exec.AbstractExecJavaBase.doExecClassLoader(AbstractExecJavaBase.java:377)
+	at org.codehaus.mojo.exec.AbstractExecJavaBase.lambda$execute$0(AbstractExecJavaBase.java:287)
+	at java.base/java.lang.Thread.run(Thread.java:1583)
+14:00:13.509 [network.isc.ISCApplication.main()] DEBUG io.netty.buffer.AbstractByteBuf -- -Dio.netty.buffer.checkAccessible: true
+14:00:13.510 [network.isc.ISCApplication.main()] DEBUG io.netty.buffer.AbstractByteBuf -- -Dio.netty.buffer.checkBounds: true
+14:00:13.510 [network.isc.ISCApplication.main()] DEBUG io.netty.util.ResourceLeakDetectorFactory -- Loaded default ResourceLeakDetector: io.netty.util.ResourceLeakDetector@63f3c96e
+14:00:13.569 [network.isc.ISCApplication.main()] DEBUG io.netty.channel.MultithreadEventLoopGroup -- -Dio.netty.eventLoopThreads: 8
+14:00:13.578 [network.isc.ISCApplication.main()] DEBUG io.netty.util.concurrent.GlobalEventExecutor -- -Dio.netty.globalEventExecutor.quietPeriodSeconds: 1
+14:00:13.583 [network.isc.ISCApplication.main()] DEBUG io.netty.util.internal.InternalThreadLocalMap -- -Dio.netty.threadLocalMap.stringBuilder.initialSize: 1024
+14:00:13.583 [network.isc.ISCApplication.main()] DEBUG io.netty.util.internal.InternalThreadLocalMap -- -Dio.netty.threadLocalMap.stringBuilder.maxSize: 4096
+14:00:13.588 [network.isc.ISCApplication.main()] DEBUG io.netty.channel.nio.NioEventLoop -- -Dio.netty.noKeySetOptimization: false
+14:00:13.588 [network.isc.ISCApplication.main()] DEBUG io.netty.channel.nio.NioEventLoop -- -Dio.netty.selectorAutoRebuildThreshold: 512
+14:00:13.594 [network.isc.ISCApplication.main()] DEBUG io.netty.util.internal.PlatformDependent -- org.jctools-core.MpscChunkedArrayQueue: available
+14:00:13.618 [network.isc.ISCApplication.main()] DEBUG io.netty.channel.DefaultChannelId -- -Dio.netty.processId: 29448 (auto-detected)
+14:00:13.620 [network.isc.ISCApplication.main()] DEBUG io.netty.util.NetUtil -- -Djava.net.preferIPv4Stack: false
+14:00:13.620 [network.isc.ISCApplication.main()] DEBUG io.netty.util.NetUtil -- -Djava.net.preferIPv6Addresses: false
+14:00:13.622 [network.isc.ISCApplication.main()] DEBUG io.netty.util.NetUtilInitializations -- Loopback interface: lo (lo, 0:0:0:0:0:0:0:1%lo)
+14:00:13.622 [network.isc.ISCApplication.main()] DEBUG io.netty.util.NetUtil -- /proc/sys/net/core/somaxconn: 4096
+14:00:13.623 [network.isc.ISCApplication.main()] DEBUG io.netty.channel.DefaultChannelId -- -Dio.netty.machineId: de:05:24:ff:fe:22:09:cf (auto-detected)
+14:00:13.642 [network.isc.ISCApplication.main()] DEBUG io.netty.buffer.PooledByteBufAllocator -- -Dio.netty.allocator.numHeapArenas: 8
+14:00:13.642 [network.isc.ISCApplication.main()] DEBUG io.netty.buffer.PooledByteBufAllocator -- -Dio.netty.allocator.numDirectArenas: 8
+14:00:13.642 [network.isc.ISCApplication.main()] DEBUG io.netty.buffer.PooledByteBufAllocator -- -Dio.netty.allocator.pageSize: 8192
+14:00:13.642 [network.isc.ISCApplication.main()] DEBUG io.netty.buffer.PooledByteBufAllocator -- -Dio.netty.allocator.maxOrder: 9
+14:00:13.642 [network.isc.ISCApplication.main()] DEBUG io.netty.buffer.PooledByteBufAllocator -- -Dio.netty.allocator.chunkSize: 4194304
+14:00:13.643 [network.isc.ISCApplication.main()] DEBUG io.netty.buffer.PooledByteBufAllocator -- -Dio.netty.allocator.smallCacheSize: 256
+14:00:13.643 [network.isc.ISCApplication.main()] DEBUG io.netty.buffer.PooledByteBufAllocator -- -Dio.netty.allocator.normalCacheSize: 64
+14:00:13.643 [network.isc.ISCApplication.main()] DEBUG io.netty.buffer.PooledByteBufAllocator -- -Dio.netty.allocator.maxCachedBufferCapacity: 32768
+14:00:13.643 [network.isc.ISCApplication.main()] DEBUG io.netty.buffer.PooledByteBufAllocator -- -Dio.netty.allocator.cacheTrimInterval: 8192
+14:00:13.643 [network.isc.ISCApplication.main()] DEBUG io.netty.buffer.PooledByteBufAllocator -- -Dio.netty.allocator.cacheTrimIntervalMillis: 0
+14:00:13.643 [network.isc.ISCApplication.main()] DEBUG io.netty.buffer.PooledByteBufAllocator -- -Dio.netty.allocator.useCacheForAllThreads: false
+14:00:13.643 [network.isc.ISCApplication.main()] DEBUG io.netty.buffer.PooledByteBufAllocator -- -Dio.netty.allocator.maxCachedByteBuffersPerChunk: 1023
+14:00:13.643 [network.isc.ISCApplication.main()] DEBUG io.netty.buffer.PooledByteBufAllocator -- -Dio.netty.allocator.disableCacheFinalizersForFastThreadLocalThreads: false
+14:00:13.649 [network.isc.ISCApplication.main()] DEBUG io.netty.buffer.ByteBufUtil -- -Dio.netty.allocator.type: pooled
+14:00:13.649 [network.isc.ISCApplication.main()] DEBUG io.netty.buffer.ByteBufUtil -- -Dio.netty.threadLocalDirectBufferSize: 0
+14:00:13.649 [network.isc.ISCApplication.main()] DEBUG io.netty.buffer.ByteBufUtil -- -Dio.netty.maxThreadLocalCharBufferSize: 16384
+14:00:13.651 [network.isc.ISCApplication.main()] DEBUG io.netty.bootstrap.ChannelInitializerExtensions -- -Dio.netty.bootstrap.extensions: null
+14:00:13.664 [nioEventLoopGroup-2-1] INFO network.isc.adapters.NetworkAdapter -- Node started: 12D3KooWQr511nTUccDEe7ZvvgM3zS6MDF9oje9czcWf7eBtoBHj
+14:00:13.666 [nioEventLoopGroup-2-1] INFO network.isc.adapters.NetworkAdapter -- Listening on /ip6/::/tcp/4001/p2p/12D3KooWQr511nTUccDEe7ZvvgM3zS6MDF9oje9czcWf7eBtoBHj
+14:00:13.667 [nioEventLoopGroup-2-1] INFO network.isc.adapters.NetworkAdapter -- Listening on /ip6/::/tcp/4002/ws/p2p/12D3KooWQr511nTUccDEe7ZvvgM3zS6MDF9oje9czcWf7eBtoBHj
+14:00:13.668 [nioEventLoopGroup-2-1] INFO network.isc.adapters.NetworkAdapter -- Attempting bootstrap to: /ip4/127.0.0.1/tcp/4001/p2p/QmBootstrapNodeExample1
+14:00:13.668 [nioEventLoopGroup-2-1] DEBUG network.isc.adapters.NetworkAdapter -- Invalid bootstrap peer multiaddr format: /ip4/127.0.0.1/tcp/4001/p2p/QmBootstrapNodeExample1
+14:00:13.669 [network.isc.ISCApplication.main()] INFO network.isc.ISCApplication -- Models missing. Starting headless download...
+14:00:13.671 [ForkJoinPool.commonPool-worker-2] INFO network.isc.adapters.ModelDownloader -- Downloading ONNX model to /home/jules/.isc-java/models/model_quantized.onnx
+14:00:15.135 [ForkJoinPool.commonPool-worker-2] INFO network.isc.adapters.ModelDownloader -- Downloading Tokenizer to /home/jules/.isc-java/models/tokenizer.json
+14:00:15.909 [ForkJoinPool.commonPool-worker-2] DEBUG ai.djl.util.cuda.CudaUtils -- cudart library not found.

@@ -122,6 +122,18 @@ class WebUINetworkService {
   }
 
   /**
+   * Connect to a specific peer
+   */
+  async connectToPeer(peerId: string): Promise<void> {
+    await this.ensureInitialized();
+    if ('connectToPeer' in this.service && typeof this.service.connectToPeer === 'function') {
+      await (this.service as any).connectToPeer(peerId);
+    } else {
+      console.warn('connectToPeer not implemented on BrowserNetworkService');
+    }
+  }
+
+  /**
    * Subscribe to network events
    */
   on(events: {

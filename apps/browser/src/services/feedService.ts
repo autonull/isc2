@@ -9,6 +9,7 @@ import type { Post } from '../types/extended.js';
 import type { Channel } from '@isc/core';
 import { cosineSimilarity, computeEngagementScore as coreComputeEngagementScore } from '@isc/core';
 import { formatRelativeTime } from '@isc/core';
+import { getEmbeddingService } from '@isc/network';
 
 const FOLLOWING_KEY = 'isc-following';
 
@@ -217,9 +218,19 @@ export async function computeTextChannelSimilarity(
   text: string,
   channel: Channel
 ): Promise<number> {
-  // TODO: Use embedding service for real similarity
-  // For now, use simple keyword matching
-  
+  const embeddingService = getEmbeddingService();
+  if (embeddingService.isLoaded()) {
+    try {
+      const textEmbedding = await embeddingService.embed(text);
+      const channelText = `${channel.name} ${channel.description}`;
+      const channelEmbedding = await embeddingService.embed(channelText);
+      return Math.max(0, cosineSimilarity(textEmbedding, channelEmbedding));
+    } catch (e) {
+      console.warn('Failed to embed text or channel for similarity', e);
+    }
+  }
+
+  // Fallback if embedding is not loaded
   const textLower = text.toLowerCase();
   const channelLower = channel.name.toLowerCase();
   const descLower = channel.description.toLowerCase();
