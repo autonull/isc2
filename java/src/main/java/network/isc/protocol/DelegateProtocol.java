@@ -37,24 +37,24 @@ public class DelegateProtocol implements ProtocolBinding<DelegateProtocol.Delega
         Stream stream = (Stream) ch;
         DelegateController controller = new DelegateController(stream, mapper);
 
+        stream.pushHandler(new io.netty.handler.codec.LineBasedFrameDecoder(65536));
+        stream.pushHandler(new io.netty.handler.codec.string.StringDecoder(java.nio.charset.StandardCharsets.UTF_8));
+        stream.pushHandler(new io.netty.handler.codec.string.StringEncoder(java.nio.charset.StandardCharsets.UTF_8));
         stream.pushHandler(new io.netty.channel.ChannelInboundHandlerAdapter() {
             @Override
             public void channelRead(io.netty.channel.ChannelHandlerContext ctx, Object msg) {
-                if (msg instanceof ByteBuf) {
-                    ByteBuf buf = (ByteBuf) msg;
-                    byte[] bytes = new byte[buf.readableBytes()];
-                    buf.readBytes(bytes);
-
+                if (msg instanceof String str) {
                     try {
-                        SignedDelegation delMsg = mapper.readValue(bytes, SignedDelegation.class);
+                        var delMsg = mapper.readValue(str, SignedDelegation.class);
                         if (onDelegationReceived != null) {
                             onDelegationReceived.accept(delMsg);
                         }
                     } catch (Exception e) {
                         log.warn("Failed to parse delegation message", e);
                     }
+                } else {
+                    ctx.fireChannelRead(msg);
                 }
-                ctx.fireChannelRead(msg);
             }
 
             @Override
@@ -80,9 +80,8 @@ public class DelegateProtocol implements ProtocolBinding<DelegateProtocol.Delega
         public CompletableFuture<Void> send(SignedDelegation message) {
             CompletableFuture<Void> cf = new CompletableFuture<>();
             try {
-                byte[] bytes = mapper.writeValueAsBytes(message);
-                ByteBuf buf = Unpooled.wrappedBuffer(bytes);
-                stream.writeAndFlush(buf);
+                var json = mapper.writeValueAsString(message) + "\n";
+                stream.writeAndFlush(json);
                 cf.complete(null);
             } catch (Exception e) {
                 cf.completeExceptionally(e);

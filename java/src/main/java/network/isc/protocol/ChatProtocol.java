@@ -40,22 +40,21 @@ public class ChatProtocol implements ProtocolBinding<ChatProtocol.ChatController
         Stream stream = (Stream) ch;
         ChatController controller = new ChatController(stream, mapper);
 
+        stream.pushHandler(new io.netty.handler.codec.LineBasedFrameDecoder(65536));
+        stream.pushHandler(new io.netty.handler.codec.string.StringDecoder(StandardCharsets.UTF_8));
+        stream.pushHandler(new io.netty.handler.codec.string.StringEncoder(StandardCharsets.UTF_8));
         stream.pushHandler(new io.netty.channel.ChannelInboundHandlerAdapter() {
             @Override
             public void channelRead(io.netty.channel.ChannelHandlerContext ctx, Object msg) {
-                if (msg instanceof ByteBuf) {
-                    ByteBuf buf = (ByteBuf) msg;
-                    byte[] bytes = new byte[buf.readableBytes()];
-                    buf.readBytes(bytes);
-
+                if (msg instanceof String str) {
                     try {
-                        ChatMessage chatMsg = mapper.readValue(bytes, ChatMessage.class);
+                        var chatMsg = mapper.readValue(str, ChatMessage.class);
 
                         // Verify signature
                         if (chatMsg.getSignature() != null && chatMsg.getPublicKey() != null) {
                             try {
-                                PubKey pubKey = KeyKt.unmarshalPublicKey(chatMsg.getPublicKey());
-                                byte[] rawPayload = (chatMsg.getChannelID() + chatMsg.getMsg() + chatMsg.getTimestamp()).getBytes(StandardCharsets.UTF_8);
+                                var pubKey = KeyKt.unmarshalPublicKey(chatMsg.getPublicKey());
+                                var rawPayload = (chatMsg.getChannelID() + chatMsg.getMsg() + chatMsg.getTimestamp()).getBytes(StandardCharsets.UTF_8);
 
                                 if (pubKey.verify(rawPayload, chatMsg.getSignature())) {
                                     if (onMessageReceived != null) {
@@ -74,8 +73,9 @@ public class ChatProtocol implements ProtocolBinding<ChatProtocol.ChatController
                     } catch (Exception e) {
                         log.warn("Failed to parse chat message", e);
                     }
+                } else {
+                    ctx.fireChannelRead(msg);
                 }
-                ctx.fireChannelRead(msg);
             }
 
             @Override
@@ -101,9 +101,8 @@ public class ChatProtocol implements ProtocolBinding<ChatProtocol.ChatController
         public CompletableFuture<Void> send(ChatMessage message) {
             CompletableFuture<Void> cf = new CompletableFuture<>();
             try {
-                byte[] bytes = mapper.writeValueAsBytes(message);
-                ByteBuf buf = Unpooled.wrappedBuffer(bytes);
-                stream.writeAndFlush(buf);
+                var json = mapper.writeValueAsString(message) + "\n";
+                stream.writeAndFlush(json);
                 cf.complete(null);
             } catch (Exception e) {
                 cf.completeExceptionally(e);

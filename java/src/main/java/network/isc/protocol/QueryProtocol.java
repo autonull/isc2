@@ -40,24 +40,24 @@ public class QueryProtocol implements ProtocolBinding<QueryProtocol.QueryControl
         Stream stream = (Stream) ch;
         QueryController controller = new QueryController(stream, mapper);
 
+        stream.pushHandler(new io.netty.handler.codec.LineBasedFrameDecoder(65536));
+        stream.pushHandler(new io.netty.handler.codec.string.StringDecoder(StandardCharsets.UTF_8));
+        stream.pushHandler(new io.netty.handler.codec.string.StringEncoder(StandardCharsets.UTF_8));
         stream.pushHandler(new io.netty.channel.ChannelInboundHandlerAdapter() {
             @Override
             public void channelRead(io.netty.channel.ChannelHandlerContext ctx, Object msg) {
-                if (msg instanceof ByteBuf) {
-                    ByteBuf buf = (ByteBuf) msg;
-                    byte[] bytes = new byte[buf.readableBytes()];
-                    buf.readBytes(bytes);
-
+                if (msg instanceof String str) {
                     try {
-                        String[] hashes = mapper.readValue(bytes, String[].class);
+                        var hashes = mapper.readValue(str, String[].class);
                         if (onQueryReceived != null) {
                             onQueryReceived.accept(hashes);
                         }
                     } catch (Exception e) {
                         log.warn("Failed to parse query hashes", e);
                     }
+                } else {
+                    ctx.fireChannelRead(msg);
                 }
-                ctx.fireChannelRead(msg);
             }
 
             @Override
@@ -83,9 +83,8 @@ public class QueryProtocol implements ProtocolBinding<QueryProtocol.QueryControl
         public CompletableFuture<Void> send(String[] hashes) {
             CompletableFuture<Void> cf = new CompletableFuture<>();
             try {
-                byte[] bytes = mapper.writeValueAsBytes(hashes);
-                ByteBuf buf = Unpooled.wrappedBuffer(bytes);
-                stream.writeAndFlush(buf);
+                var json = mapper.writeValueAsString(hashes) + "\n";
+                stream.writeAndFlush(json);
                 cf.complete(null);
             } catch (Exception e) {
                 cf.completeExceptionally(e);

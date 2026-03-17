@@ -52,18 +52,17 @@ public class SocialProtocol implements ProtocolBinding<SocialProtocol.SocialCont
         stream.pushHandler(new LineBasedFrameDecoder(65536));
         stream.pushHandler(new StringDecoder(StandardCharsets.UTF_8));
 
+        stream.pushHandler(new io.netty.handler.codec.string.StringEncoder(StandardCharsets.UTF_8));
         stream.pushHandler(new ChannelInboundHandlerAdapter() {
             @Override
             public void channelRead(ChannelHandlerContext ctx, Object msg) {
-                if (msg instanceof String) {
-                    String jsonString = (String) msg;
-
+                if (msg instanceof String jsonString) {
                     if (onSocialEventReceived != null) {
                         try {
                             // Support TS-encoded objects. In TS, Uint8Arrays are encoded as:
                             // { "__type": "Uint8Array", "data": [1, 2, 3] }
                             // Jackson will handle most of this naturally if signature maps to byte[] or JsonNode.
-                            JsonNode node = mapper.readTree(jsonString);
+                            var node = mapper.readTree(jsonString);
 
                             // Naive type inference based on unique properties from TS definitions
                             Object parsedEvent = null;
@@ -84,8 +83,9 @@ public class SocialProtocol implements ProtocolBinding<SocialProtocol.SocialCont
                             log.error("Error parsing social event", e);
                         }
                     }
+                } else {
+                    ctx.fireChannelRead(msg);
                 }
-                ctx.fireChannelRead(msg);
             }
 
             @Override
@@ -118,10 +118,8 @@ public class SocialProtocol implements ProtocolBinding<SocialProtocol.SocialCont
                 // We serialize the POJO to JSON and append a newline for framing.
                 // Note: The TS implementation expects JSON for these objects.
                 // Any `byte[]` in Java (like signature) will be serialized as Base64 by Jackson by default.
-                String jsonStr = mapper.writeValueAsString(event);
-                byte[] bytes = (jsonStr + "\n").getBytes(StandardCharsets.UTF_8);
-                ByteBuf buf = Unpooled.wrappedBuffer(bytes);
-                stream.writeAndFlush(buf);
+                var jsonStr = mapper.writeValueAsString(event) + "\n";
+                stream.writeAndFlush(jsonStr);
                 cf.complete(null);
             } catch (Exception e) {
                 cf.completeExceptionally(e);
