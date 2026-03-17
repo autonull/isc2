@@ -72,7 +72,7 @@ public class QueryProtocol implements ProtocolBinding<QueryProtocol.QueryControl
     }
 
     public static class QueryController {
-        private final Stream stream;
+        public final Stream stream;
         private final ObjectMapper mapper;
 
         public QueryController(Stream stream, ObjectMapper mapper) {

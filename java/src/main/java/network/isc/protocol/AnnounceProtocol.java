@@ -71,7 +71,7 @@ public class AnnounceProtocol implements ProtocolBinding<AnnounceProtocol.Announ
     }
 
     public static class AnnounceController {
-        private final Stream stream;
+        public final Stream stream;
         private final ObjectMapper mapper;
 
         public AnnounceController(Stream stream, ObjectMapper mapper) {

@@ -7,6 +7,7 @@ import java.util.ArrayList;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.awt.FontMetrics;
 
 public class SimulatorUI extends JFrame {
     private final NetworkPanel networkPanel;
@@ -51,6 +52,7 @@ public class SimulatorUI extends JFrame {
         SimNode from = nodeMap.get(fromPeerId);
         SimNode to = nodeMap.get(toPeerId);
         if (from != null && to != null) {
+            System.out.println("SimulatorUI Rendering Animation: " + type + " from " + fromPeerId + " to " + toPeerId);
             events.add(new SimEvent(from, to, type, color, System.currentTimeMillis()));
         }
     }
@@ -65,6 +67,28 @@ public class SimulatorUI extends JFrame {
                 events.add(new SimEvent(from, edge.n2, type, color, System.currentTimeMillis()));
             } else if (edge.n2 == from) {
                 events.add(new SimEvent(from, edge.n1, type, color, System.currentTimeMillis()));
+            }
+        }
+    }
+
+    public void updateNodeChannels(String peerId, List<String> channels) {
+        SimNode node = nodeMap.get(peerId);
+        if (node != null) {
+            node.channels.clear();
+            node.channels.addAll(channels);
+            networkPanel.repaint();
+        }
+    }
+
+    public void addNodeMessage(String peerId, String message) {
+        SimNode node = nodeMap.get(peerId);
+        if (node != null) {
+            if (!node.messages.isEmpty() && node.messages.get(node.messages.size() - 1).equals(message)) {
+                return; // Don't add duplicate sequential messages from polling
+            }
+            node.messages.add(message);
+            if (node.messages.size() > 4) {
+                node.messages.remove(0); // Keep last 4
             }
         }
     }
@@ -128,6 +152,23 @@ public class SimulatorUI extends JFrame {
                 FontMetrics fm = g2.getFontMetrics();
                 int tw = fm.stringWidth(node.name);
                 g2.drawString(node.name, node.x - tw / 2, node.y - 20);
+
+                // Draw Channels
+                g2.setColor(new Color(150, 250, 150));
+                int ty = node.y + 30;
+                for (String chan : node.channels) {
+                    int cw = fm.stringWidth("#" + chan);
+                    g2.drawString("#" + chan, node.x - cw / 2, ty);
+                    ty += 15;
+                }
+
+                // Draw Messages
+                g2.setColor(new Color(220, 220, 220));
+                for (String msg : node.messages) {
+                    int mw = fm.stringWidth(msg);
+                    g2.drawString(msg, node.x - mw / 2, ty);
+                    ty += 15;
+                }
             }
         }
     }
@@ -136,6 +177,8 @@ public class SimulatorUI extends JFrame {
         String id;
         String name;
         int x, y;
+        List<String> channels = new ArrayList<>();
+        List<String> messages = new ArrayList<>();
         SimNode(String id, String name) { this.id = id; this.name = name; }
     }
 

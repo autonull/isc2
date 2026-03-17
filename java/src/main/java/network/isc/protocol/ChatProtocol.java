@@ -90,7 +90,7 @@ public class ChatProtocol implements ProtocolBinding<ChatProtocol.ChatController
     }
 
     public static class ChatController {
-        private final Stream stream;
+        public final Stream stream;
         private final ObjectMapper mapper;
 
         public ChatController(Stream stream, ObjectMapper mapper) {
