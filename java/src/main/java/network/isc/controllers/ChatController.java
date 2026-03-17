@@ -71,9 +71,11 @@ public class ChatController {
 
                 if (!postService.hasLiked(postId, myId)) {
                     postService.addLike(postId, myId);
-                    // Sign and broadcast like event
-                    network.isc.core.LikeEvent like = new network.isc.core.LikeEvent(myId, postId, System.currentTimeMillis(), new byte[0]);
-                    // In a real implementation we would sign the payload: like.setSignature(libp2pKey.sign(payload))
+                    long ts = System.currentTimeMillis();
+                    String payload = myId + postId + ts;
+                    byte[] sig = libp2pKey.sign(payload.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+
+                    network.isc.core.LikeEvent like = new network.isc.core.LikeEvent(myId, postId, ts, sig);
                     network.broadcastSocialEvent(like);
                     refreshChatDisplayOnly();
                 }
@@ -81,7 +83,12 @@ public class ChatController {
                 String postId = action.substring("repost://".length());
                 String myId = libp2pKey.publicKey().toString();
                 postService.addRepost(postId, myId);
-                network.isc.core.RepostEvent repost = new network.isc.core.RepostEvent(myId, postId, System.currentTimeMillis(), new byte[0]);
+
+                long ts = System.currentTimeMillis();
+                String payload = myId + postId + ts;
+                byte[] sig = libp2pKey.sign(payload.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+
+                network.isc.core.RepostEvent repost = new network.isc.core.RepostEvent(myId, postId, ts, sig);
                 network.broadcastSocialEvent(repost);
                 refreshChatDisplayOnly();
             } else if (action.startsWith("file://")) {

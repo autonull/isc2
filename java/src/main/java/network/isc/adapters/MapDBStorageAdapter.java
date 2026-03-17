@@ -43,6 +43,10 @@ public class MapDBStorageAdapter extends StorageAdapter {
         mapper = network.isc.adapters.JsonUtils.createMapper();
     }
 
+    public ConcurrentMap<String, String> getRawMap() {
+        return map;
+    }
+
     public void setPostsEnabled(boolean enabled) {
         this.postsEnabled = enabled;
     }
