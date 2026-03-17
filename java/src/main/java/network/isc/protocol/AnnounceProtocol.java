@@ -39,24 +39,24 @@ public class AnnounceProtocol implements ProtocolBinding<AnnounceProtocol.Announ
         Stream stream = (Stream) ch;
         AnnounceController controller = new AnnounceController(stream, mapper);
 
+        stream.pushHandler(new io.netty.handler.codec.LineBasedFrameDecoder(65536));
+        stream.pushHandler(new io.netty.handler.codec.string.StringDecoder(StandardCharsets.UTF_8));
+        stream.pushHandler(new io.netty.handler.codec.string.StringEncoder(StandardCharsets.UTF_8));
         stream.pushHandler(new io.netty.channel.ChannelInboundHandlerAdapter() {
             @Override
             public void channelRead(io.netty.channel.ChannelHandlerContext ctx, Object msg) {
-                if (msg instanceof ByteBuf) {
-                    ByteBuf buf = (ByteBuf) msg;
-                    byte[] bytes = new byte[buf.readableBytes()];
-                    buf.readBytes(bytes);
-
+                if (msg instanceof String str) {
                     try {
-                        SignedAnnouncement ann = mapper.readValue(bytes, SignedAnnouncement.class);
+                        var ann = mapper.readValue(str, SignedAnnouncement.class);
                         if (onAnnouncementReceived != null) {
                             onAnnouncementReceived.accept(ann);
                         }
                     } catch (Exception e) {
                         log.warn("Failed to parse announcement", e);
                     }
+                } else {
+                    ctx.fireChannelRead(msg);
                 }
-                ctx.fireChannelRead(msg);
             }
 
             @Override
@@ -82,9 +82,8 @@ public class AnnounceProtocol implements ProtocolBinding<AnnounceProtocol.Announ
         public CompletableFuture<Void> send(SignedAnnouncement ann) {
             CompletableFuture<Void> cf = new CompletableFuture<>();
             try {
-                byte[] bytes = mapper.writeValueAsBytes(ann);
-                ByteBuf buf = Unpooled.wrappedBuffer(bytes);
-                stream.writeAndFlush(buf);
+                var json = mapper.writeValueAsString(ann) + "\n";
+                stream.writeAndFlush(json);
                 cf.complete(null);
             } catch (Exception e) {
                 cf.completeExceptionally(e);
