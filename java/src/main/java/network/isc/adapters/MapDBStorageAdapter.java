@@ -17,9 +17,11 @@ public class MapDBStorageAdapter extends StorageAdapter {
 
     private final DB db;
     private final ConcurrentMap<String, String> map;
+    private final ConcurrentMap<String, String> postsMap;
     private final ObjectMapper mapper;
     private static final String CHANNELS_KEY = "channels";
     private static final String DM_PREFIX = "dm:";
+    private boolean postsEnabled = true;
 
     public MapDBStorageAdapter(String filepath) {
         // Call super with a dummy filepath to maintain compatibility if StorageAdapter is a concrete class.
@@ -36,7 +38,66 @@ public class MapDBStorageAdapter extends StorageAdapter {
                 .make();
 
         map = db.hashMap("isc_data", Serializer.STRING, Serializer.STRING).createOrOpen();
+        postsMap = db.hashMap("isc_posts", Serializer.STRING, Serializer.STRING).createOrOpen();
         mapper = new ObjectMapper();
+    }
+
+    public void setPostsEnabled(boolean enabled) {
+        this.postsEnabled = enabled;
+    }
+
+    public boolean isEnabled() {
+        return postsEnabled;
+    }
+
+    public void savePost(network.isc.core.Post post) {
+        if (!postsEnabled) return;
+
+        try {
+            String json = mapper.writeValueAsString(post);
+            postsMap.put(post.getId(), json);
+            db.commit();
+        } catch (JsonProcessingException e) {
+            e.printStackTrace();
+        }
+    }
+
+    public network.isc.core.Post getPost(String id) {
+        String json = postsMap.get(id);
+        if (json != null) {
+            try {
+                return mapper.readValue(json, network.isc.core.Post.class);
+            } catch (JsonProcessingException e) {
+                e.printStackTrace();
+            }
+        }
+        return null;
+    }
+
+    public List<network.isc.core.Post> getPostsByChannel(String channelId) {
+        List<network.isc.core.Post> channelPosts = new ArrayList<>();
+        for (String json : postsMap.values()) {
+            try {
+                network.isc.core.Post post = mapper.readValue(json, network.isc.core.Post.class);
+                if (channelId.equals(post.getChannelID())) {
+                    channelPosts.add(post);
+                }
+            } catch (JsonProcessingException e) {
+                e.printStackTrace();
+            }
+        }
+        channelPosts.sort((a, b) -> Long.compare(b.getTimestamp(), a.getTimestamp()));
+        return channelPosts;
+    }
+
+    public void deletePost(String id) {
+        postsMap.remove(id);
+        db.commit();
+    }
+
+    public void deleteAllPosts() {
+        postsMap.clear();
+        db.commit();
     }
 
     @Override

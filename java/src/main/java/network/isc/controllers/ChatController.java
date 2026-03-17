@@ -50,8 +50,14 @@ public class ChatController {
 
                     byte[] pubKey = libp2pKey.publicKey().bytes();
                     ChatMessage chatMsg = new ChatMessage(post.getChannelID(), post.getContent(), post.getTimestamp(), post.getSignature(), pubKey, getLocalAvatarBase64);
-                    network.broadcastChat(chatMsg);
-                    log.info("Message sent in channel {}: {}", activeChannel.getName(), msg);
+
+                    if (activeChannel.isGroup()) {
+                        network.sendGroupMessage(activeChannel.getGroupPeers(), chatMsg);
+                        log.info("Message sent to group {}: {}", activeChannel.getName(), msg);
+                    } else {
+                        network.broadcastChat(chatMsg);
+                        log.info("Message sent in channel {}: {}", activeChannel.getName(), msg);
+                    }
                 } catch (Exception ex) {
                     JOptionPane.showMessageDialog(mainFrame, "Failed to post message: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
                 }
@@ -187,12 +193,31 @@ public class ChatController {
                 network.isc.core.LikeEvent like = (network.isc.core.LikeEvent) event;
                 postService.addLike(like.getPostID(), like.getLiker());
                 log.info("Received like for post {}", like.getPostID());
+
+                Post p = postService.getPost(like.getPostID());
+                if (p != null && p.getAuthor().equals(libp2pKey.publicKey().toString())) {
+                    mainFrame.displayTrayNotification("New Like", "Someone liked your post.", TrayIcon.MessageType.INFO);
+                }
+
                 if (activeChannel != null) refreshChatDisplayOnly();
             } else if (event instanceof network.isc.core.RepostEvent) {
                 network.isc.core.RepostEvent repost = (network.isc.core.RepostEvent) event;
                 postService.addRepost(repost.getPostID(), repost.getReposter());
                 log.info("Received repost for post {}", repost.getPostID());
+
+                Post p = postService.getPost(repost.getPostID());
+                if (p != null && p.getAuthor().equals(libp2pKey.publicKey().toString())) {
+                    mainFrame.displayTrayNotification("New Repost", "Someone reposted your post.", TrayIcon.MessageType.INFO);
+                }
+
                 if (activeChannel != null) refreshChatDisplayOnly();
+            } else if (event instanceof network.isc.core.FollowEvent) {
+                network.isc.core.FollowEvent follow = (network.isc.core.FollowEvent) event;
+                if (follow.getFollowee().equals(libp2pKey.publicKey().toString())) {
+                    postService.addFollower(follow.getFollowee(), follow.getFollower());
+                    mainFrame.displayTrayNotification("New Follower", "Someone started following you.", TrayIcon.MessageType.INFO);
+                    log.info("Received follow event from {}", follow.getFollower());
+                }
             }
         });
     }

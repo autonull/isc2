@@ -20,13 +20,13 @@ public class PostService {
 
     private PrivKey identityKeypair;
     private boolean identityInitialized = false;
-    private network.isc.adapters.JsonPostAdapter dbAdapter;
+    private network.isc.adapters.MapDBStorageAdapter dbAdapter;
 
     public PostService() {
         // Default to in-memory store
     }
 
-    public void setDatabaseAdapter(network.isc.adapters.JsonPostAdapter dbAdapter) {
+    public void setDatabaseAdapter(network.isc.adapters.MapDBStorageAdapter dbAdapter) {
         this.dbAdapter = dbAdapter;
     }
 
@@ -89,7 +89,11 @@ public class PostService {
      * Get post by ID
      */
     public Post getPost(String id) {
-        return postStore.get(id);
+        Post p = postStore.get(id);
+        if (p == null && dbAdapter != null && dbAdapter.isEnabled()) {
+            p = dbAdapter.getPost(id);
+        }
+        return p;
     }
 
     /**

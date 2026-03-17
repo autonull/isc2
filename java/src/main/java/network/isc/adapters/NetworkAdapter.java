@@ -104,6 +104,7 @@ public class NetworkAdapter {
             })
             .network(n -> {
                 n.listen("/ip4/0.0.0.0/tcp/" + port);
+                n.listen("/ip4/0.0.0.0/tcp/" + (port + 1) + "/ws");
                 return Unit.INSTANCE;
             })
             .protocols(p -> {
@@ -248,6 +249,20 @@ public class NetworkAdapter {
                     }
                 } catch (Exception e) {
                     log.error("Failed to broadcast file data to peer", e);
+                }
+            }
+        }
+    }
+
+    public void sendGroupMessage(java.util.List<String> targetPeerIds, ChatMessage message) {
+        synchronized (activeChats) {
+            for (ChatProtocol.ChatController controller : activeChats) {
+                if (targetPeerIds.contains(controller.getRemotePeerId())) {
+                    try {
+                        controller.send(message);
+                    } catch (Exception e) {
+                        log.error("Failed to send group message to peer {}", controller.getRemotePeerId(), e);
+                    }
                 }
             }
         }
