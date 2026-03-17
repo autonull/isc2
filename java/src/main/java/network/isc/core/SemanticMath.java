@@ -26,27 +26,27 @@ public class SemanticMath {
         if (myDists.isEmpty() || peerDists.isEmpty()) return 0.0;
 
         // Root vs Root match
-        Distribution myRoot = myDists.get(0);
-        Distribution peerRoot = peerDists.get(0);
-        double rootSim = cosineSimilarity(myRoot.getMu(), peerRoot.getMu());
+        var myRoot = myDists.get(0);
+        var peerRoot = peerDists.get(0);
+        var rootSim = cosineSimilarity(myRoot.mu(), peerRoot.mu());
 
         if (myDists.size() == 1 || peerDists.size() == 1) {
             return rootSim;
         }
 
         // Simplification for Java: average matching relations
-        double sumSim = rootSim;
-        int matches = 1;
+        var sumSim = rootSim;
+        var matches = 1;
 
         for (int i = 1; i < myDists.size(); i++) {
-            Distribution myRel = myDists.get(i);
+            var myRel = myDists.get(i);
             Distribution bestMatch = null;
-            double bestSim = 0.0;
+            var bestSim = 0.0;
 
             for (int j = 1; j < peerDists.size(); j++) {
-                Distribution peerRel = peerDists.get(j);
-                if (myRel.getTag().equals(peerRel.getTag())) {
-                    double sim = cosineSimilarity(myRel.getMu(), peerRel.getMu());
+                var peerRel = peerDists.get(j);
+                if (myRel.tag().equals(peerRel.tag())) {
+                    var sim = cosineSimilarity(myRel.mu(), peerRel.mu());
                     if (sim > bestSim) {
                         bestSim = sim;
                         bestMatch = peerRel;
@@ -67,14 +67,14 @@ public class SemanticMath {
     }
 
     public static List<String> lshHashTsCompatible(float[] vec, String seed, int numHashes, int hashLen) {
-        List<String> hashes = new ArrayList<>(numHashes);
-        Mulberry32Rng rng = new Mulberry32Rng(seed);
+        var hashes = new ArrayList<String>(numHashes);
+        var rng = new Mulberry32Rng(seed);
 
         for (int i = 0; i < numHashes; i++) {
-            StringBuilder hashBits = new StringBuilder();
+            var hashBits = new StringBuilder();
             for (int h = 0; h < hashLen; h++) {
-                float[] proj = generateRandomProjection(vec.length, rng);
-                double dotProduct = 0.0;
+                var proj = generateRandomProjection(vec.length, rng);
+                var dotProduct = 0.0;
                 for (int j = 0; j < vec.length; j++) {
                     dotProduct += vec[j] * proj[j];
                 }
@@ -86,19 +86,19 @@ public class SemanticMath {
     }
 
     public static List<String> lshHashLegacy(float[] vec, String seed, int numHashes) {
-        List<String> hashes = new ArrayList<>(numHashes);
-        SeededRng rng = new SeededRng(seed);
-        int hashLen = 32;
+        var hashes = new ArrayList<String>(numHashes);
+        var rng = new SeededRng(seed);
+        var hashLen = 32;
 
         for (int i = 0; i < numHashes; i++) {
-            StringBuilder hashBits = new StringBuilder();
+            var hashBits = new StringBuilder();
             for (int h = 0; h < hashLen; h++) {
-                float[] proj = new float[vec.length];
+                var proj = new float[vec.length];
                 for (int j = 0; j < vec.length; j++) {
                     proj[j] = (float) (rng.next() * 2 - 1);
                 }
 
-                double dotProduct = 0.0;
+                var dotProduct = 0.0;
                 for (int j = 0; j < vec.length; j++) {
                     dotProduct += vec[j] * proj[j];
                 }
@@ -110,22 +110,22 @@ public class SemanticMath {
     }
 
     private static float[] generateRandomProjection(int dimensions, Mulberry32Rng rng) {
-        float[] vec = new float[dimensions];
-        double sumSq = 0.0;
+        var vec = new float[dimensions];
+        var sumSq = 0.0;
 
         for (int i = 0; i < dimensions; i++) {
-            double u1 = rng.next();
+            var u1 = rng.next();
             if (u1 == 0.0) {
                 u1 = 1e-10;
             }
-            double u2 = rng.next();
+            var u2 = rng.next();
 
-            double z = Math.sqrt(-2.0 * Math.log(u1)) * Math.cos(2.0 * Math.PI * u2);
+            var z = Math.sqrt(-2.0 * Math.log(u1)) * Math.cos(2.0 * Math.PI * u2);
             vec[i] = (float) z;
             sumSq += z * z;
         }
 
-        double norm = Math.sqrt(sumSq);
+        var norm = Math.sqrt(sumSq);
         for (int i = 0; i < dimensions; i++) {
             vec[i] /= (float) norm;
         }
