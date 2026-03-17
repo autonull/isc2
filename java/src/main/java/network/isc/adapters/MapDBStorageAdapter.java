@@ -121,7 +121,7 @@ public class MapDBStorageAdapter extends StorageAdapter {
             return new ArrayList<>();
         }
         try {
-            return mapper.readValue(json, new TypeReference<List<Channel>>() {});
+            return mapper.readValue(json, new TypeReference<>() {});
         } catch (JsonProcessingException e) {
             e.printStackTrace();
             return new ArrayList<>();
@@ -145,7 +145,7 @@ public class MapDBStorageAdapter extends StorageAdapter {
             return new ArrayList<>();
         }
         try {
-            return mapper.readValue(json, new TypeReference<List<network.isc.protocol.ChatMessage>>() {});
+            return mapper.readValue(json, new TypeReference<>() {});
         } catch (JsonProcessingException e) {
             e.printStackTrace();
             return new ArrayList<>();
