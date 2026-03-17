@@ -50,8 +50,14 @@ public class ChatController {
 
                     byte[] pubKey = libp2pKey.publicKey().bytes();
                     ChatMessage chatMsg = new ChatMessage(post.getChannelID(), post.getContent(), post.getTimestamp(), post.getSignature(), pubKey, getLocalAvatarBase64);
-                    network.broadcastChat(chatMsg);
-                    log.info("Message sent in channel {}: {}", activeChannel.getName(), msg);
+
+                    if (activeChannel.isGroup()) {
+                        network.sendGroupMessage(activeChannel.getGroupPeers(), chatMsg);
+                        log.info("Message sent to group {}: {}", activeChannel.getName(), msg);
+                    } else {
+                        network.broadcastChat(chatMsg);
+                        log.info("Message sent in channel {}: {}", activeChannel.getName(), msg);
+                    }
                 } catch (Exception ex) {
                     JOptionPane.showMessageDialog(mainFrame, "Failed to post message: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
                 }

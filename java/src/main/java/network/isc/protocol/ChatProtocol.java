@@ -110,5 +110,9 @@ public class ChatProtocol implements ProtocolBinding<ChatProtocol.ChatController
             }
             return cf;
         }
+
+        public String getRemotePeerId() {
+            return stream.getConnection().secureSession().getRemoteId().toBase58();
+        }
     }
 }

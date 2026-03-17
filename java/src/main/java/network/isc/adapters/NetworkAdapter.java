@@ -254,6 +254,20 @@ public class NetworkAdapter {
         }
     }
 
+    public void sendGroupMessage(java.util.List<String> targetPeerIds, ChatMessage message) {
+        synchronized (activeChats) {
+            for (ChatProtocol.ChatController controller : activeChats) {
+                if (targetPeerIds.contains(controller.getRemotePeerId())) {
+                    try {
+                        controller.send(message);
+                    } catch (Exception e) {
+                        log.error("Failed to send group message to peer {}", controller.getRemotePeerId(), e);
+                    }
+                }
+            }
+        }
+    }
+
     public void sendFileProtocolData(Stream stream, byte[] data) {
         try {
             io.netty.buffer.ByteBuf buf = io.netty.buffer.Unpooled.wrappedBuffer(data);
