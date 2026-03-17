@@ -94,7 +94,7 @@ public class PostService {
         Post postWithoutSig = new Post();
         postWithoutSig.setId("post_" + UUID.randomUUID().toString());
         // For author, use a derived ID or just "Me" if not easily extractable
-        postWithoutSig.setAuthor(identityKeypair.publicKey().toString());
+        postWithoutSig.setAuthor(java.util.Base64.getEncoder().encodeToString(identityKeypair.publicKey().bytes()));
         postWithoutSig.setContent(content.trim());
         postWithoutSig.setChannelID(channelId);
         postWithoutSig.setTimestamp(System.currentTimeMillis());

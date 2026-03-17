@@ -40,7 +40,7 @@ public class DiscoveryController {
     private void initListeners() {
         mainFrame.setOnFollowRequested(peerId -> {
             try {
-                String myId = network.getHost().getPeerId().toString();
+                String myId = java.util.Base64.getEncoder().encodeToString(libp2pKey.publicKey().bytes());
                 long ts = System.currentTimeMillis();
                 String payload = myId + peerId + ts;
                 byte[] sig = libp2pKey.sign(payload.getBytes(java.nio.charset.StandardCharsets.UTF_8));

@@ -13,6 +13,8 @@ import javax.swing.*;
 import java.awt.TrayIcon;
 import java.nio.charset.StandardCharsets;
 import io.libp2p.core.crypto.PrivKey;
+import io.libp2p.core.crypto.PubKey;
+import io.libp2p.core.crypto.KeyKt;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -67,7 +69,7 @@ public class ChatController {
         chatPanel.setSocialActionHandler(action -> {
             if (action.startsWith("like://")) {
                 String postId = action.substring("like://".length());
-                String myId = libp2pKey.publicKey().toString();
+                String myId = java.util.Base64.getEncoder().encodeToString(libp2pKey.publicKey().bytes());
 
                 if (!postService.hasLiked(postId, myId)) {
                     postService.addLike(postId, myId);
@@ -81,7 +83,7 @@ public class ChatController {
                 }
             } else if (action.startsWith("repost://")) {
                 String postId = action.substring("repost://".length());
-                String myId = libp2pKey.publicKey().toString();
+                String myId = java.util.Base64.getEncoder().encodeToString(libp2pKey.publicKey().bytes());
                 postService.addRepost(postId, myId);
 
                 long ts = System.currentTimeMillis();
@@ -163,7 +165,7 @@ public class ChatController {
                 chatPanel.appendMessage(post.getAuthor(), post.getContent(), post.getTimestamp(), chatMsg.getAvatarBase64(), post.getId(), likes, reposts);
             }
 
-            String myPubKeyStr = libp2pKey.publicKey().toString();
+            String myPubKeyStr = java.util.Base64.getEncoder().encodeToString(libp2pKey.publicKey().bytes());
             if (chatMsg.getMsg().contains("@" + myPubKeyStr) || chatMsg.getMsg().contains("@Me")) {
                 mainFrame.displayTrayNotification("New Mention", "You were mentioned in a channel.", TrayIcon.MessageType.INFO);
             }
@@ -198,34 +200,62 @@ public class ChatController {
         SwingUtilities.invokeLater(() -> {
             if (event instanceof network.isc.core.LikeEvent) {
                 network.isc.core.LikeEvent like = (network.isc.core.LikeEvent) event;
+                if (!verifySocialSignature(like.getLiker(), like.getLiker() + like.getPostID() + like.getTimestamp(), like.getSignature())) {
+                    log.warn("Invalid signature on LikeEvent for post {}", like.getPostID());
+                    return;
+                }
                 postService.addLike(like.getPostID(), like.getLiker());
                 log.info("Received like for post {}", like.getPostID());
 
                 Post p = postService.getPost(like.getPostID());
-                if (p != null && p.getAuthor().equals(libp2pKey.publicKey().toString())) {
+                if (p != null && p.getAuthor().equals(java.util.Base64.getEncoder().encodeToString(libp2pKey.publicKey().bytes()))) {
                     mainFrame.displayTrayNotification("New Like", "Someone liked your post.", TrayIcon.MessageType.INFO);
                 }
 
                 if (activeChannel != null) refreshChatDisplayOnly();
             } else if (event instanceof network.isc.core.RepostEvent) {
                 network.isc.core.RepostEvent repost = (network.isc.core.RepostEvent) event;
+                if (!verifySocialSignature(repost.getReposter(), repost.getReposter() + repost.getPostID() + repost.getTimestamp(), repost.getSignature())) {
+                    log.warn("Invalid signature on RepostEvent for post {}", repost.getPostID());
+                    return;
+                }
                 postService.addRepost(repost.getPostID(), repost.getReposter());
                 log.info("Received repost for post {}", repost.getPostID());
 
                 Post p = postService.getPost(repost.getPostID());
-                if (p != null && p.getAuthor().equals(libp2pKey.publicKey().toString())) {
+                if (p != null && p.getAuthor().equals(java.util.Base64.getEncoder().encodeToString(libp2pKey.publicKey().bytes()))) {
                     mainFrame.displayTrayNotification("New Repost", "Someone reposted your post.", TrayIcon.MessageType.INFO);
                 }
 
                 if (activeChannel != null) refreshChatDisplayOnly();
             } else if (event instanceof network.isc.core.FollowEvent) {
                 network.isc.core.FollowEvent follow = (network.isc.core.FollowEvent) event;
-                if (follow.getFollowee().equals(libp2pKey.publicKey().toString())) {
+                if (!verifySocialSignature(follow.getFollower(), follow.getFollower() + follow.getFollowee() + follow.getTimestamp(), follow.getSignature())) {
+                    log.warn("Invalid signature on FollowEvent for followee {}", follow.getFollowee());
+                    return;
+                }
+                if (follow.getFollowee().equals(java.util.Base64.getEncoder().encodeToString(libp2pKey.publicKey().bytes()))) {
                     postService.addFollower(follow.getFollowee(), follow.getFollower());
                     mainFrame.displayTrayNotification("New Follower", "Someone started following you.", TrayIcon.MessageType.INFO);
                     log.info("Received follow event from {}", follow.getFollower());
                 }
             }
         });
+    }
+
+    private boolean verifySocialSignature(String pubKeyBase64, String payload, byte[] signature) {
+        if (signature == null || signature.length == 0) return false;
+        try {
+            // We expect the pubKey string (the liker/reposter/follower ID) to be the Base64 representation of the public key bytes
+            // This allows us to reconstruct the PubKey object and verify the signature.
+            byte[] pkBytes = java.util.Base64.getDecoder().decode(pubKeyBase64);
+            PubKey pubKey = io.libp2p.core.crypto.KeyKt.unmarshalPublicKey(pkBytes);
+            return pubKey.verify(payload.getBytes(java.nio.charset.StandardCharsets.UTF_8), signature);
+        } catch (Exception e) {
+            log.warn("Failed to decode public key or verify signature. The ID may be using a legacy string format.", e);
+            // In a strict implementation, this would return false. For transitional compatibility with legacy toString(), we might return true
+            // but log a warning. We'll return false here to enforce security correctly.
+            return false;
+        }
     }
 }
