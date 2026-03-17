@@ -137,7 +137,7 @@
         <artifactId>maven-surefire-plugin</artifactId>
         <version>3.5.4</version>
         <configuration>
-          <argLine>--add-opens java.base/jdk.internal.misc=ALL-UNNAMED --add-opens java.base/sun.nio.ch=ALL-UNNAMED --add-opens java.base/java.lang=ALL-UNNAMED --add-opens java.base/sun.security.ssl=ALL-UNNAMED --add-opens java.base/sun.misc=ALL-UNNAMED --enable-native-access=ALL-UNNAMED -XX:+IgnoreUnrecognizedVMOptions -Xlint:-deprecation</argLine>
+          <jvm>${JAVA_HOME}/bin/java</jvm>
         </configuration>
       </plugin>
     </plugins>
