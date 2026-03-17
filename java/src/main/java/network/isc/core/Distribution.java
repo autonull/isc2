@@ -2,18 +2,18 @@ package network.isc.core;
 
 import java.util.Arrays;
 
-public class Distribution {
-    private final float[] mu;
-    private final double sigma;
-    private final String tag;
-
-    public Distribution(float[] mu, double sigma, String tag) {
-        this.mu = Arrays.copyOf(mu, mu.length);
-        this.sigma = sigma;
-        this.tag = tag;
+public record Distribution(float[] mu, double sigma, String tag) {
+    public Distribution {
+        mu = Arrays.copyOf(mu, mu.length);
     }
 
-    public float[] getMu() { return Arrays.copyOf(mu, mu.length); }
+    @Override
+    public float[] mu() {
+        return Arrays.copyOf(mu, mu.length);
+    }
+
+    // Keep legacy getters for backwards compatibility if needed
+    public float[] getMu() { return mu(); }
     public double getSigma() { return sigma; }
     public String getTag() { return tag; }
 }

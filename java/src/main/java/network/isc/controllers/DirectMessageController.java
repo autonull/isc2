@@ -42,12 +42,12 @@ public class DirectMessageController {
 
     private void initListeners() {
         dmPanel.setOnPeerSelectedListener(peerId -> {
-            List<ChatMessage> history = storage.loadDirectMessages(peerId);
-            for (ChatMessage msg : history) {
+            var history = storage.loadDirectMessages(peerId);
+            for (var msg : history) {
                 // If the channel ID is "Me" or our own public key, it was sent by us.
                 // In DMs, channelId is often overloaded as the recipient.
                 // To keep it simple, we check if the signature/pubKey matches ours.
-                String sender = "Peer";
+                var sender = "Peer";
                 if (msg.getPublicKey() != null && java.util.Arrays.equals(msg.getPublicKey(), libp2pKey.publicKey().bytes())) {
                     sender = "You";
                 }
@@ -56,23 +56,23 @@ public class DirectMessageController {
         });
 
         dmPanel.addSendListener(e -> {
-            String msg = dmPanel.getAndClearInput();
-            String targetPeer = dmPanel.getActivePeer();
+            var msg = dmPanel.getAndClearInput();
+            var targetPeer = dmPanel.getActivePeer();
 
             if (!msg.isEmpty() && targetPeer != null) {
                 try {
-                    long ts = System.currentTimeMillis();
-                    byte[] rawPayload = (targetPeer + msg + ts).getBytes(StandardCharsets.UTF_8);
-                    byte[] sig = libp2pKey.sign(rawPayload);
-                    byte[] pubKey = libp2pKey.publicKey().bytes();
+                    var ts = System.currentTimeMillis();
+                    var rawPayload = (targetPeer + msg + ts).getBytes(StandardCharsets.UTF_8);
+                    var sig = libp2pKey.sign(rawPayload);
+                    var pubKey = libp2pKey.publicKey().bytes();
 
-                    ChatMessage chatMsg = new ChatMessage(targetPeer, msg, ts, sig, pubKey, getLocalAvatarBase64);
+                    var chatMsg = new ChatMessage(targetPeer, msg, ts, sig, pubKey, getLocalAvatarBase64);
                     network.sendDirectMessage(targetPeer, chatMsg);
 
                     dmPanel.appendMessage("You", msg, ts, getLocalAvatarBase64);
 
                     // Save to storage
-                    List<ChatMessage> history = storage.loadDirectMessages(targetPeer);
+                    var history = storage.loadDirectMessages(targetPeer);
                     history.add(chatMsg);
                     storage.saveDirectMessages(targetPeer, history);
 
@@ -83,10 +83,10 @@ public class DirectMessageController {
         });
 
         dmPanel.addAttachListener(e -> {
-            JFileChooser fileChooser = new JFileChooser();
-            int option = fileChooser.showOpenDialog(mainFrame);
+            var fileChooser = new JFileChooser();
+            var option = fileChooser.showOpenDialog(mainFrame);
             if (option == JFileChooser.APPROVE_OPTION) {
-                java.io.File file = fileChooser.getSelectedFile();
+                var file = fileChooser.getSelectedFile();
                 if (file != null && file.exists()) {
                     fileTransfer.stageFile(file).thenAccept(hash -> {
                         SwingUtilities.invokeLater(() -> {
@@ -104,13 +104,13 @@ public class DirectMessageController {
 
         dmPanel.setSocialActionHandler(action -> {
             if (action.startsWith("file://")) {
-                String fileHash = action.substring("file://".length());
-                JFileChooser fileChooser = new JFileChooser();
+                var fileHash = action.substring("file://".length());
+                var fileChooser = new JFileChooser();
                 fileChooser.setDialogTitle("Save Downloaded File");
-                int userSelection = fileChooser.showSaveDialog(mainFrame);
+                var userSelection = fileChooser.showSaveDialog(mainFrame);
 
                 if (userSelection == JFileChooser.APPROVE_OPTION) {
-                    java.io.File dest = fileChooser.getSelectedFile();
+                    var dest = fileChooser.getSelectedFile();
                     fileTransfer.downloadFile(fileHash, dest.getAbsolutePath()).thenAccept(f -> {
                         SwingUtilities.invokeLater(() -> {
                             JOptionPane.showMessageDialog(mainFrame, "File downloaded successfully to: " + f.getAbsolutePath());
@@ -129,20 +129,20 @@ public class DirectMessageController {
     public void handleDirectMessage(ChatMessage chatMsg) {
         // Find out who sent it. In the libp2p DM protocol context, the message comes from a peer.
         // The sender's ID isn't directly inside the simple ChatMessage unless we decode the pubKey.
-        String senderPeerId = "Peer";
+        var senderPeerId = "Peer";
         try {
             if (chatMsg.getPublicKey() != null) {
-                io.libp2p.core.crypto.PubKey pubKey = io.libp2p.core.crypto.KeyKt.unmarshalPublicKey(chatMsg.getPublicKey());
+                var pubKey = io.libp2p.core.crypto.KeyKt.unmarshalPublicKey(chatMsg.getPublicKey());
                 senderPeerId = io.libp2p.core.PeerId.fromPubKey(pubKey).toBase58();
             }
         } catch (Exception e) {
             log.warn("Could not extract peerId from DM", e);
         }
 
-        final String finalSender = senderPeerId;
+        final var finalSender = senderPeerId;
 
         // Save to storage
-        List<ChatMessage> history = storage.loadDirectMessages(finalSender);
+        var history = storage.loadDirectMessages(finalSender);
         history.add(chatMsg);
         storage.saveDirectMessages(finalSender, history);
 

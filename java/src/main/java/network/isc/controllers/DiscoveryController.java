@@ -40,12 +40,12 @@ public class DiscoveryController {
     private void initListeners() {
         mainFrame.setOnFollowRequested(peerId -> {
             try {
-                String myId = java.util.Base64.getEncoder().encodeToString(libp2pKey.publicKey().bytes());
-                long ts = System.currentTimeMillis();
-                String payload = myId + peerId + ts;
-                byte[] sig = libp2pKey.sign(payload.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+                var myId = java.util.Base64.getEncoder().encodeToString(libp2pKey.publicKey().bytes());
+                var ts = System.currentTimeMillis();
+                var payload = myId + peerId + ts;
+                var sig = libp2pKey.sign(payload.getBytes(java.nio.charset.StandardCharsets.UTF_8));
 
-                network.isc.core.FollowEvent follow = new network.isc.core.FollowEvent(myId, peerId, ts, sig);
+                var follow = new network.isc.core.FollowEvent(myId, peerId, ts, sig);
                 network.broadcastSocialEvent(follow);
                 JOptionPane.showMessageDialog(mainFrame, "Sent follow event to network for peer: " + peerId);
             } catch (Exception ex) {
@@ -57,14 +57,14 @@ public class DiscoveryController {
             if (embedding != null) {
                 new Thread(() -> {
                     try {
-                        float[] vector = embedding.embed(query);
+                        var vector = embedding.embed(query);
                         discoverPanel.setCurrentSearchVector(vector);
 
-                        List<String> hashes = SemanticMath.lshHash(vector, "Xenova/all-MiniLM-L6-v2", ProtocolConstants.TIER_NUM_HASHES);
+                        var hashes = SemanticMath.lshHash(vector, "Xenova/all-MiniLM-L6-v2", ProtocolConstants.TIER_NUM_HASHES);
                         log.info("Searching network for hashes: {}", hashes);
                         network.query(hashes.toArray(new String[0]));
 
-                        for (String hash : hashes) {
+                        for (var hash : hashes) {
                             if (localDht.containsKey(hash)) {
                                 discoverPanel.addDiscovery(localDht.get(hash));
                             }
@@ -82,8 +82,8 @@ public class DiscoveryController {
 
     public void handleAnnouncement(SignedAnnouncement ann) {
         log.info("Received channel announcement for channelID: {}", ann.getChannelID());
-        List<String> hashes = SemanticMath.lshHash(ann.getVec(), ann.getModel(), ProtocolConstants.TIER_NUM_HASHES);
-        for (String hash : hashes) {
+        var hashes = SemanticMath.lshHash(ann.getVec(), ann.getModel(), ProtocolConstants.TIER_NUM_HASHES);
+        for (var hash : hashes) {
             localDht.put(hash, ann);
         }
 
@@ -95,7 +95,7 @@ public class DiscoveryController {
 
     public void handleQuery(String[] hashes) {
         log.info("Received query for hashes: {}", Arrays.toString(hashes));
-        for (String hash : hashes) {
+        for (var hash : hashes) {
             if (localDht.containsKey(hash)) {
                 log.info("Query matched local DHT for hash {}", hash);
                 network.announce(localDht.get(hash));

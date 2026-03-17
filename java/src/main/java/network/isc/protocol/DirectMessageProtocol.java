@@ -39,16 +39,15 @@ public class DirectMessageProtocol implements ProtocolBinding<DirectMessageProto
         String remotePeerId = stream.remotePeerId().toString();
         DMController controller = new DMController(stream, mapper, remotePeerId);
 
+        stream.pushHandler(new io.netty.handler.codec.LineBasedFrameDecoder(65536));
+        stream.pushHandler(new io.netty.handler.codec.string.StringDecoder(StandardCharsets.UTF_8));
+        stream.pushHandler(new io.netty.handler.codec.string.StringEncoder(StandardCharsets.UTF_8));
         stream.pushHandler(new io.netty.channel.ChannelInboundHandlerAdapter() {
             @Override
             public void channelRead(io.netty.channel.ChannelHandlerContext ctx, Object msg) {
-                if (msg instanceof ByteBuf) {
-                    ByteBuf buf = (ByteBuf) msg;
-                    byte[] bytes = new byte[buf.readableBytes()];
-                    buf.readBytes(bytes);
-
+                if (msg instanceof String str) {
                     try {
-                        ChatMessage chatMsg = mapper.readValue(bytes, ChatMessage.class);
+                        var chatMsg = mapper.readValue(str, ChatMessage.class);
                         // Optional: Add signature verification here as well if needed
                         if (onMessageReceived != null) {
                             onMessageReceived.accept(chatMsg);
@@ -56,8 +55,9 @@ public class DirectMessageProtocol implements ProtocolBinding<DirectMessageProto
                     } catch (Exception e) {
                         log.warn("Failed to parse DM message", e);
                     }
+                } else {
+                    ctx.fireChannelRead(msg);
                 }
-                ctx.fireChannelRead(msg);
             }
 
             @Override
@@ -89,9 +89,8 @@ public class DirectMessageProtocol implements ProtocolBinding<DirectMessageProto
         public CompletableFuture<Void> send(ChatMessage message) {
             CompletableFuture<Void> cf = new CompletableFuture<>();
             try {
-                byte[] bytes = mapper.writeValueAsBytes(message);
-                ByteBuf buf = Unpooled.wrappedBuffer(bytes);
-                stream.writeAndFlush(buf);
+                var json = mapper.writeValueAsString(message) + "\n";
+                stream.writeAndFlush(json);
                 cf.complete(null);
             } catch (Exception e) {
                 cf.completeExceptionally(e);
