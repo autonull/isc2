@@ -18,7 +18,7 @@ public class DirectMessageProtocol implements ProtocolBinding<DirectMessageProto
     private static final Logger log = LoggerFactory.getLogger(DirectMessageProtocol.class);
 
     private final Consumer<ChatMessage> onMessageReceived;
-    private final ObjectMapper mapper = new ObjectMapper();
+    private final ObjectMapper mapper = network.isc.adapters.JsonUtils.createMapper();
 
     public DirectMessageProtocol(Consumer<ChatMessage> onMessageReceived) {
         this.onMessageReceived = onMessageReceived;

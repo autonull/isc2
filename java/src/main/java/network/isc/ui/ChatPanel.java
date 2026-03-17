@@ -125,8 +125,8 @@ public class ChatPanel extends JPanel {
 
         // Then Markdown replacement (matching the escaped strings if necessary, e.g., ^&gt; for blockquote)
         formattedMsg = formattedMsg
-            .replaceAll("(?m)^&gt; (.*?)$", "<blockquote style='border-left: 3px solid #ccc; margin: 0; padding-left: 10px; color: #555;'>$1</blockquote>")
-            .replaceAll("(?m)^- (.*?)$", "<ul><li style='margin-left: -20px;'>$1</li></ul>")
+            .replaceAll("(?m)^&gt;\\s+(.*?)$", "<blockquote style='border-left: 3px solid #ccc; margin: 0; padding-left: 10px; color: #555;'>$1</blockquote>")
+            .replaceAll("(?m)^-\\s+(.*?)$", "<ul><li style='margin-left: -20px;'>$1</li></ul>")
             .replaceAll("</ul>\n<ul>", "") // Merge adjacent lists
             .replaceAll("\\*\\*(.*?)\\*\\*", "<b>$1</b>")
             .replaceAll("\\*(.*?)\\*", "<i>$1</i>")
