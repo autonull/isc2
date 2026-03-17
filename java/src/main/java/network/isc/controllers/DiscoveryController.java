@@ -14,6 +14,7 @@ import java.util.Map;
 import java.util.Arrays;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import io.libp2p.core.crypto.PrivKey;
 
 public class DiscoveryController {
     private static final Logger log = LoggerFactory.getLogger(DiscoveryController.class);
@@ -23,13 +24,15 @@ public class DiscoveryController {
     private final MainFrame mainFrame;
     private final DiscoverPanel discoverPanel;
     private final Map<String, SignedAnnouncement> mockDht;
+    private final PrivKey libp2pKey;
 
-    public DiscoveryController(NetworkAdapter network, EmbeddingAdapter embedding, MainFrame mainFrame, Map<String, SignedAnnouncement> mockDht) {
+    public DiscoveryController(NetworkAdapter network, EmbeddingAdapter embedding, MainFrame mainFrame, Map<String, SignedAnnouncement> mockDht, PrivKey libp2pKey) {
         this.network = network;
         this.embedding = embedding;
         this.mainFrame = mainFrame;
         this.discoverPanel = mainFrame.getDiscoverPanel();
         this.mockDht = mockDht;
+        this.libp2pKey = libp2pKey;
 
         initListeners();
     }
@@ -37,8 +40,12 @@ public class DiscoveryController {
     private void initListeners() {
         mainFrame.setOnFollowRequested(peerId -> {
             try {
-                String myId = network.getHost().getPeerId().toString();
-                network.isc.core.FollowEvent follow = new network.isc.core.FollowEvent(myId, peerId, System.currentTimeMillis(), new byte[0]);
+                String myId = java.util.Base64.getEncoder().encodeToString(libp2pKey.publicKey().bytes());
+                long ts = System.currentTimeMillis();
+                String payload = myId + peerId + ts;
+                byte[] sig = libp2pKey.sign(payload.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+
+                network.isc.core.FollowEvent follow = new network.isc.core.FollowEvent(myId, peerId, ts, sig);
                 network.broadcastSocialEvent(follow);
                 JOptionPane.showMessageDialog(mainFrame, "Sent follow event to network for peer: " + peerId);
             } catch (Exception ex) {

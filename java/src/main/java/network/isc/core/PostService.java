@@ -28,6 +28,45 @@ public class PostService {
 
     public void setDatabaseAdapter(network.isc.adapters.MapDBStorageAdapter dbAdapter) {
         this.dbAdapter = dbAdapter;
+        loadSocialState();
+    }
+
+    private void loadSocialState() {
+        if (dbAdapter == null) return;
+        java.util.concurrent.ConcurrentMap<String, String> map = dbAdapter.getRawMap();
+        try {
+            com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+            String likesJson = map.get("social_likes");
+            if (likesJson != null) {
+                Map<String, Set<String>> loaded = mapper.readValue(likesJson, new com.fasterxml.jackson.core.type.TypeReference<Map<String, Set<String>>>() {});
+                postLikes.putAll(loaded);
+            }
+            String repostsJson = map.get("social_reposts");
+            if (repostsJson != null) {
+                Map<String, Set<String>> loaded = mapper.readValue(repostsJson, new com.fasterxml.jackson.core.type.TypeReference<Map<String, Set<String>>>() {});
+                postReposts.putAll(loaded);
+            }
+            String followersJson = map.get("social_followers");
+            if (followersJson != null) {
+                Map<String, Set<String>> loaded = mapper.readValue(followersJson, new com.fasterxml.jackson.core.type.TypeReference<Map<String, Set<String>>>() {});
+                userFollowers.putAll(loaded);
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    private void saveSocialState() {
+        if (dbAdapter == null) return;
+        java.util.concurrent.ConcurrentMap<String, String> map = dbAdapter.getRawMap();
+        try {
+            com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+            map.put("social_likes", mapper.writeValueAsString(postLikes));
+            map.put("social_reposts", mapper.writeValueAsString(postReposts));
+            map.put("social_followers", mapper.writeValueAsString(userFollowers));
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
 
     /**
@@ -55,7 +94,7 @@ public class PostService {
         Post postWithoutSig = new Post();
         postWithoutSig.setId("post_" + UUID.randomUUID().toString());
         // For author, use a derived ID or just "Me" if not easily extractable
-        postWithoutSig.setAuthor(identityKeypair.publicKey().toString());
+        postWithoutSig.setAuthor(java.util.Base64.getEncoder().encodeToString(identityKeypair.publicKey().bytes()));
         postWithoutSig.setContent(content.trim());
         postWithoutSig.setChannelID(channelId);
         postWithoutSig.setTimestamp(System.currentTimeMillis());
@@ -101,12 +140,14 @@ public class PostService {
      */
     public void addLike(String postId, String likerId) {
         postLikes.computeIfAbsent(postId, k -> ConcurrentHashMap.newKeySet()).add(likerId);
+        saveSocialState();
     }
 
     public void removeLike(String postId, String likerId) {
         Set<String> likers = postLikes.get(postId);
         if (likers != null) {
             likers.remove(likerId);
+            saveSocialState();
         }
     }
 
@@ -122,6 +163,7 @@ public class PostService {
 
     public void addRepost(String postId, String reposterId) {
         postReposts.computeIfAbsent(postId, k -> ConcurrentHashMap.newKeySet()).add(reposterId);
+        saveSocialState();
     }
 
     public int getRepostCount(String postId) {
@@ -131,6 +173,7 @@ public class PostService {
 
     public void addFollower(String followeeId, String followerId) {
         userFollowers.computeIfAbsent(followeeId, k -> ConcurrentHashMap.newKeySet()).add(followerId);
+        saveSocialState();
     }
 
     public int getFollowerCount(String followeeId) {

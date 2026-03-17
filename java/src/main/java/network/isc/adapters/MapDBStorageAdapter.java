@@ -3,6 +3,7 @@ package network.isc.adapters;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.module.SimpleModule;
 import network.isc.core.Channel;
 import org.mapdb.DB;
 import org.mapdb.DBMaker;
@@ -39,7 +40,11 @@ public class MapDBStorageAdapter extends StorageAdapter {
 
         map = db.hashMap("isc_data", Serializer.STRING, Serializer.STRING).createOrOpen();
         postsMap = db.hashMap("isc_posts", Serializer.STRING, Serializer.STRING).createOrOpen();
-        mapper = new ObjectMapper();
+        mapper = network.isc.adapters.JsonUtils.createMapper();
+    }
+
+    public ConcurrentMap<String, String> getRawMap() {
+        return map;
     }
 
     public void setPostsEnabled(boolean enabled) {
@@ -98,6 +103,15 @@ public class MapDBStorageAdapter extends StorageAdapter {
     public void deleteAllPosts() {
         postsMap.clear();
         db.commit();
+    }
+
+    public void saveConfig(String key, String value) {
+        map.put("config:" + key, value);
+        db.commit();
+    }
+
+    public String loadConfig(String key) {
+        return map.get("config:" + key);
     }
 
     @Override

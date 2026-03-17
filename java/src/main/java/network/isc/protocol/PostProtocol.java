@@ -17,7 +17,7 @@ public class PostProtocol implements ProtocolBinding<PostProtocol.PostController
     private static final Logger log = LoggerFactory.getLogger(PostProtocol.class);
 
     private final Consumer<ChatMessage> onHistoricalPostReceived;
-    private final ObjectMapper mapper = new ObjectMapper();
+    private final ObjectMapper mapper = network.isc.adapters.JsonUtils.createMapper();
 
     public PostProtocol(Consumer<ChatMessage> onHistoricalPostReceived) {
         this.onHistoricalPostReceived = onHistoricalPostReceived;

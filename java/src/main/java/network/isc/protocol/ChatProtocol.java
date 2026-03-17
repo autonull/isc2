@@ -21,7 +21,7 @@ public class ChatProtocol implements ProtocolBinding<ChatProtocol.ChatController
     private static final Logger log = LoggerFactory.getLogger(ChatProtocol.class);
 
     private final Consumer<ChatMessage> onMessageReceived;
-    private final ObjectMapper mapper = new ObjectMapper();
+    private final ObjectMapper mapper = network.isc.adapters.JsonUtils.createMapper();
 
     public ChatProtocol(Consumer<ChatMessage> onMessageReceived) {
         this.onMessageReceived = onMessageReceived;

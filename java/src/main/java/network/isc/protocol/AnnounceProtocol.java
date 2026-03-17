@@ -20,7 +20,7 @@ public class AnnounceProtocol implements ProtocolBinding<AnnounceProtocol.Announ
     private static final Logger log = LoggerFactory.getLogger(AnnounceProtocol.class);
 
     private final Consumer<SignedAnnouncement> onAnnouncementReceived;
-    private final ObjectMapper mapper = new ObjectMapper();
+    private final ObjectMapper mapper = network.isc.adapters.JsonUtils.createMapper();
 
     public AnnounceProtocol(Consumer<SignedAnnouncement> onAnnouncementReceived) {
         this.onAnnouncementReceived = onAnnouncementReceived;

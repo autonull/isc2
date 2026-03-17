@@ -18,7 +18,7 @@ public class DelegateProtocol implements ProtocolBinding<DelegateProtocol.Delega
     private static final Logger log = LoggerFactory.getLogger(DelegateProtocol.class);
 
     private final Consumer<SignedDelegation> onDelegationReceived;
-    private final ObjectMapper mapper = new ObjectMapper();
+    private final ObjectMapper mapper = network.isc.adapters.JsonUtils.createMapper();
 
     public DelegateProtocol(Consumer<SignedDelegation> onDelegationReceived) {
         this.onDelegationReceived = onDelegationReceived;

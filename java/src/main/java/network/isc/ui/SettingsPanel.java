@@ -109,4 +109,26 @@ public class SettingsPanel extends JPanel {
     public void setPeerId(String peerId) {
         SwingUtilities.invokeLater(() -> peerIdLabel.setText("Peer ID: " + peerId));
     }
+
+    public void setProfile(String name, String bio, String avatarBase64) {
+        SwingUtilities.invokeLater(() -> {
+            displayNameField.setText(name);
+            bioArea.setText(bio);
+            if (avatarBase64 != null && !avatarBase64.isEmpty()) {
+                try {
+                    byte[] bytes = java.util.Base64.getDecoder().decode(avatarBase64);
+                    java.io.ByteArrayInputStream bais = new java.io.ByteArrayInputStream(bytes);
+                    java.awt.image.BufferedImage img = javax.imageio.ImageIO.read(bais);
+                    if (img != null) {
+                        Image scaled = img.getScaledInstance(64, 64, Image.SCALE_SMOOTH);
+                        avatarLabel.setIcon(new ImageIcon(scaled));
+                        avatarLabel.setText("");
+                        currentAvatarBase64 = avatarBase64;
+                    }
+                } catch (Exception e) {
+                    // Ignore, fallback to no avatar
+                }
+            }
+        });
+    }
 }

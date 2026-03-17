@@ -29,7 +29,7 @@ public class SocialProtocol implements ProtocolBinding<SocialProtocol.SocialCont
     private static final Logger log = LoggerFactory.getLogger(SocialProtocol.class);
 
     private final Consumer<Object> onSocialEventReceived;
-    private final ObjectMapper mapper = new ObjectMapper();
+    private final ObjectMapper mapper = network.isc.adapters.JsonUtils.createMapper();
 
     public SocialProtocol(Consumer<Object> onSocialEventReceived) {
         this.onSocialEventReceived = onSocialEventReceived;

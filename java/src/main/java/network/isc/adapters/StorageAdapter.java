@@ -15,7 +15,7 @@ public class StorageAdapter {
 
     public StorageAdapter(String filepath) {
         this.storageFile = new File(filepath);
-        this.mapper = new ObjectMapper();
+        this.mapper = network.isc.adapters.JsonUtils.createMapper();
     }
 
     public List<Channel> loadChannels() {

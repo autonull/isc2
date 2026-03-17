@@ -21,7 +21,7 @@ public class QueryProtocol implements ProtocolBinding<QueryProtocol.QueryControl
     private static final Logger log = LoggerFactory.getLogger(QueryProtocol.class);
 
     private final Consumer<String[]> onQueryReceived;
-    private final ObjectMapper mapper = new ObjectMapper();
+    private final ObjectMapper mapper = network.isc.adapters.JsonUtils.createMapper();
 
     public QueryProtocol(Consumer<String[]> onQueryReceived) {
         this.onQueryReceived = onQueryReceived;
