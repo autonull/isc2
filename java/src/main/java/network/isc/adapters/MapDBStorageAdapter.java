@@ -101,6 +101,15 @@ public class MapDBStorageAdapter extends StorageAdapter {
         db.commit();
     }
 
+    public void saveConfig(String key, String value) {
+        map.put("config:" + key, value);
+        db.commit();
+    }
+
+    public String loadConfig(String key) {
+        return map.get("config:" + key);
+    }
+
     @Override
     public List<Channel> loadChannels() {
         String json = map.get(CHANNELS_KEY);

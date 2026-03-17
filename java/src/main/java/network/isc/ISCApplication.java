@@ -144,7 +144,33 @@ public class ISCApplication {
     private void initialize() throws Exception {
         log.info("Initializing ISC Java Client...");
 
-        libp2pKey = KeyKt.generateKeyPair(KeyType.ED25519).component1();
+        String appDir = System.getProperty("user.home") + "/.isc-java";
+        File dir = new File(appDir);
+        if (!dir.exists()) dir.mkdirs();
+
+        storage = new MapDBStorageAdapter(appDir + "/" + this.dbPath);
+
+        // Try to load existing keypair
+        String savedKeyBase64 = storage.loadConfig("privateKey");
+        if (savedKeyBase64 != null && !savedKeyBase64.isEmpty()) {
+            try {
+                byte[] keyBytes = java.util.Base64.getDecoder().decode(savedKeyBase64);
+                libp2pKey = KeyKt.unmarshalPrivateKey(keyBytes);
+                log.info("Loaded existing Ed25519 identity from storage.");
+            } catch (Exception e) {
+                log.error("Failed to load saved key, generating new one", e);
+                libp2pKey = KeyKt.generateKeyPair(KeyType.ED25519).component1();
+                storage.saveConfig("privateKey", java.util.Base64.getEncoder().encodeToString(libp2pKey.bytes()));
+            }
+        } else {
+            log.info("Generating new Ed25519 identity...");
+            libp2pKey = KeyKt.generateKeyPair(KeyType.ED25519).component1();
+            storage.saveConfig("privateKey", java.util.Base64.getEncoder().encodeToString(libp2pKey.bytes()));
+        }
+
+        // Load profile
+        String savedAvatar = storage.loadConfig("avatar");
+        if (savedAvatar != null) localAvatarBase64 = savedAvatar;
 
         postService = new PostService();
         postService.initializeIdentity(libp2pKey);
@@ -182,8 +208,7 @@ public class ISCApplication {
         }
 
         // Storage
-        String appDir = System.getProperty("user.home") + "/.isc-java";
-        storage = new MapDBStorageAdapter(appDir + "/" + this.dbPath);
+        // (Storage is already initialized using appDir earlier)
         channels = storage.loadChannels();
 
         postService.setDatabaseAdapter(storage);
@@ -306,9 +331,19 @@ public class ISCApplication {
             String bio = profile[1];
             if (profile.length > 2) {
                 localAvatarBase64 = profile[2];
+                storage.saveConfig("avatar", localAvatarBase64);
             }
+            storage.saveConfig("name", name);
+            storage.saveConfig("bio", bio);
             log.info("Saved local identity. Name: {}, Bio: {}", name, bio);
         });
+
+        // Initialize Settings Panel with saved values
+        String savedName = storage.loadConfig("name");
+        String savedBio = storage.loadConfig("bio");
+        if (savedName != null) {
+            mainFrame.getSettingsPanel().setProfile(savedName, savedBio != null ? savedBio : "", localAvatarBase64);
+        }
 
         // Network Panel
         List<String> addrs = network.getHost().listenAddresses().stream().map(a -> a.toString()).toList();
