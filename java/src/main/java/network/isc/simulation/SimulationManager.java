@@ -38,6 +38,8 @@ public class SimulationManager {
     private final AtomicInteger totalDMs = new AtomicInteger();
     private final AtomicInteger totalFiles = new AtomicInteger();
 
+    private SimulatorUI simulatorUI;
+
     public SimulationManager(SimulationConfig config) {
         this.config = config;
         this.scheduler = new ScheduledThreadPoolExecutor(config.numPeers() + 2);
@@ -49,8 +51,21 @@ public class SimulationManager {
         log.info("Config: {}", config);
 
         boolean useGui = config.guiMode() && config.numPeers() <= 4;
-        if (config.guiMode() && config.numPeers() > 4) {
-            log.warn("GUI mode requested but numPeers > 4. Disabling GUI mode for performance.");
+        boolean useSimGui = config.guiMode();
+
+        if (useSimGui) {
+            try {
+                SwingUtilities.invokeAndWait(() -> {
+                    simulatorUI = new SimulatorUI("ISC Network Simulator");
+                    simulatorUI.setVisible(true);
+                });
+            } catch (Exception e) {
+                log.error("Failed to start Simulator UI", e);
+            }
+        }
+
+        if (useGui && simulatorUI != null) {
+            log.info("Using standard GUI side-by-side mode in addition to Sim Graph");
         }
 
         // 1. Start bootstrap node
@@ -66,6 +81,10 @@ public class SimulationManager {
         String bootstrapMultiaddr = bootstrapPeer.getFirstListenAddress() + "/p2p/" + bootstrapPeer.getPeerId();
         log.info("Bootstrap node running at: {}", bootstrapMultiaddr);
 
+        if (simulatorUI != null) {
+            simulatorUI.addNode(bootstrapPeer.getPeerId(), "Bootstrap");
+        }
+
         // 2. Start other peers
         log.info("Starting {} additional peers...", config.numPeers() - 1);
         for (int i = 1; i < config.numPeers(); i++) {
@@ -73,6 +92,11 @@ public class SimulationManager {
             if (useGui) peer.getApp().setServerMode(false);
             peer.start();
             peers.add(peer);
+
+            if (simulatorUI != null) {
+                simulatorUI.addNode(peer.getPeerId(), "Peer " + i);
+                simulatorUI.addConnection(peer.getPeerId(), bootstrapPeer.getPeerId());
+            }
 
             // Randomly stagger starts slightly to avoid thundering herd
             Thread.sleep(random.nextInt(200));
@@ -92,9 +116,6 @@ public class SimulationManager {
         long endTime = System.currentTimeMillis() + (config.durationSeconds() * 1000L);
         while (System.currentTimeMillis() < endTime) {
             Thread.sleep(1000);
-            if (config.guiMode()) {
-                // Future GUI update tick if needed
-            }
         }
 
         // 5. Output Metrics and Shutdown
@@ -187,6 +208,9 @@ public class SimulationManager {
         peer.getApp().getNetwork().announce(ann);
         totalAnnounces.incrementAndGet();
         log.info("{} announced {}", peer.getPeerName(), c.getName());
+        if (simulatorUI != null) {
+            simulatorUI.animateBroadcast(peer.getPeerId(), "ANNOUNCE", java.awt.Color.CYAN);
+        }
     }
 
     private void queryChannels(SimulatedPeer peer) throws Exception {
@@ -197,6 +221,9 @@ public class SimulationManager {
         peer.getApp().getNetwork().query(hashes.toArray(new String[0]));
         totalQueries.incrementAndGet();
         log.debug("{} sent query", peer.getPeerName());
+        if (simulatorUI != null) {
+            simulatorUI.animateBroadcast(peer.getPeerId(), "QUERY", java.awt.Color.GREEN);
+        }
     }
 
     // Additional behaviors could include simulated posts and DMs but the primary function for now is network routing verification.
