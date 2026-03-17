@@ -68,6 +68,24 @@ public class ISCApplication {
     private int port = 4001;
     private String[] bootstrapNodes = new String[0];
     private String dbPath = "isc-data.db";
+    private String appDirOverride = null;
+
+    public void setServerMode(boolean serverMode) { this.serverMode = serverMode; }
+    public void setPort(int port) { this.port = port; }
+    public void setBootstrapNodes(String[] bootstrapNodes) { this.bootstrapNodes = bootstrapNodes; }
+    public void setDbPath(String dbPath) { this.dbPath = dbPath; }
+    public void setAppDirOverride(String appDirOverride) { this.appDirOverride = appDirOverride; }
+
+    // Provide accessors for simulation
+    public NetworkAdapter getNetwork() { return network; }
+    public MainFrame getMainFrame() { return mainFrame; }
+    public MapDBStorageAdapter getStorage() { return storage; }
+    public EmbeddingAdapter getEmbedding() { return embedding; }
+    public PostService getPostService() { return postService; }
+
+    public void start() throws Exception {
+        initialize();
+    }
 
     public static void main(String[] args) {
         List<String> argList = Arrays.asList(args);
@@ -144,7 +162,7 @@ public class ISCApplication {
     private void initialize() throws Exception {
         log.info("Initializing ISC Java Client...");
 
-        String appDir = System.getProperty("user.home") + "/.isc-java";
+        String appDir = appDirOverride != null ? appDirOverride : System.getProperty("user.home") + "/.isc-java";
         File dir = new File(appDir);
         if (!dir.exists()) dir.mkdirs();
 
@@ -218,8 +236,12 @@ public class ISCApplication {
             setupSystemTray();
         }
 
-        // Model Downloading & Loading
-        String modelDir = appDir + "/models";
+        // Model Downloading & Loading - Always check from a centralized or shared location if possible to save space in simulations, but we will download it to appDir if needed. Actually, let's allow an override or use a centralized cache.
+        String cacheDir = System.getProperty("user.home") + "/.isc-java/models";
+        File cacheModelFile = new File(cacheDir, "model_quantized.onnx");
+        File cacheTokenizerFile = new File(cacheDir, "tokenizer.json");
+
+        String modelDir = appDirOverride != null ? cacheDir : appDir + "/models";
         File modelFile = new File(modelDir, "model_quantized.onnx");
         File tokenizerFile = new File(modelDir, "tokenizer.json");
 
@@ -405,12 +427,35 @@ public class ISCApplication {
         fileMenu.add(queryItem);
         fileMenu.addSeparator();
         JMenuItem exitItem = new JMenuItem("Exit");
-        exitItem.addActionListener(e -> System.exit(0));
+        exitItem.addActionListener(e -> {
+            stop();
+            System.exit(0);
+        });
         fileMenu.add(exitItem);
         menuBar.add(fileMenu);
 
         mainFrame.setJMenuBar(menuBar);
         mainFrame.setVisible(true);
+    }
+
+    public void stop() {
+        if (network != null) {
+            try {
+                network.stop();
+            } catch (Exception e) {
+                log.error("Error stopping network", e);
+            }
+        }
+        if (embedding != null) {
+            try {
+                embedding.close();
+            } catch (Exception e) {
+                log.error("Error stopping embedding", e);
+            }
+        }
+        if (mainFrame != null) {
+            mainFrame.dispose();
+        }
     }
 
     private void handleDelegation(network.isc.core.SignedDelegation delegation) {

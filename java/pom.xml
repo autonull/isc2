@@ -40,6 +40,11 @@
     </dependency>
 
     <!-- Kotlin stdlib explicitly for jvm-libp2p -->
+    <dependency>
+      <groupId>org.jetbrains.kotlin</groupId>
+      <artifactId>kotlin-stdlib</artifactId>
+      <version>${kotlin.version}</version>
+    </dependency>
 
     <!-- Deep Java Library (DJL) for Tokenizers -->
     <dependency>
