@@ -23,15 +23,15 @@ public class DiscoveryController {
     private final EmbeddingAdapter embedding;
     private final MainFrame mainFrame;
     private final DiscoverPanel discoverPanel;
-    private final Map<String, SignedAnnouncement> mockDht;
+    private final Map<String, SignedAnnouncement> localDht;
     private final PrivKey libp2pKey;
 
-    public DiscoveryController(NetworkAdapter network, EmbeddingAdapter embedding, MainFrame mainFrame, Map<String, SignedAnnouncement> mockDht, PrivKey libp2pKey) {
+    public DiscoveryController(NetworkAdapter network, EmbeddingAdapter embedding, MainFrame mainFrame, Map<String, SignedAnnouncement> localDht, PrivKey libp2pKey) {
         this.network = network;
         this.embedding = embedding;
         this.mainFrame = mainFrame;
         this.discoverPanel = mainFrame.getDiscoverPanel();
-        this.mockDht = mockDht;
+        this.localDht = localDht;
         this.libp2pKey = libp2pKey;
 
         initListeners();
@@ -65,8 +65,8 @@ public class DiscoveryController {
                         network.query(hashes.toArray(new String[0]));
 
                         for (String hash : hashes) {
-                            if (mockDht.containsKey(hash)) {
-                                discoverPanel.addDiscovery(mockDht.get(hash));
+                            if (localDht.containsKey(hash)) {
+                                discoverPanel.addDiscovery(localDht.get(hash));
                             }
                         }
                     } catch (Exception ex) {
@@ -84,7 +84,7 @@ public class DiscoveryController {
         log.info("Received channel announcement for channelID: {}", ann.getChannelID());
         List<String> hashes = SemanticMath.lshHash(ann.getVec(), ann.getModel(), ProtocolConstants.TIER_NUM_HASHES);
         for (String hash : hashes) {
-            mockDht.put(hash, ann);
+            localDht.put(hash, ann);
         }
 
         SwingUtilities.invokeLater(() -> {
@@ -96,9 +96,9 @@ public class DiscoveryController {
     public void handleQuery(String[] hashes) {
         log.info("Received query for hashes: {}", Arrays.toString(hashes));
         for (String hash : hashes) {
-            if (mockDht.containsKey(hash)) {
-                log.info("Query matched local mock DHT for hash {}", hash);
-                network.announce(mockDht.get(hash));
+            if (localDht.containsKey(hash)) {
+                log.info("Query matched local DHT for hash {}", hash);
+                network.announce(localDht.get(hash));
             }
         }
     }

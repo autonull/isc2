@@ -58,7 +58,7 @@ public class ISCApplication {
     private Channel activeChannel;
     private String localAvatarBase64 = "";
 
-    private final Map<String, SignedAnnouncement> mockDht = new HashMap<>();
+    private final Map<String, SignedAnnouncement> localDht = new HashMap<>();
 
     private ChatController chatController;
     private DirectMessageController dmController;
@@ -284,16 +284,16 @@ public class ISCApplication {
         log.info("Received channel announcement for channelID: {}", ann.getChannelID());
         List<String> hashes = SemanticMath.lshHash(ann.getVec(), ann.getModel(), ProtocolConstants.TIER_NUM_HASHES);
         for (String hash : hashes) {
-            mockDht.put(hash, ann);
+            localDht.put(hash, ann);
         }
     }
 
     private void handleQueryHeadless(String[] hashes) {
         log.info("Received query for hashes: {}", Arrays.toString(hashes));
         for (String hash : hashes) {
-            if (mockDht.containsKey(hash)) {
-                log.info("Query matched local mock DHT for hash {}", hash);
-                network.announce(mockDht.get(hash));
+            if (localDht.containsKey(hash)) {
+                log.info("Query matched local DHT for hash {}", hash);
+                network.announce(localDht.get(hash));
             }
         }
     }
@@ -315,7 +315,7 @@ public class ISCApplication {
         // Initialize Controllers
         chatController = new ChatController(network, postService, fileTransfer, mainFrame, libp2pKey, localAvatarBase64);
         dmController = new DirectMessageController(network, storage, fileTransfer, mainFrame, libp2pKey, localAvatarBase64);
-        discoveryController = new DiscoveryController(network, embedding, mainFrame, mockDht, libp2pKey);
+        discoveryController = new DiscoveryController(network, embedding, mainFrame, localDht, libp2pKey);
 
         mainFrame.setChannels(channels);
 
