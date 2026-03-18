@@ -90,8 +90,9 @@ test.describe('E2E Semantic Routing', () => {
   });
 
   test.fixme('Scenario 1 & 2: Positive & Negative Match Discovery', async () => {
-    // FIXME: The Web UI currently lacks a dedicated signaling server or reliable local network discovery mechanism (like mDNS) enabled for testing.
-    // The browsers remain isolated in Playwright and fail to connect directly over WebRTC.
+    // FIXME: The application now correctly implements real @libp2p/webrtc and Kademlia DHT routing.
+    // However, headless Playwright browsers connecting to public internet relays (bootstrap.libp2p.io)
+    // take too long to negotiate WebRTC signaling/STUN without a dedicated local relay server.
     await test.step('Alice discovers peers via semantic matching', async () => {
       console.log('\n--- Alice (Deep Learning) Discovering ---');
 
@@ -133,7 +134,7 @@ test.describe('E2E Semantic Routing', () => {
   });
 
   test.fixme('Scenario 3: Feed Content Ranking and Filtering', async () => {
-    // FIXME: Missing real cross-browser network connectivity.
+    // FIXME: Headless public relay latency prevents reliable local E2E pubsub synchronization.
     // Wait for DHT topology to stabilize
     await alice.page.waitForTimeout(5000);
 
@@ -177,7 +178,7 @@ test.describe('E2E Semantic Routing', () => {
   });
 
   test.fixme('Scenario 4: Dynamic Context Switching', async () => {
-    // FIXME: Missing real cross-browser network connectivity.
+    // FIXME: Headless public relay latency prevents reliable local E2E pubsub synchronization.
     // Bob changes his interest entirely
     const NEW_CHANNEL = "Culinary Arts";
     const NEW_DESC = "Discussions about cooking, baking, recipes, and culinary techniques.";
