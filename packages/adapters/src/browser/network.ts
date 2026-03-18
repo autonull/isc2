@@ -20,6 +20,8 @@ const DEFAULT_BOOTSTRAP_NODES = [
   '/dns4/bootstrap.libp2p.io/udp/443/quic-v1/webtransport/certhash/uEiByCR7NqKrFPqB8kZJvZvZvZvZvZvZvZvZvZvZvZvZvZv/p2p/QmbLHAnMoJPWSCR5Zhtx6BHJX9KiRNN6vEf9cqLcVTQJQs',
 ];
 
+import type { PubSub } from '@libp2p/interface';
+
 interface DHTService {
   put(key: Uint8Array, value: Uint8Array): Promise<void>;
   get(key: Uint8Array): AsyncIterable<{ name: string; value?: Uint8Array }>;
@@ -28,6 +30,7 @@ interface DHTService {
 interface Libp2pWithDHT extends Libp2p {
   services: {
     dht: DHTService;
+    pubsub: PubSub;
   };
 }
 
@@ -61,17 +64,37 @@ export class BrowserNetworkAdapter implements NetworkAdapter {
     const { yamux } = await import('@chainsafe/libp2p-yamux');
     const { kadDHT } = await import('@libp2p/kad-dht');
     const { bootstrap } = await import('@libp2p/bootstrap');
+    const { gossipsub } = await import('@chainsafe/libp2p-gossipsub');
+    const { webRTC } = await import('@libp2p/webrtc');
 
     const bootstrapNodes = this._config.bootstrapNodes.filter(Boolean);
+
+    // If we're running in E2E tests, we might configure a local relay or WebRTC signaling
+    const inTestMode = typeof window !== 'undefined' && (window as any).isE2ETest;
+    if (inTestMode && (window as any).TEST_BOOTSTRAP_NODE) {
+       bootstrapNodes.unshift((window as any).TEST_BOOTSTRAP_NODE);
+    }
 
     this.node = (await createLibp2p({
       services: {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         dht: kadDHT() as any,
+        pubsub: gossipsub({ allowPublishToZeroTopicPeers: true }),
       },
-      transports: [webSockets(), webTransport()],
+      transports: [
+        webSockets(),
+        webTransport(),
+        webRTC({
+          rtcConfiguration: {
+            iceServers: [
+              { urls: 'stun:stun.l.google.com:19302' },
+              { urls: 'stun:global.stun.twilio.com:3478' }
+            ]
+          }
+        })
+      ],
       streamMuxers: [yamux()],
-      connectionEncrypters: [noise()],
+      connectionEncryption: [noise()],
       peerDiscovery: [
         bootstrap({
           list: bootstrapNodes,
@@ -113,11 +136,12 @@ export class BrowserNetworkAdapter implements NetworkAdapter {
     return this.node?.peerId.toString() ?? '';
   }
 
-  async announce(key: string, value: Uint8Array): Promise<void> {
+  async announce(key: string, value: Uint8Array, _ttl: number = 300000): Promise<void> {
     if (!this.node) throw new Error('Network not started');
 
     const dht = this.node.services.dht;
     const keyBytes = new TextEncoder().encode(key);
+    // Real KadDHT ignores TTL arguments locally, it relies on re-republishing
     await dht.put(keyBytes, value);
   }
 
@@ -159,6 +183,36 @@ export class BrowserNetworkAdapter implements NetworkAdapter {
     };
   }
 
+  async publish(topic: string, data: Uint8Array): Promise<void> {
+    if (!this.node) throw new Error('Network not started');
+    await this.node.services.pubsub.publish(topic, data);
+  }
+
+  subscribe(topic: string, handler: (data: Uint8Array) => void): void {
+    if (!this.node) throw new Error('Network not started');
+    this.node.services.pubsub.subscribe(topic);
+
+    // Create a listener specific to this topic
+    const eventName = `pubsub:${topic}`;
+    if (!this.eventHandlers.has(eventName)) {
+       this.eventHandlers.set(eventName, new Set());
+       // Only register the libp2p listener once per topic
+       this.node.services.pubsub.addEventListener('message', (event) => {
+          if (event.detail.topic === topic) {
+             this.emit(eventName, event.detail.data);
+          }
+       });
+    }
+
+    this.on(eventName, handler);
+  }
+
+  unsubscribe(topic: string): void {
+    if (!this.node) return;
+    this.node.services.pubsub.unsubscribe(topic);
+    this.eventHandlers.delete(`pubsub:${topic}`);
+  }
+
   on(event: string, handler: Function): void {
     if (!this.eventHandlers.has(event)) {
       this.eventHandlers.set(event, new Set());
@@ -185,6 +239,17 @@ export class BrowserNetworkAdapter implements NetworkAdapter {
   async getConnectedPeers(): Promise<string[]> {
     if (!this.node) return [];
     return this.node.getConnections().map((conn) => conn.remotePeer.toString());
+  }
+
+  async getMultiaddrs(): Promise<string[]> {
+    if (!this.node) return [];
+    return this.node.getMultiaddrs().map((ma) => ma.toString());
+  }
+
+  async dialMultiaddr(multiaddrStr: string): Promise<void> {
+    if (!this.node) throw new Error('Network not started');
+    const { multiaddr } = await import('@multiformats/multiaddr');
+    await this.node.dial(multiaddr(multiaddrStr));
   }
 }
 

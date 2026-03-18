@@ -17,15 +17,35 @@ export default defineConfig({
   projects: [
     {
       name: 'chromium',
-      use: { ...devices['Desktop Chrome'] },
+      use: {
+        ...devices['Desktop Chrome'],
+        launchOptions: {
+          args: [
+             '--use-fake-ui-for-media-stream',
+             '--use-fake-device-for-media-stream',
+             '--allow-file-access-from-files',
+             '--disable-web-security'
+          ]
+        }
+      },
     },
   ],
-  webServer: {
-    command: 'pnpm --filter @isc/apps/browser dev',
-    url: 'http://localhost:3000',
-    reuseExistingServer: !process.env.CI,
-    timeout: 180000,
-    stdout: 'pipe',
-    stderr: 'pipe',
-  },
+  webServer: [
+    {
+      command: 'pnpm --filter @isc/apps/node dev',
+      port: 9090, // Wait for TCP 9090 port instead of HTTP URL to avoid 404/ECONNRESET fails
+      reuseExistingServer: !process.env.CI,
+      timeout: 180000,
+      stdout: 'pipe',
+      stderr: 'pipe',
+    },
+    {
+      command: 'pnpm --filter @isc/apps/browser dev',
+      url: 'http://localhost:3000',
+      reuseExistingServer: !process.env.CI,
+      timeout: 180000,
+      stdout: 'pipe',
+      stderr: 'pipe',
+    }
+  ],
 });
