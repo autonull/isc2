@@ -3,12 +3,16 @@ package network.isc.controllers;
 import network.isc.adapters.NetworkAdapter;
 import network.isc.adapters.MapDBStorageAdapter;
 import network.isc.adapters.FileTransferManager;
+import network.isc.core.OfflineAction;
+import network.isc.services.OfflineQueueService;
+import network.isc.services.ConnectionMonitorService;
 import network.isc.protocol.ChatMessage;
 import network.isc.ui.DirectMessagePanel;
 import network.isc.ui.MainFrame;
 
 import java.util.List;
 import java.util.ArrayList;
+import java.util.concurrent.CompletableFuture;
 
 import javax.swing.*;
 import java.awt.TrayIcon;
@@ -27,8 +31,19 @@ public class DirectMessageController {
     private final DirectMessagePanel dmPanel;
     private final PrivKey libp2pKey;
     private final String getLocalAvatarBase64;
+    private final OfflineQueueService queueService;
+    private final ConnectionMonitorService connectionMonitor;
 
-    public DirectMessageController(NetworkAdapter network, MapDBStorageAdapter storage, FileTransferManager fileTransfer, MainFrame mainFrame, PrivKey libp2pKey, String getLocalAvatarBase64) {
+    public DirectMessageController(
+        NetworkAdapter network,
+        MapDBStorageAdapter storage,
+        FileTransferManager fileTransfer,
+        MainFrame mainFrame,
+        PrivKey libp2pKey,
+        String getLocalAvatarBase64,
+        OfflineQueueService queueService,
+        ConnectionMonitorService connectionMonitor
+    ) {
         this.network = network;
         this.storage = storage;
         this.fileTransfer = fileTransfer;
@@ -36,6 +51,29 @@ public class DirectMessageController {
         this.dmPanel = mainFrame.getDmPanel();
         this.libp2pKey = libp2pKey;
         this.getLocalAvatarBase64 = getLocalAvatarBase64;
+
+        this.queueService = queueService;
+        this.connectionMonitor = connectionMonitor;
+
+        if (this.queueService != null) {
+            this.queueService.addQueueProcessedListener(() -> {
+                SwingUtilities.invokeLater(() -> {
+                    var activePeer = dmPanel.getActivePeer();
+                    if (activePeer != null) {
+                        // Reload history for active peer
+                        dmPanel.clearMessages();
+                        var history = storage.loadDirectMessages(activePeer);
+                        for (var msg : history) {
+                            var sender = "Peer";
+                            if (msg.getPublicKey() != null && java.util.Arrays.equals(msg.getPublicKey(), libp2pKey.publicKey().bytes())) {
+                                sender = "You";
+                            }
+                            dmPanel.appendMessage(sender, msg.getMsg(), msg.getTimestamp(), msg.getAvatarBase64());
+                        }
+                    }
+                });
+            });
+        }
 
         initListeners();
     }
@@ -60,25 +98,61 @@ public class DirectMessageController {
             var targetPeer = dmPanel.getActivePeer();
 
             if (!msg.isEmpty() && targetPeer != null) {
-                try {
-                    var ts = System.currentTimeMillis();
-                    var rawPayload = (targetPeer + msg + ts).getBytes(StandardCharsets.UTF_8);
-                    var sig = libp2pKey.sign(rawPayload);
-                    var pubKey = libp2pKey.publicKey().bytes();
+                CompletableFuture.runAsync(() -> {
+                    try {
+                        if (connectionMonitor != null && !connectionMonitor.isOnline()) {
+                            // Queue for later
+                            OfflineAction action = OfflineAction.directMessage(targetPeer, msg);
+                            queueService.enqueueAction(action);
 
-                    var chatMsg = new ChatMessage(targetPeer, msg, ts, sig, pubKey, getLocalAvatarBase64);
-                    network.sendDirectMessage(targetPeer, chatMsg);
+                            // Immediately store locally so the user sees it
+                            var ts = System.currentTimeMillis();
+                            var rawPayload = (targetPeer + msg + ts).getBytes(StandardCharsets.UTF_8);
+                            var sig = libp2pKey.sign(rawPayload);
+                            var pubKey = libp2pKey.publicKey().bytes();
+                            var chatMsg = new ChatMessage(targetPeer, msg, ts, sig, pubKey, getLocalAvatarBase64);
 
-                    dmPanel.appendMessage("You", msg, ts, getLocalAvatarBase64);
+                            var history = storage.loadDirectMessages(targetPeer);
+                            history.add(chatMsg);
+                            storage.saveDirectMessages(targetPeer, history);
 
-                    // Save to storage
-                    var history = storage.loadDirectMessages(targetPeer);
-                    history.add(chatMsg);
-                    storage.saveDirectMessages(targetPeer, history);
+                            SwingUtilities.invokeLater(() -> {
+                                dmPanel.appendMessage("You (Queued)", msg, ts, getLocalAvatarBase64);
+                                JOptionPane.showMessageDialog(
+                                    mainFrame,
+                                    "You're offline. DM queued for delivery.",
+                                    "Offline",
+                                    JOptionPane.WARNING_MESSAGE
+                                );
+                            });
+                            return;
+                        }
 
-                } catch (Exception ex) {
-                    JOptionPane.showMessageDialog(mainFrame, "Failed to send DM: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
-                }
+                        var ts = System.currentTimeMillis();
+                        var rawPayload = (targetPeer + msg + ts).getBytes(StandardCharsets.UTF_8);
+                        var sig = libp2pKey.sign(rawPayload);
+                        var pubKey = libp2pKey.publicKey().bytes();
+
+                        var chatMsg = new ChatMessage(targetPeer, msg, ts, sig, pubKey, getLocalAvatarBase64);
+                        network.sendDirectMessage(targetPeer, chatMsg);
+
+                        // Save to storage
+                        var history = storage.loadDirectMessages(targetPeer);
+                        history.add(chatMsg);
+                        storage.saveDirectMessages(targetPeer, history);
+
+                        SwingUtilities.invokeLater(() -> {
+                            dmPanel.appendMessage("You", msg, ts, getLocalAvatarBase64);
+                        });
+                    } catch (Exception ex) {
+                        SwingUtilities.invokeLater(() -> JOptionPane.showMessageDialog(
+                            mainFrame,
+                            "Failed to send DM: " + ex.getMessage(),
+                            "Error",
+                            JOptionPane.ERROR_MESSAGE
+                        ));
+                    }
+                });
             }
         });
 

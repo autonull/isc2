@@ -383,7 +383,11 @@ public class ISCApplication {
             libp2pKey, localAvatarBase64,
             queueService, connectionMonitor
         );
-        dmController = new DirectMessageController(network, storage, fileTransfer, mainFrame, libp2pKey, localAvatarBase64);
+        dmController = new DirectMessageController(
+            network, storage, fileTransfer, mainFrame,
+            libp2pKey, localAvatarBase64,
+            queueService, connectionMonitor
+        );
         discoveryController = new DiscoveryController(network, embedding, mainFrame, localDht, libp2pKey);
 
         mainFrame.setChannels(channels);
