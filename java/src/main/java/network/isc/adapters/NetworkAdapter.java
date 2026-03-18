@@ -59,6 +59,19 @@ public class NetworkAdapter {
     private BiConsumer<Stream, byte[]> onFileProtocolChunkReceived;
     private Consumer<Object> onSocialEventReceived;
 
+    // For simulation and visualization
+    private network.isc.simulation.NetworkActivityListener networkActivityListener;
+
+    public void setNetworkActivityListener(network.isc.simulation.NetworkActivityListener listener) {
+        this.networkActivityListener = listener;
+    }
+
+    private void notifyActivity(String targetPeerId, String protocol) {
+        if (networkActivityListener != null && targetPeerId != null) {
+            networkActivityListener.onNetworkActivity(host.getPeerId().toString(), targetPeerId, protocol);
+        }
+    }
+
     public NetworkAdapter(PrivKey privKey, int port,
                           Consumer<ChatMessage> onMessageReceived,
                           Consumer<ChatMessage> onHistoricalPostReceived,
@@ -379,6 +392,7 @@ public class NetworkAdapter {
             for (AnnounceProtocol.AnnounceController controller : activeAnnouncers) {
                 try {
                     controller.send(ann);
+                    notifyActivity(controller.stream.remotePeerId().toString(), "ANNOUNCE");
                 } catch (Exception e) {
                     log.error("Failed to send announcement to peer", e);
                 }
@@ -391,6 +405,7 @@ public class NetworkAdapter {
             for (QueryProtocol.QueryController controller : activeQueries) {
                 try {
                     controller.send(hashes);
+                    notifyActivity(controller.stream.remotePeerId().toString(), "QUERY");
                 } catch (Exception e) {
                     log.error("Failed to send query to peer", e);
                 }

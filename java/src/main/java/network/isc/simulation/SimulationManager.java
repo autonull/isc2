@@ -38,6 +38,43 @@ public class SimulationManager {
     private final AtomicInteger totalDMs = new AtomicInteger();
     private final AtomicInteger totalFiles = new AtomicInteger();
 
+    private SimulatorUI simulatorUI;
+
+    private static final String[] REALISTIC_TOPICS = {
+        "Java Development", "Machine Learning", "Cats", "Decentralized Systems",
+        "Photography", "Space Exploration", "Cooking Recipes", "Gaming",
+        "Fitness & Health", "Open Source Software", "Music Production", "Blockchain",
+        "Digital Art", "Home Automation", "Gardening Tips", "Travel Adventures"
+    };
+
+    private static final String[] REALISTIC_DESCRIPTIONS = {
+        "Let's discuss advanced topics and frameworks.",
+        "Sharing research papers and practical applications.",
+        "A place for cute pictures and training tips.",
+        "Talking about P2P protocols and distributed tech.",
+        "Tips for lighting, lenses, and composition.",
+        "News from NASA, SpaceX, and the universe.",
+        "Share your favorite meals and baking secrets.",
+        "Looking for players for co-op and competitive matches.",
+        "Workout routines, nutrition, and wellness.",
+        "Collaborating on projects and discussing licenses.",
+        "Synths, DAWs, and mixing techniques.",
+        "Smart contracts, consensus, and crypto news.",
+        "Sharing techniques for drawing and painting digitally.",
+        "Automating lights, HVAC, and security systems.",
+        "How to grow your own vegetables and flowers.",
+        "Stories and tips from around the world."
+    };
+
+    private static final String[] REALISTIC_MESSAGES = {
+        "Hello everyone!", "Does anyone know how to fix this bug?", "Check out this cool article I found.",
+        "I completely agree.", "What are your thoughts on this?", "I've been working on this all day.",
+        "That's really interesting.", "Can someone explain this concept?", "Have a great weekend!",
+        "I'm new here, nice to meet you all.", "Just deployed a new version.", "Look at this adorable photo!",
+        "Has anyone tried the new update?", "I'm having trouble with the installation.", "Thanks for the help!",
+        "I'm so excited for this project.", "Can't wait to see the results.", "This is a great community."
+    };
+
     public SimulationManager(SimulationConfig config) {
         this.config = config;
         this.scheduler = new ScheduledThreadPoolExecutor(config.numPeers() + 2);
@@ -48,16 +85,29 @@ public class SimulationManager {
         log.info("--- Starting ISC Integration Simulation ---");
         log.info("Config: {}", config);
 
-        boolean useGui = config.guiMode() && config.numPeers() <= 4;
-        if (config.guiMode() && config.numPeers() > 4) {
-            log.warn("GUI mode requested but numPeers > 4. Disabling GUI mode for performance.");
+        boolean useSimGui = true;
+
+        if (useSimGui) {
+            try {
+                SwingUtilities.invokeAndWait(() -> {
+                    simulatorUI = new SimulatorUI("ISC Network Simulator");
+                    simulatorUI.setVisible(true);
+                });
+            } catch (Exception e) {
+                log.error("Failed to start Simulator UI", e);
+            }
+        }
+
+        if (config.guiMode() && config.numPeers() <= 4 && simulatorUI != null) {
+            log.info("Using standard GUI side-by-side mode in addition to Sim Graph");
+            simulatorUI.setSize(800, 600); simulatorUI.setLocation(800, 0); simulatorUI.toFront();
         }
 
         // 1. Start bootstrap node
         int basePort = 12000;
         log.info("Starting Bootstrap Node (Peer 0)...");
         bootstrapPeer = new SimulatedPeer(0, basePort, null);
-        if (useGui) bootstrapPeer.getApp().setServerMode(false);
+        if (config.guiMode() && config.numPeers() <= 4) bootstrapPeer.getApp().setServerMode(false);
         bootstrapPeer.start();
         peers.add(bootstrapPeer);
 
@@ -66,23 +116,97 @@ public class SimulationManager {
         String bootstrapMultiaddr = bootstrapPeer.getFirstListenAddress() + "/p2p/" + bootstrapPeer.getPeerId();
         log.info("Bootstrap node running at: {}", bootstrapMultiaddr);
 
+        if (simulatorUI != null) {
+            simulatorUI.addNode(bootstrapPeer.getPeerId(), "Bootstrap");
+        }
+
         // 2. Start other peers
         log.info("Starting {} additional peers...", config.numPeers() - 1);
         for (int i = 1; i < config.numPeers(); i++) {
             SimulatedPeer peer = new SimulatedPeer(i, basePort, bootstrapMultiaddr);
-            if (useGui) peer.getApp().setServerMode(false);
+            if (config.guiMode() && config.numPeers() <= 4) peer.getApp().setServerMode(false);
             peer.start();
             peers.add(peer);
+
+            if (simulatorUI != null) {
+                simulatorUI.addNode(peer.getPeerId(), "Peer " + i);
+                simulatorUI.addConnection(peer.getPeerId(), bootstrapPeer.getPeerId());
+
+                // Wire up organic network visualization listener
+                peer.getApp().getNetwork().setNetworkActivityListener((fromPeer, toPeer, protocol) -> {
+                    java.awt.Color color = java.awt.Color.WHITE;
+                    if ("ANNOUNCE".equals(protocol)) color = java.awt.Color.CYAN;
+                    else if ("QUERY".equals(protocol)) color = java.awt.Color.GREEN;
+                    else if ("CHAT".equals(protocol)) color = java.awt.Color.ORANGE;
+
+                    simulatorUI.animateEvent(fromPeer, toPeer, protocol, color);
+                });
+
+                // Poll channels and messages for HUD
+                scheduler.scheduleAtFixedRate(() -> {
+                    try {
+                        List<String> chanNames = new ArrayList<>();
+                        for (Channel c : peer.getApp().getStorage().loadChannels()) chanNames.add(c.getName());
+                        simulatorUI.updateNodeChannels(peer.getPeerId(), chanNames);
+                        simulatorUI.repaint();
+                    } catch (Exception e) {}
+                }, 1, 2, TimeUnit.SECONDS);
+            }
 
             // Randomly stagger starts slightly to avoid thundering herd
             Thread.sleep(random.nextInt(200));
         }
 
+        if (simulatorUI != null) {
+            bootstrapPeer.getApp().getNetwork().setNetworkActivityListener((fromPeer, toPeer, protocol) -> {
+                java.awt.Color color = java.awt.Color.WHITE;
+                if ("ANNOUNCE".equals(protocol)) color = java.awt.Color.CYAN;
+                else if ("QUERY".equals(protocol)) color = java.awt.Color.GREEN;
+                else if ("CHAT".equals(protocol)) color = java.awt.Color.ORANGE;
+
+                simulatorUI.animateEvent(fromPeer, toPeer, protocol, color);
+            });
+
+            scheduler.scheduleAtFixedRate(() -> {
+                try {
+                    List<String> chanNames = new ArrayList<>();
+                    for (Channel c : bootstrapPeer.getApp().getStorage().loadChannels()) chanNames.add(c.getName());
+                    simulatorUI.updateNodeChannels(bootstrapPeer.getPeerId(), chanNames);
+                    simulatorUI.repaint();
+                } catch (Exception e) {}
+            }, 1, 2, TimeUnit.SECONDS);
+
+            // Poll for received messages to display on the HUD
+            scheduler.scheduleAtFixedRate(() -> {
+                try {
+                    for (SimulatedPeer peer : peers) {
+                        java.util.List<Channel> channels = peer.getApp().getStorage().loadChannels();
+                        if (!channels.isEmpty()) {
+                            // Find latest posts across all channels
+                            for (Channel c : channels) {
+                                java.util.List<network.isc.core.Post> posts = peer.getApp().getPostService().getAllPosts(c.getId());
+                                if (posts != null && !posts.isEmpty()) {
+                                    // Just show the very latest post received
+                                    network.isc.core.Post latest = posts.get(posts.size() - 1);
+                                    // Ensure we don't continually append the same message
+                                    String shortMsg = latest.getContent().length() > 15 ? latest.getContent().substring(0, 15) + "..." : latest.getContent();
+
+                                    // A small trick: append timestamp to ensure uniqueness visually, or just rely on SimulatorUI fixed length
+                                    simulatorUI.addNodeMessage(peer.getPeerId(), "< " + shortMsg);
+                                    simulatorUI.repaint();
+                                }
+                            }
+                        }
+                    }
+                } catch (Exception e) {}
+            }, 1, 2, TimeUnit.SECONDS);
+        }
+
         log.info("All nodes started. Waiting for connections to stabilize...");
         Thread.sleep(5000);
 
-        if (useGui) {
-            tileWindows();
+        if (config.guiMode() && config.numPeers() <= 4) {
+            tileWindows(simulatorUI != null);
         }
 
         // 3. Inject behaviors (Simulated user activity)
@@ -92,9 +216,6 @@ public class SimulationManager {
         long endTime = System.currentTimeMillis() + (config.durationSeconds() * 1000L);
         while (System.currentTimeMillis() < endTime) {
             Thread.sleep(1000);
-            if (config.guiMode()) {
-                // Future GUI update tick if needed
-            }
         }
 
         // 5. Output Metrics and Shutdown
@@ -109,18 +230,18 @@ public class SimulationManager {
         log.info("Simulation shutdown complete.");
     }
 
-    private void tileWindows() {
+    private void tileWindows(boolean hasSimGui) {
         SwingUtilities.invokeLater(() -> {
             Dimension screenSize = Toolkit.getDefaultToolkit().getScreenSize();
-            int width = screenSize.width / 2;
-            int height = screenSize.height / 2;
+            int width = hasSimGui ? 800 : screenSize.width / 2;
+            int height = hasSimGui ? 600 : screenSize.height / 2;
 
             for (int i = 0; i < peers.size(); i++) {
                 SimulatedPeer peer = peers.get(i);
                 if (peer.getApp().getMainFrame() != null) {
                     peer.getApp().getMainFrame().setSize(width, height);
-                    int x = (i % 2) * width;
-                    int y = (i / 2) * height;
+                    int x = hasSimGui ? 0 : (i % 2) * width;
+                    int y = hasSimGui ? 0 : (i / 2) * height;
                     peer.getApp().getMainFrame().setLocation(x, y);
                     peer.getApp().getMainFrame().setTitle(peer.getPeerName() + " - " + peer.getPeerId().substring(0, 8) + "...");
                 }
@@ -142,12 +263,21 @@ public class SimulationManager {
             if (action < 40) {
                 // Broadcast an announcement
                 createAndAnnounceChannel(peer);
-            } else if (action < 80) {
+            } else if (action < 60) {
                 // Query for channels
                 queryChannels(peer);
-            } else if (action < 95 && config.simulateDMs()) {
-                // Send DM
-                // sendDM(peer);
+            } else if (action < 95) {
+                // Chat in known channel
+                java.util.List<Channel> channels = peer.getApp().getStorage().loadChannels();
+                if (!channels.isEmpty()) {
+                    Channel c = channels.get(random.nextInt(channels.size()));
+                    String chatText = REALISTIC_MESSAGES[random.nextInt(REALISTIC_MESSAGES.length)];
+                    network.isc.protocol.ChatMessage msg = new network.isc.protocol.ChatMessage(c.getId(), chatText, System.currentTimeMillis(), new byte[0], new byte[0], peer.getPeerName());
+                    peer.getApp().getNetwork().broadcastChat(msg);
+                    if (simulatorUI != null) {
+                        simulatorUI.addNodeMessage(peer.getPeerId(), "> " + msg.getMsg());
+                    }
+                }
             } else {
                 // Idle or other behavior
             }
@@ -157,13 +287,15 @@ public class SimulationManager {
     }
 
     private void createAndAnnounceChannel(SimulatedPeer peer) throws Exception {
-        String topic = "Simulated topic " + random.nextInt(100);
-        String desc = "I am interested in learning about " + topic + " and finding peers who also like it.";
+        int topicIndex = random.nextInt(REALISTIC_TOPICS.length);
+        String topic = REALISTIC_TOPICS[topicIndex];
+        String desc = REALISTIC_DESCRIPTIONS[topicIndex];
 
         List<Relation> relations = new ArrayList<>();
         relations.add(new Relation("sim", "", 1.0));
 
         Channel c = new Channel(null, "Channel " + topic, desc, null, relations, null, null, false, null);
+        peer.getApp().getStorage().saveChannels(java.util.Collections.singletonList(c));
 
         // Use real embeddings to test ONNX throughput
         float[] vector = peer.getApp().getEmbedding().embed(desc);
