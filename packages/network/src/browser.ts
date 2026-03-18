@@ -15,6 +15,9 @@ import {
   type EmbeddingService,
 } from './index.js';
 import { createStorage, type Storage } from './storage.js';
+import { BrowserNetworkAdapter } from '@isc/adapters/browser';
+import { Libp2pDHT } from './libp2p-dht.js';
+import type { DHT } from './types.js';
 
 /**
  * Network service configuration
@@ -96,7 +99,9 @@ export class BrowserNetworkService {
   private events: NetworkEvents = {};
   private storage: Storage;
   private embedding: EmbeddingService | null = null;
-  private dht = createDHT();
+  // Use in-memory fallback unless network is started
+  private dht: DHT = createDHT();
+  private networkAdapter: BrowserNetworkAdapter | null = null;
   private localPeer: VirtualPeer | null = null;
   private identity: Identity | null = null;
   private matches: PeerMatch[] = [];
@@ -128,6 +133,26 @@ export class BrowserNetworkService {
 
       // Load cached data
       await this.loadCachedData();
+
+      // Start Real Network Adapter
+      this.networkAdapter = new BrowserNetworkAdapter();
+      try {
+        await this.networkAdapter.start();
+        console.log('[Network] Real libp2p network adapter started.');
+
+        if (typeof window !== 'undefined') {
+           (window as any).__iscNetworkAdapter = this.networkAdapter;
+        }
+
+        // Swap out the local in-memory DHT for the real libp2p DHT
+        this.dht = new Libp2pDHT(this.networkAdapter);
+        console.log('[Network] Swapped InMemoryDHT with real Libp2pDHT connected to NetworkAdapter.');
+      } catch (err) {
+        console.warn('[Network] Failed to start real network adapter, falling back to in-memory DHT. Err: ', err);
+        this.networkAdapter = null;
+      }
+
+      this.setupPubSub();
 
       // Announce to DHT
       await this.announceToDHT();
@@ -327,6 +352,41 @@ export class BrowserNetworkService {
   }
 
   /**
+   * Get the underlying network adapter for tests or advanced interactions
+   */
+  getNetworkAdapter(): BrowserNetworkAdapter | null {
+     return this.networkAdapter;
+  }
+
+  /**
+   * Subscribe to network events for new posts
+   */
+  private setupPubSub(): void {
+    if (!this.networkAdapter || !this.networkAdapter.subscribe) return;
+
+    const topic = 'isc:posts:global';
+
+    this.networkAdapter.subscribe(topic, async (data: Uint8Array) => {
+      try {
+        const post: PostData = JSON.parse(new TextDecoder().decode(data));
+
+        // Ensure we don't process our own posts twice
+        if (this.posts.some(p => p.id === post.id)) return;
+
+        this.posts.unshift(post);
+        await this.storage.set('isc-posts', this.posts);
+
+        this.events.onPostCreated?.(post);
+        console.log(`[Network] Received post in ${post.channelName} via Gossipsub`);
+      } catch (err) {
+        console.warn('[Network] Failed to parse incoming post:', err);
+      }
+    });
+
+    console.log(`[Network] Subscribed to topic: ${topic}`);
+  }
+
+  /**
    * Create a new post
    */
   async createPost(channelId: string, content: string): Promise<PostData> {
@@ -355,6 +415,17 @@ export class BrowserNetworkService {
 
     this.events.onPostCreated?.(post);
     console.log(`[Network] Created post in ${channel.name}`);
+
+    // Broadcast via pubsub if network is available
+    if (this.networkAdapter && this.networkAdapter.publish) {
+       try {
+         const data = new TextEncoder().encode(JSON.stringify(post));
+         await this.networkAdapter.publish('isc:posts:global', data);
+         console.log(`[Network] Broadcasted post via Gossipsub`);
+       } catch (err) {
+         console.warn('[Network] Failed to broadcast post:', err);
+       }
+    }
 
     return post;
   }
@@ -469,6 +540,9 @@ export class BrowserNetworkService {
     this.stopAutoDiscovery();
     if (this.embedding) {
       this.embedding.unload();
+    }
+    if (this.networkAdapter) {
+      this.networkAdapter.stop().catch(console.error);
     }
     this.initialized = false;
     console.log('[Network] Service destroyed');
