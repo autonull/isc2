@@ -371,6 +371,12 @@ public class ISCApplication {
             log.info("Services shut down cleanly");
         }));
 
+        if (mainFrame != null) {
+            connectionMonitor.setOnStatusChanged((label, rgb) -> {
+                mainFrame.updateConnectionStatus(label, rgb);
+            });
+        }
+
         // Initialize Controllers
         chatController = new ChatController(
             network, postService, fileTransfer, mainFrame,

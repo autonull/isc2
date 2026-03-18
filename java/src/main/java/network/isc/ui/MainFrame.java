@@ -30,6 +30,8 @@ public class MainFrame extends JFrame {
 
     private Channel activeChannel;
 
+    private final JLabel connectionStatusLabel;
+
     public MainFrame() {
         setTitle("ISC - Interoperable Social Communication");
         setSize(1200, 800);
@@ -76,9 +78,9 @@ public class MainFrame extends JFrame {
         brandLabel.setFont(new Font("SansSerif", Font.BOLD, 18));
         brandPanel.add(brandLabel);
 
-        JLabel connectionStatusLabel = new JLabel("●");
-        connectionStatusLabel.setForeground(Color.GREEN);
-        connectionStatusLabel.setToolTipText("Connection: Online");
+        connectionStatusLabel = new JLabel("●");
+        connectionStatusLabel.setForeground(Color.GRAY);
+        connectionStatusLabel.setToolTipText("Connection: Unknown");
         brandPanel.add(connectionStatusLabel);
 
         topSidebarPanel.add(brandPanel, BorderLayout.NORTH);
@@ -313,6 +315,13 @@ public class MainFrame extends JFrame {
 
     public void setOnCreateGroup(Runnable onCreateGroup) {
         this.onCreateGroup = onCreateGroup;
+    }
+
+    public void updateConnectionStatus(String label, int rgb) {
+        SwingUtilities.invokeLater(() -> {
+            connectionStatusLabel.setForeground(new Color(rgb));
+            connectionStatusLabel.setToolTipText("Connection: " + label);
+        });
     }
 
     public ChatPanel getChatPanel() {

@@ -44,6 +44,7 @@ public class ConnectionMonitorService {
     private final ScheduledExecutorService scheduler;
     private ConnectionStatus status = ConnectionStatus.UNKNOWN;
     private int consecutiveFailures = 0;
+    private java.util.function.BiConsumer<String, Integer> onStatusChanged;
 
     /**
      * Constructor with manual dependency injection
@@ -63,12 +64,20 @@ public class ConnectionMonitorService {
         log.info("ConnectionMonitorService started");
     }
 
+    public void setOnStatusChanged(java.util.function.BiConsumer<String, Integer> listener) {
+        this.onStatusChanged = listener;
+        if (this.onStatusChanged != null) {
+            this.onStatusChanged.accept(status.getLabel(), status.getColorRgb());
+        }
+    }
+
     /**
      * Check connection status every 10 seconds
      */
     private void checkConnection() {
         boolean wasOnline = status == ConnectionStatus.ONLINE;
         boolean isOnline = network.isOnline();
+        ConnectionStatus oldStatus = status;
 
         if (isOnline && !wasOnline) {
             status = ConnectionStatus.ONLINE;
@@ -79,10 +88,14 @@ public class ConnectionMonitorService {
             consecutiveFailures++;
             if (consecutiveFailures >= 3) {
                 status = ConnectionStatus.OFFLINE;
-                log.info("Connection lost");
+                if (oldStatus != ConnectionStatus.OFFLINE) log.info("Connection lost");
             } else {
                 status = ConnectionStatus.DEGRADED;
             }
+        }
+
+        if (oldStatus != status && onStatusChanged != null) {
+            onStatusChanged.accept(status.getLabel(), status.getColorRgb());
         }
     }
 
@@ -98,6 +111,10 @@ public class ConnectionMonitorService {
             queueService.processQueue();
         } else {
             log.info("Connection lost");
+        }
+
+        if (onStatusChanged != null) {
+            onStatusChanged.accept(status.getLabel(), status.getColorRgb());
         }
     }
 

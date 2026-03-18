@@ -18,7 +18,16 @@ public class OnboardingDialog extends JDialog {
         setSize(500, 400);
         setLocationRelativeTo(parent);
         setLayout(new BorderLayout(10, 10));
-        setDefaultCloseOperation(JDialog.DO_NOTHING_ON_CLOSE);
+        setDefaultCloseOperation(JDialog.DISPOSE_ON_CLOSE);
+
+        addWindowListener(new java.awt.event.WindowAdapter() {
+            @Override
+            public void windowClosing(java.awt.event.WindowEvent e) {
+                if (!completed) {
+                    System.exit(0);
+                }
+            }
+        });
 
         // Welcome panel
         JPanel welcomePanel = new JPanel();
