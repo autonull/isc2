@@ -11,6 +11,7 @@ import { test, expect } from '@playwright/test';
 
 test.describe('Visual Regression', () => {
   test.beforeEach(async ({ page }) => {
+    await page.addInitScript(() => localStorage.setItem('isc-onboarding-completed', 'true'));
     page.on('pageerror', error => {
       // Ignore known third-party errors
       if (!error.message.includes('registerBackend')) {
@@ -21,6 +22,7 @@ test.describe('Visual Regression', () => {
 
   test.describe('Desktop Layout (1280x720)', () => {
     test.beforeEach(async ({ page }) => {
+      await page.addInitScript(() => localStorage.setItem('isc-onboarding-completed', 'true'));
       await page.setViewportSize({ width: 1280, height: 720 });
       await page.goto('/');
       await page.waitForSelector('#app', { timeout: 10000 });
@@ -81,6 +83,7 @@ test.describe('Visual Regression', () => {
 
   test.describe('Mobile Layout (375x667)', () => {
     test.beforeEach(async ({ page }) => {
+      await page.addInitScript(() => localStorage.setItem('isc-onboarding-completed', 'true'));
       await page.setViewportSize({ width: 375, height: 667 });
       await page.goto('/');
       await page.waitForSelector('#app', { timeout: 10000 });
@@ -118,6 +121,7 @@ test.describe('Visual Regression', () => {
 
   test.describe('Tablet Layout (768x1024)', () => {
     test.beforeEach(async ({ page }) => {
+      await page.addInitScript(() => localStorage.setItem('isc-onboarding-completed', 'true'));
       await page.setViewportSize({ width: 768, height: 1024 });
       await page.goto('/');
       await page.waitForSelector('#app', { timeout: 10000 });

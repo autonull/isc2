@@ -1,8 +1,8 @@
 {
   "compilerOptions": {
     "target": "ES2022",
-    "module": "ESNext",
-    "moduleResolution": "bundler",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
     "lib": ["ES2022", "DOM"],
     "outDir": "./dist",
     "rootDir": "./src",
@@ -16,9 +16,10 @@
     "noEmitOnError": false,
     "baseUrl": ".",
     "paths": {
-      "@isc/core": ["../packages/core/src/index.ts"]
+      "@isc/core": ["../../packages/core/dist/index.js"],
+      "@isc/core/*": ["../../packages/core/dist/*"]
     }
   },
-  "include": ["src/index.ts"],
+  "include": ["src/**/*.ts"],
   "exclude": ["src/test*.ts", "node_modules", "dist"]
 }

@@ -6,7 +6,7 @@
 
 import { h } from 'preact';
 import { useState } from 'preact/hooks';
-import { usePostService } from '../di/container.js';
+import { usePostService, useDependencies } from '../di/container.js';
 import { toast } from '../utils/toast.js';
 
 interface ComposePostProps {
@@ -61,6 +61,9 @@ export function ComposePost({ channelId, onSuccess }: ComposePostProps) {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const [attachedFile, setAttachedFile] = useState<File | null>(null);
+
+  const { networkService } = useDependencies();
 
   const remainingChars = MAX_LENGTH - content.length;
   const canSubmit = content.trim().length > 0 && content.length <= MAX_LENGTH && !submitting;
@@ -88,6 +91,7 @@ export function ComposePost({ channelId, onSuccess }: ComposePostProps) {
       });
 
       setContent('');
+      setAttachedFile(null);
       setSuccess(true);
       toast.success('Post created!');
       onSuccess?.();
@@ -108,6 +112,34 @@ export function ComposePost({ channelId, onSuccess }: ComposePostProps) {
     setContent(target.value);
   };
 
+  const handleAttach = async (e: Event) => {
+    const input = e.target as HTMLInputElement;
+    const file = input.files?.[0];
+    if (!file) return;
+
+    // Warn if file is large
+    if (file.size > 10 * 1024 * 1024) { // 10MB
+      const confirm = window.confirm(
+        `File is ${Math.round(file.size / 1024 / 1024)}MB. Large files may fail to transfer. Continue?`
+      );
+      if (!confirm) {
+        input.value = '';
+        return;
+      }
+    }
+
+    const node = networkService?.getNode?.();
+    if (node) {
+      const { getFileTransferService } = await import('../services/fileTransferService.js');
+      const service = getFileTransferService(node);
+      const hash = await service.stageFile(file);
+      setAttachedFile(file);
+      setContent(prev => prev + ` [FILE:${hash}]`);
+      toast.success(`Attached: ${file.name}`);
+    }
+    input.value = ''; // Reset input
+  };
+
   return (
     <div style={styles.container} data-testid="compose-post">
       <form onSubmit={handleSubmit}>
@@ -119,6 +151,61 @@ export function ComposePost({ channelId, onSuccess }: ComposePostProps) {
           maxLength={MAX_LENGTH + 1}
           data-testid="compose-post-textarea"
         />
+
+        <div style={{ marginBottom: '12px' }}>
+          <input
+            type="file"
+            id="file-attach"
+            style={{ display: 'none' }}
+            onChange={handleAttach}
+            data-testid="file-attach-input"
+          />
+          <label
+            htmlFor="file-attach"
+            style={{
+              display: 'inline-block',
+              padding: '6px 12px',
+              background: '#e8f4fd',
+              color: '#1da1f2',
+              borderRadius: '6px',
+              cursor: 'pointer',
+              fontSize: '13px',
+            }}
+            data-testid="file-attach-button"
+          >
+            📎 Attach File
+          </label>
+          {attachedFile && (
+            <div
+              data-testid="file-preview"
+              style={{
+                marginTop: '8px',
+                padding: '8px',
+                background: '#f7f9fa',
+                borderRadius: '6px',
+                fontSize: '13px',
+              }}
+            >
+              📎 {attachedFile.name} ({Math.round(attachedFile.size / 1024)} KB)
+              <button
+                type="button"
+                onClick={() => {
+                  setAttachedFile(null);
+                  setContent(prev => prev.replace(/ \[FILE:[a-f0-9]+\]/, ''));
+                }}
+                style={{
+                  marginLeft: '8px',
+                  background: 'none',
+                  border: 'none',
+                  color: '#e0245e',
+                  cursor: 'pointer',
+                }}
+              >
+                ✕
+              </button>
+            </div>
+          )}
+        </div>
 
         <div style={styles.footer}>
           <div>

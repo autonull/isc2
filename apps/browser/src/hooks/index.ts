@@ -150,10 +150,12 @@ export function usePosts(channelId?: string) {
  * Hook to manage feed data
  */
 export function useFeed(type: 'for-you' | 'following' | 'channel' = 'for-you', channelId?: string) {
-  const { feedService } = useDependencies();
+  const { feedService, networkService } = useDependencies();
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [syncing, setSyncing] = useState(false);
+  const [syncError, setSyncError] = useState<string | null>(null);
 
   const loadFeed = useCallback(async () => {
     if (!feedService) {
@@ -194,11 +196,42 @@ export function useFeed(type: 'for-you' | 'following' | 'channel' = 'for-you', c
     loadFeed();
   }, [loadFeed]);
 
+  // Historical sync
+  useEffect(() => {
+    if (type === 'channel' && channelId && networkService) {
+      const syncHistoricalPosts = async () => {
+        setSyncing(true);
+        setSyncError(null);
+        try {
+          const node = networkService.getNode?.();
+          if (node) {
+            const { getPostSyncService } = await import('../services/postSyncService.js');
+            const postService = await import('../services/postService.js').then(m => m.createPostService());
+            const syncService = getPostSyncService(node, postService);
+            const peers = node.getPeers ? node.getPeers() : (await node.getConnections()).map((c: any) => c.remotePeer);
+            // Request from multiple peers for redundancy
+            for (const peer of peers.slice(0, 3)) {
+              await syncService.requestHistoricalPosts(peer.toString(), channelId);
+            }
+          }
+        } catch (err) {
+          console.error('Sync failed:', err);
+          setSyncError('Failed to sync history');
+        } finally {
+          setSyncing(false);
+        }
+      };
+      syncHistoricalPosts();
+    }
+  }, [type, channelId, networkService]);
+
   return {
     posts,
     loading,
     error,
     refresh,
+    syncing,
+    syncError,
   };
 }
 

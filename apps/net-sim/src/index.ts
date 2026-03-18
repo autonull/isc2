@@ -12,8 +12,8 @@
 
 import blessed from 'blessed';
 import { createHash } from 'crypto';
-import { cosineSimilarity, lshHash, seededRng } from '../../../packages/core/src/index.js';
-import type { Channel, SignedAnnouncement } from '../../../packages/core/src/types.js';
+import { cosineSimilarity, lshHash } from '@isc/core/math/index.js';
+import type { Channel, SignedAnnouncement } from '@isc/core/types.js';
 
 // Configuration
 const NUM_PEERS = parseInt(process.argv.find(a => a.startsWith('--peers='))?.split('=')[1] || '3');

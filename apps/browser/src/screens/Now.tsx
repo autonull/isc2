@@ -31,7 +31,7 @@ const styles = {
 export function NowScreen() {
   const { navigate } = useNavigation();
   const activeChannel = useActiveChannel();
-  const { posts: hookPosts, loading, error, refresh } = useFeed('for-you');
+  const { posts: hookPosts, loading, error, refresh, syncing, syncError } = useFeed('for-you');
   const { networkService } = useDependencies();
   
   const [networkPosts, setNetworkPosts] = useState<PostData[]>([]);
@@ -123,6 +123,40 @@ export function NowScreen() {
       </div>
 
       <div style={styles.content}>
+        {syncing && (
+          <div
+            data-testid="sync-indicator"
+            style={{
+              textAlign: 'center',
+              padding: '10px',
+              background: '#e8f4fd',
+              borderRadius: '8px',
+              marginBottom: '16px',
+              fontSize: '14px',
+              color: '#1da1f2',
+            }}
+          >
+            🔄 Synchronizing channel history...
+          </div>
+        )}
+
+        {syncError && (
+          <div
+            data-testid="sync-error"
+            style={{
+              textAlign: 'center',
+              padding: '10px',
+              background: '#ffeef0',
+              borderRadius: '8px',
+              marginBottom: '16px',
+              fontSize: '14px',
+              color: '#e0245e',
+            }}
+          >
+            ⚠️ {syncError}
+          </div>
+        )}
+
         {allPosts.length === 0 ? (
           <>
             <div style={styles.emptyState} data-testid="now-empty-state">
