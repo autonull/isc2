@@ -93,9 +93,12 @@ public class DirectMessageController {
                             dmPanel.appendToInput("[FILE: " + hash + "]");
                         });
                     }).exceptionally(ex -> {
-                        SwingUtilities.invokeLater(() -> {
-                            JOptionPane.showMessageDialog(mainFrame, "Failed to stage file: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
-                        });
+                        SwingUtilities.invokeLater(() -> JOptionPane.showMessageDialog(
+                            mainFrame,
+                            "Failed to attach file: " + ex.getMessage(),
+                            "Error",
+                            JOptionPane.ERROR_MESSAGE
+                        ));
                         return null;
                     });
                 }

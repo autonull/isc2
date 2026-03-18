@@ -2,16 +2,20 @@ package network.isc.controllers;
 
 import network.isc.adapters.NetworkAdapter;
 import network.isc.core.Channel;
+import network.isc.core.OfflineAction;
 import network.isc.core.Post;
 import network.isc.core.PostService;
 import network.isc.protocol.ChatMessage;
 import network.isc.adapters.FileTransferManager;
+import network.isc.services.OfflineQueueService;
+import network.isc.services.ConnectionMonitorService;
 import network.isc.ui.ChatPanel;
 import network.isc.ui.MainFrame;
 
 import javax.swing.*;
 import java.awt.TrayIcon;
 import java.nio.charset.StandardCharsets;
+import java.util.concurrent.CompletableFuture;
 import io.libp2p.core.crypto.PrivKey;
 import io.libp2p.core.crypto.PubKey;
 import io.libp2p.core.crypto.KeyKt;
@@ -29,8 +33,19 @@ public class ChatController {
     private final String getLocalAvatarBase64;
     private final FileTransferManager fileTransfer;
     private Channel activeChannel;
+    private final OfflineQueueService queueService;
+    private final ConnectionMonitorService connectionMonitor;
 
-    public ChatController(NetworkAdapter network, PostService postService, FileTransferManager fileTransfer, MainFrame mainFrame, PrivKey libp2pKey, String getLocalAvatarBase64) {
+    public ChatController(
+        NetworkAdapter network,
+        PostService postService,
+        FileTransferManager fileTransfer,
+        MainFrame mainFrame,
+        PrivKey libp2pKey,
+        String getLocalAvatarBase64,
+        OfflineQueueService queueService,
+        ConnectionMonitorService connectionMonitor
+    ) {
         this.network = network;
         this.postService = postService;
         this.fileTransfer = fileTransfer;
@@ -38,6 +53,12 @@ public class ChatController {
         this.chatPanel = mainFrame.getChatPanel();
         this.libp2pKey = libp2pKey;
         this.getLocalAvatarBase64 = getLocalAvatarBase64;
+        this.queueService = queueService;
+        this.connectionMonitor = connectionMonitor;
+
+        this.queueService.addQueueProcessedListener(() -> {
+            SwingUtilities.invokeLater(this::refreshChatDisplayOnly);
+        });
 
         initListeners();
     }
@@ -46,23 +67,49 @@ public class ChatController {
         chatPanel.addSendListener(e -> {
             var msg = chatPanel.getAndClearInput();
             if (!msg.isEmpty() && activeChannel != null) {
-                try {
-                    var post = postService.createPost(msg, activeChannel.getId());
-                    chatPanel.appendMessage(post.getAuthor(), post.getContent(), post.getTimestamp(), getLocalAvatarBase64, post.getId(), 0, 0);
+                CompletableFuture.runAsync(() -> {
+                    try {
+                        // Check if online
+                        if (!connectionMonitor.isOnline()) {
+                            // Queue for later
+                            OfflineAction action = OfflineAction.message(
+                                activeChannel.getId(), msg
+                            );
+                            queueService.enqueueAction(action);
 
-                    var pubKey = libp2pKey.publicKey().bytes();
-                    var chatMsg = new ChatMessage(post.getChannelID(), post.getContent(), post.getTimestamp(), post.getSignature(), pubKey, getLocalAvatarBase64);
+                            SwingUtilities.invokeLater(() -> JOptionPane.showMessageDialog(
+                                mainFrame,
+                                "You're offline. Message queued for delivery.",
+                                "Offline",
+                                JOptionPane.WARNING_MESSAGE
+                            ));
+                            return;
+                        }
 
-                    if (activeChannel.isGroup()) {
-                        network.sendGroupMessage(activeChannel.getGroupPeers(), chatMsg);
-                        log.info("Message sent to group {}: {}", activeChannel.getName(), msg);
-                    } else {
-                        network.broadcastChat(chatMsg);
-                        log.info("Message sent in channel {}: {}", activeChannel.getName(), msg);
+                        var post = postService.createPost(msg, activeChannel.getId());
+                        SwingUtilities.invokeLater(() -> {
+                            chatPanel.appendMessage(post.getAuthor(), post.getContent(), post.getTimestamp(), getLocalAvatarBase64, post.getId(), 0, 0);
+                        });
+
+                        var pubKey = libp2pKey.publicKey().bytes();
+                        var chatMsg = new ChatMessage(post.getChannelID(), post.getContent(), post.getTimestamp(), post.getSignature(), pubKey, getLocalAvatarBase64);
+
+                        if (activeChannel.isGroup()) {
+                            network.sendGroupMessage(activeChannel.getGroupPeers(), chatMsg);
+                            log.info("Message sent to group {}: {}", activeChannel.getName(), msg);
+                        } else {
+                            network.broadcastChat(chatMsg);
+                            log.info("Message sent in channel {}: {}", activeChannel.getName(), msg);
+                        }
+                    } catch (Exception ex) {
+                        SwingUtilities.invokeLater(() -> JOptionPane.showMessageDialog(
+                            mainFrame,
+                            "Failed to post message: " + ex.getMessage(),
+                            "Error",
+                            JOptionPane.ERROR_MESSAGE
+                        ));
                     }
-                } catch (Exception ex) {
-                    JOptionPane.showMessageDialog(mainFrame, "Failed to post message: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
-                }
+                });
             }
         });
 
@@ -124,11 +171,20 @@ public class ChatController {
                     fileTransfer.stageFile(file).thenAccept(hash -> {
                         SwingUtilities.invokeLater(() -> {
                             chatPanel.appendToInput("[FILE: " + hash + "]");
+                            JOptionPane.showMessageDialog(
+                                mainFrame,
+                                "File attached: " + file.getName(),
+                                "Attachment",
+                                JOptionPane.INFORMATION_MESSAGE
+                            );
                         });
                     }).exceptionally(ex -> {
-                        SwingUtilities.invokeLater(() -> {
-                            JOptionPane.showMessageDialog(mainFrame, "Failed to stage file: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
-                        });
+                        SwingUtilities.invokeLater(() -> JOptionPane.showMessageDialog(
+                            mainFrame,
+                            "Failed to attach file: " + ex.getMessage(),
+                            "Error",
+                            JOptionPane.ERROR_MESSAGE
+                        ));
                         return null;
                     });
                 }

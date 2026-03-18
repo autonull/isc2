@@ -5,20 +5,27 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.module.SimpleModule;
 import network.isc.core.Channel;
+import network.isc.core.OfflineAction;
 import org.mapdb.DB;
 import org.mapdb.DBMaker;
 import org.mapdb.Serializer;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 import java.util.concurrent.ConcurrentMap;
 
 public class MapDBStorageAdapter extends StorageAdapter {
 
+    private static final Logger log = LoggerFactory.getLogger(MapDBStorageAdapter.class);
+
     private final DB db;
     private final ConcurrentMap<String, String> map;
     private final ConcurrentMap<String, String> postsMap;
+    private final ConcurrentMap<String, String> queueMap;
     private final ObjectMapper mapper;
     private static final String CHANNELS_KEY = "channels";
     private static final String DM_PREFIX = "dm:";
@@ -40,6 +47,7 @@ public class MapDBStorageAdapter extends StorageAdapter {
 
         map = db.hashMap("isc_data", Serializer.STRING, Serializer.STRING).createOrOpen();
         postsMap = db.hashMap("isc_posts", Serializer.STRING, Serializer.STRING).createOrOpen();
+        queueMap = db.hashMap("offline_queue", Serializer.STRING, Serializer.STRING).createOrOpen();
         mapper = network.isc.adapters.JsonUtils.createMapper();
     }
 
@@ -160,6 +168,105 @@ public class MapDBStorageAdapter extends StorageAdapter {
         } catch (JsonProcessingException e) {
             e.printStackTrace();
         }
+    }
+
+    /**
+     * Enqueue an action for later execution
+     *
+     * @param action Action to queue
+     * @see OfflineAction
+     */
+    public void enqueueAction(OfflineAction action) {
+        try {
+            String json = mapper.writeValueAsString(action);
+            queueMap.put(action.getId(), json);
+            db.commit();
+            log.info("Enqueued action: {} (type: {})", action.getId(), action.getType());
+        } catch (JsonProcessingException e) {
+            log.error("Failed to enqueue action", e);
+        }
+    }
+
+    /**
+     * Get all queued actions
+     *
+     * @return List of queued actions
+     */
+    public List<OfflineAction> getQueuedActions() {
+        List<OfflineAction> actions = new ArrayList<>();
+        for (String json : queueMap.values()) {
+            try {
+                actions.add(mapper.readValue(json, OfflineAction.class));
+            } catch (JsonProcessingException e) {
+                log.error("Failed to parse queued action", e);
+            }
+        }
+        return actions;
+    }
+
+    /**
+     * Get queued actions by type
+     */
+    public List<OfflineAction> getQueuedActionsByType(OfflineAction.ActionType type) {
+        return getQueuedActions().stream()
+            .filter(a -> a.getType() == type)
+            .collect(Collectors.toList());
+    }
+
+    /**
+     * Remove action from queue
+     */
+    public void removeAction(String id) {
+        queueMap.remove(id);
+        db.commit();
+    }
+
+    /**
+     * Clear all queued actions
+     */
+    public void clearQueue() {
+        queueMap.clear();
+        db.commit();
+    }
+
+    /**
+     * Increment retry count, remove if max reached
+     */
+    public OfflineAction incrementRetry(String id) {
+        String json = queueMap.get(id);
+        if (json == null) return null;
+
+        try {
+            OfflineAction action = mapper.readValue(json, OfflineAction.class);
+            action.setRetryCount(action.getRetryCount() + 1);
+
+            if (action.getRetryCount() >= action.getMaxRetries()) {
+                removeAction(id);
+                log.warn("Action failed max retries, removing: {}", id);
+                return null;
+            }
+
+            queueMap.put(id, mapper.writeValueAsString(action));
+            db.commit();
+            return action;
+        } catch (Exception e) {
+            log.error("Failed to increment retry", e);
+            return null;
+        }
+    }
+
+    /**
+     * Get queue count
+     */
+    public int getQueueCount() {
+        return queueMap.size();
+    }
+
+    /**
+     * Check if queue has pending actions
+     */
+    public boolean hasPendingActions() {
+        return !queueMap.isEmpty();
     }
 
     public void close() {
