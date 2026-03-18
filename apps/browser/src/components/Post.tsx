@@ -2,6 +2,8 @@ import { h } from 'preact';
 import { useState } from 'preact/hooks';
 import type { SignedPost } from '../social/types.js';
 import { likePost, repostPost, replyToPost } from '../social/index.js';
+import { toast } from '../utils/toast.js';
+import { useDependencies } from '../di/container.js';
 
 interface PostProps {
   post: SignedPost;
@@ -35,6 +37,7 @@ export function Post({ post, showActions = true, onReply }: PostProps) {
   const [liked, setLiked] = useState(false);
   const [showReplyBox, setShowReplyBox] = useState(false);
   const [replyContent, setReplyContent] = useState('');
+  const { networkService } = useDependencies();
 
   const handleLike = async () => {
     if (liked) return;
@@ -57,13 +60,76 @@ export function Post({ post, showActions = true, onReply }: PostProps) {
     onReply?.(post.id);
   };
 
+  const handleFileDownload = async (hash: string) => {
+    try {
+      const node = networkService?.getNode?.();
+      if (!node) {
+        toast.error('Network not connected');
+        return;
+      }
+      toast.info('Downloading file...');
+      const { getFileTransferService } = await import('../services/fileTransferService.js');
+      const service = getFileTransferService(node);
+      // Determine peer. For now, try to use post's author, or discovery if needed
+      // Actually we need the peerId of the author
+      const peerId = post.authorId || post.author;
+      const blob = await service.downloadFile(peerId, hash);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `file-${hash.slice(0, 8)}`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      toast.success('File downloaded');
+    } catch (err) {
+      console.error(err);
+      toast.error('Failed to download file');
+    }
+  };
+
+  const renderContent = (content: string) => {
+    const fileMatch = content.match(/\[FILE:([a-f0-9]+)\]/);
+
+    return (
+      <p style={STYLES.content}>
+        {content.replace(/\[FILE:[a-f0-9]+\]/, '')}
+        {fileMatch && (
+          <a
+            href={`#file:${fileMatch[1]}`}
+            onClick={(e) => {
+              e.preventDefault();
+              handleFileDownload(fileMatch[1]);
+            }}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '4px',
+              color: '#1da1f2',
+              textDecoration: 'none',
+              padding: '4px 8px',
+              background: '#e8f4fd',
+              borderRadius: '4px',
+              fontSize: '13px',
+              marginLeft: '8px',
+            }}
+            data-testid="file-download-link"
+          >
+            📎 Download Attachment
+          </a>
+        )}
+      </p>
+    );
+  };
+
   return (
     <article class="post" style={STYLES.post}>
       <header style={STYLES.header}>
         <span style={STYLES.author}>{post.author.slice(0, 16)}...</span>
         <time style={STYLES.time}>{formatDate(post.timestamp)}</time>
       </header>
-      <p style={STYLES.content}>{post.content}</p>
+      {renderContent(post.content)}
       {showActions && (
         <footer style={STYLES.footer}>
           <div style={STYLES.actions}>

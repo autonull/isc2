@@ -12,6 +12,8 @@ import type { Navigator } from '@isc/navigation';
 import type { ChannelService } from '../services/channelService.js';
 import type { PostService } from '../services/postService.js';
 import type { FeedService } from '../services/feedService.js';
+import type { FileTransferService } from '../services/fileTransferService.js';
+import type { PostSyncService } from '../services/postSyncService.js';
 import type { } from '../services/networkService.js';
 
 // Service interfaces for DI
@@ -66,6 +68,8 @@ export interface AppDependencies {
   video: VideoService | null;
   chat: ChatService | null;
   discovery: DiscoveryService | null;
+  fileTransferService: FileTransferService | null;
+  postSyncService: PostSyncService | null;
 }
 
 /**
@@ -84,6 +88,8 @@ export const nullDependencies: AppDependencies = {
   video: null,
   chat: null,
   discovery: null,
+  fileTransferService: null,
+  postSyncService: null,
 };
 
 /**
@@ -212,6 +218,22 @@ export function useDiscoveryService(): DiscoveryService | null {
 }
 
 /**
+ * Hook to get file transfer service
+ */
+export function useFileTransferService(): FileTransferService | null {
+  const { fileTransferService } = useDependencies();
+  return fileTransferService;
+}
+
+/**
+ * Hook to get post sync service
+ */
+export function usePostSyncService(): PostSyncService | null {
+  const { postSyncService } = useDependencies();
+  return postSyncService;
+}
+
+/**
  * Create mock dependencies for testing
  */
 export function createMockDependencies(overrides?: Partial<AppDependencies>): AppDependencies {
@@ -312,6 +334,16 @@ export function createMockDependencies(overrides?: Partial<AppDependencies>): Ap
     async getPeerProfile() { return null; },
   };
 
+  const mockFileTransferService = {
+    async stageFile() { return 'mock-hash'; },
+    async downloadFile() { return new Blob(['mock content']); },
+    getStagedFile() { return null; },
+  };
+
+  const mockPostSyncService = {
+    async requestHistoricalPosts() {},
+  };
+
   const mockNetworkService = {
     async initialize() {},
     getStatus() { return 'disconnected'; },
@@ -339,6 +371,8 @@ export function createMockDependencies(overrides?: Partial<AppDependencies>): Ap
     video: mockVideo,
     chat: mockChat,
     discovery: mockDiscovery,
+    fileTransferService: mockFileTransferService as unknown as FileTransferService,
+    postSyncService: mockPostSyncService as unknown as PostSyncService,
     ...overrides,
   };
 }
