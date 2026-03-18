@@ -26,6 +26,12 @@ public class RunTwoWindows {
         appA.setPort(4101); // Use different ports to avoid conflicts
         appA.setDbPath("nodeA.db");
         appA.setAppDirOverride(System.getProperty("user.dir") + "/target/nodeA");
+
+        // Bypass onboarding dialog for simulation
+        var storageA = new network.isc.adapters.MapDBStorageAdapter(System.getProperty("user.dir") + "/target/nodeA/nodeA.db");
+        storageA.saveConfig("onboarding_complete", "true");
+        storageA.close();
+
         appA.start();
 
         System.out.println("Node A addresses:");
@@ -50,6 +56,12 @@ public class RunTwoWindows {
         appB.setDbPath("nodeB.db");
         appB.setAppDirOverride(System.getProperty("user.dir") + "/target/nodeB");
         appB.setBootstrapNodes(new String[]{nodeAMultiaddr});
+
+        // Bypass onboarding dialog for simulation
+        var storageB = new network.isc.adapters.MapDBStorageAdapter(System.getProperty("user.dir") + "/target/nodeB/nodeB.db");
+        storageB.saveConfig("onboarding_complete", "true");
+        storageB.close();
+
         appB.start();
 
         System.out.println("Waiting for windows to appear...");

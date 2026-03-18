@@ -19,6 +19,9 @@ import network.isc.protocol.ProtocolConstants;
 import network.isc.protocol.ChatMessage;
 import network.isc.ui.MainFrame;
 import network.isc.ui.DownloadDialog;
+import network.isc.ui.OnboardingDialog;
+import network.isc.services.OfflineQueueService;
+import network.isc.services.ConnectionMonitorService;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -234,6 +237,26 @@ public class ISCApplication {
         if (!serverMode) {
             mainFrame = new MainFrame();
             setupSystemTray();
+
+            // Check if onboarding is needed
+            String onboardingComplete = storage.loadConfig("onboarding_complete");
+            if (onboardingComplete == null) {
+                OnboardingDialog dialog = new OnboardingDialog(mainFrame);
+                dialog.setVisible(true);
+
+                if (dialog.isCompleted()) {
+                    // Save onboarding completion
+                    storage.saveConfig("onboarding_complete", "true");
+
+                    // Save initial profile
+                    storage.saveConfig("name", dialog.getName());
+                    storage.saveConfig("bio", dialog.getBio());
+
+                    log.info("Onboarding completed for user: {}", dialog.getName());
+                } else {
+                    log.warn("Onboarding canceled by user");
+                }
+            }
         }
 
         // Model Downloading & Loading - Always check from a centralized or shared location if possible to save space in simulations, but we will download it to appDir if needed. Actually, let's allow an override or use a centralized cache.
@@ -334,9 +357,37 @@ public class ISCApplication {
             return;
         }
 
+        // === PURE JAVA DEPENDENCY INJECTION ===
+        // Create offline queue service (no Spring!)
+        OfflineQueueService queueService = new OfflineQueueService(storage, network, postService);
+
+        // Create connection monitor service (no Spring!)
+        ConnectionMonitorService connectionMonitor = new ConnectionMonitorService(network, queueService);
+
+        // Add shutdown hook for clean cleanup
+        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+            queueService.shutdown();
+            connectionMonitor.shutdown();
+            log.info("Services shut down cleanly");
+        }));
+
+        if (mainFrame != null) {
+            connectionMonitor.setOnStatusChanged((label, rgb) -> {
+                mainFrame.updateConnectionStatus(label, rgb);
+            });
+        }
+
         // Initialize Controllers
-        chatController = new ChatController(network, postService, fileTransfer, mainFrame, libp2pKey, localAvatarBase64);
-        dmController = new DirectMessageController(network, storage, fileTransfer, mainFrame, libp2pKey, localAvatarBase64);
+        chatController = new ChatController(
+            network, postService, fileTransfer, mainFrame,
+            libp2pKey, localAvatarBase64,
+            queueService, connectionMonitor
+        );
+        dmController = new DirectMessageController(
+            network, storage, fileTransfer, mainFrame,
+            libp2pKey, localAvatarBase64,
+            queueService, connectionMonitor
+        );
         discoveryController = new DiscoveryController(network, embedding, mainFrame, localDht, libp2pKey);
 
         mainFrame.setChannels(channels);

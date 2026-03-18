@@ -140,6 +140,10 @@ public class DirectMessagePanel extends JPanel {
         });
     }
 
+    public void clearMessages() {
+        chatArea.setText("<html><body><div id='content'></div></body></html>");
+    }
+
     public void appendMessage(String sender, String message, long timestamp, String avatarBase64) {
         String time = timeFormat.format(new Date(timestamp));
 
