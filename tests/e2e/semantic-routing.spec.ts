@@ -43,41 +43,35 @@ test.describe('E2E Semantic Routing', () => {
     const contextB = await browser.newContext();
     const contextC = await browser.newContext();
 
+    // Configure local node relay as the test bootstrap node
+    // The relay must be running on localhost:9090 (started by playwright.config.ts)
+    // NOTE: The ID here isn't strict for dialing, but we'd need to fetch the actual ID
+    // from the node relay output if we wanted full strictness.
+    // For tests we configure the adapter to dial the /ws/ endpoint directly.
+    const TEST_RELAY_ADDR = '/ip4/127.0.0.1/tcp/9090/ws';
+
     // Inject test bootstrap configuration
-    await contextA.addInitScript(() => { (window as any).isE2ETest = true; });
-    await contextB.addInitScript(() => { (window as any).isE2ETest = true; });
-    await contextC.addInitScript(() => { (window as any).isE2ETest = true; });
+    await contextA.addInitScript((addr) => {
+        (window as any).isE2ETest = true;
+        (window as any).TEST_BOOTSTRAP_NODE = addr;
+    }, TEST_RELAY_ADDR);
+
+    await contextB.addInitScript((addr) => {
+        (window as any).isE2ETest = true;
+        (window as any).TEST_BOOTSTRAP_NODE = addr;
+    }, TEST_RELAY_ADDR);
+
+    await contextC.addInitScript((addr) => {
+        (window as any).isE2ETest = true;
+        (window as any).TEST_BOOTSTRAP_NODE = addr;
+    }, TEST_RELAY_ADDR);
 
     // Stagger initialization slightly to allow bootstrapping
     alice = await Persona.create(contextA, ALICE_CONFIG);
-
-    // Give Alice time to spin up her libp2p node.
-    await alice.page.waitForTimeout(5000);
-
-    // Extract Alice's multiaddrs to act as a bootstrap node for Bob and Charlie
-    // This perfectly mimics scanning a QR code or pasting a connection string out-of-band
-    const aliceAddrs = await alice.page.evaluate(async () => {
-        if ((window as any).__iscNetworkAdapter) {
-            return await (window as any).__iscNetworkAdapter.getMultiaddrs();
-        }
-        return [];
-    });
-
-    console.log(`Alice addresses: ${JSON.stringify(aliceAddrs)}`);
-
-    if (aliceAddrs.length > 0) {
-        // Expose Alice's WebRTC multiaddr to Bob and Charlie so they can dial her directly
-        const webrtcAddr = aliceAddrs.find((a: string) => a.includes('webrtc'));
-        if (webrtcAddr) {
-            await contextB.addInitScript((addr) => { (window as any).TEST_BOOTSTRAP_NODE = addr; }, webrtcAddr);
-            await contextC.addInitScript((addr) => { (window as any).TEST_BOOTSTRAP_NODE = addr; }, webrtcAddr);
-        }
-    }
-
     bob = await Persona.create(contextB, BOB_CONFIG);
     charlie = await Persona.create(contextC, CHARLIE_CONFIG);
 
-    // Give the network time to establish WebRTC direct peer connections
+    // Give the network time to connect to the relay and establish WebRTC direct peer connections
     await alice.page.waitForTimeout(5000);
 
     console.log('✓ All personas initialized and joined their primary channels.');
@@ -90,9 +84,9 @@ test.describe('E2E Semantic Routing', () => {
   });
 
   test.fixme('Scenario 1 & 2: Positive & Negative Match Discovery', async () => {
-    // FIXME: The application now correctly implements real @libp2p/webrtc and Kademlia DHT routing.
-    // However, headless Playwright browsers connecting to public internet relays (bootstrap.libp2p.io)
-    // take too long to negotiate WebRTC signaling/STUN without a dedicated local relay server.
+    // FIXME: Browsers successfully connect to the local Node.js WebSockets relay, but headless
+    // Chromium instances in Playwright still fail to negotiate direct WebRTC STUN connections
+    // or Kademlia DHT queries over localhost without more advanced WebRTC mocking arguments.
     await test.step('Alice discovers peers via semantic matching', async () => {
       console.log('\n--- Alice (Deep Learning) Discovering ---');
 
@@ -134,7 +128,6 @@ test.describe('E2E Semantic Routing', () => {
   });
 
   test.fixme('Scenario 3: Feed Content Ranking and Filtering', async () => {
-    // FIXME: Headless public relay latency prevents reliable local E2E pubsub synchronization.
     // Wait for DHT topology to stabilize
     await alice.page.waitForTimeout(5000);
 
@@ -178,7 +171,6 @@ test.describe('E2E Semantic Routing', () => {
   });
 
   test.fixme('Scenario 4: Dynamic Context Switching', async () => {
-    // FIXME: Headless public relay latency prevents reliable local E2E pubsub synchronization.
     // Bob changes his interest entirely
     const NEW_CHANNEL = "Culinary Arts";
     const NEW_DESC = "Discussions about cooking, baking, recipes, and culinary techniques.";
