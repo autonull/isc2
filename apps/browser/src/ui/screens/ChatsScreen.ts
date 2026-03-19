@@ -6,13 +6,16 @@ interface ChatsState {
   selectedConversation: string | null;
   messages: any[];
   inputValue: string;
+  isOffline: boolean;
 }
 
 export class ChatsScreen extends UIComponent<any, ChatsState> {
   private networkSub: any = null;
+  private onlineHandler: any = null;
+  private offlineHandler: any = null;
 
   constructor(props: any) {
-    super('div', props, { conversations: [], selectedConversation: null, messages: [], inputValue: '' });
+    super('div', props, { conversations: [], selectedConversation: null, messages: [], inputValue: '', isOffline: !navigator.onLine });
     this.element.className = 'screen chats-screen';
   }
 
@@ -43,12 +46,19 @@ export class ChatsScreen extends UIComponent<any, ChatsState> {
         });
       }
     }
+
+    this.onlineHandler = () => this.setState({ isOffline: false });
+    this.offlineHandler = () => this.setState({ isOffline: true });
+    window.addEventListener('online', this.onlineHandler);
+    window.addEventListener('offline', this.offlineHandler);
   }
 
   protected onUnmount() {
     if (typeof this.networkSub === 'function') {
       this.networkSub();
     }
+    if (this.onlineHandler) window.removeEventListener('online', this.onlineHandler);
+    if (this.offlineHandler) window.removeEventListener('offline', this.offlineHandler);
   }
 
   private handleSelectConversation(id: string) {
@@ -92,13 +102,19 @@ export class ChatsScreen extends UIComponent<any, ChatsState> {
   }
 
   protected render() {
-    this.element.innerHTML = `
-      <div class="channel-header">
-        <h2>✉ Private Chats</h2>
-        <p>End-to-end encrypted direct messages.</p>
+    const offlineBannerHtml = this.state.isOffline ? `
+      <div data-testid="offline-indicator" style="background: #fff3cd; color: #856404; padding: 8px 20px; font-size: 13px; text-align: center; border-bottom: 1px solid #ffc107;">
+        📡 You're offline — messages will be queued and sent when reconnected
       </div>
+    ` : '';
+
+    this.element.innerHTML = `
+      <div class="channel-header" style="padding: 16px 20px; border-bottom: 1px solid #e1e8ed; background: white;">
+        <h2 style="font-size: 20px; font-weight: bold; margin: 0; color: #14171a;">💬 Chats</h2>
+      </div>
+      <div id="offline-banner-container">${offlineBannerHtml}</div>
       <div style="display: flex; flex: 1; min-height: 500px; border-top: 1px solid #e1e8ed;">
-        <div id="chats-sidebar" style="width: 300px; border-right: 1px solid #e1e8ed; overflow-y: auto;"></div>
+        <div id="chats-sidebar" style="width: 320px; border-right: 1px solid #e1e8ed; overflow-y: auto; background: white;"></div>
         <div id="chats-main" style="flex: 1; display: flex; flex-direction: column; background: #f5f8fa;"></div>
       </div>
     `;
@@ -134,7 +150,20 @@ export class ChatsScreen extends UIComponent<any, ChatsState> {
   protected update(prevState: ChatsState) {
     const sidebar = this.element.querySelector('#chats-sidebar');
     const main = this.element.querySelector('#chats-main');
-    if (!sidebar || !main) return;
+    const offlineBanner = this.element.querySelector('#offline-banner-container');
+    if (!sidebar || !main || !offlineBanner) return;
+
+    if (prevState.isOffline !== this.state.isOffline) {
+      if (this.state.isOffline) {
+        offlineBanner.innerHTML = `
+          <div data-testid="offline-indicator" style="background: #fff3cd; color: #856404; padding: 8px 20px; font-size: 13px; text-align: center; border-bottom: 1px solid #ffc107;">
+            📡 You're offline — messages will be queued and sent when reconnected
+          </div>
+        `;
+      } else {
+        offlineBanner.innerHTML = '';
+      }
+    }
 
     // 1. Render Sidebar (Safe to overwrite entirely since it has no typing state)
     if (prevState.conversations !== this.state.conversations || prevState.selectedConversation !== this.state.selectedConversation) {
@@ -185,9 +214,11 @@ export class ChatsScreen extends UIComponent<any, ChatsState> {
           list.innerHTML = '<p style="text-align: center; color: #657786;">Say hello!</p>';
         } else {
           list.innerHTML = this.state.messages.map(m => `
-            <div style="max-width: 70%; padding: 12px 16px; border-radius: 18px; margin-bottom: 12px; font-size: 14px; ${m.fromMe ? 'background: #1da1f2; color: white; margin-left: auto;' : 'background: #e1e8ed; color: #14171a;'}">
-              ${escapeHTML(m.content)}
-              <div style="font-size: 11px; opacity: 0.7; margin-top: 4px;">${new Date(m.timestamp).toLocaleTimeString()}</div>
+            <div style="display: flex; flex-direction: column; align-items: ${m.fromMe ? 'flex-end' : 'flex-start'}; margin-bottom: 12px;">
+                <div style="max-width: 70%; padding: 12px 16px; border-radius: 18px; font-size: 14px; line-height: 1.4; ${m.fromMe ? 'background: #1da1f2; color: white;' : 'background: #e1e8ed; color: #14171a;'}">
+                  ${escapeHTML(m.content)}
+                </div>
+                <div style="font-size: 11px; opacity: 0.7; margin-top: 4px; color: #657786;">${new Date(m.timestamp).toLocaleTimeString()}</div>
             </div>
           `).join('');
         }
