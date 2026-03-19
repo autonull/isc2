@@ -5,7 +5,7 @@
  */
 
 import { feedService, postService, channelService } from '../../services/index.js';
-import { networkService } from '../../services/network.js';
+import { networkService } from '../../services/network.ts';
 import { getState, actions } from '../../state.js';
 import { escapeHtml } from '../../utils/dom.js';
 import { formatTime } from '../../utils/time.js';

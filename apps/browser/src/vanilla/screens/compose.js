@@ -5,7 +5,7 @@
  */
 
 import { channelService } from '../../services/index.js';
-import { networkService } from '../../services/network.js';
+import { networkService } from '../../services/network.ts';
 import { escapeHtml } from '../../utils/dom.js';
 import { toasts } from '../../utils/toast.js';
 

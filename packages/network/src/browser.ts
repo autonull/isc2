@@ -220,8 +220,10 @@ export class BrowserNetworkService {
       throw new Error('Network not initialized');
     }
 
-    // Load embedding model
+    // Load embedding model with progress reporting
+    this.setStatus('loading');
     await this.embedding.load();
+    this.setStatus('connected');
 
     // Create local peer
     this.localPeer = await VirtualPeer.create(
@@ -356,6 +358,13 @@ export class BrowserNetworkService {
    */
   getNetworkAdapter(): BrowserNetworkAdapter | null {
      return this.networkAdapter;
+  }
+
+  /**
+   * Get the embedding service instance (for loading status checks)
+   */
+  getEmbeddingService(): EmbeddingService | null {
+    return this.embedding;
   }
 
   /**

@@ -6,7 +6,7 @@
 
 import { subscribe, getState, actions } from '../state.js';
 export { actions };
-import { networkService } from '../services/network.js';
+import { networkService } from '../services/network.ts';
 import { toasts } from '../utils/toast.js';
 import { logger } from '../logger.js';
 import { escapeHtml } from '../utils/dom.js';
@@ -60,6 +60,14 @@ export function createApp(container) {
       await networkService.initialize().catch(err => {
         logger.warn('[App] Network init failed, continuing offline:', err.message);
       });
+
+      // Check if embedding model is loading/loaded
+      const netAdapter = networkService.service?.getNetworkAdapter?.();
+      const embeddingService = networkService.service?.getEmbeddingService?.();
+      if (embeddingService && !embeddingService.isLoaded()) {
+        splash.update('Loading AI model… (first load may take ~30s)', 60);
+        // Model loads in background; we continue without blocking
+      }
 
       splash.update('Initializing UI…', 80);
 

@@ -6,12 +6,32 @@ import preact from '@preact/preset-vite';
 export default defineConfig({
   server: {
     port: 3000,
+    headers: {
+      // Content Security Policy for XSS protection
+      'Content-Security-Policy': `
+        default-src 'self';
+        script-src 'self' 'unsafe-inline' blob:;
+        style-src 'self' 'unsafe-inline';
+        img-src 'self' data: blob:;
+        font-src 'self' data:;
+        connect-src 'self' blob: wss: ws: https:;
+        worker-src 'self' blob:;
+        child-src 'self' blob:;
+        object-src 'none';
+        base-uri 'self';
+        form-action 'self';
+        frame-ancestors 'none';
+      `.replace(/\s+/g, ' ').trim(),
+    },
   },
   plugins: [
     preact(),
     VitePWA({
       registerType: 'prompt',
       includeAssets: ['icons/*.png', 'icons/*.svg'],
+      // Disable injectManifest which can conflict with custom workers
+      injectRegister: null,
+      strategies: 'generateSW',
       manifest: {
         name: 'ISC - Internet Semantic Chat',
         short_name: 'ISC',
@@ -43,6 +63,8 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
+        // Don't cache worker files
+        ignoreURLParametersMatching: [],
         runtimeCaching: [
           {
             urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
@@ -94,8 +116,18 @@ export default defineConfig({
     rollupOptions: {
       input: {
         main: resolve(__dirname, 'index.html'),
+        'shared-worker': resolve(__dirname, 'src/shared-workers/shared-worker.ts'),
+        'service-worker': resolve(__dirname, 'src/shared-workers/service-worker.ts'),
       },
       external: ['@xenova/transformers', 'onnxruntime-web'],
+      output: {
+        // Configure worker output format
+        entryFileNames: 'assets/[name]-[hash].js',
+      },
+    },
+    // Configure worker build separately
+    worker: {
+      format: 'es',
     },
   },
   optimizeDeps: {
