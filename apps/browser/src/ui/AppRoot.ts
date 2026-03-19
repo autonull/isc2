@@ -5,6 +5,8 @@ import { DiscoverScreen } from './screens/DiscoverScreen.js';
 import { VideoCallScreen } from './screens/VideoCallScreen.js';
 import { ChatsScreen } from './screens/ChatsScreen.js';
 import { SettingsScreen } from './screens/SettingsScreen.js';
+import { ComposeScreen } from './screens/ComposeScreen.js';
+import { CommunitiesScreen } from './screens/CommunitiesScreen.js';
 
 interface AppRootState {
   route: string;
@@ -63,10 +65,17 @@ export class AppRoot extends UIComponent<any, AppRootState> {
       <div id="app-layout" style="display: none; height: 100%; width: 100%;">
         <div id="sidebar-container"></div>
         <main class="irc-main">
-          <div class="app-content" id="main-content"></div>
+          <div class="app-content" id="main-content" style="height: 100%; width: 100%;"></div>
         </main>
       </div>
     `;
+
+    // Listen for custom navigation events from children
+    this.element.addEventListener('navigate', ((e: CustomEvent) => {
+       if (e.detail && e.detail.route) {
+          this.handleTabClick(e.detail.route);
+       }
+    }) as EventListener);
   }
 
   protected update(prevState: AppRootState, prevProps: any) {
@@ -115,6 +124,12 @@ export class AppRoot extends UIComponent<any, AppRootState> {
           break;
         case 'settings':
           activeScreen = new SettingsScreen({ dependencies: this.props.dependencies });
+          break;
+        case 'compose':
+          activeScreen = new ComposeScreen({ dependencies: this.props.dependencies });
+          break;
+        case 'communities':
+          activeScreen = new CommunitiesScreen({ dependencies: this.props.dependencies });
           break;
         case 'now':
         default:
