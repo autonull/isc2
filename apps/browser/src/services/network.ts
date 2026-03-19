@@ -1,7 +1,8 @@
 /**
  * Network Service Wrapper
- * Handles network operations with error handling and state sync
- * Integrates with BackgroundWorker for persistent background presence
+ *
+ * Handles network operations with error handling and state sync.
+ * Integrates with BackgroundWorker for persistent background presence.
  */
 
 import { BrowserNetworkService, type PeerMatch as NetworkPeerMatch } from '@isc/network';
@@ -36,7 +37,7 @@ class NetworkServiceWrapper {
   private initialized = false;
   private reconnectAttempts = 0;
   private maxReconnectAttempts = 5;
-  private useBackgroundWorker = typeof BackgroundWorker !== 'undefined';
+  private useBackgroundWorker = typeof SharedWorker !== 'undefined';
 
   async initialize(): Promise<boolean> {
     try {
@@ -47,15 +48,19 @@ class NetworkServiceWrapper {
         try {
           this.sharedWorker = getBackgroundSyncManager();
           await this.sharedWorker.initialize();
-          this.log.info('BackgroundWorker initialized');
-
-          // Setup message queue for background delivery
-          this.messageQueue = getMessageQueue();
-          this.messageQueue.onMessage((msg) => {
-            this.log.info('Delivering queued message:', msg.id);
-            // Trigger state sync when messages are delivered
-            this.syncState();
-          });
+          
+          // Only setup message queue if worker actually connected
+          if (this.sharedWorker.isConnected()) {
+            this.messageQueue = getMessageQueue();
+            this.messageQueue.onMessage((msg) => {
+              this.log.info('Delivering queued message:', msg.id);
+              this.syncState();
+            });
+            this.log.info('BackgroundWorker initialized');
+          } else {
+            this.log.warn('BackgroundWorker not connected, using direct network');
+            this.useBackgroundWorker = false;
+          }
         } catch (err) {
           this.log.warn('BackgroundWorker init failed, using fallback:', (err as Error).message);
           this.useBackgroundWorker = false;
@@ -77,8 +82,6 @@ class NetworkServiceWrapper {
   setupEventListeners(): void {
     if (!this.service) return;
 
-    // BrowserNetworkService.on() accepts named callbacks (onStatusChange, onPeerDiscovered, etc.)
-    // NOT string-keyed events. Merges with existing handlers via spread.
     this.service.on({
       onStatusChange: (status) => {
         this.log.info('Network status', { status });
@@ -108,7 +111,6 @@ class NetworkServiceWrapper {
 
       onPostCreated: (_post) => {
         this.log.debug('Post received');
-        // Trigger feed refresh in the UI via DOM event
         if (typeof document !== 'undefined') {
           document.dispatchEvent(new CustomEvent('isc:refresh-feed'));
         }
@@ -120,9 +122,6 @@ class NetworkServiceWrapper {
     });
   }
 
-  /**
-   * Normalize PeerMatch[] from the network layer to the shape expected by UI
-   */
   private normalizeMatches(matches: NetworkPeerMatch[]): PeerMatch[] {
     return (matches ?? []).map(m => ({
       peerId: m.peer?.id ?? m.peerId ?? '',
@@ -144,12 +143,10 @@ class NetworkServiceWrapper {
 
     this.reconnectAttempts++;
     const delay = Math.min(1000 * Math.pow(2, this.reconnectAttempts), 30000);
-
     this.log.info(`Attempting reconnect ${this.reconnectAttempts}/${this.maxReconnectAttempts} in ${delay}ms`);
 
     setTimeout(async () => {
       try {
-        // Destroy old service so BrowserNetworkService.initialize() guard doesn't skip
         this.service?.destroy();
         this.service = null;
         this.initialized = false;
@@ -169,7 +166,6 @@ class NetworkServiceWrapper {
       actions.setIdentity(identity);
       actions.setChannels(channels);
       actions.setMatches(this.normalizeMatches(matches));
-
       this.log.debug('State synced', { channels: channels.length, matches: matches.length });
     } catch (err) {
       this.log.error('State sync failed', { error: (err as Error).message });

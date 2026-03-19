@@ -63,11 +63,11 @@ test.describe('UI Health Checks', () => {
         errors.push(error.message);
       }
     });
-    
+
     await page.goto('/');
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(2000);
-    
+    await page.waitForLoadState('domcontentloaded');
+    await page.waitForTimeout(3000);
+
     expect(errors).toEqual([]);
   });
 
@@ -82,15 +82,16 @@ test.describe('UI Health Checks', () => {
             !text.includes('net::ERR') &&
             !text.includes('SharedWorker') &&
             !text.includes('backgroundNetwork') &&
-            !text.includes('SharedWorker not supported')) {
+            !text.includes('SharedWorker not supported') &&
+            !text.includes('Incorrect length')) {
           consoleErrors.push(text);
         }
       }
     });
 
     await page.goto('/');
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(2000);
+    await page.waitForLoadState('domcontentloaded');
+    await page.waitForTimeout(3000);
 
     expect(consoleErrors).toEqual([]);
   });

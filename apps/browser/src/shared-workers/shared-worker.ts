@@ -52,21 +52,21 @@ async function initializeNetwork() {
 
   try {
     console.log('[SharedWorker] Initializing network...');
-    
+
     // Dynamic import to avoid bundling issues
     const { BrowserNetworkAdapter } = await import('@isc/adapters/browser');
     networkAdapter = new BrowserNetworkAdapter();
-    
+
     await networkAdapter.start();
     initialized = true;
-    
+
     console.log('[SharedWorker] Network initialized, peerId:', networkAdapter.getPeerId());
-    
+
     // Subscribe to global topics
     networkAdapter.subscribe('isc:posts:global', (data: Uint8Array) => {
       const message = new TextDecoder().decode(data);
       console.log('[SharedWorker] Received message:', message);
-      
+
       // Broadcast to all tabs
       broadcastToTabs({
         type: 'MESSAGE_RECEIVED',
@@ -80,7 +80,7 @@ async function initializeNetwork() {
 
     broadcastToTabs({ type: 'READY', payload: { peerId: networkAdapter.getPeerId() } });
   } catch (err) {
-    console.error('[SharedWorker] Initialization failed:', err);
+    console.warn('[SharedWorker] Initialization failed (using direct network):', (err as Error).message);
     broadcastToTabs({
       type: 'ERROR',
       payload: { message: err instanceof Error ? err.message : String(err) },

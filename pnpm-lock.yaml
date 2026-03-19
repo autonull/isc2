@@ -267,6 +267,9 @@ importers:
       '@isc/core':
         specifier: workspace:*
         version: link:../../packages/core
+      '@isc/network':
+        specifier: workspace:*
+        version: link:../../packages/network
       '@isc/protocol':
         specifier: workspace:*
         version: link:../../packages/protocol
@@ -303,13 +306,22 @@ importers:
       '@multiformats/multiaddr':
         specifier: ^13.0.1
         version: 13.0.1
+      '@xenova/transformers':
+        specifier: ^2.17.2
+        version: 2.17.2
       libp2p:
         specifier: ^1.9.4
         version: 1.9.4
+      ws:
+        specifier: ^8.14.2
+        version: 8.19.0
     devDependencies:
       '@types/node':
         specifier: ^20.10.0
         version: 20.19.37
+      '@types/ws':
+        specifier: ^8.5.10
+        version: 8.18.1
       tsx:
         specifier: ^4.7.0
         version: 4.21.0
@@ -4765,6 +4777,7 @@ packages:
     resolution: {integrity: sha512-8kzdPJ3FsNsVIurqBs7oodNnCEVbni9yUEkaHbgptDACOPW04jimGagZ51E6+lXUwJjgnBw+hyko/lkFWCldqw==}
     dependencies:
       undici-types: 6.21.0
+    dev: true
 
   /@types/node@22.19.15:
     resolution: {integrity: sha512-F0R/h2+dsy5wJAUe3tAU6oqa2qbWY5TpNfL/RGmo1y38hiyO1w3x2jPtt76wmuaJI4DQnOBu21cNXQ2STIUUWg==}
@@ -4799,7 +4812,6 @@ packages:
     resolution: {integrity: sha512-ThVF6DCVhA8kUGy+aazFQ4kXQ7E1Ty7A3ypFOe0IcJV8O/M511G99AW24irKrW56Wt44yG9+ij8FaqoBGkuBXg==}
     dependencies:
       '@types/node': 22.19.15
-    dev: false
 
   /@types/yargs-parser@21.0.3:
     resolution: {integrity: sha512-I4q9QU9MQv4oEOz4tAHJtNz1cwuLxn2F3xcc2iV5WdqLPpUnj30aUuxt1mAxYTG+oe8CZMV/+6rU4S4gRDzqtQ==}
@@ -10101,7 +10113,7 @@ packages:
       '@protobufjs/pool': 1.1.0
       '@protobufjs/utf8': 1.1.0
       '@types/long': 4.0.2
-      '@types/node': 20.19.37
+      '@types/node': 22.19.15
       long: 4.0.0
     dev: false
 

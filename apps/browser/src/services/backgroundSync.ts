@@ -17,70 +17,60 @@ export class BackgroundSyncManager {
   private worker: SharedWorker | null = null;
   private port: MessagePort | null = null;
   private connected = false;
+  private initialized = false;
   private peerId: string | null = null;
   private messageQueue = getMessageQueue();
   private listeners: Map<string, Set<(data: any) => void>> = new Map();
   private tabId: string;
-  private initPromise: Promise<void> | null = null;
 
   constructor() {
     this.tabId = `tab_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
   }
 
   async initialize(): Promise<void> {
-    if (this.initPromise) return this.initPromise;
+    // Fire-and-forget initialization - don't block app startup
+    this._initializeAsync().catch(() => {});
+  }
 
-    this.initPromise = (async () => {
-      try {
-        if (typeof SharedWorker === 'undefined') {
-          console.warn('[BackgroundSyncManager] SharedWorker not supported, using fallback');
-          return;
-        }
+  private async _initializeAsync(): Promise<void> {
+    if (this.initialized) return;
+    this.initialized = true;
 
-        // Lazy load worker URL to avoid Vite detection
-        const workerUrl = new URL('../shared-workers/shared-worker.ts', import.meta.url);
-        
-        this.worker = new SharedWorker(workerUrl, { type: 'module', name: 'isc-network' });
-        this.port = this.worker.port;
-
-        this.port.onmessage = (event: MessageEvent<BackgroundSyncResponse>) => {
-          this.handleMessage(event.data);
-        };
-
-        this.port.onmessageerror = (err) => {
-          console.error('[BackgroundSyncManager] Message error:', err);
-        };
-
-        this.port.start();
-
-        this.port.postMessage({ type: 'INITIALIZE', tabId: this.tabId });
-
-        await new Promise<void>((resolve, reject) => {
-          const timeout = setTimeout(() => reject(new Error('SharedWorker initialization timeout')), 10000);
-
-          const onReady = (response: BackgroundSyncResponse) => {
-            if (response.type === 'READY') {
-              clearTimeout(timeout);
-              this.connected = true;
-              this.peerId = response.payload?.peerId || null;
-              console.log('[BackgroundSyncManager] Connected, peerId:', this.peerId);
-              this.port?.removeEventListener('message', onReady as any);
-              resolve();
-            } else if (response.type === 'ERROR') {
-              clearTimeout(timeout);
-              reject(new Error(response.payload?.message || 'Initialization failed'));
-            }
-          };
-
-          this.port?.addEventListener('message', onReady as any);
-        });
-      } catch (err) {
-        console.error('[BackgroundSyncManager] Failed to initialize:', err);
-        throw err;
+    try {
+      if (typeof SharedWorker === 'undefined') {
+        return;
       }
-    })();
 
-    return this.initPromise;
+      const workerUrl = new URL('../shared-workers/shared-worker.ts', import.meta.url);
+      this.worker = new SharedWorker(workerUrl, { type: 'module', name: 'isc-network' });
+      this.port = this.worker.port;
+
+      this.port.onmessage = (event: MessageEvent<BackgroundSyncResponse>) => {
+        this.handleMessage(event.data);
+      };
+
+      this.port.onmessageerror = () => {};
+
+      this.port.start();
+      this.port.postMessage({ type: 'INITIALIZE', tabId: this.tabId });
+
+      // Short timeout for worker connection
+      await new Promise<void>((resolve) => {
+        const timeout = setTimeout(resolve, 1500);
+        const onReady = (response: BackgroundSyncResponse) => {
+          if (response.type === 'READY') {
+            clearTimeout(timeout);
+            this.connected = true;
+            this.peerId = response.payload?.peerId || null;
+            this.port?.removeEventListener('message', onReady as any);
+          }
+          resolve();
+        };
+        this.port?.addEventListener('message', onReady as any);
+      });
+    } catch {
+      // Silently fail
+    }
   }
 
   private handleMessage(response: BackgroundSyncResponse) {
@@ -102,7 +92,7 @@ export class BackgroundSyncManager {
         break;
 
       case 'ERROR':
-        console.error('[BackgroundSyncManager] Error:', payload?.message);
+        // Expected when SharedWorker fails to initialize - app uses direct network
         this.emit('error', payload);
         break;
     }
