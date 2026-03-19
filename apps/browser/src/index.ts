@@ -1,30 +1,89 @@
-import { initializeIdentity } from './identity/index.js';
+import { AppRoot } from './ui/AppRoot.js';
+import { getChannelManager } from './channels/manager.lazy.js';
+import { createChannelService } from './services/channelService.js';
+import { createPostService } from './services/postService.js';
+import { createFeedService } from './services/feedService.js';
+import { getWebUINetworkService } from './services/networkService.js';
+import { createIdentityService } from './services/identityService.js';
+import { createSettingsService } from './services/settingsService.js';
+import { createVideoService } from './services/videoService.js';
+import { createChatService } from './services/chatService.js';
+import { createDiscoveryService } from './services/discoveryService.js';
+import { exposeDebugAPI } from './dev/debugTools.js';
+import './styles/main.css';
 
-async function main() {
-  console.log('ISC Browser App starting...');
+console.log('[ISC Vanilla] Module loaded');
 
-  const identity = await initializeIdentity();
-  const fingerprint = identity.isInitialized ? identity.publicKeyFingerprint : (await initializeIdentity()).publicKeyFingerprint;
+async function init() {
+  console.log('[ISC Vanilla] init() called');
 
-  console.log(`Identity initialized: ${fingerprint}`);
-  updateUI(fingerprint);
-}
+  const container = document.getElementById('app');
+  if (!container) {
+    console.error('[ISC Vanilla] Container not found!');
+    return;
+  }
 
-function updateUI(fingerprint: string | null) {
-  const app = document.getElementById('app');
-  if (app && fingerprint) {
-    app.innerHTML = `
-      <h1>ISC - Indexed Semantic Connect</h1>
-      <div class="identity">
-        <h2>Your Identity</h2>
-        <p class="fingerprint">${fingerprint}</p>
-      </div>
-      <div class="channels">
-        <h2>Channels</h2>
-        <p>No active channels</p>
-      </div>
-    `;
+  // Create Root Component and mount immediately to show loading state
+  const appRoot = new AppRoot();
+  container.innerHTML = '';
+  appRoot.mount(container);
+
+  try {
+    // 1. Initialize Network Service (lazy, non-blocking but let's await for a base level)
+    const networkService = getWebUINetworkService();
+    networkService.initialize().catch(err => {
+      console.warn('[ISC Vanilla] Network init failed, continuing offline:', err);
+    });
+    console.log('[ISC Vanilla] Network service starting...');
+
+    // 2. Channel Manager
+    const channelManager = await getChannelManager();
+    console.log('[ISC Vanilla] Channel manager initialized');
+
+    // 3. Create domain services
+    const channelService = createChannelService(channelManager);
+    const postService = createPostService();
+    const feedService = createFeedService(postService, channelManager);
+    const identityService = createIdentityService();
+    const settingsService = createSettingsService();
+    const videoService = createVideoService();
+    const chatService = createChatService();
+    const discoveryService = createDiscoveryService();
+
+    // Group dependencies for easier access if needed
+    const dependencies = {
+      channelManager,
+      channelService,
+      postService,
+      feedService,
+      networkService,
+      identity: identityService,
+      settings: settingsService,
+      video: videoService,
+      chat: chatService,
+      discovery: discoveryService,
+    };
+
+    // Expose debug tools in development
+    if (process.env.NODE_ENV !== 'production') {
+      exposeDebugAPI(dependencies as any);
+      console.log('[ISC Vanilla] Debug tools enabled');
+    }
+
+    // Pass dependencies to Root Component
+    appRoot.setProps({ dependencies });
+    appRoot.setReady();
+
+    console.log('[ISC Vanilla] Initialization complete');
+  } catch (err) {
+    console.error('[ISC Vanilla] Fatal error:', err);
+    container.innerHTML = `<div style="color:red;padding:20px;"><h1>Error</h1><pre>${err instanceof Error ? err.message : String(err)}</pre></div>`;
   }
 }
 
-document.addEventListener('DOMContentLoaded', main);
+// Delay initialization to ensure DOM is ready
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', init);
+} else {
+  init();
+}

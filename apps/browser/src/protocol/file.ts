@@ -8,6 +8,7 @@
 import type { Libp2p } from 'libp2p';
 import type { Stream } from '@libp2p/interface';
 import { toString, fromString } from 'uint8arrays';
+import { pipe } from 'it-pipe';
 
 const PROTOCOL_FILE = '/isc/file/1.0';
 const CHUNK_SIZE = 8192; // 8KB chunks - balance between overhead and throughput
@@ -28,16 +29,30 @@ export class FileProtocol {
    */
   async requestFile(peerId: string, hash: string): Promise<Blob> {
     const stream = await this.node.dialProtocol(peerId as any, PROTOCOL_FILE);
-    await stream.sink([fromString(`REQ:${hash}`, 'utf-8')]);
+
+    // Write request to the stream's sink
+    const requestGen = async function* () {
+      yield fromString(`REQ:${hash}`, 'utf-8');
+    };
+    await pipe(requestGen(), stream.sink);
 
     const chunks: Uint8Array[] = [];
-    for await (const chunk of stream.source as AsyncIterable<Uint8Array>) {
-      const text = toString(chunk, 'utf-8');
-      if (text.startsWith('EOF:')) break; // End of transfer marker
-      chunks.push(chunk);
-    }
+
+    // Read response from the stream's source
+    await pipe(
+      stream.source,
+      async function (source: any) {
+        for await (const chunk of source) {
+          const chunkData = 'subarray' in chunk ? chunk.subarray() : chunk;
+          const text = toString(chunkData, 'utf-8');
+          if (text.startsWith('EOF:')) break; // End of transfer marker
+          chunks.push(new Uint8Array(chunkData.buffer, chunkData.byteOffset, chunkData.byteLength));
+        }
+      }
+    );
 
     await stream.close();
+
     return new Blob(chunks);
   }
 
@@ -62,20 +77,27 @@ export class FileProtocol {
       yield fromString(`EOF:${file.name}`, 'utf-8');
     }
 
-    await stream.sink(yieldChunks());
+    await pipe(yieldChunks(), stream.sink);
     await stream.close();
   }
 
   async handleStream(stream: Stream, getStagedFile: (hash: string) => { data: Uint8Array, name: string } | null): Promise<void> {
     try {
       let requestedHash = '';
-      for await (const chunk of stream.source as AsyncIterable<Uint8Array>) {
-        const text = toString(chunk, 'utf-8');
-        if (text.startsWith('REQ:')) {
-          requestedHash = text.substring(4);
-          break; // Stop reading after we get the request
+
+      await pipe(
+        stream.source,
+        async function (source: any) {
+          for await (const chunk of source) {
+            const chunkData = 'subarray' in chunk ? chunk.subarray() : chunk;
+            const text = toString(chunkData, 'utf-8');
+            if (text.startsWith('REQ:')) {
+              requestedHash = text.substring(4);
+              break; // Stop reading after we get the request
+            }
+          }
         }
-      }
+      );
 
       if (requestedHash) {
         const fileData = getStagedFile(requestedHash);
@@ -88,9 +110,9 @@ export class FileProtocol {
             }
             yield fromString(`EOF:${fileData.name}`, 'utf-8');
           }
-          await stream.sink(yieldChunks());
+          await pipe(yieldChunks(), stream.sink);
         } else {
-          await stream.sink([fromString(`EOF:NOT_FOUND`, 'utf-8')]);
+          await pipe([fromString(`EOF:NOT_FOUND`, 'utf-8')], stream.sink);
         }
       }
     } catch (e) {

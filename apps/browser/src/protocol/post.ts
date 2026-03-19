@@ -9,6 +9,7 @@
 import type { Libp2p } from 'libp2p';
 import type { Stream } from '@libp2p/interface';
 import { toString, fromString } from 'uint8arrays';
+import { pipe } from 'it-pipe';
 import type { PostData } from '@isc/network';
 
 const PROTOCOL_POST = '/isc/post/1.0';
@@ -34,63 +35,80 @@ export class PostProtocol {
   async requestHistoricalPosts(peerId: string, channelId: string): Promise<void> {
     const stream = await this.node.dialProtocol(peerId as any, PROTOCOL_POST);
 
-    async function* yieldRequest() {
+    const requestGen = async function* () {
       yield fromString(JSON.stringify({
         type: 'SYNC_REQUEST',
         channelId,
         timestamp: Date.now(),
       }) + '\n', 'utf-8');
-    }
-    await stream.sink(yieldRequest());
+    };
+
+    // Fire and forget request, or we can pipe it cleanly.
+    await pipe(requestGen(), stream.sink);
 
     let count = 0;
     let buffer = '';
-    for await (const chunk of stream.source as AsyncIterable<Uint8Array>) {
-      if (count >= MAX_HISTORY_POSTS) break;
 
-      buffer += toString(chunk, 'utf-8');
-      const lines = buffer.split('\n');
-      buffer = lines.pop() || '';
+    await pipe(
+      stream.source,
+      async (source: any) => {
+        for await (const chunk of source) {
+          if (count >= MAX_HISTORY_POSTS) break;
 
-      for (const line of lines) {
-        if (!line.trim()) continue;
-        try {
-          const post = JSON.parse(line);
-          if (this.callbacks.onHistoricalPost) {
-            this.callbacks.onHistoricalPost(post);
-            count++;
+          const chunkData = 'subarray' in chunk ? chunk.subarray() : chunk;
+          buffer += toString(chunkData, 'utf-8');
+          const lines = buffer.split('\n');
+          buffer = lines.pop() || '';
+
+          for (const line of lines) {
+            if (!line.trim()) continue;
+            try {
+              const post = JSON.parse(line);
+              if (this.callbacks.onHistoricalPost) {
+                this.callbacks.onHistoricalPost(post);
+                count++;
+              }
+            } catch(e) {
+              console.error('Failed to parse post response', e, line);
+            }
           }
-        } catch(e) {
-          console.error('Failed to parse post response', e, line);
         }
       }
-    }
+    );
+
     await stream.close();
   }
 
   async handleStream(stream: Stream): Promise<void> {
     try {
       let buffer = '';
-      for await (const chunk of stream.source as AsyncIterable<Uint8Array>) {
-        buffer += toString(chunk, 'utf-8');
-        const lines = buffer.split('\n');
-        buffer = lines.pop() || ''; // Keep the last incomplete line in the buffer
 
-        for (const line of lines) {
-          if (!line.trim()) continue;
-          try {
-            const data = JSON.parse(line);
-            if (data.type === 'SYNC_REQUEST') {
-              await this.handleSyncRequest(stream, data.channelId);
-              return; // Assuming one request per stream
-            } else if (this.callbacks.onHistoricalPost) {
-              this.callbacks.onHistoricalPost(data);
+      await pipe(
+        stream.source,
+        async (source: any) => {
+          for await (const chunk of source) {
+            const chunkData = 'subarray' in chunk ? chunk.subarray() : chunk;
+            buffer += toString(chunkData, 'utf-8');
+            const lines = buffer.split('\n');
+            buffer = lines.pop() || ''; // Keep the last incomplete line in the buffer
+
+            for (const line of lines) {
+              if (!line.trim()) continue;
+              try {
+                const data = JSON.parse(line);
+                if (data.type === 'SYNC_REQUEST') {
+                  await this.handleSyncRequest(stream, data.channelId);
+                  return; // Assuming one request per stream
+                } else if (this.callbacks.onHistoricalPost) {
+                  this.callbacks.onHistoricalPost(data);
+                }
+              } catch(e) {
+                console.error('Failed to parse post chunk', e, line);
+              }
             }
-          } catch(e) {
-            console.error('Failed to parse post chunk', e, line);
           }
         }
-      }
+      );
     } finally {
       await stream.close();
     }
@@ -100,13 +118,14 @@ export class PostProtocol {
     if (!this.callbacks.onSyncRequest) { await stream.close(); return; }
     const posts = await this.callbacks.onSyncRequest(channelId);
 
-    async function* yieldPosts() {
+    const yieldPosts = async function* () {
       // Send limited number of posts
       for (const post of posts.slice(0, MAX_HISTORY_POSTS)) {
         yield fromString(JSON.stringify(post) + '\n', 'utf-8');
       }
-    }
-    await stream.sink(yieldPosts());
+    };
+
+    await pipe(yieldPosts(), stream.sink);
     await stream.close();
   }
 }
