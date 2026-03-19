@@ -1,11 +1,10 @@
 import { UIComponent } from '../Component.js';
 import { escapeHTML } from '../utils/dom.js';
+import { ChatPanel } from '../components/ChatPanel.js';
 
 interface ChatsState {
   conversations: any[];
   selectedConversation: string | null;
-  messages: any[];
-  inputValue: string;
   isOffline: boolean;
 }
 
@@ -15,7 +14,7 @@ export class ChatsScreen extends UIComponent<any, ChatsState> {
   private offlineHandler: any = null;
 
   constructor(props: any) {
-    super('div', props, { conversations: [], selectedConversation: null, messages: [], inputValue: '', isOffline: !navigator.onLine });
+    super('div', props, { conversations: [], selectedConversation: null, isOffline: !navigator.onLine });
     this.element.className = 'screen chats-screen';
   }
 
@@ -62,43 +61,7 @@ export class ChatsScreen extends UIComponent<any, ChatsState> {
   }
 
   private handleSelectConversation(id: string) {
-    const stored = localStorage.getItem(`isc-messages-${id}`);
-    const messages = stored ? JSON.parse(stored) : [];
-    this.setState({ selectedConversation: id, messages });
-  }
-
-  private async handleSendMessage(content: string) {
-    if (!content.trim() || !this.state.selectedConversation) return;
-
-    const newMessage = {
-      id: `msg_${Date.now()}`,
-      conversationId: this.state.selectedConversation,
-      content: content.trim(),
-      fromMe: true,
-      timestamp: Date.now(),
-    };
-
-    const updatedMessages = [...this.state.messages, newMessage];
-    this.setState({ messages: updatedMessages });
-    localStorage.setItem(`isc-messages-${this.state.selectedConversation}`, JSON.stringify(updatedMessages));
-
-    // Also update preview text in conversation list
-    const updatedConvos = this.state.conversations.map(c =>
-      c.id === this.state.selectedConversation
-        ? { ...c, lastMessage: content.trim(), timestamp: Date.now() }
-        : c
-    );
-    this.setState({ conversations: updatedConvos });
-
-    try {
-      const { chat } = this.props.dependencies || {};
-      if (chat && chat.send) {
-        await chat.send(this.state.selectedConversation, newMessage.content);
-        console.log('[Chats] Message sent via WebRTC');
-      }
-    } catch (e) {
-      console.warn('[Chats] WebRTC send failed, queued locally', e);
-    }
+    this.setState({ selectedConversation: id });
   }
 
   protected render() {
@@ -113,9 +76,8 @@ export class ChatsScreen extends UIComponent<any, ChatsState> {
         <h2 style="font-size: 20px; font-weight: bold; margin: 0; color: #14171a;">💬 Chats</h2>
       </div>
       <div id="offline-banner-container">${offlineBannerHtml}</div>
-      <div style="display: flex; flex: 1; min-height: 500px; border-top: 1px solid #e1e8ed;">
-        <div id="chats-sidebar" style="width: 320px; border-right: 1px solid #e1e8ed; overflow-y: auto; background: white;"></div>
-        <div id="chats-main" style="flex: 1; display: flex; flex-direction: column; background: #f5f8fa;"></div>
+      <div style="display: flex; flex: 1; flex-direction: column; min-height: 500px; border-top: 1px solid #e1e8ed;">
+        <div id="chats-list" style="flex: 1; overflow-y: auto; background: white;"></div>
       </div>
     `;
 
@@ -125,33 +87,13 @@ export class ChatsScreen extends UIComponent<any, ChatsState> {
       if (target && target.dataset.id) {
         this.handleSelectConversation(target.dataset.id);
       }
-
-      const sendBtn = (e.target as HTMLElement).closest('#send-btn');
-      if (sendBtn) {
-        const input = this.element.querySelector('#chat-input') as HTMLInputElement;
-        if (input) {
-          this.handleSendMessage(input.value);
-          input.value = ''; // clear only on trigger
-        }
-      }
-    });
-
-    this.element.addEventListener('keypress', (e: KeyboardEvent) => {
-      if (e.key === 'Enter') {
-        const input = e.target as HTMLInputElement;
-        if (input && input.id === 'chat-input') {
-          this.handleSendMessage(input.value);
-          input.value = '';
-        }
-      }
     });
   }
 
   protected update(prevState: ChatsState) {
-    const sidebar = this.element.querySelector('#chats-sidebar');
-    const main = this.element.querySelector('#chats-main');
+    const listContainer = this.element.querySelector('#chats-list');
     const offlineBanner = this.element.querySelector('#offline-banner-container');
-    if (!sidebar || !main || !offlineBanner) return;
+    if (!listContainer || !offlineBanner) return;
 
     if (prevState.isOffline !== this.state.isOffline) {
       if (this.state.isOffline) {
@@ -165,64 +107,62 @@ export class ChatsScreen extends UIComponent<any, ChatsState> {
       }
     }
 
-    // 1. Render Sidebar (Safe to overwrite entirely since it has no typing state)
+    // 1. Render List
     if (prevState.conversations !== this.state.conversations || prevState.selectedConversation !== this.state.selectedConversation) {
       if (this.state.conversations.length === 0) {
-        sidebar.innerHTML = '<div style="padding: 20px; text-align: center; color: #657786;"><p>No conversations yet.</p><p style="font-size: 12px;">Discover peers first.</p></div>';
+        listContainer.innerHTML = '<div style="padding: 40px 20px; text-align: center; color: #657786;"><p>No conversations yet.</p><p style="font-size: 14px;">Discover peers first.</p></div>';
       } else {
-        sidebar.innerHTML = this.state.conversations.map(c => `
-          <div class="conversation-item ${c.id === this.state.selectedConversation ? 'active' : ''}" data-id="${escapeHTML(c.id)}" style="padding: 12px 16px; border-bottom: 1px solid #e1e8ed; cursor: pointer; background: ${c.id === this.state.selectedConversation ? '#e8f4fd' : 'transparent'};">
-            <div style="font-weight: bold; font-size: 14px; margin-bottom: 4px;">${escapeHTML(c.peer?.name || 'Anonymous')} <span style="font-size: 11px; color: #1da1f2; background: #e8f4fd; padding: 2px 6px; border-radius: 10px;">${Math.round(c.similarity * 100)}%</span></div>
-            <div style="font-size: 13px; color: #657786; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${escapeHTML(c.lastMessage || 'Start a conversation...')}</div>
+        listContainer.innerHTML = this.state.conversations.map(c => `
+          <div class="conversation-item" data-id="${escapeHTML(c.id)}" style="padding: 16px 20px; border-bottom: 1px solid #e1e8ed; cursor: pointer; display: flex; align-items: center; justify-content: space-between; transition: background 0.2s;">
+            <div style="flex: 1; min-width: 0; padding-right: 16px;">
+              <div style="font-weight: bold; font-size: 16px; margin-bottom: 6px; color: #14171a; display: flex; align-items: center;">
+                ${escapeHTML(c.peer?.name || 'Anonymous')}
+                <span style="margin-left: 8px; font-size: 12px; font-weight: normal; color: #1da1f2; background: #e8f4fd; padding: 2px 8px; border-radius: 12px;">${Math.round(c.similarity * 100)}% match</span>
+              </div>
+              <div style="font-size: 14px; color: #657786; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${escapeHTML(c.lastMessage || 'Start a conversation...')}</div>
+            </div>
+            <div style="font-size: 20px; color: #aab8c2;">
+              ›
+            </div>
           </div>
         `).join('');
       }
     }
 
-    // 2. Render Main Chat Area (Surgical update to prevent state destruction)
-    if (!this.state.selectedConversation) {
-      if (prevState.selectedConversation !== this.state.selectedConversation) {
-        main.innerHTML = `
-          <div style="flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; color: #657786;">
-            <div style="font-size: 64px; margin-bottom: 20px;">💬</div>
-            <h2>Select a Conversation</h2>
-          </div>
-        `;
-      }
-    } else {
-      const activeConvo = this.state.conversations.find(c => c.id === this.state.selectedConversation);
-      const peerName = activeConvo?.peer?.name || 'Peer';
+    // 2. Render Chat Panel Overlay
+    if (prevState.selectedConversation !== this.state.selectedConversation) {
+      if (this.state.selectedConversation) {
+        const activeConvo = this.state.conversations.find(c => c.id === this.state.selectedConversation);
+        const targetPeer = activeConvo?.peer || { id: this.state.selectedConversation, name: 'Peer' };
 
-      // If the conversation changed entirely, build the full skeleton once
-      if (prevState.selectedConversation !== this.state.selectedConversation) {
-        main.innerHTML = `
-          <div style="padding: 16px; background: white; border-bottom: 1px solid #e1e8ed; font-weight: bold;">
-            Chat with ${escapeHTML(peerName)}
-          </div>
-          <div id="messages-list" style="flex: 1; padding: 20px; overflow-y: auto;"></div>
-          <div style="padding: 16px; background: white; border-top: 1px solid #e1e8ed; display: flex; gap: 12px;">
-            <input type="text" id="chat-input" placeholder="Type a message..." style="flex: 1; padding: 12px 16px; border: 1px solid #e1e8ed; border-radius: 20px; outline: none;" />
-            <button id="send-btn" style="padding: 12px 24px; background: #1da1f2; color: white; border: none; border-radius: 20px; font-weight: bold; cursor: pointer;">Send</button>
-          </div>
-        `;
-      }
-
-      // Surgically render messages into the container without wiping the input
-      const list = main.querySelector('#messages-list');
-      if (list && prevState.messages !== this.state.messages) {
-        if (this.state.messages.length === 0) {
-          list.innerHTML = '<p style="text-align: center; color: #657786;">Say hello!</p>';
+        let chatPanel = this.children.get('chat-panel') as ChatPanel;
+        if (!chatPanel) {
+          chatPanel = new ChatPanel({
+            peerId: targetPeer.id,
+            peerName: targetPeer.name || targetPeer.id.substring(0, 8),
+            similarity: activeConvo?.similarity || 0,
+            dependencies: this.props.dependencies,
+            onClose: () => this.setState({ selectedConversation: null })
+          });
+          // Since .chats-screen is the root element and querySelector searches descendants,
+          // we should append it to a wrapper container inside the root, or directly to the root element.
+          // Given the component API, we can use '#chats-list' or create a dedicated overlay container.
+          // Here we append it to the body or the root element if supported.
+          // By default, if the selector is not found, we fallback to appending to this.element.
+          this.appendChildComponent('chat-panel', chatPanel, '#offline-banner-container');
         } else {
-          list.innerHTML = this.state.messages.map(m => `
-            <div style="display: flex; flex-direction: column; align-items: ${m.fromMe ? 'flex-end' : 'flex-start'}; margin-bottom: 12px;">
-                <div style="max-width: 70%; padding: 12px 16px; border-radius: 18px; font-size: 14px; line-height: 1.4; ${m.fromMe ? 'background: #1da1f2; color: white;' : 'background: #e1e8ed; color: #14171a;'}">
-                  ${escapeHTML(m.content)}
-                </div>
-                <div style="font-size: 11px; opacity: 0.7; margin-top: 4px; color: #657786;">${new Date(m.timestamp).toLocaleTimeString()}</div>
-            </div>
-          `).join('');
+          chatPanel.setProps({
+            peerId: targetPeer.id,
+            peerName: targetPeer.name || targetPeer.id.substring(0, 8),
+            similarity: activeConvo?.similarity || 0
+          });
         }
-        list.scrollTop = list.scrollHeight;
+      } else {
+        const existing = this.children.get('chat-panel');
+        if (existing) {
+          existing.unmount();
+          this.children.delete('chat-panel');
+        }
       }
     }
   }
