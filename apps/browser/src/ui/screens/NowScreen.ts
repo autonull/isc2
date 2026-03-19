@@ -79,14 +79,11 @@ export class NowScreen extends UIComponent<any, NowScreenState> {
         </div>
         <div style="display: flex; gap: 12px; align-items: center;">
           <button id="refresh-btn" style="background: none; border: none; cursor: pointer; font-size: 20px;" title="Refresh">🔄</button>
+          <button id="compose-nav-btn" style="padding: 8px 16px; background: #1da1f2; color: white; border: none; border-radius: 20px; font-size: 14px; font-weight: bold; cursor: pointer;">+ Post</button>
         </div>
       </div>
-      <div class="feed-container" id="feed-container">
+      <div class="feed-container" id="feed-container" style="flex: 1; padding: 20px; overflow-y: auto;">
         <p class="empty-feed" id="loading-state">Loading posts...</p>
-      </div>
-      <div class="compose-container">
-        <textarea id="compose-textarea" placeholder="What's on your mind?"></textarea>
-        <button id="compose-btn">Send</button>
       </div>
     `;
 
@@ -122,28 +119,13 @@ export class NowScreen extends UIComponent<any, NowScreenState> {
       });
     }
 
-    // Attach compose handler once
-    const btn = this.element.querySelector('#compose-btn');
-    const textarea = this.element.querySelector('#compose-textarea') as HTMLTextAreaElement;
-    if (btn && textarea) {
-      btn.addEventListener('click', async () => {
-        const val = textarea.value.trim();
-        if (!val) return;
-
-        try {
-          const { postService } = this.props.dependencies || {};
-          if (postService) {
-            // Send the actual post
-            await postService.createPost('global', val);
-            textarea.value = ''; // clear only on success
-          } else {
-            console.warn('[NowScreen] PostService unavailable');
-          }
-        } catch (e) {
-          console.error('[NowScreen] Failed to post', e);
-          alert('Failed to post. Check console.');
-        }
-      });
+    // Attach compose nav handler
+    const composeNavBtn = this.element.querySelector('#compose-nav-btn');
+    if (composeNavBtn) {
+       composeNavBtn.addEventListener('click', () => {
+           const ev = new CustomEvent('navigate', { detail: { route: 'compose' }, bubbles: true });
+           this.element.dispatchEvent(ev);
+       });
     }
   }
 
@@ -185,9 +167,12 @@ export class NowScreen extends UIComponent<any, NowScreenState> {
             <div class="empty-state" data-testid="now-empty-state" style="text-align: center; padding: 60px 20px; color: #657786;">
               <div style="font-size: 48px; margin-bottom: 16px;">📝</div>
               <h3 style="margin: 0 0 8px 0; font-size: 18px;">No posts yet</h3>
-              <p style="margin: 0; font-size: 14px;">
+              <p style="margin: 0; font-size: 14px; margin-bottom: 16px;">
                 Create a channel and start posting to see content here.
               </p>
+              <button id="empty-compose-btn" style="padding: 8px 16px; background: #1da1f2; color: white; border: none; border-radius: 20px; font-size: 14px; font-weight: bold; cursor: pointer;">
+                + Create Post
+              </button>
             </div>
 
             <div class="card" style="background: #e8f4fd; border-radius: 12px; padding: 20px; margin-top: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);" data-testid="now-how-it-works">
@@ -200,6 +185,14 @@ export class NowScreen extends UIComponent<any, NowScreenState> {
               </ul>
             </div>
         `;
+
+        const emptyComposeBtn = feedContainer.querySelector('#empty-compose-btn');
+        if (emptyComposeBtn) {
+            emptyComposeBtn.addEventListener('click', () => {
+               const ev = new CustomEvent('navigate', { detail: { route: 'compose' }, bubbles: true });
+               this.element.dispatchEvent(ev);
+            });
+        }
       }
     }
   }

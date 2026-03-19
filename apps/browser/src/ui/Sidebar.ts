@@ -43,6 +43,11 @@ export class Sidebar extends UIComponent<SidebarProps, any> {
           <li class="irc-nav-item" data-tab="settings" style="padding: 12px 20px; cursor: pointer; display: flex; align-items: center; gap: 12px; font-size: 16px; font-weight: 500; transition: background 0.2s;">
             <span class="icon" style="font-size: 20px;">⚙️</span> Settings
           </li>
+          <li class="irc-nav-item" data-tab="compose" style="padding: 12px 20px; cursor: pointer; display: flex; align-items: center; gap: 12px; font-size: 16px; font-weight: 500; transition: background 0.2s; margin-top: 10px;">
+            <div style="background: #1da1f2; color: white; width: 100%; text-align: center; padding: 10px; border-radius: 20px; font-weight: bold;">
+              + Post
+            </div>
+          </li>
         </ul>
       </div>
     `;
