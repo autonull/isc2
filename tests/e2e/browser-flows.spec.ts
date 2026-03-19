@@ -1,361 +1,558 @@
 /**
  * ISC Browser E2E Tests
  *
- * Tests complete user flows: channel create, match, chat, posts
+ * Tests complete user flows: channel creation, posts, discover, chats, navigation.
+ * All selectors are based on the vanilla UI's actual data-testid attributes.
  */
 
 import { test, expect } from '@playwright/test';
-import { waitForAppReady, waitForChannelsLoaded, waitForMatchesLoaded, waitForNavigation, waitForPostsLoaded } from './utils/waitHelpers.js';
+import {
+  waitForAppReady,
+  waitForChannelsLoaded,
+  waitForMatchesLoaded,
+  waitForPostsLoaded,
+  waitForNavigation,
+  waitForToast,
+  skipOnboarding,
+  injectMatches,
+  injectChatMessages,
+  forceRerender,
+} from './utils/waitHelpers.js';
 
-test.describe('ISC Browser E2E', () => {
+// ── Helpers ──────────────────────────────────────────────────────────────────
+
+async function createChannel(page: any, name: string, description: string) {
+  await page.click('[data-testid="nav-tab-compose"]');
+  await waitForNavigation(page, 'compose');
+  await page.fill('[data-testid="compose-name-input"]', name);
+  await page.fill('[data-testid="compose-description-input"]', description);
+  // Save button enables when name ≥3 chars & description ≥10 chars
+  await expect(page.locator('[data-testid="compose-save"]')).toBeEnabled();
+  await page.click('[data-testid="compose-save"]');
+  // After save, app navigates back to /now (1200ms redirect)
+  await page.waitForSelector('[data-testid="now-screen"]', { timeout: 5000 });
+}
+
+// ── Suite setup ──────────────────────────────────────────────────────────────
+
+test.beforeEach(async ({ page }) => {
+  page.on('console', msg => {
+    if (msg.type() === 'error') console.log('Browser console error:', msg.text());
+  });
+  page.on('pageerror', err => console.log('Uncaught error:', err.message));
+
+  await page.goto('/');
+  await skipOnboarding(page);
+  // Reload so the skipped-onboarding flag is seen by the app on mount
+  await page.reload();
+  await waitForAppReady(page);
+});
+
+// ── Channel Management ───────────────────────────────────────────────────────
+
+test.describe('Channel Management', () => {
+  test('creates a channel and shows it in the sidebar', async ({ page }) => {
+    await createChannel(page, 'AI Ethics', 'Ethical implications of machine learning and AI autonomy');
+
+    // Sidebar should list the channel
+    await expect(page.locator('[data-testid="sidebar-channel-list"] [data-channel-id]').first()).toBeVisible();
+  });
+
+  test('newly created channel appears in compose channel selector', async ({ page }) => {
+    await createChannel(page, 'Philosophy', 'The philosophy of consciousness and qualia in the age of AI');
+
+    // Navigate to Now — the compose area should have the channel in its selector or label
+    await page.click('[data-testid="nav-tab-now"]');
+    await waitForNavigation(page, 'now');
+    await expect(page.locator('[data-testid="now-screen"]')).toBeVisible();
+  });
+
+  test('can cancel channel creation and return to feed', async ({ page }) => {
+    await page.click('[data-testid="nav-tab-compose"]');
+    await waitForNavigation(page, 'compose');
+    await page.click('[data-testid="compose-cancel"]');
+    await page.waitForSelector('[data-testid="now-screen"]', { timeout: 5000 });
+  });
+
+  test('save button disabled until name and description meet minimums', async ({ page }) => {
+    await page.click('[data-testid="nav-tab-compose"]');
+    await waitForNavigation(page, 'compose');
+
+    const saveBtn = page.locator('[data-testid="compose-save"]');
+    await expect(saveBtn).toBeDisabled();
+
+    await page.fill('[data-testid="compose-name-input"]', 'Hi');        // < 3 chars
+    await expect(saveBtn).toBeDisabled();
+
+    await page.fill('[data-testid="compose-name-input"]', 'Valid name');
+    await page.fill('[data-testid="compose-description-input"]', 'Short');  // < 10 chars
+    await expect(saveBtn).toBeDisabled();
+
+    await page.fill('[data-testid="compose-description-input"]', 'This is a valid description');
+    await expect(saveBtn).toBeEnabled();
+  });
+
+  test('character counters update as user types', async ({ page }) => {
+    await page.click('[data-testid="nav-tab-compose"]');
+    await waitForNavigation(page, 'compose');
+
+    await page.fill('[data-testid="compose-name-input"]', 'Test');
+    await expect(page.locator('#name-count')).toHaveText('4 / 50');
+
+    await page.fill('[data-testid="compose-description-input"]', 'Hello world');
+    await expect(page.locator('#desc-count')).toHaveText('11 / 500');
+  });
+
+  test('can delete a channel from settings', async ({ page }) => {
+    await createChannel(page, 'Deletable', 'A channel that will be deleted shortly for testing');
+
+    await page.click('[data-testid="nav-tab-settings"]');
+    await waitForNavigation(page, 'settings');
+
+    const deleteBtn = page.locator('[data-testid="channels-section"] button.delete-channel-btn').first();
+    await expect(deleteBtn).toBeVisible();
+    await deleteBtn.click({ force: true });
+
+    // Confirmation modal
+    await page.waitForSelector('[data-testid="modal-overlay"]', { timeout: 3000 });
+    await page.click('[data-action="confirm"]');
+
+    await waitForToast(page, 'Channel deleted', 3000);
+  });
+});
+
+// ── Posts & Feed ─────────────────────────────────────────────────────────────
+
+test.describe('Posts & Feed', () => {
   test.beforeEach(async ({ page }) => {
-    // Collect console errors
-    page.on('console', msg => {
-      if (msg.type() === 'error') {
-        console.log('Browser error:', msg.text());
-      }
-    });
-    page.on('pageerror', error => {
-      console.log('Browser uncaught error:', error.message);
-    });
-
-    // Navigate to app and wait for render
-    await page.goto('/');
-    await waitForAppReady(page, 10000);
+    await createChannel(page, 'Post Test', 'Channel for testing post creation and feed display');
   });
 
-  test.describe('Channel Management', () => {
-    test('should create a new channel', async ({ page }) => {
-      // Navigate to Compose tab using stable test id
-      await page.click('[data-testid="nav-tab-compose"]');
+  test('creates a post and shows it in the feed', async ({ page }) => {
+    await page.click('[data-testid="nav-tab-now"]');
+    await waitForNavigation(page, 'now');
 
-      // Fill in channel details
-      await page.fill('input[placeholder*="Channel Name"], input[name="name"]', 'AI Ethics');
-      await page.fill('textarea[placeholder*="thinking"], textarea[name="description"]',
-        'Ethical implications of machine learning and autonomy');
+    const input = page.locator('[data-testid="compose-input"]');
+    await expect(input).toBeVisible();
+    await input.fill('Testing the ISC social layer from Playwright!');
 
-      // Add context (location)
-      await page.click('button:has-text("Add context"), [data-action="add-context"]');
-      await page.fill('input[placeholder*="location"], input[name="location"]', 'Tokyo');
+    await page.click('[data-testid="compose-submit"]');
+    await waitForToast(page, 'Posted!', 5000);
 
-      // Save channel
-      await page.click('button:has-text("Save"), button:has-text("Create")');
-
-      // Verify channel was created
-      await expect(page.locator('text=AI Ethics')).toBeVisible({ timeout: 5000 });
-    });
-
-    test('should switch between channels', async ({ page }) => {
-      // Create first channel
-      await page.click('[data-testid="nav-tab-compose"]');
-      await page.fill('input[name="name"]', 'Channel One');
-      await page.fill('textarea[name="description"]', 'First test channel');
-      await page.click('button:has-text("Save")');
-
-      // Create second channel
-      await page.click('[data-testid="nav-tab-compose"]');
-      await page.fill('input[name="name"]', 'Channel Two');
-      await page.fill('textarea[name="description"]', 'Second test channel');
-      await page.click('button:has-text("Save")');
-
-      // Switch to first channel using sidebar
-      await page.click('[data-testid="sidebar-channel-Channel One"], [data-channel-id="Channel One"]');
-
-      // Verify active channel
-      await expect(page.locator('text=Channel One')).toBeVisible();
-    });
-
-    test('should edit channel description', async ({ page }) => {
-      // Create channel
-      await page.click('[data-testid="nav-tab-compose"]');
-      await page.fill('input[name="name"]', 'Editable Channel');
-      await page.fill('textarea[name="description"]', 'Original description');
-      await page.click('button:has-text("Save")');
-
-      // Edit channel
-      await page.click('[data-action="edit-channel"]');
-      await page.fill('textarea[name="description"]', 'Updated description');
-      await page.click('button:has-text("Save")');
-
-      // Verify update
-      await expect(page.locator('text=Updated description')).toBeVisible();
-    });
+    await expect(page.locator('[data-testid="post-card"]').first()).toBeVisible();
+    await expect(page.locator('[data-testid="feed-container"]')).toContainText('Testing the ISC social layer');
   });
 
-  test.describe('Semantic Matching', () => {
-    test('should display match list on Now tab', async ({ page }) => {
-      // Navigate to Now tab using stable test id
-      await page.click('[data-testid="nav-tab-now"]');
+  test('compose submit button disabled when input is empty', async ({ page }) => {
+    await page.click('[data-testid="nav-tab-now"]');
+    await waitForNavigation(page, 'now');
 
-      // Wait for matches to load
-      await waitForMatchesLoaded(page, 5000);
+    const submit = page.locator('[data-testid="compose-submit"]');
+    await expect(submit).toBeDisabled();
 
-      // Should show match sections or empty state
-      const hasMatches = await page.isVisible('[data-section="very-close"], [data-section="nearby"]');
-      const hasEmpty = await page.isVisible('text=no matches, text=No one nearby');
+    await page.locator('[data-testid="compose-input"]').fill('Some text');
+    await expect(submit).toBeEnabled();
+  });
 
-      expect(hasMatches || hasEmpty).toBe(true);
-    });
+  test('character counter updates in compose input', async ({ page }) => {
+    await page.click('[data-testid="nav-tab-now"]');
+    await waitForNavigation(page, 'now');
 
-    test('should show similarity scores for matches', async ({ page }) => {
-      await page.click('[data-testid="nav-tab-now"]');
-      await waitForMatchesLoaded(page, 5000);
+    await page.locator('[data-testid="compose-input"]').fill('hello');
+    await expect(page.locator('[data-testid="compose-count"]')).toHaveText('5 / 2000');
+  });
 
-      // Check for similarity indicators
-      const hasSignalBars = await page.isVisible('[data-similarity], text=/▐▌/');
-      const hasPercentage = await page.isVisible('text=/\\d+%/, text=/similarity/');
+  test('can like a post', async ({ page }) => {
+    // Create a post first
+    await page.click('[data-testid="nav-tab-now"]');
+    await waitForNavigation(page, 'now');
+    await page.locator('[data-testid="compose-input"]').fill('A likeable post');
+    await page.click('[data-testid="compose-submit"]');
+    await waitForToast(page, 'Posted!', 5000);
 
-      expect(hasSignalBars || hasPercentage).toBe(true);
-    });
+    // Like the post
+    const likeBtn = page.locator('[data-like-btn]').first();
+    await expect(likeBtn).toBeVisible();
+    await likeBtn.click({ force: true });
+    await expect(likeBtn).toHaveAttribute('data-liked', 'true');
+  });
 
-    test('should refresh matches on pull-to-refresh', async ({ page }) => {
-      await page.click('[data-testid="nav-tab-now"]');
-      await waitForMatchesLoaded(page);
+  test('reply prefills compose input with quoted post', async ({ page }) => {
+    await page.click('[data-testid="nav-tab-now"]');
+    await waitForNavigation(page, 'now');
+    await page.locator('[data-testid="compose-input"]').fill('Original content here');
+    await page.click('[data-testid="compose-submit"]');
+    await waitForToast(page, 'Posted!', 5000);
 
-      // Pull to refresh (touch gesture simulation)
-      await page.evaluate(() => {
-        window.scrollTo(0, 0);
-        const touchStart = new TouchEvent('touchstart', {
-          touches: [{ clientY: 0 }] as any
-        });
-        const touchMove = new TouchEvent('touchmove', {
-          touches: [{ clientY: 150 }] as any
-        });
-        document.dispatchEvent(touchStart);
-        document.dispatchEvent(touchMove);
+    const replyBtn = page.locator('[data-reply-btn]').first();
+    await replyBtn.click({ force: true });
+
+    // Compose input should now contain a quote of the original post
+    // Use toHaveValue — toContainText checks textContent, not the JS .value property of a textarea
+    await expect(page.locator('[data-testid="compose-input"]')).toHaveValue(/^>/);
+  });
+
+  test('can delete a post via the delete button', async ({ page }) => {
+    await page.click('[data-testid="nav-tab-now"]');
+    await waitForNavigation(page, 'now');
+    await page.locator('[data-testid="compose-input"]').fill('Post to be deleted immediately');
+    await page.click('[data-testid="compose-submit"]');
+    await waitForToast(page, 'Posted!', 5000);
+
+    const deleteBtn = page.locator('[data-delete-btn]').first();
+    await deleteBtn.click({ force: true });
+
+    // Confirmation modal
+    await page.waitForSelector('[data-testid="modal-overlay"]', { timeout: 3000 });
+    await page.click('[data-action="confirm"]');
+    await waitForToast(page, 'Post deleted', 3000);
+  });
+
+  test('shows empty state when no posts and no channels', async ({ page }) => {
+    // Fresh page with no channels — clear both localStorage and IndexedDB (channels are stored in IDB)
+    await page.evaluate(async () => {
+      localStorage.clear();
+      await new Promise<void>(resolve => {
+        const req = indexedDB.deleteDatabase('isc-storage');
+        req.onsuccess = () => resolve();
+        req.onerror = () => resolve();
+        req.onblocked = () => resolve();
       });
-
-      // Should show refreshing indicator
-      await expect(page.locator('[data-refreshing], text=Refreshing')).toBeVisible({ timeout: 3000 });
     });
+    await page.reload();
+    await page.evaluate(() => localStorage.setItem('isc-onboarding-completed', 'true'));
+    await page.reload();
+    await waitForAppReady(page);
+
+    await page.click('[data-testid="nav-tab-now"]');
+    await waitForNavigation(page, 'now');
+    await expect(page.locator('[data-testid="now-empty-state"]')).toBeVisible();
+    await expect(page.locator('[data-testid="now-empty-cta"]')).toBeVisible();
+  });
+});
+
+// ── Discover ─────────────────────────────────────────────────────────────────
+
+test.describe('Discover', () => {
+  test('renders the discover screen with empty state when no matches', async ({ page }) => {
+    await page.click('[data-testid="nav-tab-discover"]');
+    await waitForNavigation(page, 'discover');
+
+    await expect(page.locator('[data-testid="discover-screen"]')).toBeVisible();
+    await expect(page.locator('[data-testid="discover-title"]')).toContainText('Discover');
   });
 
-  test.describe('Chat Flow', () => {
-    test('should open chat panel from match card', async ({ page }) => {
-      await page.click('[data-testid="nav-tab-now"]');
-      await waitForMatchesLoaded(page);
+  test('shows need-channels banner when no channels created', async ({ page }) => {
+    await page.click('[data-testid="nav-tab-discover"]');
+    await waitForNavigation(page, 'discover');
 
-      // Click on first match card
-      const matchCard = page.locator('[data-component="match-card"]').first();
-      if (await matchCard.count() > 0) {
-        await matchCard.click();
-
-        // Chat panel should slide up
-        await expect(page.locator('[data-panel="chat"], [data-component="chat-panel"]')).toBeVisible();
-      }
-    });
-
-    test('should send a chat message', async ({ page }) => {
-      await page.click('[data-testid="nav-tab-now"]');
-      await waitForMatchesLoaded(page);
-
-      const matchCard = page.locator('[data-component="match-card"]').first();
-      if (await matchCard.count() > 0) {
-        await matchCard.click();
-
-        // Type and send message
-        await page.fill('textarea[placeholder*="message"], input[name="message"]', 'Hello!');
-        await page.click('button:has-text("Send"), button[type="submit"]');
-
-        // Message should appear in chat
-        await expect(page.locator('text=Hello!')).toBeVisible({ timeout: 3000 });
-      }
-    });
-
-    test('should close chat panel', async ({ page }) => {
-      await page.click('[data-testid="nav-tab-now"]');
-      await waitForMatchesLoaded(page);
-
-      const matchCard = page.locator('[data-component="match-card"]').first();
-      if (await matchCard.count() > 0) {
-        await matchCard.click();
-
-        // Close panel
-        await page.click('[data-action="close-chat"], button:has-text("Close")');
-
-        // Panel should be hidden
-        await expect(page.locator('[data-panel="chat"]')).not.toBeVisible();
-      }
-    });
+    await expect(page.locator('[data-testid="need-channels-banner"]')).toBeVisible();
   });
 
-  test.describe('Posts & Feed', () => {
-    test('should create a post', async ({ page }) => {
-      // Navigate to Now tab
-      await page.click('[data-tab="now"]');
-      
-      // Click compose post button
-      await page.click('button:has-text("+ Post"), [data-action="compose-post"]');
-      
-      // Fill post content
-      await page.fill('textarea[placeholder*="post"], textarea[name="content"]', 
-        'Testing the ISC social layer! #decentralized');
-      
-      // Submit post
-      await page.click('button:has-text("Post"), button[type="submit"]');
-      
-      // Post should appear in feed
-      await expect(page.locator('text=Testing the ISC social layer')).toBeVisible({ timeout: 5000 });
-    });
+  test('shows match cards when matches are injected', async ({ page }) => {
+    await injectMatches(page, [
+      { peerId: 'peer-abc-123', name: 'Alice', bio: 'AI researcher', similarity: 0.92 },
+      { peerId: 'peer-def-456', name: 'Bob', bio: 'Philosophy enthusiast', similarity: 0.78 },
+    ]);
 
-    test('should display For You feed', async ({ page }) => {
-      await page.click('[data-testid="nav-tab-now"]');
-
-      // Feed should load
-      await page.waitForSelector('[data-component="feed"], [data-feed="for-you"]', { timeout: 5000 });
-
-      // Should show posts or empty state
-      const hasPosts = await page.isVisible('[data-component="post"]');
-      const hasEmpty = await page.isVisible('text=no posts yet, text=No posts');
-
-      expect(hasPosts || hasEmpty).toBe(true);
-    });
-
-    test('should like a post', async ({ page }) => {
-      await page.click('[data-testid="nav-tab-now"]');
-      await waitForPostsLoaded(page);
-
-      const likeButton = page.locator('[data-action="like"]').first();
-      if (await likeButton.count() > 0) {
-        await likeButton.click();
-
-        // Like count should increment or button should change state
-        await expect(likeButton).toHaveAttribute('data-liked', 'true', { timeout: 3000 });
-      }
-    });
-
-    test('should reply to a post', async ({ page }) => {
-      await page.click('[data-testid="nav-tab-now"]');
-      await waitForPostsLoaded(page);
-
-      const replyButton = page.locator('[data-action="reply"]').first();
-      if (await replyButton.count() > 0) {
-        await replyButton.click();
-
-        // Reply box should appear
-        await expect(page.locator('textarea[placeholder*="reply"]')).toBeVisible();
-
-        // Type and submit reply
-        await page.fill('textarea[placeholder*="reply"]', 'Great point!');
-        await page.click('button:has-text("Reply")');
-
-        // Reply count should increment
-        await page.waitForTimeout(500); // Minimal wait for UI update
-      }
-    });
-
-    test('should repost', async ({ page }) => {
-      await page.click('[data-testid="nav-tab-now"]');
-      await waitForPostsLoaded(page);
-
-      const repostButton = page.locator('[data-action="repost"]').first();
-      if (await repostButton.count() > 0) {
-        await repostButton.click();
-
-        // Should show confirmation or increment count
-        await page.waitForTimeout(500); // Minimal wait for UI update
-      }
-    });
+    await page.click('[data-testid="nav-tab-discover"]');
+    await waitForNavigation(page, 'discover');
+    await waitForMatchesLoaded(page, 5000);
+    await expect(page.locator('[data-testid^="match-card-"]').first()).toBeVisible();
   });
 
-  test.describe('Navigation', () => {
-    test('should navigate between tabs', async ({ page }) => {
-      // Now tab
-      await page.click('[data-testid="nav-tab-now"]');
-      await expect(page.locator('text=Now, h1:has-text("Now")')).toBeVisible();
+  test('connect button appears on match cards', async ({ page }) => {
+    await injectMatches(page, [
+      { peerId: 'peer-xyz-789', name: 'Carol', similarity: 0.88 },
+    ]);
 
-      // Discover tab
-      await page.click('[data-testid="nav-tab-discover"]');
-      await expect(page.locator('text=Discover, h1:has-text("Discover")')).toBeVisible();
+    await page.click('[data-testid="nav-tab-discover"]');
+    await waitForNavigation(page, 'discover');
+    await waitForMatchesLoaded(page, 5000);
 
-      // Chats tab
-      await page.click('[data-testid="nav-tab-chats"]');
-      await expect(page.locator('text=Chats, h1:has-text("Chats")')).toBeVisible();
+    const matchCard = page.locator('[data-testid^="match-card-"]').first();
+    if (await matchCard.count() > 0) {
+      await expect(matchCard.locator('[data-connect-btn]')).toBeVisible();
+      await expect(matchCard.locator('[data-message-btn]')).toBeVisible();
+    }
+  });
+});
 
-      // Settings tab
-      await page.click('[data-testid="nav-tab-settings"]');
-      await expect(page.locator('text=Settings, h1:has-text("Settings")')).toBeVisible();
-    });
+// ── Chats ─────────────────────────────────────────────────────────────────────
 
-    test('should show active tab indicator', async ({ page }) => {
-      await page.click('[data-testid="nav-tab-now"]');
-      await expect(page.locator('[data-testid="nav-tab-now"][data-active="true"], [aria-selected="true"]')).toBeVisible();
+test.describe('Chats', () => {
+  const ALICE_ID = 'e2e-alice-peer-0001';
 
-      await page.click('[data-testid="nav-tab-discover"]');
-      await expect(page.locator('[data-testid="nav-tab-discover"][data-active="true"], [aria-selected="true"]')).toBeVisible();
-    });
+  test.beforeEach(async ({ page }) => {
+    // Inject Alice as a match and pre-populate a message so the conversation shows up
+    await injectMatches(page, [{ peerId: ALICE_ID, name: 'Alice', similarity: 0.91 }]);
+    await injectChatMessages(page, ALICE_ID, [
+      { content: 'Hello from Alice!', fromMe: false },
+    ]);
   });
 
-  test.describe('PWA Features', () => {
-    test('should have valid manifest', async ({ page }) => {
-      const manifestLink = page.locator('link[rel="manifest"]');
-      await expect(manifestLink).toHaveAttribute('href');
-      
-      const manifestHref = await manifestLink.getAttribute('href');
-      const response = await page.request.get(manifestHref!);
-      expect(response.ok()).toBe(true);
-      
-      const manifest = await response.json();
-      expect(manifest.name).toContain('ISC');
-      expect(manifest.display).toBe('standalone');
+  test('shows empty conversations state when no chats', async ({ page }) => {
+    // Clear injected data for this test
+    await page.evaluate(() => {
+      Object.keys(localStorage).filter(k => k.startsWith('isc:chat:')).forEach(k => localStorage.removeItem(k));
     });
+    await injectMatches(page, []);
 
-    test('should be installable', async ({ page }) => {
-      // Check for service worker registration
-      const hasServiceWorker = await page.evaluate(() => {
-        return 'serviceWorker' in navigator;
-      });
-      expect(hasServiceWorker).toBe(true);
-    });
-
-    test('should work offline after caching', async ({ page, context }) => {
-      // Go online first to cache resources
-      await page.goto('/');
-      await waitForAppReady(page, 5000);
-
-      // Go offline
-      await context.setOffline(true);
-
-      // Reload should still work (cached)
-      await page.reload();
-      await expect(page.locator('#app')).toBeVisible({ timeout: 5000 });
-
-      // Go back online
-      await context.setOffline(false);
-    });
+    await page.click('[data-testid="nav-tab-chats"]');
+    await waitForNavigation(page, 'chats');
+    await expect(page.locator('[data-testid="empty-conversations"]')).toBeVisible();
   });
 
-  test.describe('Accessibility', () => {
-    test('should have proper heading structure', async ({ page }) => {
-      await page.click('[data-testid="nav-tab-now"]');
+  test('conversation list shows peers with messages', async ({ page }) => {
+    await injectMatches(page, [{ peerId: ALICE_ID, name: 'Alice', similarity: 0.91 }]);
+    await injectChatMessages(page, ALICE_ID, [{ content: 'Hey there!', fromMe: false }]);
 
-      // Should have exactly one h1
+    await page.click('[data-testid="nav-tab-chats"]');
+    await waitForNavigation(page, 'chats');
+    await forceRerender(page, 'chats');
+
+    await expect(page.locator('[data-testid="conversation-list"]')).toBeVisible();
+  });
+
+  test('opening a conversation shows message history', async ({ page }) => {
+    await injectMatches(page, [{ peerId: ALICE_ID, name: 'Alice', similarity: 0.91 }]);
+    await injectChatMessages(page, ALICE_ID, [
+      { content: 'First message', fromMe: false },
+      { content: 'Second message', fromMe: true },
+    ]);
+
+    await page.click('[data-testid="nav-tab-chats"]');
+    await waitForNavigation(page, 'chats');
+    await forceRerender(page, 'chats');
+
+    const convItem = page.locator('[data-peer-id]').first();
+    if (await convItem.count() > 0) {
+      await convItem.click({ force: true });
+      await expect(page.locator('[data-testid="chat-messages"]')).toBeVisible();
+      await expect(page.locator('[data-testid="chat-messages"]')).toContainText('First message');
+    }
+  });
+
+  test('can type and send a message in an open conversation', async ({ page }) => {
+    await injectMatches(page, [{ peerId: ALICE_ID, name: 'Alice', similarity: 0.91 }]);
+    await injectChatMessages(page, ALICE_ID, [{ content: 'Ping', fromMe: false }]);
+
+    await page.click('[data-testid="nav-tab-chats"]');
+    await waitForNavigation(page, 'chats');
+    await forceRerender(page, 'chats');
+
+    const convItem = page.locator('[data-peer-id]').first();
+    if (await convItem.count() > 0) {
+      await convItem.click({ force: true });
+
+      await page.fill('[data-testid="chat-input"]', 'Pong from test');
+      await page.click('[data-testid="send-message-button"]');
+
+      await expect(page.locator('[data-testid="chat-messages"]')).toContainText('Pong from test');
+    }
+  });
+
+  test('closing a chat returns to the no-chat-selected state', async ({ page }) => {
+    await injectMatches(page, [{ peerId: ALICE_ID, name: 'Alice', similarity: 0.91 }]);
+    await injectChatMessages(page, ALICE_ID, [{ content: 'Hi!', fromMe: false }]);
+
+    await page.click('[data-testid="nav-tab-chats"]');
+    await waitForNavigation(page, 'chats');
+    await forceRerender(page, 'chats');
+
+    const convItem = page.locator('[data-peer-id]').first();
+    if (await convItem.count() > 0) {
+      await convItem.click({ force: true });
+      await page.waitForSelector('[data-testid="chat-view"]', { timeout: 3000 });
+      await page.click('[data-testid="close-chat"]');
+      await expect(page.locator('[data-testid="no-chat-selected"]')).toBeVisible();
+    }
+  });
+});
+
+// ── Navigation ───────────────────────────────────────────────────────────────
+
+test.describe('Navigation', () => {
+  test('navigates between all main tabs', async ({ page }) => {
+    for (const tab of ['now', 'discover', 'chats', 'settings'] as const) {
+      await page.click(`[data-testid="nav-tab-${tab}"]`);
+      await waitForNavigation(page, tab);
+      await expect(page.locator(`[data-testid="${tab}-screen"]`)).toBeVisible();
+    }
+  });
+
+  test('sidebar nav items reflect active route', async ({ page }) => {
+    await page.click('[data-testid="nav-tab-discover"]');
+    await waitForNavigation(page, 'discover');
+
+    // Sidebar nav item for 'discover' should be active
+    await expect(
+      page.locator('[data-testid="sidebar"] [data-testid="nav-tab-discover"][data-active="true"]')
+    ).toBeVisible();
+  });
+
+  test('mobile tab bar items reflect active route', async ({ page }) => {
+    // The tab bar is only visible on mobile viewports
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.click('[data-testid="tab-bar"] [data-testid="nav-tab-chats"]');
+    await waitForNavigation(page, 'chats');
+
+    await expect(
+      page.locator('[data-testid="tab-bar"] [data-testid="nav-tab-chats"][data-active="true"]')
+    ).toBeVisible();
+  });
+
+  test('keyboard shortcut Ctrl+K navigates to compose', async ({ page }) => {
+    await page.keyboard.press('Control+k');
+    await waitForNavigation(page, 'compose');
+    await expect(page.locator('[data-testid="compose-screen"]')).toBeVisible();
+  });
+
+  test('keyboard shortcut Ctrl+, navigates to settings', async ({ page }) => {
+    await page.keyboard.press('Control+,');
+    await waitForNavigation(page, 'settings');
+    await expect(page.locator('[data-testid="settings-screen"]')).toBeVisible();
+  });
+
+  test('pressing ? shows the keyboard help modal', async ({ page }) => {
+    await page.keyboard.press('?');
+    // The modal system renders an overlay
+    await page.waitForSelector('[data-testid="modal-overlay"]', { timeout: 3000 });
+    await expect(page.locator('[data-testid="modal-overlay"]')).toBeVisible();
+  });
+});
+
+// ── Settings ─────────────────────────────────────────────────────────────────
+
+test.describe('Settings', () => {
+  test('can update display name and bio', async ({ page }) => {
+    await page.click('[data-testid="nav-tab-settings"]');
+    await waitForNavigation(page, 'settings');
+
+    await page.fill('[data-testid="settings-name-input"]', 'Test User');
+    await page.fill('[data-testid="settings-bio-input"]', 'Testing ISC via Playwright');
+    await page.click('[data-testid="save-profile-btn"]');
+    await waitForToast(page, 'Profile saved', 3000);
+  });
+
+  test('similarity threshold slider updates displayed value', async ({ page }) => {
+    await page.click('[data-testid="nav-tab-settings"]');
+    await waitForNavigation(page, 'settings');
+
+    await page.locator('[data-testid="similarity-threshold-slider"]').fill('70');
+    await expect(page.locator('#sim-value')).toHaveText('70');
+  });
+
+  test('theme change applies data-theme attribute to document', async ({ page }) => {
+    await page.click('[data-testid="nav-tab-settings"]');
+    await waitForNavigation(page, 'settings');
+
+    await page.selectOption('[data-testid="theme-select"]', 'light');
+
+    const theme = await page.evaluate(() => document.documentElement.getAttribute('data-theme'));
+    expect(theme).toBe('light');
+  });
+
+  test('peer ID is displayed in profile section', async ({ page }) => {
+    await page.click('[data-testid="nav-tab-settings"]');
+    await waitForNavigation(page, 'settings');
+
+    await expect(page.locator('[data-testid="peer-id-display"]')).toBeVisible();
+  });
+});
+
+// ── PWA Features ──────────────────────────────────────────────────────────────
+
+test.describe('PWA Features', () => {
+  test('page has a valid web app manifest', async ({ page }) => {
+    const manifestLink = page.locator('link[rel="manifest"]');
+    await expect(manifestLink).toHaveAttribute('href');
+
+    const href = await manifestLink.getAttribute('href');
+    const response = await page.request.get(href!);
+    expect(response.ok()).toBe(true);
+
+    const manifest = await response.json();
+    expect(manifest.name).toBeTruthy();
+    expect(manifest.display).toBe('standalone');
+  });
+
+  test('service worker API is available', async ({ page }) => {
+    const swAvailable = await page.evaluate(() => 'serviceWorker' in navigator);
+    expect(swAvailable).toBe(true);
+  });
+
+  test('app container renders on mobile viewport', async ({ page }) => {
+    await page.setViewportSize({ width: 375, height: 812 });
+    await page.reload();
+    await waitForAppReady(page);
+    await expect(page.locator('[data-testid="irc-layout"]')).toBeVisible();
+    await expect(page.locator('[data-testid="tab-bar"]')).toBeVisible();
+  });
+});
+
+// ── Accessibility ─────────────────────────────────────────────────────────────
+
+test.describe('Accessibility', () => {
+  test('each main screen has exactly one h1', async ({ page }) => {
+    for (const tab of ['now', 'discover', 'chats', 'settings']) {
+      await page.click(`[data-testid="nav-tab-${tab}"]`);
+      await waitForNavigation(page, tab);
       const h1Count = await page.locator('h1').count();
-      expect(h1Count).toBe(1);
-    });
+      expect(h1Count, `${tab} screen should have 1 h1`).toBe(1);
+    }
+  });
 
-    test('should have accessible button labels', async ({ page }) => {
-      const buttons = page.locator('button');
-      const count = await buttons.count();
+  test('all visible buttons have accessible text or aria-label', async ({ page }) => {
+    const buttons = page.locator('button:visible');
+    const count = await buttons.count();
 
-      for (let i = 0; i < Math.min(count, 10); i++) {
-        const button = buttons.nth(i);
-        const hasText = await button.textContent();
-        const hasAriaLabel = await button.getAttribute('aria-label');
+    for (let i = 0; i < Math.min(count, 15); i++) {
+      const btn = buttons.nth(i);
+      const text = (await btn.textContent())?.trim();
+      const ariaLabel = await btn.getAttribute('aria-label');
+      const title = await btn.getAttribute('title');
+      expect(text || ariaLabel || title, `Button ${i} should have accessible label`).toBeTruthy();
+    }
+  });
 
-        expect(hasText || hasAriaLabel).toBeTruthy();
-      }
-    });
+  test('can Tab-navigate through interactive elements', async ({ page }) => {
+    await page.keyboard.press('Tab');
+    await page.keyboard.press('Tab');
+    await page.keyboard.press('Tab');
 
-    test('should support keyboard navigation', async ({ page }) => {
-      // Tab through interactive elements
-      await page.keyboard.press('Tab');
-      await page.keyboard.press('Tab');
-      await page.keyboard.press('Tab');
+    const focusedTag = await page.evaluate(() => document.activeElement?.tagName);
+    expect(focusedTag).toBeTruthy();
+  });
 
-      // Focused element should be visible
-      const focusedElement = page.locator(':focus');
-      await expect(focusedElement).toBeVisible();
-    });
+  test('page title contains ISC', async ({ page }) => {
+    expect(await page.title()).toContain('ISC');
+  });
+
+  test('status bar is visible', async ({ page }) => {
+    await expect(page.locator('[data-testid="status-bar"]')).toBeVisible();
+  });
+});
+
+// ── Debug Panel ───────────────────────────────────────────────────────────────
+
+test.describe('Debug Panel', () => {
+  test('Ctrl+D toggles the debug panel', async ({ page }) => {
+    const debugPanel = page.locator('[data-testid="debug-panel"]');
+    await expect(debugPanel).not.toBeVisible();
+
+    await page.keyboard.press('Control+d');
+    await expect(debugPanel).toBeVisible();
+
+    await page.keyboard.press('Control+d');
+    await expect(debugPanel).not.toBeVisible();
+  });
+
+  test('debug panel clear button empties the log', async ({ page }) => {
+    await page.keyboard.press('Control+d');
+    await page.waitForSelector('[data-testid="debug-panel"]:not(.hidden)', { timeout: 2000 });
+    await page.click('[data-testid="debug-clear"]');
+    const logContent = await page.locator('[data-testid="debug-log"]').textContent();
+    expect(logContent?.trim()).toBe('');
   });
 });

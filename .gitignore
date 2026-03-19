@@ -61,8 +61,10 @@ models/
 .husky/_/
 
 # Generated files in src/ (build artifacts should be in dist/)
+# Exception: vanilla UI is authored in plain JS, not compiled from TypeScript
 **/src/**/*.d.ts
 **/src/**/*.js
+!apps/browser/src/vanilla/**/*.js
 !**/src/**/*.spec.d.ts
 playwright-report
 /isc-data/
