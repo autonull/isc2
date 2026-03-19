@@ -271,7 +271,7 @@ export function bind(container) {
       composeInput.value = '';
       composeInput.style.height = '';
       if (composeCount) composeCount.textContent = '0 / 2000';
-      document.dispatchEvent(new CustomEvent('isc:refresh-feed'));
+      document.dispatchEvent(new CustomEvent('isc:refresh-feed', { detail: { scrollToTop: true } }));
       toasts.success('Posted!');
     } catch (err) {
       toasts.error(err.message);
@@ -306,7 +306,7 @@ export function bind(container) {
   });
 }
 
-export function update(container) {
+export function update(container, { scrollToTop = false } = {}) {
   if (refreshing) return;
   const feed = container.querySelector('#now-feed');
   if (!feed) return;
@@ -318,6 +318,10 @@ export function update(container) {
   feed.innerHTML = posts.length === 0
     ? renderEmpty(channels, connected, connLabel)
     : renderPosts(posts, channels);
+  if (scrollToTop) {
+    const body = container.querySelector('[data-testid="now-body"]');
+    if (body) body.scrollTop = 0;
+  }
 }
 
 async function doRefresh(container) {

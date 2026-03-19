@@ -90,6 +90,12 @@ export function createApp(container) {
 
       logger.info('[App] Ready');
       statusBar?.setLog('App initialized');
+
+      // Trigger an initial peer discovery run if we already have channels and are connected
+      const initialChannels = networkService.getChannels();
+      if (initialChannels.length > 0 && netStatus?.connected) {
+        networkService.discoverPeers().catch(() => {});
+      }
     } catch (err) {
       logger.error('[App] Fatal init error:', err.message);
       splash.showError(err.message, () => location.reload());
@@ -238,6 +244,12 @@ export function createApp(container) {
     sidebar?.update(route);
     updateTabBar(route);
     statusBar?.setLog(`Navigated to ${route}`);
+    // Clear unread badge when entering chats; re-evaluate elsewhere
+    if (route === '/chats') {
+      document.querySelectorAll('[data-testid="nav-tab-chats"] .nav-unread-badge').forEach(b => b.remove());
+    } else {
+      updateChatsBadge();
+    }
   }
 
   function updateTabBar(route) {
@@ -252,12 +264,51 @@ export function createApp(container) {
 
   // ── Event Handlers ───────────────────────────────────────────────
 
+  // ── Unread badge ──────────────────────────────────────────────────
+
+  function getTotalUnreadCount() {
+    let total = 0;
+    try {
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key?.startsWith('isc:chat:unread:')) {
+          total += parseInt(localStorage.getItem(key) || '0', 10);
+        }
+      }
+    } catch { /* localStorage unavailable */ }
+    return total;
+  }
+
+  function updateChatsBadge() {
+    if (currentRoute === '/chats') return; // don't show badge when on chats screen
+    const count = getTotalUnreadCount();
+    document.querySelectorAll('[data-testid="nav-tab-chats"]').forEach(el => {
+      let badge = el.querySelector('.nav-unread-badge');
+      if (count > 0) {
+        if (!badge) {
+          badge = document.createElement('span');
+          badge.className = 'nav-unread-badge';
+          badge.setAttribute('aria-label', `${count} unread message${count !== 1 ? 's' : ''}`);
+          el.appendChild(badge);
+        }
+        badge.textContent = count > 99 ? '99+' : String(count);
+      } else if (badge) {
+        badge.remove();
+      }
+    });
+  }
+
   function setupEventHandlers() {
     document.addEventListener('isc:toast',       e => toasts.show(e.detail?.message, e.detail?.type, e.detail?.duration));
     document.addEventListener('isc:new-channel', () => navigateTo('/compose'));
-    document.addEventListener('isc:refresh-feed', () => {
+
+    // Update unread badge on incoming messages (cross-tab storage events)
+    window.addEventListener('storage', e => {
+      if (e.key?.startsWith('isc:chat:unread:')) updateChatsBadge();
+    });
+    document.addEventListener('isc:refresh-feed', e => {
       if (currentRoute === '/now') {
-        NowScreen.update(mainContent);
+        NowScreen.update(mainContent, { scrollToTop: e.detail?.scrollToTop ?? false });
       }
     });
     document.addEventListener('isc:need-channel', () => {
@@ -267,12 +318,8 @@ export function createApp(container) {
     document.addEventListener('isc:like-post', async e => {
       const { postId } = e.detail || {};
       if (!postId) return;
-      try {
-        await networkService.service?.likePost?.(postId);
-        // Do NOT re-render the feed here — the click handler in now.js already
-        // updates the button's data-liked attribute and counter optimistically.
-        // Re-rendering would reset the optimistic UI state back to its initial value.
-      } catch (err) { toasts.error(err.message); }
+      // Non-fatal — optimistic UI in now.js already updated the button
+      postService.like(postId).catch(() => {});
     });
     document.addEventListener('isc:delete-post', async e => {
       const { postId } = e.detail || {};
@@ -280,7 +327,7 @@ export function createApp(container) {
       const ok = await modals.confirm('Delete this post?', { title: '🗑️ Delete Post', confirmText: 'Delete', danger: true });
       if (!ok) return;
       try {
-        await networkService.service?.deletePost?.(postId);
+        await postService.delete(postId);
         NowScreen.update(mainContent);
         toasts.success('Post deleted');
       } catch (err) { toasts.error(err.message); }
@@ -331,15 +378,16 @@ export function createApp(container) {
         }
       }
 
-      const statusChanged   = state.status !== prev?.status;
-      const channelsChanged = state.channels?.length !== prev?.channels?.length;
-      const matchesChanged  = state.matches?.length !== prev?.matches?.length;
+      const statusChanged        = state.status !== prev?.status;
+      const channelsChanged      = state.channels?.length !== prev?.channels?.length;
+      const matchesChanged       = state.matches?.length !== prev?.matches?.length;
+      const activeChannelChanged = state.activeChannelId !== prev?.activeChannelId;
 
       if (statusChanged || channelsChanged || matchesChanged) {
         updateStatusBarFromState();
       }
 
-      if (channelsChanged) {
+      if (channelsChanged || activeChannelChanged) {
         sidebar?.update(currentRoute, state);
       }
 
@@ -347,10 +395,11 @@ export function createApp(container) {
       if (matchesChanged) {
         if (currentRoute === '/discover') DiscoverScreen.update(mainContent);
         if (currentRoute === '/chats')    ChatsScreen.update(mainContent);
+        if (currentRoute === '/video')    VideoScreen.update(mainContent);
       }
 
-      // Refresh Now feed when new posts arrive or channels change
-      if (currentRoute === '/now' && channelsChanged) {
+      // Refresh Now feed when channels change or user switches active channel
+      if (currentRoute === '/now' && (channelsChanged || activeChannelChanged)) {
         NowScreen.update(mainContent);
       }
     });

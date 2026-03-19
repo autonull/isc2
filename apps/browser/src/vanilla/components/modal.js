@@ -57,6 +57,10 @@ export const modals = {
   /** Promise-based confirm dialog */
   confirm(message, { title = 'Confirm', confirmText = 'Confirm', cancelText = 'Cancel', danger = false } = {}) {
     return new Promise(resolve => {
+      // settle() guards against double-resolution (close + button click both call it)
+      let resolved = false;
+      const settle = (value) => { if (!resolved) { resolved = true; resolve(value); } };
+
       const html = `
         <div class="modal-header">
           <h2 class="modal-title">${escapeHtml(title)}</h2>
@@ -69,12 +73,14 @@ export const modals = {
         </div>
       `;
 
-      const overlay = this.open(html);
+      // Pass onClose so Escape / overlay-click also resolve the promise
+      const overlay = this.open(html, { onClose: () => settle(false) });
       overlay.addEventListener('click', e => {
+        if (e.target.closest('.modal-close')) { settle(false); this.close(); return; }
         const btn = e.target.closest('[data-action]');
         if (!btn) return;
+        settle(btn.dataset.action === 'confirm');
         this.close();
-        resolve(btn.dataset.action === 'confirm');
       });
     });
   },

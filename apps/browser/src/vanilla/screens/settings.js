@@ -61,7 +61,7 @@ function renderProfile(identity) {
         <div class="form-group">
           <label class="form-label">Peer ID</label>
           <div class="form-static font-mono" data-testid="peer-id-display">
-            ${identity?.pubkey ? escapeHtml(identity.pubkey.slice(0, 48)) + '…' : 'Not initialized'}
+            ${identity?.peerId ? escapeHtml(identity.peerId) : 'Not initialized'}
           </div>
           <div class="form-hint">Your unique cryptographic identifier on the network</div>
         </div>
@@ -72,8 +72,9 @@ function renderProfile(identity) {
 }
 
 function renderIdentity(identity) {
-  const fingerprint = identity?.pubkey
-    ? escapeHtml(identity.pubkey.slice(0, 8) + '…' + identity.pubkey.slice(-8))
+  const identityId = identity?.peerId ?? identity?.pubkey;
+  const fingerprint = identityId
+    ? escapeHtml(identityId.slice(0, 8) + '…' + identityId.slice(-8))
     : 'N/A';
   return `
     <section class="settings-section" data-testid="identity-section">
@@ -349,6 +350,20 @@ export function bind(container) {
     toasts.success('Preferences saved!');
   });
 
+  // Request browser notification permission when the toggle is first enabled
+  container.querySelector('#notifications-toggle')?.addEventListener('change', async e => {
+    if (!e.target.checked || !('Notification' in window)) return;
+    if (Notification.permission === 'granted') return; // already have permission
+    const perm = await Notification.requestPermission();
+    if (perm !== 'granted') {
+      e.target.checked = false;
+      settingsService.set({ notifications: false });
+      toasts.warning('Notification permission denied — enable it in browser settings to receive alerts');
+    } else {
+      toasts.success('Notifications enabled! You\'ll be alerted when messages arrive.');
+    }
+  });
+
   // Delete channel
   container.addEventListener('click', async e => {
     const deleteBtn = e.target.closest('.delete-channel-btn');
@@ -373,6 +388,11 @@ export function bind(container) {
     );
     if (!ok) return;
     localStorage.clear();
+    // Also clear IndexedDB where channels, posts, matches, and identity are stored
+    await new Promise(resolve => {
+      const req = indexedDB.deleteDatabase('isc-storage');
+      req.onsuccess = req.onerror = req.onblocked = () => resolve(undefined);
+    });
     toasts.success('All data cleared. Reloading…');
     setTimeout(() => location.reload(), 1500);
   });

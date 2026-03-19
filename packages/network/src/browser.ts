@@ -405,29 +405,81 @@ export class BrowserNetworkService {
       createdAt: Date.now(),
     };
 
-    // Compute embedding for post (optional, for future semantic search)
-    if (this.embedding) {
-      post.embedding = await this.embedding.compute(content);
-    }
-
     this.posts.unshift(post);
     await this.storage.set('isc-posts', this.posts);
 
     this.events.onPostCreated?.(post);
     console.log(`[Network] Created post in ${channel.name}`);
 
-    // Broadcast via pubsub if network is available
-    if (this.networkAdapter && this.networkAdapter.publish) {
-       try {
-         const data = new TextEncoder().encode(JSON.stringify(post));
-         await this.networkAdapter.publish('isc:posts:global', data);
-         console.log(`[Network] Broadcasted post via Gossipsub`);
-       } catch (err) {
-         console.warn('[Network] Failed to broadcast post:', err);
-       }
+    // Compute embedding and broadcast asynchronously so the post appears immediately
+    if (this.embedding || (this.networkAdapter && this.networkAdapter.publish)) {
+      (async () => {
+        try {
+          if (this.embedding) {
+            post.embedding = await this.embedding.compute(content);
+          }
+          // Broadcast via pubsub if network is available
+          if (this.networkAdapter && this.networkAdapter.publish) {
+            const data = new TextEncoder().encode(JSON.stringify(post));
+            await this.networkAdapter.publish('isc:posts:global', data);
+            console.log(`[Network] Broadcasted post via Gossipsub`);
+          }
+          // Persist with embedding
+          if (post.embedding) {
+            await this.storage.set('isc-posts', this.posts);
+          }
+        } catch (err) {
+          console.warn('[Network] Post background processing failed:', err);
+        }
+      })();
     }
 
     return post;
+  }
+
+  /**
+   * Delete a channel by ID
+   */
+  async deleteChannel(channelId: string): Promise<void> {
+    this.channels = this.channels.filter(c => c.id !== channelId);
+    this.posts = this.posts.filter(p => p.channelId !== channelId);
+    await Promise.all([
+      this.storage.set('isc-channels', this.channels),
+      this.storage.set('isc-posts', this.posts),
+    ]);
+    console.log(`[Network] Deleted channel: ${channelId}`);
+  }
+
+  /**
+   * Delete a post by ID
+   */
+  async deletePost(postId: string): Promise<void> {
+    this.posts = this.posts.filter(p => p.id !== postId);
+    await this.storage.set('isc-posts', this.posts);
+    console.log(`[Network] Deleted post: ${postId}`);
+  }
+
+  /**
+   * Like a post (client-side optimistic — persisted locally only)
+   */
+  async likePost(postId: string): Promise<void> {
+    const post = this.posts.find(p => p.id === postId) as any;
+    if (!post) return;
+    if (!post.likes) post.likes = [];
+    const myId = this.identity?.peerId || 'unknown';
+    if (!post.likes.includes(myId)) {
+      post.likes.push(myId);
+      await this.storage.set('isc-posts', this.posts);
+    }
+  }
+
+  /**
+   * Clear identity from storage (for logout)
+   */
+  async clearIdentity(): Promise<void> {
+    await this.storage.delete('isc-identity');
+    this.identity = null;
+    console.log('[Network] Identity cleared');
   }
 
   /**

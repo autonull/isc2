@@ -267,9 +267,6 @@ export function bind(container) {
     if (!e.key?.startsWith('isc:chat:') || e.key.includes(':unread:') || e.key.includes(':typing:')) return;
     const peerId = e.key.replace('isc:chat:', '');
 
-    // Show typing indicator if sender posted a "typing" signal
-    if (e.key.includes(':typing:')) return;
-
     // Update conversation list
     update(container);
 
@@ -281,14 +278,36 @@ export function bind(container) {
       const convItem = container.querySelector(`.conversation-item[data-peer-id="${CSS.escape(peerId)}"]`);
       convItem?.classList.add('has-unread');
     }
+
+    // Browser notification for new incoming messages when app is not focused
+    if (!document.hasFocus() && e.newValue) {
+      try {
+        const msgs = JSON.parse(e.newValue);
+        const latest = msgs[msgs.length - 1];
+        if (latest && !latest.fromMe && 'Notification' in window && Notification.permission === 'granted') {
+          const settings = JSON.parse(localStorage.getItem('isc:settings') || '{}');
+          if (settings.notifications !== false) {
+            const conv = chatService.getConversations().find(c => c.peerId === peerId);
+            new Notification(`ISC — ${conv?.name ?? 'New message'}`, {
+              body: String(latest.content ?? '').slice(0, 100),
+              icon: '/favicon.ico',
+              tag: `isc-chat-${peerId}`,
+            });
+          }
+        }
+      } catch { /* ignore parse errors */ }
+    }
   };
   window.addEventListener('storage', onStorage);
 
   // Typing indicator via storage events from peer
+  // Key format written by broadcastTyping(): isc:typing:SENDER_ID:to:RECEIVER_ID
   const onStorageTyping = e => {
-    if (!e.key?.includes(':typing:')) return;
-    const peerId = e.key.split(':typing:')[0].replace('isc:typing:', '');
-    if (peerId !== activePeerId) return;
+    if (!e.key?.startsWith('isc:typing:')) return;
+    const rest = e.key.slice('isc:typing:'.length);       // "SENDER_ID:to:RECEIVER_ID"
+    const toIdx = rest.indexOf(':to:');
+    const senderId = toIdx >= 0 ? rest.slice(0, toIdx) : rest;
+    if (senderId !== activePeerId) return;
     showTypingIndicator(container);
   };
   window.addEventListener('storage', onStorageTyping);
@@ -360,7 +379,8 @@ function showTypingIndicator(container) {
 }
 
 function broadcastTyping() {
-  const myId = networkService.getIdentity()?.pubkey;
+  const identity = networkService.getIdentity();
+  const myId = identity?.pubkey ?? identity?.peerId;
   if (!myId || !activePeerId) return;
   const key = `isc:typing:${myId}:to:${activePeerId}`;
   try {
