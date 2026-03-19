@@ -5,6 +5,7 @@ interface NowScreenState {
   posts: any[];
   networkStatus: string;
   loading: boolean;
+  activeFeed: 'for-you' | 'following' | 'explore';
 }
 
 export class NowScreen extends UIComponent<any, NowScreenState> {
@@ -12,7 +13,7 @@ export class NowScreen extends UIComponent<any, NowScreenState> {
   private networkSub: any = null;
 
   constructor(props: any) {
-    super('div', props, { posts: [], networkStatus: 'disconnected', loading: true });
+    super('div', props, { posts: [], networkStatus: 'disconnected', loading: true, activeFeed: 'for-you' });
     this.element.className = 'screen now-screen';
     this.element.dataset.testid = 'now-screen';
   }
@@ -42,23 +43,44 @@ export class NowScreen extends UIComponent<any, NowScreenState> {
         }
       });
 
-      // Initially get any cached or existing feed from history
-      // Usually feedService.getPosts() or similar might exist
-      if (typeof feedService.getFeed === 'function') {
-        const localPosts = feedService.getFeed('global') || [];
-        const combined = [...this.state.posts, ...localPosts].sort(
-           (a, b) => ((b as any).createdAt || (b as any).timestamp || 0) - ((a as any).createdAt || (a as any).timestamp || 0)
-        );
-
-        // remove duplicates by ID
-        const unique = Array.from(new Map(combined.map(item => [item.id || item.hash, item])).values());
-        this.setState({ posts: unique, loading: false });
-      }
-    }
-
-    if (!feedService && !networkService) {
+      // Fetch initial feed based on active tab
+      this.fetchActiveFeed();
+    } else {
         this.setState({ loading: false });
     }
+  }
+
+  private async fetchActiveFeed() {
+      this.setState({ loading: true });
+      const { feedService, networkService } = this.props.dependencies || {};
+      let newPosts: any[] = [];
+
+      if (networkService && networkService.getStatus() === 'connected') {
+          newPosts = networkService.getPosts ? networkService.getPosts() : [];
+      }
+
+      if (feedService) {
+          try {
+              let localPosts: any[] = [];
+              if (this.state.activeFeed === 'for-you' && feedService.getForYouFeed) {
+                  localPosts = await feedService.getForYouFeed();
+              } else if (this.state.activeFeed === 'following' && feedService.getFollowingFeed) {
+                  localPosts = await feedService.getFollowingFeed();
+              } else if (this.state.activeFeed === 'explore' && feedService.getExploreFeed) {
+                  localPosts = await feedService.getExploreFeed();
+              }
+              newPosts = [...newPosts, ...(localPosts || [])];
+          } catch (e) {
+              console.warn('[NowScreen] Error fetching feed', e);
+          }
+      }
+
+      const combined = newPosts.sort(
+          (a, b) => ((b as any).createdAt || (b as any).timestamp || 0) - ((a as any).createdAt || (a as any).timestamp || 0)
+      );
+
+      const unique = Array.from(new Map(combined.map(item => [item.id || item.hash, item])).values());
+      this.setState({ posts: unique, loading: false });
   }
 
   protected onUnmount() {
@@ -72,17 +94,24 @@ export class NowScreen extends UIComponent<any, NowScreenState> {
 
   protected render() {
     this.element.innerHTML = `
-      <div class="channel-header" style="display: flex; justify-content: space-between; align-items: center; padding: 16px 20px; border-bottom: 1px solid #e1e8ed; background: white; position: sticky; top: 0; z-index: 100;">
-        <div>
-          <h2 style="font-size: 20px; font-weight: bold; margin: 0; color: #14171a;">🏠 Now</h2>
-          <div class="network-status-indicator" id="network-status-indicator" style="font-size: 12px; margin-top: 4px; color: #657786;"></div>
+      <div class="channel-header" style="display: flex; flex-direction: column; background: white; position: sticky; top: 0; z-index: 100; border-bottom: 1px solid #e1e8ed;">
+        <div style="display: flex; justify-content: space-between; align-items: center; padding: 16px 20px;">
+          <div>
+            <h2 style="font-size: 20px; font-weight: bold; margin: 0; color: #14171a;">🏠 Now</h2>
+            <div class="network-status-indicator" id="network-status-indicator" style="font-size: 12px; margin-top: 4px; color: #657786;"></div>
+          </div>
+          <div style="display: flex; gap: 12px; align-items: center;">
+            <button id="refresh-btn" style="background: none; border: none; cursor: pointer; font-size: 20px;" title="Refresh">🔄</button>
+            <button id="compose-nav-btn" style="padding: 8px 16px; background: #1da1f2; color: white; border: none; border-radius: 20px; font-size: 14px; font-weight: bold; cursor: pointer;">+ Post</button>
+          </div>
         </div>
-        <div style="display: flex; gap: 12px; align-items: center;">
-          <button id="refresh-btn" style="background: none; border: none; cursor: pointer; font-size: 20px;" title="Refresh">🔄</button>
-          <button id="compose-nav-btn" style="padding: 8px 16px; background: #1da1f2; color: white; border: none; border-radius: 20px; font-size: 14px; font-weight: bold; cursor: pointer;">+ Post</button>
+        <div style="display: flex; border-top: 1px solid #e1e8ed;">
+            <div class="feed-tab" data-feed="for-you" style="flex: 1; text-align: center; padding: 16px; font-weight: bold; font-size: 15px; cursor: pointer; ${this.state.activeFeed === 'for-you' ? 'color: #1da1f2; border-bottom: 4px solid #1da1f2;' : 'color: #657786;'}">For You</div>
+            <div class="feed-tab" data-feed="following" style="flex: 1; text-align: center; padding: 16px; font-weight: bold; font-size: 15px; cursor: pointer; ${this.state.activeFeed === 'following' ? 'color: #1da1f2; border-bottom: 4px solid #1da1f2;' : 'color: #657786;'}">Following</div>
+            <div class="feed-tab" data-feed="explore" style="flex: 1; text-align: center; padding: 16px; font-weight: bold; font-size: 15px; cursor: pointer; ${this.state.activeFeed === 'explore' ? 'color: #1da1f2; border-bottom: 4px solid #1da1f2;' : 'color: #657786;'}">Explore</div>
         </div>
       </div>
-      <div class="feed-container" id="feed-container" style="flex: 1; padding: 20px; overflow-y: auto;">
+      <div class="feed-container" id="feed-container" style="flex: 1; padding: 20px; overflow-y: auto; background: #f5f8fa;">
         <p class="empty-feed" id="loading-state">Loading posts...</p>
       </div>
     `;
@@ -91,33 +120,27 @@ export class NowScreen extends UIComponent<any, NowScreenState> {
     const refreshBtn = this.element.querySelector('#refresh-btn');
     if (refreshBtn) {
       refreshBtn.addEventListener('click', async () => {
-        this.setState({ loading: true });
-
-        const { feedService, networkService } = this.props.dependencies || {};
-
-        let newPosts: any[] = [];
-
-        if (networkService) {
-           newPosts = networkService.getPosts ? networkService.getPosts() : [];
-        }
-
-        if (feedService) {
-            // Wait a small bit for feedService to fetch latest if it's async (or assume sync)
-            if (feedService.refresh) {
-                await feedService.refresh('global');
-            }
-            const localPosts = feedService.getFeed ? feedService.getFeed('global') : [];
-            newPosts = [...newPosts, ...(localPosts || [])];
-        }
-
-        const combined = newPosts.sort(
-           (a, b) => ((b as any).createdAt || (b as any).timestamp || 0) - ((a as any).createdAt || (a as any).timestamp || 0)
-        );
-        const unique = Array.from(new Map(combined.map(item => [item.id || item.hash, item])).values());
-
-        this.setState({ posts: unique, loading: false });
+         const { feedService } = this.props.dependencies || {};
+         if (feedService && feedService.refresh) {
+             await feedService.refresh();
+         }
+         this.fetchActiveFeed();
       });
     }
+
+    // Tab switching handler
+    this.element.querySelectorAll('.feed-tab').forEach(tab => {
+        tab.addEventListener('click', (e) => {
+            const feed = (e.currentTarget as HTMLElement).dataset.feed as 'for-you' | 'following' | 'explore';
+            if (feed && feed !== this.state.activeFeed) {
+                this.setState({ activeFeed: feed, posts: [], loading: true });
+                // Note: The UI component architecture usually re-renders fully on state change
+                // if it wasn't intercepted by update(). In this case, update() handles the DOM diff
+                // but doesn't auto-fetch. We need to fetch directly after state update triggers rendering.
+                setTimeout(() => this.fetchActiveFeed(), 0);
+            }
+        });
+    });
 
     // Attach compose nav handler
     const composeNavBtn = this.element.querySelector('#compose-nav-btn');
@@ -130,6 +153,12 @@ export class NowScreen extends UIComponent<any, NowScreenState> {
   }
 
   protected update(prevState: NowScreenState) {
+    if (prevState.activeFeed !== this.state.activeFeed) {
+        // Re-render completely if tab changes to ensure active styles update
+        this.render();
+        return;
+    }
+
     const statusIndicator = this.element.querySelector('#network-status-indicator');
     if (statusIndicator) {
        const isConnected = this.state.networkStatus === 'connected';

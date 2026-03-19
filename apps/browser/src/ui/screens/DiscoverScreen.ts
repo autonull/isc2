@@ -1,17 +1,22 @@
 import { UIComponent } from '../Component.js';
 import { escapeHTML } from '../utils/dom.js';
 
+import { SemanticMapView } from '../components/SemanticMapView.js';
+import { ChatPanel } from '../components/ChatPanel.js';
+
 interface DiscoverState {
   peers: any[];
   discovering: boolean;
   status: string;
+  viewMode: 'list' | 'map';
+  activeChatPeer: any | null;
 }
 
 export class DiscoverScreen extends UIComponent<any, DiscoverState> {
   private networkSub: any = null;
 
   constructor(props: any) {
-    super('div', props, { peers: [], discovering: false, status: 'disconnected' });
+    super('div', props, { peers: [], discovering: false, status: 'disconnected', viewMode: 'list', activeChatPeer: null });
     this.element.className = 'screen discover-screen';
     this.element.dataset.testid = 'discover-screen';
   }
@@ -50,9 +55,18 @@ export class DiscoverScreen extends UIComponent<any, DiscoverState> {
           <h2 style="font-size: 20px; font-weight: bold; margin: 0; color: #14171a;">@ Discover Peers</h2>
           <p style="font-size: 14px; color: #657786; margin: 4px 0 0 0;">Find other users with similar interests via the DHT.</p>
         </div>
-        <button id="refresh-peers-btn" style="padding: 8px 16px; background: #1da1f2; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold;">Discover</button>
+        <div style="display: flex; gap: 8px; align-items: center;">
+            <div style="display: flex; background: #e1e8ed; border-radius: 6px; padding: 2px;">
+               <button id="view-list-btn" style="padding: 6px 12px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 12px; ${this.state.viewMode === 'list' ? 'background: white; color: #14171a; box-shadow: 0 1px 2px rgba(0,0,0,0.1);' : 'background: transparent; color: #657786;'}">List</button>
+               <button id="view-map-btn" style="padding: 6px 12px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 12px; ${this.state.viewMode === 'map' ? 'background: white; color: #14171a; box-shadow: 0 1px 2px rgba(0,0,0,0.1);' : 'background: transparent; color: #657786;'}">Map</button>
+            </div>
+            <button id="refresh-peers-btn" style="padding: 8px 16px; background: #1da1f2; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold;">Discover</button>
+        </div>
       </div>
-      <div class="peer-list" id="peer-list-container" style="flex: 1; padding: 20px; overflow-y: auto;"></div>
+      <div id="discover-content" style="flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column;">
+        <div class="peer-list" id="peer-list-container" style="flex: 1; display: ${this.state.viewMode === 'list' ? 'block' : 'none'};"></div>
+        <div id="map-container" style="flex: 1; display: ${this.state.viewMode === 'map' ? 'block' : 'none'};"></div>
+      </div>
     `;
 
     const btn = this.element.querySelector('#refresh-peers-btn');
@@ -74,24 +88,32 @@ export class DiscoverScreen extends UIComponent<any, DiscoverState> {
           }
       });
     }
+
+    const listBtn = this.element.querySelector('#view-list-btn');
+    if (listBtn) {
+        listBtn.addEventListener('click', () => this.setState({ viewMode: 'list' }));
+    }
+
+    const mapBtn = this.element.querySelector('#view-map-btn');
+    if (mapBtn) {
+        mapBtn.addEventListener('click', () => this.setState({ viewMode: 'map' }));
+    }
   }
 
   private async handleConnect(peerId: string) {
-    const confirmed = confirm(`Connect with ${peerId}? You will be able to exchange messages directly.`);
-    if (confirmed) {
-      try {
+    const peer = this.state.peers.find((p: any) => p.peer.id === peerId || p.id === peerId);
+    if (!peer) return;
+
+    // Instead of a confirm box, open the chat overlay
+    this.setState({ activeChatPeer: peer });
+
+    try {
         const { networkService } = this.props.dependencies || {};
         if (networkService && networkService.connectToPeer) {
-          await networkService.connectToPeer(peerId);
-          alert(`Connected with ${peerId}!`);
-        } else {
-          console.warn('[Discover] Connect method not available on network service');
-          alert('Connect method not available in current network configuration.');
+            await networkService.connectToPeer(peerId);
         }
-      } catch (err) {
-        console.error('[Discover] Failed to connect:', err);
-        alert(`Failed to connect with ${peerId}`);
-      }
+    } catch (err) {
+        console.error('[Discover] Failed to connect to peer for chat:', err);
     }
   }
 
@@ -102,7 +124,74 @@ export class DiscoverScreen extends UIComponent<any, DiscoverState> {
     return '#e0245e';
   }
 
-  protected update() {
+  protected update(prevState: DiscoverState) {
+    if (prevState.viewMode !== this.state.viewMode) {
+        const listContainer = this.element.querySelector('#peer-list-container') as HTMLElement;
+        const mapContainer = this.element.querySelector('#map-container') as HTMLElement;
+
+        if (listContainer && mapContainer) {
+            listContainer.style.display = this.state.viewMode === 'list' ? 'block' : 'none';
+            mapContainer.style.display = this.state.viewMode === 'map' ? 'block' : 'none';
+        }
+
+        const listBtn = this.element.querySelector('#view-list-btn') as HTMLElement;
+        const mapBtn = this.element.querySelector('#view-map-btn') as HTMLElement;
+
+        if (listBtn && mapBtn) {
+            listBtn.style.background = this.state.viewMode === 'list' ? 'white' : 'transparent';
+            listBtn.style.color = this.state.viewMode === 'list' ? '#14171a' : '#657786';
+            listBtn.style.boxShadow = this.state.viewMode === 'list' ? '0 1px 2px rgba(0,0,0,0.1)' : 'none';
+
+            mapBtn.style.background = this.state.viewMode === 'map' ? 'white' : 'transparent';
+            mapBtn.style.color = this.state.viewMode === 'map' ? '#14171a' : '#657786';
+            mapBtn.style.boxShadow = this.state.viewMode === 'map' ? '0 1px 2px rgba(0,0,0,0.1)' : 'none';
+        }
+    }
+
+    if (prevState.activeChatPeer !== this.state.activeChatPeer) {
+        if (this.state.activeChatPeer) {
+            let chatPanel = this.children.get('chat-panel') as ChatPanel;
+            const targetPeer = this.state.activeChatPeer.peer || this.state.activeChatPeer;
+
+            if (!chatPanel) {
+                chatPanel = new ChatPanel({
+                   peerId: targetPeer.id,
+                   peerName: targetPeer.name || targetPeer.id.substring(0, 8),
+                   similarity: this.state.activeChatPeer.similarity || 0,
+                   dependencies: this.props.dependencies,
+                   onClose: () => this.setState({ activeChatPeer: null })
+                });
+                this.appendChildComponent('chat-panel', chatPanel, this.element);
+            } else {
+                chatPanel.setProps({
+                   peerId: targetPeer.id,
+                   peerName: targetPeer.name || targetPeer.id.substring(0, 8),
+                   similarity: this.state.activeChatPeer.similarity || 0
+                });
+            }
+        } else {
+            const existing = this.children.get('chat-panel');
+            if (existing) {
+               existing.unmount();
+               this.children.delete('chat-panel');
+            }
+        }
+    }
+
+    // Update map view component
+    if (this.state.viewMode === 'map') {
+        let mapView = this.children.get('semantic-map') as SemanticMapView;
+        if (!mapView) {
+            mapView = new SemanticMapView({
+               points: this.state.peers,
+               onPeerClick: (id) => this.handleConnect(id)
+            });
+            this.appendChildComponent('semantic-map', mapView, '#map-container');
+        } else {
+            mapView.setProps({ points: this.state.peers });
+        }
+    }
+
     const container = this.element.querySelector('#peer-list-container');
     if (!container) return;
 

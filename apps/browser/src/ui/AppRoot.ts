@@ -6,6 +6,7 @@ import { VideoCallScreen } from './screens/VideoCallScreen.js';
 import { ChatsScreen } from './screens/ChatsScreen.js';
 import { SettingsScreen } from './screens/SettingsScreen.js';
 import { ComposeScreen } from './screens/ComposeScreen.js';
+import { CommunitiesScreen } from './screens/CommunitiesScreen.js';
 
 interface AppRootState {
   route: string;
@@ -126,6 +127,9 @@ export class AppRoot extends UIComponent<any, AppRootState> {
           break;
         case 'compose':
           activeScreen = new ComposeScreen({ dependencies: this.props.dependencies });
+          break;
+        case 'communities':
+          activeScreen = new CommunitiesScreen({ dependencies: this.props.dependencies });
           break;
         case 'now':
         default:

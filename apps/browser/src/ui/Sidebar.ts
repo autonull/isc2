@@ -31,6 +31,9 @@ export class Sidebar extends UIComponent<SidebarProps, any> {
           <li class="irc-nav-item" data-tab="discover" style="padding: 12px 20px; cursor: pointer; display: flex; align-items: center; gap: 12px; font-size: 16px; font-weight: 500; transition: background 0.2s;">
             <span class="icon" style="font-size: 20px;">📡</span> Discover
           </li>
+          <li class="irc-nav-item" data-tab="communities" style="padding: 12px 20px; cursor: pointer; display: flex; align-items: center; gap: 12px; font-size: 16px; font-weight: 500; transition: background 0.2s;">
+            <span class="icon" style="font-size: 20px;">👥</span> Communities
+          </li>
           <li class="irc-nav-item" data-tab="video" style="padding: 12px 20px; cursor: pointer; display: flex; align-items: center; gap: 12px; font-size: 16px; font-weight: 500; transition: background 0.2s;">
             <span class="icon" style="font-size: 20px;">📹</span> Video
           </li>
