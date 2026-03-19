@@ -15,6 +15,8 @@ export class VideoCallScreen extends UIComponent<any, VideoCallState> {
   }
 
   protected async onMount() {
+    // The underlying VideoService implementation seems limited.
+    // We attach handlers for any available events to keep the UI in sync if the service does fire them.
     const { video } = this.props.dependencies || {};
     if (video && video.onCallEvent) {
       this.callSub = video.onCallEvent((event: any) => {
@@ -28,7 +30,10 @@ export class VideoCallScreen extends UIComponent<any, VideoCallState> {
           this.endCall();
         } else if (event.type === 'stream') {
           const remoteVideo = this.element.querySelector('#remoteVideo') as HTMLVideoElement;
-          if (remoteVideo) remoteVideo.srcObject = event.stream;
+          if (remoteVideo) {
+              remoteVideo.srcObject = event.stream;
+              remoteVideo.play().catch(e => console.warn('Autoplay prevented', e));
+          }
         }
       });
     }
@@ -44,15 +49,23 @@ export class VideoCallScreen extends UIComponent<any, VideoCallState> {
   private async acceptCall(peerId: string) {
     await this.startLocalVideo();
     const { video } = this.props.dependencies || {};
-    if (video) {
+    if (video && video.acceptCall) {
       video.acceptCall(peerId, this.localStream);
-      this.setState({ inCall: true, peerId });
     }
+    this.setState({ inCall: true, peerId });
   }
 
   private endCall() {
     const { video } = this.props.dependencies || {};
-    if (video) video.endCall(this.state.peerId);
+    // Fallback logic incase video service isn't fully implemented or uses a different API
+    if (video && video.endCall) {
+        try {
+            video.endCall(this.state.peerId);
+        } catch (e) {
+            console.warn('Error ending call through service', e);
+        }
+    }
+
     if (this.localStream) {
       this.localStream.getTracks().forEach(t => t.stop());
       this.localStream = null;
@@ -69,10 +82,13 @@ export class VideoCallScreen extends UIComponent<any, VideoCallState> {
     try {
       this.localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
       const localVideo = this.element.querySelector('#localVideo') as HTMLVideoElement;
-      if (localVideo) localVideo.srcObject = this.localStream;
+      if (localVideo) {
+          localVideo.srcObject = this.localStream;
+          localVideo.play().catch(e => console.warn('Local PIP autoplay prevented', e));
+      }
     } catch (e) {
       console.error('Failed to get local media', e);
-      alert('Could not access camera/microphone.');
+      throw e; // Let the caller handle UI feedback
     }
   }
 
@@ -178,13 +194,25 @@ export class VideoCallScreen extends UIComponent<any, VideoCallState> {
       }
 
       const { video } = this.props.dependencies || {};
-      if (video) {
+
+      // If startCall is available, try it (the actual implemented interface)
+      if (video && video.startCall) {
+        try {
+            await video.startCall(peerId);
+            this.setState({ inCall: true, peerId });
+        } catch(e) {
+            callError.textContent = "Network error starting call";
+            callError.style.display = 'block';
+            this.endCall(); // cleanup media
+        }
+      } else if (video && video.initiateCall) { // Legacy signature
         try {
             video.initiateCall(peerId, this.localStream);
             this.setState({ inCall: true, peerId });
         } catch(e) {
             callError.textContent = "Network error starting call";
             callError.style.display = 'block';
+            this.endCall(); // cleanup media
         }
       } else {
         // Fallback for tests if no real dependency
@@ -225,6 +253,13 @@ export class VideoCallScreen extends UIComponent<any, VideoCallState> {
     if (this.state.inCall) {
       setupView.style.display = 'none';
       callView.style.display = 'flex';
+
+      // Ensure videos are playing if they are set (e.g. after React/Vanilla re-renders)
+      const localVideo = this.element.querySelector('#localVideo') as HTMLVideoElement;
+      if (localVideo && localVideo.srcObject !== this.localStream) {
+          localVideo.srcObject = this.localStream;
+          localVideo.play().catch(e => {});
+      }
     } else {
       setupView.style.display = 'flex';
       callView.style.display = 'none';

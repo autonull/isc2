@@ -43,14 +43,41 @@ export class ChatPanel extends UIComponent<ChatPanelProps, ChatPanelState> {
     this.loadMessages();
   }
 
-  private loadMessages() {
-     const stored = localStorage.getItem(`isc-messages-${this.props.peerId}`);
-     if (stored) {
-         try {
-             this.setState({ messages: JSON.parse(stored) });
-             this.scrollToBottom();
-         } catch (e) {}
-     }
+  private async loadMessages() {
+    const { chat } = this.props.dependencies || {};
+
+    // First try the local storage fast path
+    const stored = localStorage.getItem(`isc-messages-${this.props.peerId}`);
+    if (stored) {
+        try {
+            this.setState({ messages: JSON.parse(stored) });
+            this.scrollToBottom();
+        } catch (e) {}
+    }
+
+    // Then sync with the actual chat service db
+    if (chat && chat.getMessages && chat.createConversation) {
+        try {
+            // Ensure conversation exists so we can get its ID if we need it
+            const conv = await chat.createConversation(this.props.peerId);
+            const messages = await chat.getMessages(conv.id);
+            if (messages && messages.length > 0) {
+               // Map db messages to the format expected by the UI
+               const formattedMsgs = messages.map((m: any) => ({
+                   id: m.id,
+                   conversationId: m.conversationId,
+                   content: m.content,
+                   fromMe: m.senderId !== this.props.peerId,
+                   timestamp: m.timestamp
+               }));
+               this.setState({ messages: formattedMsgs });
+               localStorage.setItem(`isc-messages-${this.props.peerId}`, JSON.stringify(formattedMsgs));
+               this.scrollToBottom();
+            }
+        } catch (e) {
+            console.warn('[ChatPanel] Failed to load messages from DB', e);
+        }
+    }
   }
 
   private async sendMessage(content: string) {
@@ -66,13 +93,18 @@ export class ChatPanel extends UIComponent<ChatPanelProps, ChatPanelState> {
 
       const updatedMessages = [...this.state.messages, newMessage];
       this.setState({ messages: updatedMessages, inputText: '' });
+
+      const input = this.element.querySelector('#chat-input') as HTMLInputElement;
+      if (input) input.value = '';
+
       localStorage.setItem(`isc-messages-${this.props.peerId}`, JSON.stringify(updatedMessages));
       this.scrollToBottom();
 
       try {
         const { chat } = this.props.dependencies || {};
-        if (chat && chat.send) {
-          await chat.send(this.props.peerId, content);
+        if (chat && chat.send && chat.createConversation) {
+          const conv = await chat.createConversation(this.props.peerId);
+          await chat.send(conv.id, content);
         }
       } catch (e) {
         console.warn('[ChatPanel] WebRTC send failed, queued locally', e);
@@ -94,21 +126,27 @@ export class ChatPanel extends UIComponent<ChatPanelProps, ChatPanelState> {
     this.element.innerHTML = `
       <div style="padding: 12px 16px; background: #1da1f2; color: white; border-radius: 12px 12px 0 0; display: flex; justify-content: space-between; align-items: center; cursor: pointer;" id="chat-header">
          <div style="display: flex; flex-direction: column;">
-            <strong style="font-size: 14px;">${escapeHTML(this.props.peerName)}</strong>
-            <span style="font-size: 11px; opacity: 0.8;">Similarity: ${Math.round(this.props.similarity * 100)}%</span>
+            <strong style="font-size: 14px; font-weight: bold; display: flex; align-items: center; gap: 6px;">
+               ${escapeHTML(this.props.peerName)} <span style="font-size: 10px; background: rgba(0,0,0,0.2); padding: 2px 6px; border-radius: 8px;">🔒 E2E</span>
+            </strong>
+            <span style="font-size: 11px; opacity: 0.9;">via Discover · ${Math.round(this.props.similarity * 100)}% similarity</span>
          </div>
          <div style="display: flex; gap: 12px; align-items: center;">
-            <button id="expand-btn" style="background: none; border: none; color: white; cursor: pointer; padding: 0; font-size: 16px;" title="Expand">
+            <button id="expand-btn" style="background: none; border: none; color: white; cursor: pointer; padding: 0; font-size: 16px; transition: transform 0.2s;" title="Expand">
                 ${isExpanded ? '▼' : '▲'}
             </button>
-            <button id="close-btn" style="background: none; border: none; color: white; cursor: pointer; padding: 0; font-size: 16px;" title="Close">✕</button>
+            <button id="close-btn" style="background: none; border: none; color: white; cursor: pointer; padding: 0; font-size: 16px; font-weight: bold;" title="Close">✕</button>
          </div>
       </div>
       <div id="chat-messages" style="flex: 1; padding: 16px; overflow-y: auto; background: #f5f8fa; display: flex; flex-direction: column; gap: 12px;">
       </div>
-      <div style="padding: 12px; border-top: 1px solid #e1e8ed; background: white; display: flex; gap: 8px;">
-         <input type="text" id="chat-input" placeholder="Message..." style="flex: 1; padding: 8px 12px; border: 1px solid #e1e8ed; border-radius: 16px; font-size: 13px; outline: none;" />
-         <button id="chat-send-btn" style="background: #1da1f2; color: white; border: none; padding: 8px 16px; border-radius: 16px; font-weight: bold; cursor: pointer; font-size: 13px;">Send</button>
+      <div style="padding: 12px; border-top: 1px solid #e1e8ed; background: white; display: flex; flex-direction: column; gap: 8px;">
+         <div style="display: flex; gap: 8px;">
+             <input type="text" id="chat-input" placeholder="Type message..." style="flex: 1; padding: 10px 14px; border: 1px solid #e1e8ed; border-radius: 20px; font-size: 14px; outline: none;" autocomplete="off" />
+             <button id="chat-send-btn" style="background: #1da1f2; color: white; border: none; width: 40px; height: 40px; border-radius: 20px; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 4px rgba(29, 161, 242, 0.2);">
+                 <span style="transform: translateY(-1px);">↑</span>
+             </button>
+         </div>
       </div>
     `;
 
@@ -161,15 +199,27 @@ export class ChatPanel extends UIComponent<ChatPanelProps, ChatPanelState> {
           const list = this.element.querySelector('#chat-messages');
           if (list) {
               if (this.state.messages.length === 0) {
-                  list.innerHTML = '<p style="text-align: center; color: #657786; font-size: 13px; margin-top: 40px;">Say hello!</p>';
+                  list.innerHTML = '<p style="text-align: center; color: #657786; font-size: 13px; margin-top: 40px;">Say hello! Messages are end-to-end encrypted.</p>';
               } else {
-                  list.innerHTML = this.state.messages.map(m => `
-                    <div style="display: flex; flex-direction: column; align-items: ${m.fromMe ? 'flex-end' : 'flex-start'};">
-                        <div style="max-width: 80%; padding: 8px 12px; border-radius: 14px; font-size: 13px; line-height: 1.4; ${m.fromMe ? 'background: #1da1f2; color: white; border-bottom-right-radius: 4px;' : 'background: white; color: #14171a; border-bottom-left-radius: 4px; box-shadow: 0 1px 2px rgba(0,0,0,0.05);'}">
-                          ${escapeHTML(m.content)}
+                  list.innerHTML = this.state.messages.map((m, i) => {
+                      const prev = i > 0 ? this.state.messages[i-1] : null;
+                      const showTime = !prev || (m.timestamp - prev.timestamp > 300000); // 5 mins
+
+                      let timeHtml = '';
+                      if (showTime) {
+                          const time = new Date(m.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+                          timeHtml = `<div style="text-align: center; font-size: 11px; color: #aab8c2; margin: 8px 0 4px 0;">${time}</div>`;
+                      }
+
+                      return `
+                        ${timeHtml}
+                        <div style="display: flex; flex-direction: column; align-items: ${m.fromMe ? 'flex-end' : 'flex-start'};">
+                            <div style="max-width: 80%; padding: 10px 14px; border-radius: 18px; font-size: 14px; line-height: 1.4; ${m.fromMe ? 'background: #1da1f2; color: white; border-bottom-right-radius: 4px;' : 'background: white; color: #14171a; border-bottom-left-radius: 4px; box-shadow: 0 1px 2px rgba(0,0,0,0.05); border: 1px solid #e1e8ed;'}">
+                              ${escapeHTML(m.content)}
+                            </div>
                         </div>
-                    </div>
-                  `).join('');
+                      `;
+                  }).join('');
               }
               this.scrollToBottom();
           }
