@@ -141,7 +141,7 @@ export class ChaosModeService {
   private adjustSimilarity(peer: PeerMatch, chaosFactor: number): PeerMatch {
     const noise = (Math.random() - 0.5) * chaosFactor * 0.4;
     const adjustedSimilarity = Math.max(0, Math.min(1, peer.similarity + noise));
-    return { ...peer, similarity: adjustedSimilarity, _chaosAdjusted: true };
+    return { ...peer, similarity: adjustedSimilarity };
   }
 
   private boostTopicDiversity(peers: PeerMatch[], userTopics: string[], chaosFactor: number): PeerMatch[] {
@@ -151,7 +151,7 @@ export class ChaosModeService {
 
       if (novelTopics.length > 0) {
         const diversityBonus = (novelTopics.length / Math.max(1, userTopics.length)) * chaosFactor * 0.3;
-        return { ...peer, similarity: Math.min(1, peer.similarity + diversityBonus), _diversityBonus: diversityBonus };
+        return { ...peer, similarity: Math.min(1, peer.similarity + diversityBonus) };
       }
       return peer;
     });
@@ -161,7 +161,7 @@ export class ChaosModeService {
     const randomChance = this.config.randomPeerChance * chaosFactor;
     return peers.map(peer => {
       if (peer.similarity < 0.4 && Math.random() < randomChance) {
-        return { ...peer, similarity: peer.similarity + 0.2, _randomBoost: true };
+        return { ...peer, similarity: peer.similarity + 0.2 };
       }
       return peer;
     });

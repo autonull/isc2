@@ -52,10 +52,15 @@ export class SleepingStateService {
   private state: SleepingState;
   private activityTimer: ReturnType<typeof setTimeout> | null = null;
   private listeners: Set<(state: SleepingState) => void> = new Set();
+  private networkBroadcastFn: ((away: boolean, message: string) => void) | null = null;
 
   constructor(config: Partial<SleepingStateConfig> = {}) {
     this.config = { ...DEFAULT_CONFIG, ...config };
     this.state = this.loadFromStorage() || this.createInitialState();
+  }
+
+  setNetworkBroadcast(broadcastFn: (away: boolean, message: string) => void): void {
+    this.networkBroadcastFn = broadcastFn;
   }
 
   private createInitialState(): SleepingState {
@@ -101,7 +106,7 @@ export class SleepingStateService {
     this.resetActivityTimer();
   }
 
-  setAway(message?: string, reason: 'manual' | 'scheduled' = 'manual'): void {
+  setAway(message?: string, reason: 'manual' | 'scheduled' | 'auto' = 'manual'): void {
     if (!this.config.enabled) return;
 
     const awayMessage: AwayMessage = {
@@ -118,6 +123,10 @@ export class SleepingStateService {
     this.state.lastActive = Date.now();
     this.saveToStorage();
     this.emitUpdate();
+    
+    if (this.config.broadcastAway && this.networkBroadcastFn) {
+      this.networkBroadcastFn(true, awayMessage.message);
+    }
   }
 
   clearAway(): void {
@@ -127,6 +136,10 @@ export class SleepingStateService {
     this.state.lastActive = Date.now();
     this.saveToStorage();
     this.emitUpdate();
+    
+    if (this.config.broadcastAway && this.networkBroadcastFn) {
+      this.networkBroadcastFn(false, '');
+    }
   }
 
   toggleAway(): void {

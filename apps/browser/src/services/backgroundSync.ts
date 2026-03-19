@@ -200,7 +200,7 @@ export class BackgroundSyncManager {
     this.worker = null;
     this.port = null;
     this.connected = false;
-    this.initPromise = null;
+    this.initialized = false;
   }
 }
 

@@ -124,10 +124,10 @@ class NetworkServiceWrapper {
 
   private normalizeMatches(matches: NetworkPeerMatch[]): PeerMatch[] {
     return (matches ?? []).map(m => ({
-      peerId: m.peer?.id ?? m.peerId ?? '',
+      peerId: m.peer?.id ?? '',
       identity: {
-        name: m.peer?.name ?? m.identity?.name ?? 'Anonymous',
-        bio: m.peer?.description ?? m.identity?.bio ?? '',
+        name: m.peer?.name ?? 'Anonymous',
+        bio: m.peer?.description ?? '',
       },
       similarity: m.similarity ?? 0,
       matchedTopics: m.matchedTopics ?? [],
