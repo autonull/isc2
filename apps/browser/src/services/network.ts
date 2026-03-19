@@ -9,7 +9,7 @@ import { loggers } from '../logger.js';
 import { actions, getState } from '../state.js';
 import { NetworkError, ChannelError, MessageError, IdentityError } from '../errors.js';
 import { STATUS } from '../constants.js';
-import { getBackgroundNetworkManager, type BackgroundNetworkManager } from './backgroundNetwork.js';
+import { getBackgroundSyncManager, type BackgroundSyncManager } from './backgroundSync.js';
 import { getMessageQueue, type MessageQueueService } from './messageQueue.js';
 
 export interface PeerMatch {
@@ -30,7 +30,7 @@ export interface NetworkStatus {
 
 class NetworkServiceWrapper {
   private service: BrowserNetworkService | null = null;
-  private sharedWorker: BackgroundNetworkManager | null = null;
+  private sharedWorker: BackgroundSyncManager | null = null;
   private messageQueue: MessageQueueService | null = null;
   private log = loggers.network;
   private initialized = false;
@@ -45,7 +45,7 @@ class NetworkServiceWrapper {
       // Initialize BackgroundWorker if available
       if (this.useBackgroundWorker) {
         try {
-          this.sharedWorker = getBackgroundNetworkManager();
+          this.sharedWorker = getBackgroundSyncManager();
           await this.sharedWorker.initialize();
           this.log.info('BackgroundWorker initialized');
 
