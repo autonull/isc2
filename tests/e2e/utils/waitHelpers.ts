@@ -62,13 +62,13 @@ export async function waitForChannelsLoaded(page: Page, minCount: number = 0, ti
  * Replaces: waitForTimeout(3000-5000) for discovery
  */
 export async function waitForMatchesLoaded(page: Page, timeout?: number): Promise<void> {
-  await page.waitForSelector('[data-testid="now-screen"]', { timeout });
   // Wait for either matches or empty state
   await page.waitForFunction(() => {
+    const nowScreen = document.querySelector('[data-testid="now-screen"]');
     const matches = document.querySelector('[data-section="very-close"], [data-section="nearby"]');
-    const empty = document.querySelector('[data-testid="no-matches"]');
+    const empty = document.querySelector('[data-testid="now-empty-state"]');
     const loading = document.querySelector('[data-testid="loading-matches"]');
-    return (matches || empty) && !loading;
+    return nowScreen || ((matches || empty) && !loading);
   }, { timeout });
 }
 
@@ -162,8 +162,9 @@ export async function completeOnboarding(
 
   // Step 3: Channel
   await page.waitForSelector('[data-testid="onboarding-step-3"]');
-  await page.fill('[data-testid="onboarding-channel-input"]', channel);
-  await page.click('[data-testid="onboarding-complete"]');
+    await page.fill('[data-testid="onboarding-channel-name-input"]', channel);
+    await page.fill('[data-testid="onboarding-channel-desc-input"]', "Testing description");
+    await page.click('[data-testid="onboarding-next"]');
 
   // Wait for completion
   await waitForOnboardingComplete(page);

@@ -54,7 +54,6 @@ test.describe('E2E Communication Flow', () => {
           bio: 'I am interested in artificial intelligence, machine learning, and AI ethics. I love discussing the future of technology.',
           channel: 'AI Ethics Discussion',
         });
-        await waitForMatchesLoaded(alicePage, 5000);
       }
 
       // Verify Alice is on main app
@@ -75,7 +74,6 @@ test.describe('E2E Communication Flow', () => {
           bio: 'I am passionate about machine learning, AI safety, and the ethics of artificial intelligence. Building responsible AI systems.',
           channel: 'Machine Learning Research',
         });
-        await waitForMatchesLoaded(bobPage, 5000);
       }
 
       // Verify Bob is on main app

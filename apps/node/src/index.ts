@@ -17,7 +17,7 @@ export async function main(): Promise<void> {
   const peerId = await createEd25519PeerId();
 
   const node = await createLibp2p({
-    peerId,
+    peerId: peerId as any,
     start: false,
     addresses: {
       listen: [
@@ -48,7 +48,7 @@ export async function main(): Promise<void> {
         protocol: '/ipfs/kad/1.0.0', // Ensure protocol matches browser's default kadDHT
         clientMode: false // Act as a DHT server/router
       }),
-      pubsub: gossipsub({ allowPublishToZeroTopicPeers: true })
+      pubsub: gossipsub({ allowPublishToZeroPeers: true } as any) as any
     }
   });
 

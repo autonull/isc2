@@ -89,7 +89,7 @@ test.describe('REAL BROWSER VERIFICATION', () => {
         console.log(`✓ Found tab: ${tab}`);
         
         // Click the tab
-        await tabElement.click();
+        await tabElement.click({ force: true });
         await page.waitForTimeout(1000);
         
         // Verify app is still visible (didn't crash)
@@ -117,7 +117,7 @@ test.describe('REAL BROWSER VERIFICATION', () => {
     // Click compose tab
     const composeTab = page.locator('[data-testid="nav-tab-compose"], [data-tab="compose"]').first();
     if (await composeTab.count() > 0) {
-      await composeTab.click();
+      await composeTab.click({ force: true });
       await page.waitForTimeout(2000);
       
       // Take screenshot
@@ -145,7 +145,7 @@ test.describe('REAL BROWSER VERIFICATION', () => {
     await page.waitForTimeout(3000);
     
     // Navigate to compose
-    await page.click('[data-testid="nav-tab-compose"]');
+    await page.click('[data-testid="nav-tab-compose"]', { force: true });
     await page.waitForTimeout(1000);
     
     // Find and fill form

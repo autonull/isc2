@@ -135,7 +135,7 @@ export function Onboarding({ onComplete }: OnboardingProps) {
 
         {/* Step 0: Welcome */}
         {step === 0 && (
-          <>
+          <div data-testid="onboarding-step-1">
             <div style={styles.header}>
               <div style={styles.icon}>👋</div>
               <h1 style={styles.title}>Welcome to ISC</h1>
@@ -166,6 +166,7 @@ export function Onboarding({ onComplete }: OnboardingProps) {
               <input
                 type="text"
                 value={name}
+                data-testid="onboarding-name-input"
                 onInput={(e) => setName((e.target as HTMLInputElement).value)}
                 placeholder="Your name"
                 style={styles.input}
@@ -179,6 +180,7 @@ export function Onboarding({ onComplete }: OnboardingProps) {
 
             <button
               onClick={handleNext}
+              data-testid="onboarding-next"
               style={{ ...styles.button, ...(name.trim() ? {} : styles.buttonDisabled) }}
               disabled={!name.trim()}
             >
@@ -187,12 +189,12 @@ export function Onboarding({ onComplete }: OnboardingProps) {
             <button onClick={handleSkip} style={{ ...styles.button, ...styles.secondaryButton }}>
               Skip for now
             </button>
-          </>
+          </div>
         )}
 
         {/* Step 1: Bio */}
         {step === 1 && (
-          <>
+          <div data-testid="onboarding-step-2">
             <div style={styles.header}>
               <div style={styles.icon}>📝</div>
               <h1 style={styles.title}>Tell us about yourself</h1>
@@ -203,6 +205,7 @@ export function Onboarding({ onComplete }: OnboardingProps) {
               <label style={styles.label}>Short bio</label>
               <textarea
                 value={bio}
+                data-testid="onboarding-bio-input"
                 onInput={(e) => setBio((e.target as HTMLTextAreaElement).value)}
                 placeholder="I'm interested in AI, distributed systems, and..."
                 style={styles.textarea}
@@ -217,14 +220,14 @@ export function Onboarding({ onComplete }: OnboardingProps) {
               {error && <div style={styles.error}>{error}</div>}
             </div>
 
-            <button onClick={handleNext} style={styles.button}>Continue</button>
+            <button onClick={handleNext} data-testid="onboarding-next" style={styles.button}>Continue</button>
             <button onClick={handleSkip} style={{ ...styles.button, ...styles.secondaryButton }}>Skip</button>
-          </>
+          </div>
         )}
 
         {/* Step 2: First Channel */}
         {step === 2 && (
-          <>
+          <div data-testid="onboarding-step-3">
             <div style={styles.header}>
               <div style={styles.icon}>📢</div>
               <h1 style={styles.title}>Create your first channel</h1>
@@ -236,6 +239,7 @@ export function Onboarding({ onComplete }: OnboardingProps) {
               <input
                 type="text"
                 value={channelName}
+                data-testid="onboarding-channel-name-input"
                 onInput={(e) => setChannelName((e.target as HTMLInputElement).value)}
                 placeholder="e.g., AI Ethics, Machine Learning, Web3"
                 style={styles.input}
@@ -250,6 +254,7 @@ export function Onboarding({ onComplete }: OnboardingProps) {
               <label style={styles.label}>Description</label>
               <textarea
                 value={channelDesc}
+                data-testid="onboarding-channel-desc-input"
                 onInput={(e) => setChannelDesc((e.target as HTMLTextAreaElement).value)}
                 placeholder="What's this channel about?"
                 style={styles.textarea}
@@ -262,12 +267,13 @@ export function Onboarding({ onComplete }: OnboardingProps) {
 
             <button
               onClick={handleNext}
+              data-testid="onboarding-next"
               disabled={loading}
               style={{ ...styles.button, ...(loading ? styles.buttonDisabled : {}) }}
             >
               {loading ? 'Setting up...' : 'Complete Setup'}
             </button>
-          </>
+          </div>
         )}
       </div>
     </div>
