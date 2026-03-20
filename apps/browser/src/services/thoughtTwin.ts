@@ -1,10 +1,3 @@
-/**
- * Thought Twin Service
- *
- * Weekly surface of the peer with highest accumulated semantic similarity
- * across all channels over time.
- */
-
 import { getDB, dbGet, dbPut } from '../db/factory.js';
 import { getTopSimilarPeers } from './peerProximity.js';
 
@@ -24,28 +17,22 @@ interface ThoughtTwinNotification {
   shouldShow: boolean;
 }
 
+const MS_PER_WEEK = 7 * 24 * 60 * 60 * 1000;
+
 async function getSettingsDB(): Promise<IDBDatabase> {
-  return getDB({
-    name: SETTINGS_DB_NAME,
-    version: 1,
-    stores: [SETTINGS_STORE],
-  });
+  return getDB({ name: SETTINGS_DB_NAME, version: 1, stores: [SETTINGS_STORE] });
 }
 
 export async function getThoughtTwin(): Promise<ThoughtTwin | null> {
   const topPeers = await getTopSimilarPeers(1);
+  if (topPeers.length === 0) return null;
 
-  if (topPeers.length === 0) {
-    return null;
-  }
-
-  const peer = topPeers[0];
-
+  const { peerId, days, score } = topPeers[0];
   return {
-    peerId: peer.peerId,
-    days: peer.days,
-    avgCosine: peer.score / Math.max(1, peer.days),
-    score: peer.score,
+    peerId,
+    days,
+    avgCosine: score / Math.max(1, days),
+    score,
   };
 }
 
@@ -53,13 +40,10 @@ export async function shouldShowThoughtTwinNotification(): Promise<ThoughtTwinNo
   try {
     const db = await getSettingsDB();
     const settings = await dbGet<{ value: number }>(db, SETTINGS_STORE, THOUGHT_TWIN_KEY);
-
     const now = Date.now();
-    const msPerWeek = 7 * 24 * 60 * 60 * 1000;
 
-    if (!settings?.value || now - settings.value > msPerWeek) {
+    if (!settings?.value || now - settings.value > MS_PER_WEEK) {
       const twin = await getThoughtTwin();
-
       if (twin && twin.days >= 3) {
         return { twin, shouldShow: true };
       }
@@ -74,10 +58,7 @@ export async function shouldShowThoughtTwinNotification(): Promise<ThoughtTwinNo
 export async function acknowledgeThoughtTwin(): Promise<void> {
   try {
     const db = await getSettingsDB();
-    await dbPut(db, SETTINGS_STORE, {
-      id: THOUGHT_TWIN_KEY,
-      value: Date.now(),
-    });
+    await dbPut(db, SETTINGS_STORE, { id: THOUGHT_TWIN_KEY, value: Date.now() });
   } catch (err) {
     console.warn('[ThoughtTwin] Failed to save acknowledgment:', err);
   }

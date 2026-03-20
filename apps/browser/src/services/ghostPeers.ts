@@ -1,9 +1,3 @@
-/**
- * Ghost Peers Service
- *
- * Shows expired-but-recent peers (within 4 hours) as dimmed.
- */
-
 import type { PeerMatch } from '../services/network.js';
 
 export interface GhostPeer extends PeerMatch {
@@ -28,6 +22,8 @@ const DEFAULT_CONFIG: GhostPeerConfig = {
   opacityDecayMs: 2 * 60 * 60 * 1000,
 };
 
+const OPACITY = { initial: 0.7, min: 0.3 };
+
 export class GhostPeersService {
   private config: GhostPeerConfig;
   private ghostPeers = new Map<string, GhostPeer>();
@@ -40,8 +36,7 @@ export class GhostPeersService {
 
   start(): void {
     if (!this.config.enabled) return;
-    console.log('[GhostPeers] Starting with config:', this.config);
-    this.cleanupTimer = setInterval(() => {
+    this.cleanupTimer ??= setInterval(() => {
       this.cleanupExpiredGhosts();
       this.updateGhostOpacities();
     }, 60000);
@@ -66,13 +61,14 @@ export class GhostPeersService {
       expiredAt: now + this.config.gracePeriodMs,
       lastSeen: now,
       wasOnline: peer.online ?? true,
-      ghostOpacity: 0.7,
+      ghostOpacity: OPACITY.initial,
       online: false,
     };
 
     if (this.ghostPeers.size >= this.config.maxGhostPeers) {
-      const oldest = Array.from(this.ghostPeers.entries())
-        .sort((a, b) => a[1].lastSeen - b[1].lastSeen)[0];
+      const oldest = [...this.ghostPeers.entries()].sort(
+        (a, b) => a[1].lastSeen - b[1].lastSeen
+      )[0];
       if (oldest) this.ghostPeers.delete(oldest[0]);
     }
 
@@ -88,12 +84,11 @@ export class GhostPeersService {
 
   getPeers(activePeers: PeerMatch[]): PeerMatch[] {
     if (!this.config.enabled) return activePeers;
-    const ghosts = Array.from(this.ghostPeers.values());
-    return [...activePeers, ...ghosts];
+    return [...activePeers, ...this.ghostPeers.values()];
   }
 
   getGhosts(): GhostPeer[] {
-    return Array.from(this.ghostPeers.values());
+    return [...this.ghostPeers.values()];
   }
 
   isGhost(peerId: string): boolean {
@@ -102,8 +97,7 @@ export class GhostPeersService {
 
   getTimeSinceLastSeen(peerId: string): number | null {
     const ghost = this.ghostPeers.get(peerId);
-    if (!ghost) return null;
-    return Date.now() - ghost.lastSeen;
+    return ghost ? Date.now() - ghost.lastSeen : null;
   }
 
   onUpdate(callback: (ghosts: GhostPeer[]) => void): () => void {
@@ -114,12 +108,14 @@ export class GhostPeersService {
   private cleanupExpiredGhosts(): void {
     const now = Date.now();
     let changed = false;
-    for (const [id, ghost] of this.ghostPeers.entries()) {
+
+    this.ghostPeers.forEach((ghost, id) => {
       if (ghost.expiredAt < now) {
         this.ghostPeers.delete(id);
         changed = true;
       }
-    }
+    });
+
     if (changed) this.emitUpdate();
   }
 
@@ -127,29 +123,31 @@ export class GhostPeersService {
     const now = Date.now();
     let changed = false;
 
-    for (const [, ghost] of this.ghostPeers.entries()) {
+    this.ghostPeers.forEach((ghost) => {
       const timeSinceExpiry = now - (ghost.expiredAt - this.config.gracePeriodMs);
       const progress = Math.min(1, timeSinceExpiry / this.config.opacityDecayMs);
-      const newOpacity = 0.7 - (progress * 0.4);
+      const newOpacity = Math.max(
+        OPACITY.min,
+        OPACITY.initial - progress * (OPACITY.initial - OPACITY.min)
+      );
 
       if (Math.abs(newOpacity - ghost.ghostOpacity) > 0.01) {
-        ghost.ghostOpacity = Math.max(0.3, newOpacity);
+        ghost.ghostOpacity = newOpacity;
         changed = true;
       }
-    }
+    });
 
     if (changed) this.emitUpdate();
   }
 
   private emitUpdate(): void {
-    const ghosts = Array.from(this.ghostPeers.values());
-    this.listeners.forEach(listener => listener(ghosts));
+    this.listeners.forEach((listener) => listener([...this.ghostPeers.values()]));
   }
 
-  getStatus(): { enabled: boolean; ghostCount: number; oldestGhost: number | null } {
-    const ghosts = Array.from(this.ghostPeers.values());
-    const oldestGhost = ghosts.length > 0
-      ? Math.max(...ghosts.map(g => Date.now() - g.lastSeen)) / 60000
+  getStatus() {
+    const ghosts = [...this.ghostPeers.values()];
+    const oldestGhost = ghosts.length
+      ? Math.max(...ghosts.map((g) => (Date.now() - g.lastSeen) / 60000))
       : null;
     return { enabled: this.config.enabled, ghostCount: ghosts.length, oldestGhost };
   }

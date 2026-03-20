@@ -1,15 +1,10 @@
-/**
- * Background Sync Manager
- *
- * Manages connection to SharedWorker for persistent network presence.
- * Uses lazy initialization to avoid Vite worker detection.
- */
-
 import { getMessageQueue } from './messageQueue.js';
+
+type Payload = Record<string, unknown>;
 
 interface BackgroundSyncResponse {
   type: 'READY' | 'STATE' | 'MESSAGE_RECEIVED' | 'PEER_DISCOVERED' | 'ERROR';
-  payload?: any;
+  payload?: Payload;
   tabId?: string;
 }
 
@@ -20,7 +15,7 @@ export class BackgroundSyncManager {
   private initialized = false;
   private peerId: string | null = null;
   private messageQueue = getMessageQueue();
-  private listeners: Map<string, Set<(data: any) => void>> = new Map();
+  private listeners = new Map<string, Set<(data: unknown) => void>>();
   private tabId: string;
 
   constructor() {
@@ -28,8 +23,9 @@ export class BackgroundSyncManager {
   }
 
   async initialize(): Promise<void> {
-    // Fire-and-forget initialization - don't block app startup
-    this._initializeAsync().catch(() => {});
+    this._initializeAsync().catch(() => {
+      /* Fire-and-forget */
+    });
   }
 
   private async _initializeAsync(): Promise<void> {
@@ -37,48 +33,47 @@ export class BackgroundSyncManager {
     this.initialized = true;
 
     try {
-      if (typeof SharedWorker === 'undefined') {
-        return;
-      }
+      if (typeof SharedWorker === 'undefined') return;
 
       const workerUrl = new URL('../shared-workers/shared-worker.ts', import.meta.url);
       this.worker = new SharedWorker(workerUrl, { type: 'module', name: 'isc-network' });
       this.port = this.worker.port;
 
-      this.port.onmessage = (event: MessageEvent<BackgroundSyncResponse>) => {
+      this.port.onmessage = (event: MessageEvent<BackgroundSyncResponse>) =>
         this.handleMessage(event.data);
-      };
-
-      this.port.onmessageerror = () => {};
+      this.port.onmessageerror = () => console.warn('[BackgroundSync] Message error');
 
       this.port.start();
       this.port.postMessage({ type: 'INITIALIZE', tabId: this.tabId });
 
-      // Short timeout for worker connection
       await new Promise<void>((resolve) => {
         const timeout = setTimeout(resolve, 1500);
         const onReady = (response: BackgroundSyncResponse) => {
           if (response.type === 'READY') {
             clearTimeout(timeout);
             this.connected = true;
-            this.peerId = response.payload?.peerId || null;
-            this.port?.removeEventListener('message', onReady as any);
+            this.peerId = (response.payload as any)?.peerId ?? null;
+            this.port?.removeEventListener('message', onReady as EventListener);
           }
           resolve();
         };
-        this.port?.addEventListener('message', onReady as any);
+        this.port?.addEventListener('message', onReady as EventListener);
       });
-    } catch {
-      // Silently fail
+    } catch (err) {
+      console.warn('[BackgroundSync] Failed to initialize:', err);
     }
   }
 
-  private handleMessage(response: BackgroundSyncResponse) {
+  private handleMessage(response: BackgroundSyncResponse): void {
     const { type, payload } = response;
 
     switch (type) {
       case 'MESSAGE_RECEIVED': {
-        const { topic, data, timestamp } = payload;
+        const { topic, data, timestamp } = payload as {
+          topic: string;
+          data: unknown;
+          timestamp: number;
+        };
         if (document.visibilityState === 'hidden') {
           this.messageQueue.enqueue(topic, { data, timestamp });
         } else {
@@ -86,32 +81,28 @@ export class BackgroundSyncManager {
         }
         break;
       }
-
       case 'PEER_DISCOVERED':
         this.emit('peer:discovered', payload);
         break;
-
       case 'ERROR':
-        // Expected when SharedWorker fails to initialize - app uses direct network
         this.emit('error', payload);
         break;
     }
   }
 
-  subscribe(topic: string, callback: (data: any) => void): () => void {
+  subscribe(topic: string, callback: (data: unknown) => void): () => void {
     if (!this.listeners.has(topic)) {
       this.listeners.set(topic, new Set());
       this.port?.postMessage({ type: 'SUBSCRIBE', payload: { topic }, tabId: this.tabId });
     }
 
     this.listeners.get(topic)!.add(callback);
-    const pending = this.messageQueue.getPending(topic);
-    pending.forEach(msg => callback(msg.data));
+    this.messageQueue.getPending(topic).forEach((msg) => callback(msg.data));
 
     return () => this.listeners.get(topic)?.delete(callback);
   }
 
-  async publish(topic: string, data: any): Promise<void> {
+  async publish(topic: string, data: unknown): Promise<void> {
     return new Promise((resolve, reject) => {
       if (!this.connected) {
         reject(new Error('Not connected'));
@@ -121,15 +112,15 @@ export class BackgroundSyncManager {
       this.port?.postMessage({ type: 'SEND_MESSAGE', payload: { topic, data }, tabId: this.tabId });
 
       const onReady = (response: BackgroundSyncResponse) => {
-        if (response.type === 'READY' && response.payload?.success) resolve();
-        else if (response.type === 'ERROR') reject(new Error(response.payload?.message));
+        if (response.type === 'READY' && (response.payload as any)?.success) resolve();
+        else if (response.type === 'ERROR') reject(new Error((response.payload as any)?.message));
       };
 
-      this.port?.addEventListener('message', onReady as any, { once: true });
+      this.port?.addEventListener('message', onReady as EventListener, { once: true });
     });
   }
 
-  async announce(key: string, value: any, ttl: number): Promise<void> {
+  async announce(key: string, value: unknown, ttl: number): Promise<void> {
     return new Promise((resolve, reject) => {
       if (!this.connected) {
         reject(new Error('Not connected'));
@@ -139,15 +130,15 @@ export class BackgroundSyncManager {
       this.port?.postMessage({ type: 'ANNOUNCE', payload: { key, value, ttl }, tabId: this.tabId });
 
       const onReady = (response: BackgroundSyncResponse) => {
-        if (response.type === 'READY' && response.payload?.success) resolve();
-        else if (response.type === 'ERROR') reject(new Error(response.payload?.message));
+        if (response.type === 'READY' && (response.payload as any)?.success) resolve();
+        else if (response.type === 'ERROR') reject(new Error((response.payload as any)?.message));
       };
 
-      this.port?.addEventListener('message', onReady as any, { once: true });
+      this.port?.addEventListener('message', onReady as EventListener, { once: true });
     });
   }
 
-  async discoverPeers(): Promise<any[]> {
+  async discoverPeers(): Promise<unknown[]> {
     return new Promise((resolve, reject) => {
       if (!this.connected) {
         reject(new Error('Not connected'));
@@ -157,16 +148,21 @@ export class BackgroundSyncManager {
       this.port?.postMessage({ type: 'DISCOVER', tabId: this.tabId });
 
       const onDiscovered = (response: BackgroundSyncResponse) => {
-        if (response.type === 'PEER_DISCOVERED') resolve(response.payload?.peers || []);
-        else if (response.type === 'ERROR') reject(new Error(response.payload?.message));
+        if (response.type === 'PEER_DISCOVERED') resolve((response.payload as any)?.peers ?? []);
+        else if (response.type === 'ERROR') reject(new Error((response.payload as any)?.message));
       };
 
-      this.port?.addEventListener('message', onDiscovered as any, { once: true });
+      this.port?.addEventListener('message', onDiscovered as EventListener, { once: true });
     });
   }
 
-  async getState(): Promise<{ initialized: boolean; peerId: string | null; connected: boolean; connectionCount: number }> {
-    return new Promise(resolve => {
+  async getState(): Promise<{
+    initialized: boolean;
+    peerId: string | null;
+    connected: boolean;
+    connectionCount: number;
+  }> {
+    return new Promise((resolve) => {
       if (!this.connected) {
         resolve({ initialized: false, peerId: null, connected: false, connectionCount: 0 });
         return;
@@ -177,22 +173,19 @@ export class BackgroundSyncManager {
       const onState = (response: BackgroundSyncResponse) => {
         if (response.type === 'STATE') resolve(response.payload);
       };
-
-      this.port?.addEventListener('message', onState as any, { once: true });
+      this.port?.addEventListener('message', onState as EventListener, { once: true });
     });
   }
 
   getPeerId(): string | null {
     return this.peerId;
   }
-
   isConnected(): boolean {
     return this.connected;
   }
 
-  private emit(topic: string, data: any) {
-    const listeners = this.listeners.get(topic);
-    if (listeners) listeners.forEach(callback => callback(data));
+  private emit(topic: string, data: unknown): void {
+    this.listeners.get(topic)?.forEach((callback) => callback(data));
   }
 
   destroy(): void {

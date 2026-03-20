@@ -1,9 +1,3 @@
-/**
- * Invite Links Service
- *
- * Generates shareable URLs that bypass DHT cold-start.
- */
-
 export interface InviteData {
   type: 'peer' | 'channel';
   id: string;
@@ -36,6 +30,8 @@ const DEFAULT_CONFIG: InviteConfig = {
   storageKey: 'isc:invites',
 };
 
+const INVITE_CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+
 export class InviteLinksService {
   private config: InviteConfig;
   private createdInvites = new Map<string, InviteLink>();
@@ -51,62 +47,62 @@ export class InviteLinksService {
     if (!this.config.enabled) return;
     console.log('[InviteLinks] Starting with config:', this.config);
     this.checkUrlForInvite();
-
-    if (typeof window !== 'undefined') {
+    if (typeof window !== 'undefined')
       window.addEventListener('hashchange', () => this.checkUrlForInvite());
-    }
   }
 
-  createPeerInvite(peerId: string, name?: string, description?: string, options?: {
-    expiresAt?: number;
-    maxUses?: number;
-  }): InviteLink {
+  createPeerInvite(
+    peerId: string,
+    name?: string,
+    description?: string,
+    options?: { expiresAt?: number; maxUses?: number }
+  ): InviteLink {
     const data: InviteData = {
       type: 'peer',
       id: peerId,
       name,
       description,
-      expiresAt: options?.expiresAt || Date.now() + this.config.defaultExpiryMs,
+      expiresAt: options?.expiresAt ?? Date.now() + this.config.defaultExpiryMs,
       maxUses: options?.maxUses,
       currentUses: 0,
       createdBy: peerId,
       createdAt: Date.now(),
     };
-
-    const shortCode = this.generateShortCode();
-    const url = this.buildUrl('invite', shortCode);
-    const link: InviteLink = { url, data, shortCode };
-
-    this.createdInvites.set(shortCode, link);
+    const link = this.buildLink(data);
+    this.createdInvites.set(link.shortCode!, link);
     this.saveToStorage();
     this.emitUpdate();
     return link;
   }
 
-  createChannelInvite(channelId: string, channelName: string, description?: string, options?: {
-    expiresAt?: number;
-    maxUses?: number;
-  }): InviteLink {
+  createChannelInvite(
+    channelId: string,
+    channelName: string,
+    description?: string,
+    options?: { expiresAt?: number; maxUses?: number }
+  ): InviteLink {
     const data: InviteData = {
       type: 'channel',
       id: channelId,
       name: channelName,
       description,
-      expiresAt: options?.expiresAt || Date.now() + this.config.defaultExpiryMs,
+      expiresAt: options?.expiresAt ?? Date.now() + this.config.defaultExpiryMs,
       maxUses: options?.maxUses,
       currentUses: 0,
       createdBy: 'current-user',
       createdAt: Date.now(),
     };
-
-    const shortCode = this.generateShortCode();
-    const url = this.buildUrl('invite', shortCode);
-    const link: InviteLink = { url, data, shortCode };
-
-    this.createdInvites.set(shortCode, link);
+    const link = this.buildLink(data);
+    this.createdInvites.set(link.shortCode!, link);
     this.saveToStorage();
     this.emitUpdate();
     return link;
+  }
+
+  private buildLink(data: InviteData): InviteLink {
+    const shortCode = this.generateShortCode();
+    const url = this.buildUrl('invite', shortCode);
+    return { url, data, shortCode };
   }
 
   createDirectJoinLink(peerId: string): string {
@@ -117,19 +113,25 @@ export class InviteLinksService {
     try {
       const urlObj = new URL(url, window.location.href);
       const hash = urlObj.hash.slice(1);
-
-      if (hash.startsWith('join/')) {
-        return { type: 'peer', id: hash.slice(5), currentUses: 0, createdBy: hash.slice(5), createdAt: Date.now() };
-      }
-      if (hash.startsWith('channel/')) {
-        return { type: 'channel', id: hash.slice(8), currentUses: 0, createdBy: 'unknown', createdAt: Date.now() };
-      }
-      if (hash.startsWith('invite/')) {
-        const invite = this.createdInvites.get(hash.slice(7));
-        if (invite) return invite.data;
-      }
+      if (hash.startsWith('join/'))
+        return {
+          type: 'peer',
+          id: hash.slice(5),
+          currentUses: 0,
+          createdBy: hash.slice(5),
+          createdAt: Date.now(),
+        };
+      if (hash.startsWith('channel/'))
+        return {
+          type: 'channel',
+          id: hash.slice(8),
+          currentUses: 0,
+          createdBy: 'unknown',
+          createdAt: Date.now(),
+        };
+      if (hash.startsWith('invite/')) return this.createdInvites.get(hash.slice(7))?.data ?? null;
     } catch {
-      // Invalid URL
+      /* Invalid URL */
     }
     return null;
   }
@@ -137,7 +139,6 @@ export class InviteLinksService {
   getPendingJoin(): InviteData | null {
     return this.pendingJoin;
   }
-
   clearPendingJoin(): void {
     this.pendingJoin = null;
   }
@@ -145,17 +146,15 @@ export class InviteLinksService {
   useInvite(shortCode: string): boolean {
     const invite = this.createdInvites.get(shortCode);
     if (!invite) return false;
-
-    if (invite.data.expiresAt && invite.data.expiresAt < Date.now()) return false;
-    if (invite.data.maxUses && invite.data.currentUses >= invite.data.maxUses) return false;
-
+    if ((invite.data.expiresAt ?? Infinity) < Date.now()) return false;
+    if ((invite.data.maxUses ?? Infinity) < invite.data.currentUses) return false;
     invite.data.currentUses++;
     this.saveToStorage();
     return true;
   }
 
   getInvites(): InviteLink[] {
-    return Array.from(this.createdInvites.values());
+    return [...this.createdInvites.values()];
   }
 
   revokeInvite(shortCode: string): boolean {
@@ -177,24 +176,20 @@ export class InviteLinksService {
     const invite = this.parseInvite(window.location.href);
     if (invite) {
       this.pendingJoin = invite;
-      if (typeof window !== 'undefined') {
+      if (typeof window !== 'undefined')
         window.dispatchEvent(new CustomEvent('isc:invite-received', { detail: invite }));
-      }
     }
   }
 
   private buildUrl(type: string, value: string): string {
-    const baseUrl = this.config.baseUrl.split('#')[0];
-    return `${baseUrl}#${type}/${value}`;
+    return `${this.config.baseUrl.split('#')[0]}#${type}/${value}`;
   }
 
   private generateShortCode(): string {
-    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-    let code = '';
-    for (let i = 0; i < 8; i++) {
-      code += chars.charAt(Math.floor(Math.random() * chars.length));
-    }
-    return code;
+    return Array.from(
+      { length: 8 },
+      () => INVITE_CHARS[Math.floor(Math.random() * INVITE_CHARS.length)]
+    ).join('');
   }
 
   private loadFromStorage(): void {
@@ -202,29 +197,30 @@ export class InviteLinksService {
       const stored = localStorage.getItem(this.config.storageKey);
       if (!stored) return;
       const invites: InviteLink[] = JSON.parse(stored);
-      invites.forEach(invite => {
+      invites.forEach((invite) => {
         if (invite.shortCode) this.createdInvites.set(invite.shortCode, invite);
       });
     } catch {
-      // Ignore storage errors
+      /* Ignore */
     }
   }
 
   private saveToStorage(): void {
     try {
-      const invites = Array.from(this.createdInvites.values());
-      localStorage.setItem(this.config.storageKey, JSON.stringify(invites));
+      localStorage.setItem(
+        this.config.storageKey,
+        JSON.stringify([...this.createdInvites.values()])
+      );
     } catch {
-      // Ignore storage errors
+      /* Ignore */
     }
   }
 
   private emitUpdate(): void {
-    const invites = Array.from(this.createdInvites.values());
-    this.listeners.forEach(listener => listener(invites));
+    this.listeners.forEach((listener) => listener([...this.createdInvites.values()]));
   }
 
-  getStatus(): { enabled: boolean; inviteCount: number; pendingJoin: InviteData | null } {
+  getStatus() {
     return {
       enabled: this.config.enabled,
       inviteCount: this.createdInvites.size,

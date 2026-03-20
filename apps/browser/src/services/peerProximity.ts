@@ -1,10 +1,3 @@
-/**
- * Peer Proximity Tracking Service
- *
- * Tracks proximity history with peers over time to enable Bridge Moment UI.
- * Stores in IndexedDB: peerId, firstSeen, lastSeen, avgCosine, sessionCount, contacted
- */
-
 import { getDB, dbGet, dbPut, dbGetAll } from '../db/factory.js';
 
 const DB_NAME = 'isc-proximity';
@@ -12,14 +5,14 @@ const DB_VERSION = 1;
 const STORE_NAME = 'peer_proximity';
 
 interface PeerProximityRecord {
-  id: string; // peerId
+  id: string;
   peerId: string;
-  firstSeen: number; // timestamp
-  lastSeen: number; // timestamp
+  firstSeen: number;
+  lastSeen: number;
   avgCosine: number;
   sessionCount: number;
   contacted: boolean;
-  similarityHistory: number[]; // rolling history for avg calculation
+  similarityHistory: number[];
 }
 
 interface BridgeMomentCandidate {
@@ -29,34 +22,30 @@ interface BridgeMomentCandidate {
   sessionCount: number;
 }
 
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
+const SIMILARITY_RANGE = { min: 0.55, max: 0.7 };
+const HISTORY_LIMIT = 10;
+
 let db: IDBDatabase | null = null;
 
 async function getProximityDB(): Promise<IDBDatabase> {
   if (db) return db;
-
-  db = await getDB({
-    name: DB_NAME,
-    version: DB_VERSION,
-    stores: [STORE_NAME],
-  });
-
+  db = await getDB({ name: DB_NAME, version: DB_VERSION, stores: [STORE_NAME] });
   return db;
 }
 
 export async function updatePeerProximity(peerId: string, cosine: number): Promise<void> {
   const database = await getProximityDB();
-
-  let record = await dbGet<PeerProximityRecord>(database, STORE_NAME, peerId);
   const now = Date.now();
 
-  if (record) {
-    const newHistory = [...record.similarityHistory, cosine].slice(-10); // Keep last 10
-    const newAvg = newHistory.reduce((a, b) => a + b, 0) / newHistory.length;
+  let record = await dbGet<PeerProximityRecord>(database, STORE_NAME, peerId);
 
+  if (record) {
+    const newHistory = [...record.similarityHistory, cosine].slice(-HISTORY_LIMIT);
     record = {
       ...record,
       lastSeen: now,
-      avgCosine: newAvg,
+      avgCosine: newHistory.reduce((a, b) => a + b, 0) / newHistory.length,
       sessionCount: record.sessionCount + 1,
       similarityHistory: newHistory,
     };
@@ -79,32 +68,31 @@ export async function updatePeerProximity(peerId: string, cosine: number): Promi
 export async function markPeerContacted(peerId: string): Promise<void> {
   const database = await getProximityDB();
   const record = await dbGet<PeerProximityRecord>(database, STORE_NAME, peerId);
+  if (!record) return;
 
-  if (record) {
-    record.contacted = true;
-    await dbPut(database, STORE_NAME, record);
-  }
+  record.contacted = true;
+  await dbPut(database, STORE_NAME, record);
 }
 
 export async function getBridgeMomentCandidates(): Promise<BridgeMomentCandidate[]> {
   const database = await getProximityDB();
   const allRecords = await dbGetAll<PeerProximityRecord>(database, STORE_NAME);
   const now = Date.now();
-  const msPerDay = 24 * 60 * 60 * 1000;
 
   return allRecords
     .filter((record) => {
-      const daysSinceFirstSeen = (now - record.firstSeen) / msPerDay;
-      const inRange = record.avgCosine >= 0.55 && record.avgCosine <= 0.7;
-      const hasSessions = record.sessionCount >= 3;
-      const oldEnough = daysSinceFirstSeen >= 7;
-      const notContacted = !record.contacted;
-
-      return inRange && hasSessions && oldEnough && notContacted;
+      const daysSinceFirstSeen = (now - record.firstSeen) / MS_PER_DAY;
+      return (
+        record.avgCosine >= SIMILARITY_RANGE.min &&
+        record.avgCosine <= SIMILARITY_RANGE.max &&
+        record.sessionCount >= 3 &&
+        daysSinceFirstSeen >= 7 &&
+        !record.contacted
+      );
     })
     .map((record) => ({
       peerId: record.peerId,
-      daysSinceFirstSeen: Math.floor((now - record.firstSeen) / msPerDay),
+      daysSinceFirstSeen: Math.floor((now - record.firstSeen) / MS_PER_DAY),
       avgCosine: record.avgCosine,
       sessionCount: record.sessionCount,
     }))
@@ -116,20 +104,17 @@ export async function getAllProximityRecords(): Promise<PeerProximityRecord[]> {
   return dbGetAll<PeerProximityRecord>(database, STORE_NAME);
 }
 
-export async function getTopSimilarPeers(
-  limit = 10
-): Promise<Array<{ peerId: string; score: number; days: number }>> {
+export async function getTopSimilarPeers(limit = 10) {
   const database = await getProximityDB();
   const allRecords = await dbGetAll<PeerProximityRecord>(database, STORE_NAME);
   const now = Date.now();
-  const msPerDay = 24 * 60 * 60 * 1000;
 
   return allRecords
     .filter((r) => !r.contacted)
     .map((record) => ({
       peerId: record.peerId,
-      score: record.avgCosine * Math.max(1, (now - record.firstSeen) / msPerDay),
-      days: Math.floor((now - record.firstSeen) / msPerDay),
+      score: record.avgCosine * Math.max(1, (now - record.firstSeen) / MS_PER_DAY),
+      days: Math.floor((now - record.firstSeen) / MS_PER_DAY),
     }))
     .sort((a, b) => b.score - a.score)
     .slice(0, limit);

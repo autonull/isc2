@@ -1,9 +1,3 @@
-/**
- * Sleeping State Service
- *
- * Allows users to stay visible while away with custom messages.
- */
-
 export interface AwayMessage {
   enabled: boolean;
   message: string;
@@ -37,13 +31,18 @@ const DEFAULT_CONFIG: SleepingStateConfig = {
 };
 
 const DEFAULT_AWAY_MESSAGES = [
-  'Away from keyboard', 'Taking a break', 'In a meeting',
-  'Out for a walk', 'Sleeping', 'Focus mode', 'Be back soon',
+  'Away from keyboard',
+  'Taking a break',
+  'In a meeting',
+  'Out for a walk',
+  'Sleeping',
+  'Focus mode',
+  'Be back soon',
 ];
 
 const DEFAULT_QUICK_REPLIES = [
-  'Thanks! I\'ll get back to you soon.',
-  'I\'m away right now but saw your message.',
+  "Thanks! I'll get back to you soon.",
+  "I'm away right now but saw your message.",
   'In focus mode - will respond later.',
 ];
 
@@ -56,7 +55,7 @@ export class SleepingStateService {
 
   constructor(config: Partial<SleepingStateConfig> = {}) {
     this.config = { ...DEFAULT_CONFIG, ...config };
-    this.state = this.loadFromStorage() || this.createInitialState();
+    this.state = this.loadFromStorage() ?? this.createInitialState();
   }
 
   setNetworkBroadcast(broadcastFn: (away: boolean, message: string) => void): void {
@@ -77,30 +76,22 @@ export class SleepingStateService {
     if (!this.config.enabled) return;
     console.log('[SleepingState] Starting with config:', this.config);
     this.setupActivityTracking();
-    if (this.state.awayMessage?.enabled) {
-      this.setAway(this.state.awayMessage.message, this.state.awayMessage.reason || 'manual');
-    }
+    if (this.state.awayMessage?.enabled)
+      this.setAway(this.state.awayMessage.message, this.state.awayMessage.reason ?? 'manual');
   }
 
   stop(): void {
-    if (this.activityTimer) {
-      clearTimeout(this.activityTimer);
-      this.activityTimer = null;
-    }
+    if (this.activityTimer) clearTimeout(this.activityTimer);
+    this.activityTimer = null;
     this.saveToStorage();
   }
 
   recordActivity(): void {
     if (!this.config.enabled) return;
-
     const wasAway = this.state.isActive;
     this.state.lastActive = Date.now();
     this.state.isActive = false;
-
-    if (wasAway && this.state.awayMessage?.enabled) {
-      this.clearAway();
-    }
-
+    if (wasAway && this.state.awayMessage?.enabled) this.clearAway();
     this.saveToStorage();
     this.emitUpdate();
     this.resetActivityTimer();
@@ -108,25 +99,22 @@ export class SleepingStateService {
 
   setAway(message?: string, reason: 'manual' | 'scheduled' | 'auto' = 'manual'): void {
     if (!this.config.enabled) return;
-
     const awayMessage: AwayMessage = {
       enabled: true,
-      message: message || DEFAULT_AWAY_MESSAGES[Math.floor(Math.random() * DEFAULT_AWAY_MESSAGES.length)],
+      message:
+        message ?? DEFAULT_AWAY_MESSAGES[Math.floor(Math.random() * DEFAULT_AWAY_MESSAGES.length)],
       autoReply: true,
       autoReplyMessage: DEFAULT_QUICK_REPLIES[0],
       setAt: Date.now(),
       reason,
     };
-
     this.state.awayMessage = awayMessage;
     this.state.isActive = true;
     this.state.lastActive = Date.now();
     this.saveToStorage();
     this.emitUpdate();
-    
-    if (this.config.broadcastAway && this.networkBroadcastFn) {
+    if (this.config.broadcastAway && this.networkBroadcastFn)
       this.networkBroadcastFn(true, awayMessage.message);
-    }
   }
 
   clearAway(): void {
@@ -136,18 +124,14 @@ export class SleepingStateService {
     this.state.lastActive = Date.now();
     this.saveToStorage();
     this.emitUpdate();
-    
-    if (this.config.broadcastAway && this.networkBroadcastFn) {
-      this.networkBroadcastFn(false, '');
-    }
+    if (this.config.broadcastAway && this.networkBroadcastFn) this.networkBroadcastFn(false, '');
   }
 
   toggleAway(): void {
-    if (this.state.isActive) this.clearAway();
-    else this.setAway();
+    this.state.isActive ? this.clearAway() : this.setAway();
   }
 
-  getStatus(): { isActive: boolean; isAway: boolean; awayMessage: string | null; timeAway: number | null; timeInactive: number } {
+  getStatus() {
     const now = Date.now();
     return {
       isActive: this.state.isActive,
@@ -165,8 +149,12 @@ export class SleepingStateService {
   updateAwayMessage(message: string): void {
     if (!this.state.awayMessage) {
       this.state.awayMessage = {
-        enabled: true, message, autoReply: true,
-        autoReplyMessage: DEFAULT_QUICK_REPLIES[0], setAt: Date.now(), reason: 'manual',
+        enabled: true,
+        message,
+        autoReply: true,
+        autoReplyMessage: DEFAULT_QUICK_REPLIES[0],
+        setAt: Date.now(),
+        reason: 'manual',
       };
     } else {
       this.state.awayMessage.message = message;
@@ -188,7 +176,7 @@ export class SleepingStateService {
   }
 
   removeQuickReply(reply: string): void {
-    this.state.quickReplies = this.state.quickReplies.filter(r => r !== reply);
+    this.state.quickReplies = this.state.quickReplies.filter((r) => r !== reply);
     this.saveToStorage();
     this.emitUpdate();
   }
@@ -200,19 +188,17 @@ export class SleepingStateService {
 
   private setupActivityTracking(): void {
     if (typeof window === 'undefined') return;
-
     const events = ['mousedown', 'keydown', 'scroll', 'touchstart', 'click'];
     const handleActivity = () => this.recordActivity();
-
-    events.forEach(event => {
-      window.addEventListener(event, handleActivity, { passive: true, capture: true });
-    });
-
+    events.forEach((event) =>
+      window.addEventListener(event, handleActivity, { passive: true, capture: true })
+    );
     this.resetActivityTimer();
-
-    window.addEventListener('unload', () => {
-      events.forEach(event => window.removeEventListener(event, handleActivity, { capture: true }));
-    });
+    window.addEventListener('unload', () =>
+      events.forEach((event) =>
+        window.removeEventListener(event, handleActivity, { capture: true })
+      )
+    );
   }
 
   private resetActivityTimer(): void {
@@ -221,15 +207,14 @@ export class SleepingStateService {
   }
 
   private checkAutoAway(): void {
-    const now = Date.now();
-    const timeInactive = now - this.state.lastActive;
+    const timeInactive = Date.now() - this.state.lastActive;
     if (timeInactive >= this.config.autoAwayMs && !this.state.awayMessage?.enabled) {
       this.setAway(DEFAULT_AWAY_MESSAGES[0], 'auto');
     }
   }
 
   private emitUpdate(): void {
-    this.listeners.forEach(listener => listener({ ...this.state }));
+    this.listeners.forEach((listener) => listener({ ...this.state }));
   }
 
   private loadFromStorage(): SleepingState | null {
@@ -237,7 +222,11 @@ export class SleepingStateService {
       const stored = localStorage.getItem(this.config.storageKey);
       if (!stored) return null;
       const parsed = JSON.parse(stored);
-      return { ...this.createInitialState(), ...parsed, quickReplies: parsed.quickReplies || [...DEFAULT_QUICK_REPLIES] };
+      return {
+        ...this.createInitialState(),
+        ...parsed,
+        quickReplies: parsed.quickReplies ?? [...DEFAULT_QUICK_REPLIES],
+      };
     } catch {
       return null;
     }
@@ -247,12 +236,16 @@ export class SleepingStateService {
     try {
       localStorage.setItem(this.config.storageKey, JSON.stringify(this.state));
     } catch {
-      // Ignore storage errors
+      /* Ignore */
     }
   }
 
-  getServiceStatus(): { enabled: boolean; isActive: boolean; config: SleepingStateConfig } {
-    return { enabled: this.config.enabled, isActive: this.state.isActive, config: { ...this.config } };
+  getServiceStatus() {
+    return {
+      enabled: this.config.enabled,
+      isActive: this.state.isActive,
+      config: { ...this.config },
+    };
   }
 
   configure(updates: Partial<SleepingStateConfig>): void {
@@ -263,7 +256,9 @@ export class SleepingStateService {
 
 let _instance: SleepingStateService | null = null;
 
-export function getSleepingStateService(config?: Partial<SleepingStateConfig>): SleepingStateService {
+export function getSleepingStateService(
+  config?: Partial<SleepingStateConfig>
+): SleepingStateService {
   if (!_instance) _instance = new SleepingStateService(config);
   return _instance;
 }

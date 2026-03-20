@@ -1,36 +1,25 @@
-/**
- * Channel History Service
- *
- * Tracks channel embedding history over time to visualize thought drift.
- * Stores in IndexedDB: channelId, timestamp, vec, description.
- */
-
-import { getDB, dbGet, dbPut, dbGetAll, dbDelete } from '../db/factory.js';
+import { getDB, dbPut, dbGetAll, dbDelete } from '../db/factory.js';
 
 const DB_NAME = 'isc-channel-history';
 const DB_VERSION = 1;
 const STORE_NAME = 'channel_history';
-const MAX_RECORDS_PER_CHANNEL = 365;
+const MAX_RECORDS = 365;
 
 interface ChannelHistoryRecord {
-  id: string; // channelId_timestamp
+  id: string;
   channelId: string;
   timestamp: number;
   description: string;
-  vector?: number[]; // Stored as JSON array for simplicity
+  vector?: number[];
 }
+
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
 let db: IDBDatabase | null = null;
 
 async function getHistoryDB(): Promise<IDBDatabase> {
   if (db) return db;
-
-  db = await getDB({
-    name: DB_NAME,
-    version: DB_VERSION,
-    stores: [STORE_NAME],
-  });
-
+  db = await getDB({ name: DB_NAME, version: DB_VERSION, stores: [STORE_NAME] });
   return db;
 }
 
@@ -41,10 +30,8 @@ export async function saveChannelSnapshot(
 ): Promise<void> {
   const database = await getHistoryDB();
   const timestamp = Date.now();
-  const id = `${channelId}_${timestamp}`;
-
   const record: ChannelHistoryRecord = {
-    id,
+    id: `${channelId}_${timestamp}`,
     channelId,
     timestamp,
     description,
@@ -52,7 +39,6 @@ export async function saveChannelSnapshot(
   };
 
   await dbPut(database, STORE_NAME, record);
-
   await pruneOldRecords(channelId);
 }
 
@@ -60,10 +46,10 @@ async function pruneOldRecords(channelId: string): Promise<void> {
   const database = await getHistoryDB();
   const records = await getChannelHistory(channelId);
 
-  if (records.length > MAX_RECORDS_PER_CHANNEL) {
+  if (records.length > MAX_RECORDS) {
     const toDelete = records
       .sort((a, b) => a.timestamp - b.timestamp)
-      .slice(0, records.length - MAX_RECORDS_PER_CHANNEL);
+      .slice(0, records.length - MAX_RECORDS);
 
     for (const record of toDelete) {
       await dbDelete(database, STORE_NAME, record.id);
@@ -80,37 +66,18 @@ export async function getChannelHistory(channelId: string): Promise<ChannelHisto
     .sort((a, b) => b.timestamp - a.timestamp);
 }
 
-export async function getDriftInfo(channelId: string): Promise<{
-  driftAngle: number;
-  direction: string;
-  earliestDescription: string;
-  latestDescription: string;
-  daysElapsed: number;
-} | null> {
+export async function getDriftInfo(channelId: string) {
   const history = await getChannelHistory(channelId);
+  if (history.length < 2) return null;
 
-  if (history.length < 2) {
-    return null;
-  }
+  const [latest, earliest] = [history[0], history[history.length - 1]];
 
-  const latest = history[0];
-  const earliest = history[history.length - 1];
-
-  if (
-    !latest.vector ||
-    !earliest.vector ||
-    latest.vector.length === 0 ||
-    earliest.vector.length === 0
-  ) {
-    return null;
-  }
+  if (!latest.vector?.length || !earliest.vector?.length) return null;
 
   const similarity = cosineSimilarity(latest.vector, earliest.vector);
   const driftAngle = Math.acos(Math.max(-1, Math.min(1, similarity))) * (180 / Math.PI);
-
   const direction = findDriftDirection(latest.vector, earliest.vector);
-
-  const daysElapsed = Math.round((latest.timestamp - earliest.timestamp) / (24 * 60 * 60 * 1000));
+  const daysElapsed = Math.round((latest.timestamp - earliest.timestamp) / MS_PER_DAY);
 
   return {
     driftAngle: Math.round(driftAngle),
@@ -122,34 +89,27 @@ export async function getDriftInfo(channelId: string): Promise<{
 }
 
 function cosineSimilarity(vecA: number[], vecB: number[]): number {
-  let dotProduct = 0;
-  let normA = 0;
-  let normB = 0;
+  const { dot, normA, normB } = vecA.reduce(
+    (acc, a, i) => ({
+      dot: acc.dot + a * vecB[i],
+      normA: acc.normA + a * a,
+      normB: acc.normB + vecB[i] * vecB[i],
+    }),
+    { dot: 0, normA: 0, normB: 0 }
+  );
 
-  for (let i = 0; i < vecA.length; i++) {
-    dotProduct += vecA[i] * vecB[i];
-    normA += vecA[i] * vecA[i];
-    normB += vecB[i] * vecB[i];
-  }
-
-  return dotProduct / (Math.sqrt(normA) * Math.sqrt(normB));
+  return dot / (Math.sqrt(normA) * Math.sqrt(normB));
 }
 
 function findDriftDirection(vecA: number[], vecB: number[]): string {
-  const drift: number[] = [];
-  for (let i = 0; i < vecA.length; i++) {
-    drift.push(vecA[i] - vecB[i]);
-  }
-
+  const drift = vecA.map((a, i) => a - vecB[i]);
   const maxIdx = drift.reduce((maxI, val, i, arr) => (val > arr[maxI] ? i : maxI), 0);
-
-  const directions: Record<number, string> = {
-    0: 'expanding horizons',
-    1: 'deepening focus',
-    2: 'broadening scope',
-    3: 'intensifying interest',
-  };
-
+  const directions = [
+    'expanding horizons',
+    'deepening focus',
+    'broadening scope',
+    'intensifying interest',
+  ];
   return directions[maxIdx % 4] || 'evolving thoughts';
 }
 
@@ -165,13 +125,7 @@ export async function clearChannelHistory(channelId: string): Promise<void> {
 export async function getAllChannelsWithHistory(): Promise<string[]> {
   const database = await getHistoryDB();
   const allRecords = await dbGetAll<ChannelHistoryRecord>(database, STORE_NAME);
-
-  const channelIds = new Set<string>();
-  for (const record of allRecords) {
-    channelIds.add(record.channelId);
-  }
-
-  return Array.from(channelIds);
+  return [...new Set(allRecords.map((r) => r.channelId))];
 }
 
 export const channelHistoryService = {
@@ -181,5 +135,4 @@ export const channelHistoryService = {
   clearChannelHistory,
   getAllChannelsWithHistory,
 };
-
 export default channelHistoryService;

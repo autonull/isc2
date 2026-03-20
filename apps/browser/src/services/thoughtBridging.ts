@@ -1,24 +1,12 @@
-/**
- * Thought Bridging Service
- *
- * When two peers at 0.60-0.75 similarity initiate conversation,
- * suggest a bridging concept. Runs entirely locally.
- *
- * Concept bank approach:
- * - For production: load pre-computed concept bank (public/concept-bank.bin)
- * - For demo: use built-in bridging phrases
- */
-
 import { networkService } from './network.js';
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 interface BridgeSuggestion {
   phrase: string;
   cosine: number;
   category: string;
 }
 
-const BRIDGE_PHRASES: Array<{ phrase: string; category: string; keywords: string[] }> = [
+const BRIDGE_PHRASES = [
   {
     phrase: 'How does this connect to broader systems?',
     category: 'systems',
@@ -37,7 +25,7 @@ const BRIDGE_PHRASES: Array<{ phrase: string; category: string; keywords: string
   {
     phrase: 'What historical precedents exist?',
     category: 'history',
-    keywords: ['history', 'past', ' precedent'],
+    keywords: ['history', 'past', 'precedent'],
   },
   {
     phrase: 'How might this evolve in the future?',
@@ -119,17 +107,16 @@ const BRIDGE_PHRASES: Array<{ phrase: string; category: string; keywords: string
     category: 'metaphor',
     keywords: ['metaphor', 'analogy', 'compare'],
   },
-];
+] as const;
 
 let conceptBankLoaded = false;
 
 async function loadConceptBank(): Promise<void> {
   if (conceptBankLoaded) return;
-
   try {
     await fetch('/concept-labels.json');
   } catch {
-    // Fall back to built-in phrases
+    /* Fall back to built-in phrases */
   }
   conceptBankLoaded = true;
 }
@@ -150,23 +137,16 @@ export async function getBridgeSuggestions(
   peerId: string,
   similarity: number
 ): Promise<BridgeSuggestion[]> {
-  if (similarity < 0.6 || similarity > 0.75) {
-    return [];
-  }
+  if (similarity < 0.6 || similarity > 0.75) return [];
 
   await loadConceptBank();
 
   const matches = networkService.getMatches();
   const peerMatch = matches.find((m) => m.peerId === peerId);
-
-  if (!peerMatch) {
-    return [];
-  }
+  if (!peerMatch) return [];
 
   const myChannels = networkService.getChannels();
-  if (myChannels.length === 0) {
-    return [];
-  }
+  if (myChannels.length === 0) return [];
 
   const myDescription = myChannels[0].description || '';
   const peerDescription = peerMatch.identity?.bio || '';
@@ -193,9 +173,5 @@ export function getBridgePhrases(): string[] {
   return BRIDGE_PHRASES.map((b) => b.phrase);
 }
 
-export const thoughtBridgingService = {
-  getBridgeSuggestions,
-  getBridgePhrases,
-};
-
+export const thoughtBridgingService = { getBridgeSuggestions, getBridgePhrases };
 export default thoughtBridgingService;
