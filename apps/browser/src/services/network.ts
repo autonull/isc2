@@ -12,6 +12,9 @@ import { NetworkError, ChannelError, MessageError, IdentityError } from '../erro
 import { STATUS } from '../constants.js';
 import { getBackgroundSyncManager, type BackgroundSyncManager } from './backgroundSync.js';
 import { getMessageQueue, type MessageQueueService } from './messageQueue.js';
+import { updatePeerProximity } from './peerProximity.js';
+import { convergenceService } from './convergence.js';
+import { saveChannelSnapshot } from './channelHistory.js';
 
 export interface PeerMatch {
   peerId: string;
@@ -48,7 +51,7 @@ class NetworkServiceWrapper {
         try {
           this.sharedWorker = getBackgroundSyncManager();
           await this.sharedWorker.initialize();
-          
+
           // Only setup message queue if worker actually connected
           if (this.sharedWorker.isConnected()) {
             this.messageQueue = getMessageQueue();
@@ -75,7 +78,9 @@ class NetworkServiceWrapper {
       return true;
     } catch (err) {
       this.log.error('Network initialization failed', { error: (err as Error).message });
-      throw new NetworkError('Failed to initialize network', { originalError: (err as Error).message });
+      throw new NetworkError('Failed to initialize network', {
+        originalError: (err as Error).message,
+      });
     }
   }
 
@@ -101,6 +106,16 @@ class NetworkServiceWrapper {
 
       onMatchesUpdated: (matches) => {
         this.log.debug('Matches updated', { count: matches.length });
+
+        for (const match of matches) {
+          if (match.peer?.id && match.similarity != null) {
+            updatePeerProximity(match.peer.id, match.similarity).catch(() => {});
+
+            const lshBucket = this.getLSHBucketKey(match.peer.id, match.similarity);
+            convergenceService.addPeer(match.peer.id, lshBucket);
+          }
+        }
+
         actions.setMatches(this.normalizeMatches(matches));
       },
 
@@ -123,7 +138,7 @@ class NetworkServiceWrapper {
   }
 
   private normalizeMatches(matches: NetworkPeerMatch[]): PeerMatch[] {
-    return (matches ?? []).map(m => ({
+    return (matches ?? []).map((m) => ({
       peerId: m.peer?.id ?? '',
       identity: {
         name: m.peer?.name ?? 'Anonymous',
@@ -135,6 +150,29 @@ class NetworkServiceWrapper {
     }));
   }
 
+  private getLSHBucketKey(peerId: string, similarity: number): string {
+    const hash = this.simpleHash(peerId);
+    const bucket = Math.floor(hash % 100);
+    const simBucket =
+      similarity >= 0.85
+        ? 'high'
+        : similarity >= 0.7
+          ? 'mid'
+          : similarity >= 0.55
+            ? 'low'
+            : 'distant';
+    return `${bucket}-${simBucket}`;
+  }
+
+  private simpleHash(str: string): number {
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) {
+      hash = (hash << 5) - hash + str.charCodeAt(i);
+      hash = hash & hash;
+    }
+    return Math.abs(hash);
+  }
+
   private async attemptReconnect(): Promise<void> {
     if (this.reconnectAttempts >= this.maxReconnectAttempts) {
       this.log.error('Max reconnect attempts reached');
@@ -143,7 +181,9 @@ class NetworkServiceWrapper {
 
     this.reconnectAttempts++;
     const delay = Math.min(1000 * Math.pow(2, this.reconnectAttempts), 30000);
-    this.log.info(`Attempting reconnect ${this.reconnectAttempts}/${this.maxReconnectAttempts} in ${delay}ms`);
+    this.log.info(
+      `Attempting reconnect ${this.reconnectAttempts}/${this.maxReconnectAttempts} in ${delay}ms`
+    );
 
     setTimeout(async () => {
       try {
@@ -198,7 +238,9 @@ class NetworkServiceWrapper {
       return this.service?.getIdentity();
     } catch (err) {
       this.log.error('Identity update failed', { error: (err as Error).message });
-      throw new IdentityError('Failed to update identity', { originalError: (err as Error).message });
+      throw new IdentityError('Failed to update identity', {
+        originalError: (err as Error).message,
+      });
     }
   }
 
@@ -210,10 +252,16 @@ class NetworkServiceWrapper {
     try {
       const channel = await this.service!.createChannel(name, description);
       this.log.info('Channel created', { id: channel.id, name: channel.name });
+
+      saveChannelSnapshot(channel.id, description).catch(() => {});
+
       return channel;
     } catch (err) {
       this.log.error('Channel creation failed', { error: (err as Error).message });
-      throw new ChannelError('Failed to create channel', { originalError: (err as Error).message, name });
+      throw new ChannelError('Failed to create channel', {
+        originalError: (err as Error).message,
+        name,
+      });
     }
   }
 
@@ -224,7 +272,10 @@ class NetworkServiceWrapper {
       actions.removeChannel(channelId);
     } catch (err) {
       this.log.error('Channel deletion failed', { error: (err as Error).message });
-      throw new ChannelError('Failed to delete channel', { originalError: (err as Error).message, channelId });
+      throw new ChannelError('Failed to delete channel', {
+        originalError: (err as Error).message,
+        channelId,
+      });
     }
   }
 
@@ -239,7 +290,10 @@ class NetworkServiceWrapper {
       return post;
     } catch (err) {
       this.log.error('Post creation failed', { error: (err as Error).message });
-      throw new MessageError('Failed to send message', { originalError: (err as Error).message, channelId });
+      throw new MessageError('Failed to send message', {
+        originalError: (err as Error).message,
+        channelId,
+      });
     }
   }
 

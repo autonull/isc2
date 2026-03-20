@@ -10,15 +10,17 @@ import { toasts } from '../../utils/toast.js';
 import { escapeHtml } from '../utils/dom.js';
 import { formatTime, formatTimestamp } from '../../utils/time.js';
 import { renderEmpty } from '../utils/screen.js';
+import { getBridgeSuggestions } from '../../services/thoughtBridging.js';
 
 let activePeerId = null;
 let boundContainer = null;
 let typingTimeout = null;
 const TYPING_TTL = 3000;
+let currentBridgeSuggestion = null;
 
 const SIM_CLASS = {
   0.85: 'very-high',
-  0.70: 'high',
+  0.7: 'high',
   0.55: 'medium',
 };
 
@@ -63,9 +65,11 @@ function renderConversationList(conversations) {
         <span class="panel-subtitle">${conversations.length > 0 ? `${conversations.length} peer${conversations.length !== 1 ? 's' : ''}` : ''}</span>
       </div>
       <div class="conversation-list" data-testid="conversation-list" id="conversation-list">
-        ${conversations.length === 0
-          ? renderEmptyConv()
-          : conversations.map(c => renderConvItem(c, activePeerId)).join('')}
+        ${
+          conversations.length === 0
+            ? renderEmptyConv()
+            : conversations.map((c) => renderConvItem(c, activePeerId)).join('')
+        }
       </div>
     </div>
   `;
@@ -114,9 +118,32 @@ function renderConvItem(conv, active) {
 function getSimClass(similarity) {
   if (similarity == null) return '';
   if (similarity >= 0.85) return SIM_CLASS[0.85];
-  if (similarity >= 0.70) return SIM_CLASS[0.70];
+  if (similarity >= 0.7) return SIM_CLASS[0.7];
   if (similarity >= 0.55) return SIM_CLASS[0.55];
   return '';
+}
+
+function renderBridgeSuggestion(suggestion) {
+  return `
+    <div class="bridge-suggestion" id="bridge-suggestion">
+      <span class="bridge-icon">🌉</span>
+      <span class="bridge-phrase">You might explore: <strong>${escapeHtml(suggestion.phrase)}</strong></span>
+      <button class="bridge-dismiss" id="bridge-dismiss" aria-label="Dismiss">&times;</button>
+    </div>
+  `;
+}
+
+async function loadBridgeSuggestion(peerId, similarity) {
+  currentBridgeSuggestion = null;
+
+  try {
+    const suggestions = await getBridgeSuggestions(peerId, similarity);
+    if (suggestions.length > 0) {
+      currentBridgeSuggestion = suggestions[0];
+    }
+  } catch {
+    currentBridgeSuggestion = null;
+  }
 }
 
 function renderChatPanel(peerId, conversations) {
@@ -147,7 +174,7 @@ function renderNoChatSelected() {
 }
 
 function renderChatView(peerId, conversations) {
-  const conv = conversations.find(c => c.peerId === peerId);
+  const conv = conversations.find((c) => c.peerId === peerId);
   const messages = chatService.getMessages(peerId);
   const name = conv?.name ?? 'Anonymous';
   const online = conv?.online ?? false;
@@ -166,6 +193,7 @@ function renderChatView(peerId, conversations) {
 function renderChatHeader(name, online, simPct) {
   return `
     <div class="chat-header" data-testid="chat-header">
+      ${currentBridgeSuggestion ? renderBridgeSuggestion(currentBridgeSuggestion) : ''}
       <div class="chat-peer-info">
         <div class="chat-avatar">${(name[0] ?? 'A').toUpperCase()}</div>
         <div>
@@ -191,12 +219,16 @@ function renderChatMessages(messages, name, simPct) {
         <div class="chat-start-state" data-testid="empty-chat">
           <div class="chat-start-avatar">${(name[0] ?? 'A').toUpperCase()}</div>
           <div class="chat-start-name">${escapeHtml(name)}</div>
-          ${simPct != null ? `
+          ${
+            simPct != null
+              ? `
             <div class="chat-start-sim">
               <span>Your thoughts are</span>
               <strong class="sim-value">${simPct}% similar</strong>
             </div>
-          ` : ''}
+          `
+              : ''
+          }
           <div class="encryption-badge small">🔒 Messages are end-to-end encrypted</div>
         </div>
       </div>
@@ -214,7 +246,7 @@ function renderMessageGroup(messages) {
   let html = '';
   let lastDate = null;
 
-  messages.forEach(msg => {
+  messages.forEach((msg) => {
     const msgDate = new Date(msg.timestamp).toDateString();
     if (msgDate !== lastDate) {
       html += `<div class="chat-date-separator"><span>${formatDateLabel(msg.timestamp)}</span></div>`;
@@ -280,7 +312,7 @@ export function bind(container) {
   boundContainer = container;
   const list = container.querySelector('#conversation-list');
 
-  list?.addEventListener('click', e => {
+  list?.addEventListener('click', (e) => {
     const item = e.target.closest('.conversation-item');
     if (item) {
       activePeerId = item.dataset.peerId;
@@ -288,9 +320,9 @@ export function bind(container) {
     }
   });
 
-  list?.addEventListener('keydown', e => {
+  list?.addEventListener('keydown', (e) => {
     const items = [...list.querySelectorAll('.conversation-item')];
-    const idx = items.findIndex(el => el === document.activeElement);
+    const idx = items.findIndex((el) => el === document.activeElement);
 
     if (['Enter', ' '].includes(e.key)) {
       e.preventDefault();
@@ -306,7 +338,7 @@ export function bind(container) {
     }
   });
 
-  const onStartChat = e => {
+  const onStartChat = (e) => {
     const { peerId } = e.detail || {};
     if (!peerId) return;
     activePeerId = peerId;
@@ -315,21 +347,30 @@ export function bind(container) {
   };
   document.addEventListener('isc:start-chat', onStartChat);
 
-  const onStorage = e => {
-    if (!e.key?.startsWith('isc:chat:') || e.key.includes(':unread:') || e.key.includes(':typing:')) return;
+  const onStorage = (e) => {
+    if (!e.key?.startsWith('isc:chat:') || e.key.includes(':unread:') || e.key.includes(':typing:'))
+      return;
     const peerId = e.key.replace('isc:chat:', '');
     update(container);
     if (activePeerId === peerId) refreshMessages(container, peerId);
-    else container.querySelector(`.conversation-item[data-peer-id="${CSS.escape(peerId)}"]`)?.classList.add('has-unread');
+    else
+      container
+        .querySelector(`.conversation-item[data-peer-id="${CSS.escape(peerId)}"]`)
+        ?.classList.add('has-unread');
 
-    if (!document.hasFocus() && e.newValue && 'Notification' in window && Notification.permission === 'granted') {
+    if (
+      !document.hasFocus() &&
+      e.newValue &&
+      'Notification' in window &&
+      Notification.permission === 'granted'
+    ) {
       try {
         const msgs = JSON.parse(e.newValue);
         const latest = msgs[msgs.length - 1];
         if (latest && !latest.fromMe) {
           const settings = JSON.parse(localStorage.getItem('isc:settings') || '{}');
           if (settings.notifications !== false) {
-            const conv = chatService.getConversations().find(c => c.peerId === peerId);
+            const conv = chatService.getConversations().find((c) => c.peerId === peerId);
             new Notification(`ISC — ${conv?.name ?? 'New message'}`, {
               body: String(latest.content ?? '').slice(0, 100),
               icon: '/favicon.ico',
@@ -337,12 +378,14 @@ export function bind(container) {
             });
           }
         }
-      } catch { /* ignore */ }
+      } catch {
+        /* ignore */
+      }
     }
   };
   window.addEventListener('storage', onStorage);
 
-  const onStorageTyping = e => {
+  const onStorageTyping = (e) => {
     if (!e.key?.startsWith('isc:typing:')) return;
     const rest = e.key.slice('isc:typing:'.length);
     const toIdx = rest.indexOf(':to:');
@@ -352,7 +395,9 @@ export function bind(container) {
   };
   window.addEventListener('storage', onStorageTyping);
 
-  window.addEventListener('online', () => container.querySelector('[data-testid="offline-indicator"]')?.remove());
+  window.addEventListener('online', () =>
+    container.querySelector('[data-testid="offline-indicator"]')?.remove()
+  );
   window.addEventListener('offline', () => {
     if (!container.querySelector('[data-testid="offline-indicator"]')) {
       const banner = document.createElement('div');
@@ -367,17 +412,19 @@ export function bind(container) {
   if (activePeerId) openChat(container, activePeerId);
 }
 
-function openChat(container, peerId) {
+async function openChat(container, peerId) {
   activePeerId = peerId;
 
-  container.querySelectorAll('.conversation-item').forEach(el => {
+  container.querySelectorAll('.conversation-item').forEach((el) => {
     const active = el.dataset.peerId === peerId;
     el.classList.toggle('active', active);
     el.setAttribute('aria-selected', String(active));
   });
 
   chatService.markAsRead(peerId);
-  const convItem = container.querySelector(`.conversation-item[data-peer-id="${CSS.escape(peerId)}"]`);
+  const convItem = container.querySelector(
+    `.conversation-item[data-peer-id="${CSS.escape(peerId)}"]`
+  );
   convItem?.classList.remove('has-unread');
   convItem?.querySelector('.unread-badge')?.remove();
 
@@ -385,8 +432,20 @@ function openChat(container, peerId) {
   if (!chatPanel) return;
 
   const conversations = chatService.getConversations();
+  const conv = conversations.find((c) => c.peerId === peerId);
+  const similarity = conv?.similarity ?? 0;
+
+  await loadBridgeSuggestion(peerId, similarity);
+
   chatPanel.innerHTML = renderChatView(peerId, conversations);
   bindChatInputHandlers(container);
+
+  const dismissBtn = container.querySelector('#bridge-dismiss');
+  dismissBtn?.addEventListener('click', () => {
+    currentBridgeSuggestion = null;
+    const banner = container.querySelector('.bridge-suggestion');
+    banner?.remove();
+  });
 
   requestAnimationFrame(() => {
     const msgs = chatPanel.querySelector('#chat-messages');
@@ -399,9 +458,10 @@ function refreshMessages(container, peerId) {
   if (!msgs) return;
 
   const messages = chatService.getMessages(peerId);
-  msgs.innerHTML = messages.length === 0
-    ? '<div class="chat-start-state" data-testid="empty-chat"><div class="encryption-badge small">🔒 Messages are end-to-end encrypted</div></div>'
-    : renderMessageGroup(messages);
+  msgs.innerHTML =
+    messages.length === 0
+      ? '<div class="chat-start-state" data-testid="empty-chat"><div class="encryption-badge small">🔒 Messages are end-to-end encrypted</div></div>'
+      : renderMessageGroup(messages);
 
   msgs.scrollTop = msgs.scrollHeight;
 }
@@ -422,7 +482,9 @@ function broadcastTyping() {
 
   try {
     localStorage.setItem(`isc:typing:${myId}:to:${activePeerId}`, String(Date.now()));
-  } catch { /* ignore quota errors */ }
+  } catch {
+    /* ignore quota errors */
+  }
 }
 
 function bindChatInputHandlers(container) {
@@ -453,7 +515,9 @@ function bindChatInputHandlers(container) {
         msgs.scrollTop = msgs.scrollHeight;
       }
 
-      const convItem = container.querySelector(`.conversation-item[data-peer-id="${CSS.escape(peerId)}"]`);
+      const convItem = container.querySelector(
+        `.conversation-item[data-peer-id="${CSS.escape(peerId)}"]`
+      );
       const preview = convItem?.querySelector('.conv-preview');
       if (preview) preview.textContent = content.slice(0, 50);
     } catch (err) {
@@ -466,7 +530,7 @@ function bindChatInputHandlers(container) {
   };
 
   chatSend?.addEventListener('click', doSend);
-  chatInput?.addEventListener('keydown', e => {
+  chatInput?.addEventListener('keydown', (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       doSend();
@@ -481,20 +545,21 @@ function bindChatInputHandlers(container) {
   const doClose = () => {
     activePeerId = null;
     container.querySelector('#chat-panel').innerHTML = renderNoChatSelected();
-    container.querySelectorAll('.conversation-item').forEach(el => {
+    container.querySelectorAll('.conversation-item').forEach((el) => {
       el.classList.remove('active');
       el.setAttribute('aria-selected', 'false');
     });
   };
-  closeBtns.forEach(btn => btn.addEventListener('click', doClose));
+  closeBtns.forEach((btn) => btn.addEventListener('click', doClose));
 }
 
 export function update(container) {
   const conversations = chatService.getConversations();
   const list = container.querySelector('#conversation-list');
   if (list) {
-    list.innerHTML = conversations.length === 0
-      ? renderEmptyConv()
-      : conversations.map(c => renderConvItem(c, activePeerId)).join('');
+    list.innerHTML =
+      conversations.length === 0
+        ? renderEmptyConv()
+        : conversations.map((c) => renderConvItem(c, activePeerId)).join('');
   }
 }

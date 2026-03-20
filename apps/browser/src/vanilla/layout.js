@@ -11,6 +11,7 @@ import { modals } from './components/modal.js';
 import { toasts } from '../utils/toast.js';
 
 const TABS = [
+  { id: 'space', icon: '🗺️', label: 'Space', route: '/space' },
   { id: 'now', icon: '🏠', label: 'Now', route: '/now' },
   { id: 'discover', icon: '📡', label: 'Discover', route: '/discover' },
   { id: 'chats', icon: '💬', label: 'Chats', route: '/chats' },
@@ -40,10 +41,17 @@ export function buildLayout(container, { onNavigate }) {
 
   const layout = el('div', { className: 'irc-layout', 'data-testid': 'irc-layout' });
   const sidebarEl = el('div');
-  const sidebar = createSidebar(sidebarEl, { onNavigate, onNewChannel: () => onNavigate('/compose') });
+  const sidebar = createSidebar(sidebarEl, {
+    onNavigate,
+    onNewChannel: () => onNavigate('/compose'),
+  });
 
   const main = el('main', { className: 'irc-main', 'data-testid': 'irc-main' });
-  const mainContent = el('div', { className: 'app-content', id: 'main-content', 'data-testid': 'main-content' });
+  const mainContent = el('div', {
+    className: 'app-content',
+    id: 'main-content',
+    'data-testid': 'main-content',
+  });
   main.appendChild(mainContent);
 
   const tabBar = buildTabBar(onNavigate);
@@ -65,7 +73,7 @@ export function buildLayout(container, { onNavigate }) {
   const debugPanel = buildDebugPanel(container);
 
   function updateTabBar(route) {
-    tabBar.querySelectorAll('.tab').forEach(tab => {
+    tabBar.querySelectorAll('.tab').forEach((tab) => {
       const active = `/${tab.dataset.tab}` === route;
       tab.classList.toggle('active', active);
       tab.setAttribute('aria-current', active ? 'page' : '');
@@ -86,14 +94,20 @@ export function buildLayout(container, { onNavigate }) {
     statusBar,
     updateTabBar,
     destroy,
-    get debugPanel() { return debugPanel; },
+    get debugPanel() {
+      return debugPanel;
+    },
   };
 }
 
 function buildTabBar(onNavigate) {
-  const nav = el('div', { className: 'tab-bar', 'data-testid': 'tab-bar', 'aria-label': 'Mobile navigation' });
+  const nav = el('div', {
+    className: 'tab-bar',
+    'data-testid': 'tab-bar',
+    'aria-label': 'Mobile navigation',
+  });
 
-  TABS.forEach(tab => {
+  TABS.forEach((tab) => {
     const btn = el('button', {
       className: `tab${tab.id === 'compose' ? ' compose' : ''}`,
       'data-testid': `nav-tab-${tab.id}`,
@@ -145,7 +159,7 @@ export function setupLoggerInterceptor(logger, buffer, debugPanel, escapeHtml) {
   const capture = (level, args) => {
     buffer.push({
       level,
-      msg: args.map(a => typeof a === 'string' ? a : JSON.stringify(a)).join(' '),
+      msg: args.map((a) => (typeof a === 'string' ? a : JSON.stringify(a))).join(' '),
       ts: Date.now(),
     });
     if (buffer.length > 100) buffer.shift();
@@ -154,10 +168,26 @@ export function setupLoggerInterceptor(logger, buffer, debugPanel, escapeHtml) {
     }
   };
 
-  if (original.info) logger.info = (...a) => { original.info(...a); capture('info', a); };
-  if (original.warn) logger.warn = (...a) => { original.warn(...a); capture('warn', a); };
-  if (original.error) logger.error = (...a) => { original.error(...a); capture('error', a); };
-  if (original.debug) logger.debug = (...a) => { original.debug(...a); capture('debug', a); };
+  if (original.info)
+    logger.info = (...a) => {
+      original.info(...a);
+      capture('info', a);
+    };
+  if (original.warn)
+    logger.warn = (...a) => {
+      original.warn(...a);
+      capture('warn', a);
+    };
+  if (original.error)
+    logger.error = (...a) => {
+      original.error(...a);
+      capture('error', a);
+    };
+  if (original.debug)
+    logger.debug = (...a) => {
+      original.debug(...a);
+      capture('debug', a);
+    };
 }
 
 function appendDebugEntry({ level, msg }, debugPanel, escapeHtml) {

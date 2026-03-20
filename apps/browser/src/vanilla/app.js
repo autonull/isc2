@@ -6,6 +6,7 @@
 
 import { subscribe, getState, actions } from '../state.js';
 import { networkService } from '../services/network.ts';
+import { getColdStartService } from '../services/coldStart.ts';
 import { toasts } from '../utils/toast.js';
 import { logger } from '../logger.js';
 
@@ -21,9 +22,11 @@ import * as ChatsScreen from './screens/chats.js';
 import * as SettingsScreen from './screens/settings.js';
 import * as ComposeScreen from './screens/compose.js';
 import * as VideoScreen from './screens/video.js';
+import * as SpaceScreen from './screens/space.js';
 
 const SCREENS = {
   '/now': NowScreen,
+  '/space': SpaceScreen,
   '/discover': DiscoverScreen,
   '/chats': ChatsScreen,
   '/settings': SettingsScreen,
@@ -31,7 +34,7 @@ const SCREENS = {
   '/video': VideoScreen,
 };
 
-const DEFAULT_ROUTE = '/now';
+const DEFAULT_ROUTE = '/space';
 
 export function createApp(container) {
   let layout = null;
@@ -45,9 +48,12 @@ export function createApp(container) {
     splash.update('Loading identity…', 20);
 
     try {
+      getColdStartService().start();
+      logger.info('[App] Cold start services initialized');
+
       splash.update('Connecting to network…', 40);
 
-      await networkService.initialize().catch(err => {
+      await networkService.initialize().catch((err) => {
         logger.warn('[App] Network init failed, continuing offline:', err.message);
       });
 
@@ -138,6 +144,7 @@ export function createApp(container) {
         if (router?.getCurrentRoute() === '/discover') DiscoverScreen.update(layout.main);
         if (router?.getCurrentRoute() === '/chats') ChatsScreen.update(layout.main);
         if (router?.getCurrentRoute() === '/video') VideoScreen.update(layout.main);
+        if (router?.getCurrentRoute() === '/space') SpaceScreen.update(layout.main);
       }
 
       if (router?.getCurrentRoute() === '/now' && (channelsChanged || activeChannelChanged)) {
@@ -195,11 +202,11 @@ export function createApp(container) {
   function escapeHtml(str) {
     if (typeof str !== 'string') return String(str ?? '');
     const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
-    return str.replace(/[&<>"']/g, m => map[m]);
+    return str.replace(/[&<>"']/g, (m) => map[m]);
   }
 
   function delay(ms) {
-    return new Promise(r => setTimeout(r, ms));
+    return new Promise((r) => setTimeout(r, ms));
   }
 
   // Expose debug API in dev
@@ -212,7 +219,10 @@ export function createApp(container) {
       toasts,
       modals,
       reload: () => location.reload(),
-      help: () => console.log('[ISC Debug API]\n  ISC.navigate(route)\n  ISC.getState()\n  ISC.actions.setMatches(matches)\n  ISC.toasts.info(msg)\n  ISC.modals.showHelp()'),
+      help: () =>
+        console.log(
+          '[ISC Debug API]\n  ISC.navigate(route)\n  ISC.getState()\n  ISC.actions.setMatches(matches)\n  ISC.toasts.info(msg)\n  ISC.modals.showHelp()'
+        ),
     };
     console.log('[ISC] Debug API available: type ISC.help() for commands');
   }
