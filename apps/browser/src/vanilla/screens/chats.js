@@ -10,7 +10,7 @@ import { toasts } from '../../utils/toast.js';
 import { escapeHtml } from '../utils/dom.js';
 import { formatTime, formatTimestamp } from '../../utils/time.js';
 import { renderEmpty } from '../utils/screen.js';
-import { getBridgeSuggestions } from '../../services/thoughtBridging.js';
+import { getBridgeSuggestions } from '../../services/thoughtBridging.ts';
 
 let activePeerId = null;
 let boundContainer = null;

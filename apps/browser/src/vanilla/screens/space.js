@@ -14,7 +14,7 @@ import {
   shouldShowThoughtTwinNotification,
   acknowledgeThoughtTwin,
   dismissThoughtTwin,
-} from '../../services/thoughtTwin.js';
+} from '../../services/thoughtTwin.ts';
 
 let demoModeService = null;
 let UMAP = null;

@@ -10,8 +10,8 @@ import { toasts } from '../../utils/toast.js';
 import { modals } from '../components/modal.js';
 import { escapeHtml } from '../utils/dom.js';
 import { renderEmpty, bindDelegate } from '../utils/screen.js';
-import { getBridgeMomentCandidates, markPeerContacted } from '../../services/peerProximity.js';
-import { convergenceService } from '../../services/convergence.js';
+import { getBridgeMomentCandidates, markPeerContacted } from '../../services/peerProximity.ts';
+import { convergenceService } from '../../services/convergence.ts';
 
 let bridgeCandidates = [];
 let convergenceEvent = null;
