@@ -485,6 +485,146 @@ The hardest design tension. The feature that enables serendipitous connection en
 
 ---
 
+## Phase P — Protocol Security Tiers (Month 2) ★ Before Ecosystem Work
+
+The v2 protocol introduces a tiered security model (Tier 0 → Tier 1 → Tier 2). The current implementation has no tier concept and is effectively running at Tier 2 strictness on all networks, including private LANs where it wastes CPU on unnecessary crypto. This phase introduces the tier infrastructure starting with Tier 0 (simplest, highest performance), then adds Tier 1 and Tier 2 capabilities incrementally.
+
+**Implementation order is fixed**: Tier 0 first (remove crypto requirement, add scaffolding), then Tier 1 (add signing + gossipsub + vouch), then Tier 2 (add RLN + Merkle registry + signed blocklists). Do not implement out of order — each tier builds on the previous.
+
+### P0 — Tier Negotiation Infrastructure ★ PREREQUISITE FOR ALL
+**Effort**: ~1 day | **Prerequisite for P1–P3**
+
+The `identify` handshake must carry the security tier so peers can reject mismatched connections before any protocol work happens.
+
+- Add `/isc/tier/1.0` to the libp2p `identify` service — send `{ tier: N, networkID: "<genesis-hash>" }` in the identify payload on every new connection.
+- Implement tier mismatch rejection: on receiving a tier that doesn't match the local network's tier, close the connection with error code `TIER_MISMATCH` and do not retry.
+- Read `SECURITY_TIER` from network config (hardcoded per-deployment; no runtime switching).
+- Add `tier` field to the common message header (`MessageHeader.tier`).
+- Add `TIER_MISMATCH` to `StreamError` enum and handle in `handleStreamError`.
+- Unit test: two peers with mismatched tiers → connection rejected before any DHT or chat protocol negotiates.
+
+**Done when:** Peers announce their tier on connect; mismatched peers are rejected immediately; logs show `tier-mismatch` error; same-tier peers connect normally.
+
+### P1 — Tier 0: Trusted Network Mode
+**Effort**: ~1 day | **Depends on**: P0
+
+Tier 0 is for intranets, private LANs, and corporate / invite-only groups. Goal: maximum performance by bypassing the entire crypto stack.
+
+- **Bypass crypto on Tier 0 paths**:
+  - Skip `noise()` connection encryption in libp2p config (Tier 0 deployments instantiate `createLibp2p` without `connectionEncryption`).
+  - Omit `signature` field from all outgoing messages (set `if (SECURITY_TIER >= 1)` guard around all signing calls).
+  - Skip signature verification on all incoming messages.
+  - Skip `rlnProof` generation and verification.
+  - Omit reputation and scoring from query results.
+- **Remove rate limits** for Tier 0: DHT announce, query, chat dial, delegation are all unlimited. Remove the rate-limiting middleware from these paths when `SECURITY_TIER === 0`.
+- **Disable WebTransport fallback checks**: Tier 0 can operate over direct LAN WebSockets or TCP; skip AutoNAT and circuit relay discovery if `SECURITY_TIER === 0` (optional optimization — can be a config flag).
+- **Flat DHT only**: skip supernode hierarchy lookup (Tier 0 uses simple flat Kademlia).
+- Add a `--tier 0` flag (or env var `ISC_TIER=0`) to the node relay configuration; document in `apps/node/README.md`.
+- Update the Tier Detection in the browser app to read tier from the bootstrap peer list's genesis hash — not user-selectable.
+
+**Done when:** A Tier 0 node announces to DHT with no signatures in the payload → a second Tier 0 peer queries and matches it → no crypto calls appear in the performance profile → Tier 0 and Tier 1/2 peers reject each other correctly.
+
+### P2 — Tier 1: Federated Network Mode
+**Effort**: ~3 days | **Depends on**: P1
+
+Tier 1 is for inter-community bridges, universities, and open-source collectives. It adds ed25519 signing, peer scoring, vouch-based cold start, and gossipsub for hot clusters.
+
+#### P2.1 — ed25519 Signing (Tier 1)
+**Effort**: ~half day
+
+The existing `SignedAnnouncement.signature` field and `sign()`/`verify()` functions exist in the codebase. Wire them up under the `SECURITY_TIER >= 1` guard:
+
+- Ensure all outgoing announces, chat messages, posts, and mute events are signed when `SECURITY_TIER >= 1`.
+- Ensure all incoming messages are verified; drop and log unsigned messages.
+- `INVALID_SIGNATURE` → `blockPeer(peerID)`.
+
+**Done when:** Two Tier 1 peers exchange a signed announce → receiver verifies it → a tampered announce is dropped.
+
+#### P2.2 — Peer Scoring via `/isc/score/1.0`
+**Effort**: ~1 day
+
+Implement `ScoreDelta` broadcast using Gossipsub. See `PROTOCOL.md §7.5`.
+
+- Register `/isc/score/1.0` protocol handler.
+- On successful interaction: broadcast `{ type: 'score_delta', subjectID, delta: +0.1, reason: 'interaction' }`.
+- On mute: broadcast `{ ..., delta: -0.2, reason: 'mute' }`.
+- Maintain a local `Map<peerID, number>` reputation cache with 24-hour LRU expiry.
+- Apply quota multiplier at query time: peers below 50 rep get 0.5× candidateCap in results; peers above `MIN_REP_FOR_FULL_QUOTA` (100) get 2×.
+- For the full decay formula (exponential, 30-day half-life) see `SECURITY.md#reputation-score-calculation`. Use that for persisted reputation; use the linear `REP_DECAY_PER_DAY = 0.10` approximation only for the query-time quota multiplier.
+
+**Done when:** High-rep peer appears at top of match results; a muted peer's rep drops and they fall below the candidateCap threshold after 24h.
+
+#### P2.3 — Vouch Protocol `/isc/vouch/1.0`
+**Effort**: ~half day
+
+- Implement `VouchRequest` / `VouchResponse` message types (see `PROTOCOL.md §7.4`).
+- New peers (reputation = 0) trigger the vouch flow on first connect: broadcast a `VouchRequest` and wait up to 30s for 2 responses.
+- High-rep peers (score > 50) auto-grant vouches for Tier 1 (no manual UI required for initial implementation).
+- Store received vouches in IndexedDB; publish to DHT at `/isc/profile/channels/<peerID>`.
+- Enforce vouch rate limits: 5 vouch grants per hour per peer.
+
+**Done when:** A new Tier 1 peer receives 2 vouches within 30s of connecting → their reputation initializes to 10 → they can announce and query at base rate.
+
+#### P2.4 — Gossipsub Hot-Cluster Routing
+**Effort**: ~1 day | **Depends on**: P2.1
+
+When an LSH bucket exceeds `HOT_CLUSTER_THRESHOLD` (8) peers, switch from DHT put/get to Gossipsub on that bucket's topic.
+
+- After each DHT query, count distinct peer IDs returned for the bucket. If > 8, mark the bucket as hot in a local `Set<string>`.
+- For hot buckets: subscribe to Gossipsub topic `/isc/gossip/1.0/<bucketKey>` and publish announcements there instead of DHT.
+- Use `HOT_CLUSTER_TTL = 60s` for Gossipsub-published announces.
+- Revert to DHT if bucket count drops below 4.
+- Tier 1/2 only — Tier 0 always uses flat DHT.
+
+**Done when:** Simulate 10 peers in one LSH bucket → announcements route via Gossipsub → DHT write count drops by >50% for that bucket → peers still discover each other.
+
+### P3 — Tier 2: Public Network Mode
+**Effort**: ~5 days | **Depends on**: P2
+
+Tier 2 is the open global Internet mode. It adds RLN zero-knowledge proofs, the Merkle model registry, and signed network-wide blocklists.
+
+#### P3.1 — RLN Anti-Sybil Proofs
+**Effort**: ~3 days
+
+Rate Limiting Nullifiers (RLN) allow a peer to prove "I have not exceeded my epoch quota" without revealing identity. The current Tier 2 base rate is 5 announces/min.
+
+- Integrate `@rln-js/rln` or `snarkjs` WASM build (~150 ms proof generation on Mid device tier).
+- On each Tier 2 announce: call `generateRLNProof(epoch, rateSlot)` and attach the hex result to `SignedAnnouncement.rlnProof`.
+- On receive: call `verifyRLNProof(proof, epoch)`. Invalid proof → drop + `RLN_QUOTA_EXCEEDED`.
+- Proof generation runs in a Web Worker to avoid blocking the main thread.
+- Show user feedback when their epoch quota is exhausted: "Rate limit reached — next announce in Xs."
+- Reputation multiplier applies to the RLN base rate: peers above `MIN_REP_FOR_FULL_QUOTA` get 2× slots per epoch.
+
+**Done when:** A Tier 2 peer generates a valid RLN proof on each announce → a receiving peer verifies it → exceeding the epoch quota produces `RLN_QUOTA_EXCEEDED` and a user-facing message.
+
+#### P3.2 — Merkle Model Registry
+**Effort**: ~1 day
+
+In Tier 2, the model registry at `/isc/model_registry` is a Merkle root signed by maintainer multisig. Announces with unknown model hashes are dropped.
+
+- On startup, fetch `/isc/model_registry` from DHT and verify the multisig.
+- Extract the Merkle root and approved model hashes.
+- In `queryProximals`: add `if (!approvedModels.has(peer.model)) continue`.
+- In `announceChannel`: assert `approvedModels.has(LOCAL_MODEL)` before announcing; if not, show error "Model not in registry — cannot announce on Tier 2 network."
+- Add `merkleRoot` and maintainer public keys to the `ModelRegistry` interface.
+- For the initial implementation, the maintainer multisig can be a single key stored in the app bundle (full multisig in Phase F1 governance work).
+
+**Done when:** A Tier 2 peer fetches the registry → verifies the Merkle root → announces are gated on registry membership → an announce with an unknown model is dropped with a clear log message.
+
+#### P3.3 — Signed Network-Wide Blocklists
+**Effort**: ~1 day
+
+Tier 2 supports network-wide blocklist entries (distinct from personal mutes) at `/isc/blocklist/<peerID>`.
+
+- Implement blocklist entry creation: a high-rep peer (score > 200) signs a `BlocklistEntry` and publishes it to DHT.
+- Fetch blocklist entries on startup and on each connect; cache in IndexedDB with 24-hour refresh.
+- Filter blocklisted peers from query results and reject incoming connections from them.
+- Blocklist entries have no TTL (manual unblock required); store `{ peerID, reason, reporterID, sig, ts }`.
+
+**Done when:** A blocklisted peer's announces are filtered from results; a new connection from a blocklisted peer is rejected; blocklist persists across page reloads.
+
+---
+
 ## Phase F — Protocol & Ecosystem (Month 2–3)
 
 ### F1 — Governance Framework for Model Decisions ★ BEFORE COMMUNITY LAUNCH
@@ -672,5 +812,6 @@ These are not resolved questions. They should inform every design decision:
 | **C** — Terminal & Relay Surfaces (Week 2–4) | ~4d | Real TUI (ink); production relay Docker + Prometheus; shareable net-sim demo |
 | **D** — Ephemeral, Subscriptions & Mobile (Week 3–4) | ~5d | Deniable identity; lurk mode; semantic subscription; mobile layout + PWA |
 | **E** — Privacy Hardening (Week 4–7) | ~10d | Forward secrecy; relay-only mode; predator routing mitigations |
+| **P** — Protocol Security Tiers (Month 2) | ~10d | Tier 0 (no-crypto LAN); Tier 1 (signing + vouch + gossipsub); Tier 2 (RLN + Merkle registry + blocklists) |
 | **F** — Protocol & Ecosystem (Month 2–3) | ~3w | Open protocol spec; governance; Nostr bridge; Bluesky bridge |
 | **G** — Advanced (Month 3+) | open | Vibe rooms; ZK proofs; policy research tools; distributed shards |
