@@ -130,8 +130,8 @@ export class InviteLinksService {
           createdAt: Date.now(),
         };
       if (hash.startsWith('invite/')) return this.createdInvites.get(hash.slice(7))?.data ?? null;
-    } catch {
-      /* Invalid URL */
+    } catch (err) {
+      console.warn('[InviteLinks] Failed to parse URL:', err);
     }
     return null;
   }
@@ -139,6 +139,7 @@ export class InviteLinksService {
   getPendingJoin(): InviteData | null {
     return this.pendingJoin;
   }
+
   clearPendingJoin(): void {
     this.pendingJoin = null;
   }
@@ -200,8 +201,8 @@ export class InviteLinksService {
       invites.forEach((invite) => {
         if (invite.shortCode) this.createdInvites.set(invite.shortCode, invite);
       });
-    } catch {
-      /* Ignore */
+    } catch (err) {
+      console.warn('[InviteLinks] Failed to load from storage:', err);
     }
   }
 
@@ -211,8 +212,8 @@ export class InviteLinksService {
         this.config.storageKey,
         JSON.stringify([...this.createdInvites.values()])
       );
-    } catch {
-      /* Ignore */
+    } catch (err) {
+      console.warn('[InviteLinks] Failed to save to storage:', err);
     }
   }
 

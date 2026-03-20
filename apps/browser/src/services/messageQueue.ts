@@ -29,7 +29,8 @@ export class MessageQueueService {
         );
         this.saveQueue();
       }
-    } catch {
+    } catch (err) {
+      console.warn('[MessageQueue] Failed to load queue:', err);
       this.queue = [];
     }
   }
@@ -37,8 +38,8 @@ export class MessageQueueService {
   private saveQueue(): void {
     try {
       localStorage.setItem(QUEUE_KEY, JSON.stringify(this.queue));
-    } catch {
-      /* Ignore */
+    } catch (err) {
+      console.warn('[MessageQueue] Failed to save queue:', err);
     }
   }
 

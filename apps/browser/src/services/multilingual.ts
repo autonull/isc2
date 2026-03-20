@@ -168,14 +168,17 @@ export class MultilingualService {
     this.saveToStorage();
     this.emitUpdate();
   }
+
   toggleShowOriginal(): void {
     this.config.showOriginal = !this.config.showOriginal;
     this.saveToStorage();
     this.emitUpdate();
   }
+
   getSupportedLanguages(): Language[] {
     return SUPPORTED_LANGUAGES;
   }
+
   getCurrentLanguage(): Language | undefined {
     return SUPPORTED_LANGUAGES.find((l) => l.code === this.config.targetLanguage);
   }
@@ -220,8 +223,8 @@ export class MultilingualService {
       const stored = localStorage.getItem(this.config.storageKey);
       if (!stored) return;
       this.config = { ...this.config, ...JSON.parse(stored) };
-    } catch {
-      /* Ignore storage errors */
+    } catch (err) {
+      console.warn('[Multilingual] Failed to load config:', err);
     }
   }
 

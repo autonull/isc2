@@ -58,6 +58,31 @@ const CLUSTER_COLORS = [
   '#f97316',
 ];
 
+const cosineSimilarity = (vecA: number[], vecB: number[]): number => {
+  const { dot, normA, normB } = vecA.reduce(
+    (acc, a, i) => ({
+      dot: acc.dot + a * vecB[i],
+      normA: acc.normA + a * a,
+      normB: acc.normB + vecB[i] * vecB[i],
+    }),
+    { dot: 0, normA: 0, normB: 0 }
+  );
+  const denominator = Math.sqrt(normA) * Math.sqrt(normB);
+  return denominator === 0 ? 0 : dot / denominator;
+};
+
+const distance2D = (a: Position2D, b: Position2D): number =>
+  Math.sqrt(Math.pow(b.x - a.x, 2) + Math.pow(b.y - a.y, 2));
+
+const shuffleArray = <T>(array: T[]): T[] => {
+  const shuffled = [...array];
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+  return shuffled;
+};
+
 export class SpaceViewService {
   private config: SpaceViewConfig;
   private peerEmbeddings = new Map<string, number[]>();
@@ -75,6 +100,7 @@ export class SpaceViewService {
     console.log('[SpaceView] Starting with config:', this.config);
     this.startAnimationLoop();
   }
+
   stop(): void {
     if (this.animationFrame) {
       cancelAnimationFrame(this.animationFrame);
@@ -85,15 +111,12 @@ export class SpaceViewService {
   updatePeers(peers: PeerMatch[], selfEmbedding?: number[]): void {
     if (selfEmbedding) this.peerEmbeddings.set('self', selfEmbedding);
     peers.forEach((peer) => {
-      if ((peer as unknown as Record<string, unknown>)._embedding)
-        this.peerEmbeddings.set(
-          peer.peerId,
-          (peer as unknown as Record<string, unknown>)._embedding as number[]
-        );
+      const embedding = (peer as unknown as { _embedding?: number[] })._embedding;
+      if (embedding) this.peerEmbeddings.set(peer.peerId, embedding);
     });
     this.projectTo2D(peers);
     if (this.config.clusterDetection) this.detectClusters(peers);
-    this.emitUpdate(peers);
+    this.emitUpdate();
   }
 
   getState(): SpaceViewState {
@@ -115,12 +138,12 @@ export class SpaceViewService {
     if (peer) {
       state.viewTransform.offsetX = -peer.position.x;
       state.viewTransform.offsetY = -peer.position.y;
-      this.emitUpdate(state.peers);
+      this.emitUpdate();
     }
   }
 
   resetView(): void {
-    this.emitUpdate(this.getProjectedPeers());
+    this.emitUpdate();
   }
 
   private projectTo2D(peers: PeerMatch[]): void {
@@ -133,9 +156,9 @@ export class SpaceViewService {
     });
     if (allPeers.length < 2) return;
     const positions = this.fastProject(allPeers);
-    positions.forEach((pos, id) => {
-      this.previousPositions.set(id, this.peerPositions.get(id));
-      this.peerPositions.set(id, pos);
+    positions.forEach((pos, key) => {
+      this.previousPositions.set(key, this.peerPositions.get(key) ?? { x: 0, y: 0 });
+      this.peerPositions.set(key, pos);
     });
   }
 
@@ -145,7 +168,7 @@ export class SpaceViewService {
     if (n === 0) return positions;
 
     const distances = peers.map((pI, i) =>
-      peers.map((pJ, j) => (i === j ? 0 : this.cosineDistance(pI.embedding, pJ.embedding)))
+      peers.map((pJ, j) => (i === j ? 0 : 1 - cosineSimilarity(pI.embedding, pJ.embedding)))
     );
 
     positions.set(peers[0].id, { x: 0, y: 0 });
@@ -156,7 +179,6 @@ export class SpaceViewService {
 
     for (let i = 2; i < n; i++)
       positions.set(peers[i].id, this.trilaterate(i, peers, distances, positions));
-
     this.centerPositions(positions);
     return positions;
   }
@@ -177,7 +199,7 @@ export class SpaceViewService {
     const pos2 = existingPositions.get(id2)!;
     const d1 = distances[newIndex][idx1] * 10;
     const d2 = distances[newIndex][idx2] * 10;
-    const d12 = Math.sqrt(Math.pow(pos2.x - pos1.x, 2) + Math.pow(pos2.y - pos1.y, 2));
+    const d12 = distance2D(pos1, pos2);
 
     if (d12 === 0) return { x: pos1.x + d1, y: pos1.y };
 
@@ -235,7 +257,7 @@ export class SpaceViewService {
     k: number
   ): Array<{ center: Position2D; radius: number; peerIds: string[] }> {
     if (positions.length === 0) return [];
-    let centroids = this.shuffleArray([...positions])
+    let centroids = shuffleArray([...positions])
       .slice(0, k)
       .map(([, pos]) => ({ ...pos }));
     let assignments = new Map<string, number>();
@@ -250,7 +272,7 @@ export class SpaceViewService {
         let minDist = Infinity,
           minIdx = 0;
         centroids.forEach((centroid, idx) => {
-          const dist = this.distance2D(pos, centroid);
+          const dist = distance2D(pos, centroid);
           if (dist < minDist) {
             minDist = dist;
             minIdx = idx;
@@ -263,7 +285,7 @@ export class SpaceViewService {
 
       for (let i = 0; i < k; i++) {
         const clusterPoints = positions
-          .filter(([, id]) => assignments.get(id) === i)
+          .filter(([id]) => assignments.get(id) === i)
           .map(([, pos]) => pos);
         if (clusterPoints.length > 0) {
           centroids[i] = {
@@ -275,12 +297,13 @@ export class SpaceViewService {
     }
 
     return [...Array(k).keys()]
-      .filter((i) => positions.some(([, id]) => assignments.get(id) === i))
+      .filter((i) => positions.some(([id]) => assignments.get(id) === i))
       .map((i) => {
-        const clusterPoints = positions.filter(([, id]) => assignments.get(id) === i);
+        const clusterPoints = positions.filter(([id]) => assignments.get(id) === i);
         if (clusterPoints.length === 0) return null;
-        const center = centroids[i]; if (!center) continue;
-        const radius = Math.max(...clusterPoints.map(([, pos]) => this.distance2D(pos, center)));
+        const center = centroids[i];
+        if (!center) return null;
+        const radius = Math.max(...clusterPoints.map(([, pos]) => distance2D(pos, center)));
         return { center, radius, peerIds: clusterPoints.map(([id]) => id) };
       })
       .filter(Boolean) as Array<{ center: Position2D; radius: number; peerIds: string[] }>;
@@ -310,33 +333,8 @@ export class SpaceViewService {
     /* Future: interpolate between previous and current positions */
   }
 
-  private emitUpdate(peers: PeerMatch[]): void {
+  private emitUpdate(): void {
     this.listeners.forEach((listener) => listener(this.getState()));
-  }
-
-  private cosineDistance(a: number[], b: number[]): number {
-    const { dot, normA, normB } = a.reduce(
-      (acc, val, i) => ({
-        dot: acc.dot + val * (b[i] ?? 0),
-        normA: acc.normA + val * val,
-        normB: acc.normB + (b[i] ?? 0) * (b[i] ?? 0),
-      }),
-      { dot: 0, normA: 0, normB: 0 }
-    );
-    return normA === 0 || normB === 0 ? 1 : 1 - dot / (Math.sqrt(normA) * Math.sqrt(normB));
-  }
-
-  private distance2D(a: Position2D, b: Position2D): number {
-    return Math.sqrt(Math.pow(b.x - a.x, 2) + Math.pow(b.y - a.y, 2));
-  }
-
-  private shuffleArray<T>(array: T[]): T[] {
-    const shuffled = [...array];
-    for (let i = shuffled.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
-    }
-    return shuffled;
   }
 
   configure(updates: Partial<SpaceViewConfig>): void {

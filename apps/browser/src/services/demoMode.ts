@@ -35,7 +35,6 @@ const BIO_TEMPLATES = [
   'Sharing thoughts on {topic1}.',
 ];
 
-
 const TOPIC_POOLS = {
   tech: ['AI', 'machine learning', 'blockchain', 'web3', 'open source'],
   science: ['physics', 'biology', 'neuroscience', 'climate', 'space'],
@@ -98,7 +97,7 @@ export class DemoModeService {
     const now = Date.now();
     const poolKeys = Object.keys(TOPIC_POOLS) as (keyof typeof TOPIC_POOLS)[];
     const selectedPools = this.shuffleArray([...poolKeys]).slice(0, 2);
-    const topics = selectedPools.flatMap(pool =>
+    const topics = selectedPools.flatMap((pool) =>
       this.shuffleArray([...TOPIC_POOLS[pool]]).slice(0, 2)
     );
 

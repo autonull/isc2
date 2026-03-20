@@ -227,7 +227,8 @@ export class SleepingStateService {
         ...parsed,
         quickReplies: parsed.quickReplies ?? [...DEFAULT_QUICK_REPLIES],
       };
-    } catch {
+    } catch (err) {
+      console.warn('[SleepingState] Failed to load from storage:', err);
       return null;
     }
   }
@@ -235,8 +236,8 @@ export class SleepingStateService {
   private saveToStorage(): void {
     try {
       localStorage.setItem(this.config.storageKey, JSON.stringify(this.state));
-    } catch {
-      /* Ignore */
+    } catch (err) {
+      console.warn('[SleepingState] Failed to save state:', err);
     }
   }
 

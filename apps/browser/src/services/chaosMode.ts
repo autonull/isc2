@@ -180,8 +180,8 @@ export class ChaosModeService {
       const stored = localStorage.getItem(this.config.storageKey);
       if (!stored) return;
       this.config = { ...this.config, ...JSON.parse(stored) };
-    } catch {
-      /* Ignore */
+    } catch (err) {
+      console.warn('[ChaosMode] Failed to load from storage:', err);
     }
   }
 
@@ -195,8 +195,8 @@ export class ChaosModeService {
           topicDiversityBoost: this.config.topicDiversityBoost,
         })
       );
-    } catch {
-      /* Ignore */
+    } catch (err) {
+      console.warn('[ChaosMode] Failed to save to storage:', err);
     }
   }
 
