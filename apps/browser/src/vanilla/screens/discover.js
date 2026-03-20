@@ -15,6 +15,7 @@ import { convergenceService } from '../../services/convergence.ts';
 
 let bridgeCandidates = [];
 let convergenceEvent = null;
+let noMatchesBannerEl = null;
 
 const SIMILARITY_TIERS = [
   { key: 'very-close', label: '🔥 Very Close', desc: '85%+', min: 0.85 },
@@ -43,6 +44,21 @@ export function render() {
       </div>
     </div>
   `;
+}
+
+function showNoMatchesBanner(container) {
+  dismissNoMatchesBanner();
+  noMatchesBannerEl = document.createElement('div');
+  noMatchesBannerEl.className = 'info-banner warning';
+  noMatchesBannerEl.setAttribute('data-testid', 'no-matches-banner');
+  noMatchesBannerEl.innerHTML =
+    "🌀 You're the first one here with this thought. Try broadening your channel description or wait for more peers to discover you.";
+  container.querySelector('#discover-content')?.prepend(noMatchesBannerEl);
+}
+
+function dismissNoMatchesBanner() {
+  noMatchesBannerEl?.remove();
+  noMatchesBannerEl = null;
 }
 
 async function loadBridgeMomentBanner(container) {
@@ -379,14 +395,20 @@ export function bind(container) {
       toasts.info('Querying DHT for semantic matches…');
       await discoveryService.discoverPeers();
       const matches = discoveryService.getMatches();
-      toasts.success(
-        matches.length
-          ? `Found ${matches.length} peer${matches.length !== 1 ? 's' : ''}!`
-          : 'No matches found'
-      );
+      if (matches.length === 0) {
+        toasts.warning('No matches found — try broadening your channel description');
+        showNoMatchesBanner(container);
+      } else {
+        toasts.success(`Found ${matches.length} peer${matches.length !== 1 ? 's' : ''}!`);
+        dismissNoMatchesBanner();
+      }
       update(container);
     } catch (err) {
-      toasts.error(`Discovery failed: ${err.message}`);
+      if (err.message?.includes('relay') || err.message?.includes('bootstrap')) {
+        toasts.error('Cannot reach bootstrap relay — check your connection');
+      } else {
+        toasts.error(`Discovery failed: ${err.message}`);
+      }
     } finally {
       btns.forEach((b) => (b.disabled = false));
       if (mainBtn) mainBtn.innerHTML = '🔍 Discover';
@@ -412,6 +434,10 @@ export function bind(container) {
         connectBtn.textContent = '⏳ Connecting…';
         try {
           await discoveryService.connect(peerId);
+          await Promise.all([
+            markPeerContacted(peerId).catch(() => {}),
+            Promise.resolve(convergenceService.markPeerContacted(peerId)),
+          ]);
           toasts.success(`Connected with ${peerName || 'peer'}!`);
           connectBtn.textContent = '✓ Connected';
           connectBtn.className = 'btn btn-secondary btn-sm';

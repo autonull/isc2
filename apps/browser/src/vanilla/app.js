@@ -85,6 +85,17 @@ export function createApp(container) {
       });
       setupEventHandlers({ onNavigate: navigate, mainContent: layout.main });
 
+      document.addEventListener('isc:toggle-chaos', () => {
+        const coldStart = getColdStartService();
+        const current = coldStart.getChaosStatus?.()?.level ?? 0;
+        coldStart.setChaosLevel?.(current > 0 ? 0 : 50);
+        toasts.info(
+          current > 0
+            ? 'Serendipity mode off'
+            : 'Serendipity mode on — discovering unexpected peers'
+        );
+      });
+
       if (!localStorage.getItem('isc-onboarding-completed')) {
         showOnboarding();
       }
@@ -132,9 +143,15 @@ export function createApp(container) {
   function setupSubscriptions() {
     subscribe((state, prev) => {
       if (state.status !== prev?.status) {
-        if (state.status === 'connected') toasts.success('Connected to network');
-        else if (prev?.status === 'connected' && state.status === 'disconnected') {
-          toasts.warning('Disconnected from network');
+        if (state.status === 'connected') {
+          toasts.success('Connected to network');
+          dismissNetworkBanner();
+        } else if (prev?.status === 'connected' && state.status === 'disconnected') {
+          toasts.warning('Disconnected from network — messages will be queued');
+          showNetworkBanner(
+            'offline',
+            '📡 Disconnected — messages will be delivered when reconnected'
+          );
         }
       }
 
@@ -174,6 +191,23 @@ export function createApp(container) {
 
   function setupNetworkListeners() {
     // Network events are handled in network.js via actions
+  }
+
+  let networkBannerEl = null;
+
+  function showNetworkBanner(type, message) {
+    dismissNetworkBanner();
+    if (!layout?.main) return;
+    networkBannerEl = document.createElement('div');
+    networkBannerEl.className = `info-banner ${type}`;
+    networkBannerEl.setAttribute('data-testid', 'network-banner');
+    networkBannerEl.textContent = message;
+    layout.main.prepend(networkBannerEl);
+  }
+
+  function dismissNetworkBanner() {
+    networkBannerEl?.remove();
+    networkBannerEl = null;
   }
 
   function toggleDebugPanel() {

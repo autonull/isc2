@@ -3222,3 +3222,182 @@ body {
     width: 100%;
   }
 }
+
+/* Language indicator for multilingual support */
+.lang-indicator {
+  display: inline-block;
+  font-size: 12px;
+  padding: 2px 8px;
+  background: var(--c-bg-hover);
+  border-radius: 4px;
+  color: var(--c-text-dim);
+  margin-left: 8px;
+  vertical-align: middle;
+}
+
+/* Bridge Moment banner */
+.bridge-moment-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  background: rgba(139, 92, 246, 0.12);
+  border: 1px solid rgba(139, 92, 246, 0.3);
+  border-radius: 8px;
+  margin: 12px 16px;
+  gap: 12px;
+}
+
+.bridge-moment-content,
+.convergence-content {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+}
+
+.bridge-icon,
+.convergence-icon {
+  font-size: 18px;
+}
+
+.bridge-moment-text,
+.convergence-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.thought-twin-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  background: rgba(74, 144, 217, 0.12);
+  border: 1px solid rgba(74, 144, 217, 0.3);
+  border-radius: 8px;
+  margin: 12px 16px;
+  gap: 12px;
+}
+
+.thought-twin-content {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+}
+
+.twin-icon {
+  font-size: 18px;
+}
+
+.thought-twin-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.thought-twin-actions,
+.bridge-moment-actions,
+.convergence-actions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+/* Convergence banner */
+.convergence-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  background: rgba(236, 72, 153, 0.1);
+  border: 1px solid rgba(236, 72, 153, 0.3);
+  border-radius: 8px;
+  margin: 0 16px 12px;
+  gap: 12px;
+}
+
+/* Bridge suggestion in chat */
+.bridge-suggestion {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  background: rgba(245, 158, 11, 0.1);
+  border-bottom: 1px solid rgba(245, 158, 11, 0.2);
+  font-size: 13px;
+}
+
+.bridge-phrase {
+  flex: 1;
+  color: var(--c-text-dim);
+}
+
+.bridge-dismiss {
+  background: none;
+  border: none;
+  color: var(--c-text-muted);
+  cursor: pointer;
+  font-size: 16px;
+  padding: 0 4px;
+}
+
+/* Drift badge */
+.drift-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  background: var(--c-bg-hover);
+  border-radius: 12px;
+  font-size: 12px;
+  color: var(--c-text-dim);
+}
+
+/* Thought Twin pulsing glow */
+@keyframes twin-pulse {
+  0%,
+  100% {
+    opacity: 0.6;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.15);
+  }
+}
+
+.twin-pulse {
+  animation: twin-pulse 2s ease-in-out infinite;
+}
+
+/* Convergence glow */
+@keyframes convergence-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 8px rgba(236, 72, 153, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 20px rgba(236, 72, 153, 0.8);
+  }
+}
+
+/* Error banner styles */
+.info-banner.error {
+  background: rgba(224, 83, 83, 0.12);
+  border: 1px solid rgba(224, 83, 83, 0.3);
+  color: var(--c-danger);
+}
+
+.info-banner.warning {
+  background: rgba(224, 160, 64, 0.12);
+  border: 1px solid rgba(224, 160, 64, 0.3);
+  color: var(--c-warning);
+}
+
+.info-banner.offline {
+  background: rgba(96, 98, 117, 0.15);
+  border: 1px solid rgba(96, 98, 117, 0.3);
+  color: var(--c-text-dim);
+}

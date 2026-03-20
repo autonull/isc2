@@ -8,6 +8,8 @@ import { channelSettingsService, getSpecificityLabel } from '../../services/chan
 import { channelService, networkService } from '../../services/index.js';
 import { toasts } from '../../utils/toast.js';
 import { escapeHtml } from '../../utils/dom.js';
+import { getMultilingualService } from '../../services/multilingual.ts';
+import { getState, actions } from '../../state.js';
 
 const PRESETS = {
   discovery: {
@@ -210,6 +212,10 @@ function renderActionsSection() {
 }
 
 export function renderEditModal(channel) {
+  const langService = getMultilingualService();
+  const currentLang = langService.getCurrentLanguage();
+  const langLabel = currentLang ? `${currentLang.flag} ${currentLang.name}` : '';
+
   return `
     <div class="modal-overlay" id="edit-modal-overlay">
       <div class="modal-content mixer-edit-modal">
@@ -224,9 +230,13 @@ export function renderEditModal(channel) {
                    value="${escapeHtml(channel.name)}" placeholder="Channel name" autofocus />
           </div>
           <div class="form-group">
-            <label for="edit-channel-description">Description</label>
+            <label for="edit-channel-description">
+              Description
+              <span id="lang-indicator" class="lang-indicator" style="display:none">${escapeHtml(langLabel)}</span>
+            </label>
             <textarea id="edit-channel-description" class="form-textarea"
                       rows="4" placeholder="Channel description">${escapeHtml(channel.description || '')}</textarea>
+            <span class="form-hint" id="edit-lang-hint" style="display:none"></span>
           </div>
         </div>
         <div class="modal-footer">
@@ -385,6 +395,40 @@ function showEditModal(channel) {
   function on(selector, event, handler) {
     document.querySelector(selector)?.addEventListener(event, handler);
   }
+
+  const langService = getMultilingualService();
+  const SUPPORTED_LANGS = langService.getSupportedLanguages();
+  let langDebounceTimer = null;
+
+  function updateLangIndicator(text) {
+    const indicator = document.querySelector('#lang-indicator');
+    const hint = document.querySelector('#edit-lang-hint');
+    if (!indicator || !hint) return;
+
+    if (!text || text.length < 3) {
+      indicator.style.display = 'none';
+      hint.style.display = 'none';
+      return;
+    }
+
+    const detected = langService.detectLanguage(text);
+    const lang = SUPPORTED_LANGS.find((l) => l.code === detected);
+    if (lang && detected !== 'en') {
+      indicator.style.display = 'inline';
+      indicator.textContent = `${lang.flag} ${lang.name}`;
+      hint.style.display = 'inline';
+      hint.textContent =
+        'Tip: Matching works across languages — your meaning is translated automatically.';
+    } else {
+      indicator.style.display = 'none';
+      hint.style.display = 'none';
+    }
+  }
+
+  document.querySelector('#edit-channel-description')?.addEventListener('input', (e) => {
+    clearTimeout(langDebounceTimer);
+    langDebounceTimer = setTimeout(() => updateLangIndicator(e.target.value), 300);
+  });
 
   async function saveChanges() {
     const name = document.querySelector('#edit-channel-name')?.value.trim();

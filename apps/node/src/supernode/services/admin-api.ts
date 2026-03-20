@@ -51,6 +51,7 @@ export class AdminAPI {
   private logBuffer: string[] = [];
   private adminUiHtml: string | null = null;
   private startTime = Date.now();
+  private relayRequestsTotal = 0;
 
   constructor(config: Partial<AdminConfig> = {}) {
     this.config = { ...DEFAULT_CONFIG, ...config };
@@ -59,7 +60,13 @@ export class AdminAPI {
   initialize(relayNode: Libp2p, simulator?: Simulator): void {
     this.relayNode = relayNode;
     this.simulator = simulator ?? null;
+
+    relayNode.addEventListener?.('peer:connect', () => {
+      this.dhtOperationsTotal++;
+    });
   }
+
+  private dhtOperationsTotal = 0;
 
   async start(): Promise<void> {
     this.startTime = Date.now();
@@ -92,12 +99,20 @@ export class AdminAPI {
   }
 
   private handleHttp(req: IncomingMessage, res: ServerResponse): void {
+    this.relayRequestsTotal++;
     const path = req.url ?? '';
 
     if (path === '/health') {
       const health = this.getHealthStatus();
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify(health));
+      return;
+    }
+
+    if (path === '/metrics') {
+      const metrics = this.getPrometheusMetrics();
+      res.writeHead(200, { 'Content-Type': 'text/plain; version=0.0.4' });
+      res.end(metrics);
       return;
     }
 
@@ -124,6 +139,37 @@ export class AdminAPI {
       uptime: Math.floor((Date.now() - this.startTime) / 1000),
       version: '0.1.0',
     };
+  }
+
+  private getPrometheusMetrics(): string {
+    const lines: string[] = [];
+    const peers = this.relayNode?.getConnections().length ?? 0;
+    const uptime = Math.floor((Date.now() - this.startTime) / 1000);
+
+    lines.push('# HELP isc_connected_peers Number of active peer connections');
+    lines.push('# TYPE isc_connected_peers gauge');
+    lines.push(`isc_connected_peers ${peers}`);
+
+    lines.push('# HELP isc_uptime_seconds Node uptime in seconds');
+    lines.push('# TYPE isc_uptime_seconds counter');
+    lines.push(`isc_uptime_seconds ${uptime}`);
+
+    lines.push('# HELP isc_relay_requests_total Total relay requests handled');
+    lines.push('# TYPE isc_relay_requests_total counter');
+    lines.push(`isc_relay_requests_total ${this.relayRequestsTotal}`);
+
+    lines.push('# HELP isc_dht_operations_total Total DHT operations performed');
+    lines.push('# TYPE isc_dht_operations_total counter');
+    lines.push(`isc_dht_operations_total ${this.dhtOperationsTotal}`);
+
+    if (this.simulator) {
+      const simMetrics = this.simulator.getMetrics?.() ?? {};
+      lines.push('# HELP isc_simulator_bots Number of active simulator bots');
+      lines.push('# TYPE isc_simulator_bots gauge');
+      lines.push(`isc_simulator_bots ${simMetrics.activeBots ?? 0}`);
+    }
+
+    return lines.join('\n') + '\n';
   }
 
   stop(): void {

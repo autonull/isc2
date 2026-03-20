@@ -11,6 +11,7 @@ import { escapeHtml } from '../utils/dom.js';
 import { formatTime, formatTimestamp } from '../../utils/time.js';
 import { renderEmpty } from '../utils/screen.js';
 import { getBridgeSuggestions } from '../../services/thoughtBridging.ts';
+import { markPeerContacted } from '../../services/peerProximity.ts';
 
 let activePeerId = null;
 let boundContainer = null;
@@ -421,6 +422,7 @@ async function openChat(container, peerId) {
     el.setAttribute('aria-selected', String(active));
   });
 
+  await markPeerContacted(peerId).catch(() => {});
   chatService.markAsRead(peerId);
   const convItem = container.querySelector(
     `.conversation-item[data-peer-id="${CSS.escape(peerId)}"]`

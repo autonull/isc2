@@ -16,6 +16,7 @@ import {
   dismissThoughtTwin,
 } from '../../services/thoughtTwin.ts';
 import { getDriftInfo } from '../../services/channelHistory.ts';
+import { markPeerContacted } from '../../services/peerProximity.ts';
 
 let demoModeService = null;
 let UMAP = null;
@@ -27,6 +28,8 @@ let selfPosition = { x: 0.5, y: 0.5 };
 let projectedPeers = [];
 let isInitialized = false;
 let unsubscribe = null;
+let embeddingCache = new Map();
+let embeddingDebounceTimer = null;
 
 const PEER_COLORS = {
   self: '#3b82f6',
@@ -119,6 +122,7 @@ async function loadThoughtTwin(container) {
 
       containerEl.querySelector('#twin-connect')?.addEventListener('click', async () => {
         await acknowledgeThoughtTwin();
+        if (twin?.peerId) await markPeerContacted(twin.peerId).catch(() => {});
         document.dispatchEvent(
           new CustomEvent('isc:open-chat', {
             detail: { peerId: twin.peerId, name: 'Thought Twin' },
@@ -153,6 +157,8 @@ export function bind(container) {
   canvas.addEventListener('mousemove', handleMouseMove);
   canvas.addEventListener('click', handleClick);
   canvas.addEventListener('mouseleave', () => hideTooltip());
+  canvas.setAttribute('tabindex', '0');
+  canvas.addEventListener('keydown', handleKeyDown);
 
   initSpaceView();
   loadThoughtTwin(container);
@@ -183,10 +189,14 @@ async function initSpaceView() {
     isInitialized = true;
 
     const state = getState();
-    updateFromState(state);
+    await updateFromState(state);
 
-    unsubscribe = subscribe((state) => {
-      updateFromState(state);
+    unsubscribe = subscribe(async (state) => {
+      clearTimeout(embeddingDebounceTimer);
+      embeddingDebounceTimer = setTimeout(async () => {
+        await updateFromState(state);
+        renderCanvas();
+      }, 2000);
     });
 
     renderCanvas();
@@ -199,7 +209,7 @@ async function initSpaceView() {
   }
 }
 
-function updateFromState(state) {
+async function updateFromState(state) {
   const matches = state.matches || [];
   const demoStatus = demoModeService?.getStatus?.();
 
@@ -215,7 +225,7 @@ function updateFromState(state) {
   }
 
   if (allPeers.length > 0 && UMAP) {
-    projectPeers(allPeers);
+    await projectPeers(allPeers);
   }
 
   updatePeerCount(allPeers.length);
@@ -241,10 +251,10 @@ function generateSyntheticPeerData(count) {
   return peers;
 }
 
-function projectPeers(peers) {
+async function projectPeers(peers) {
   if (!UMAP || peers.length < 2) {
-    projectedPeers = peers.map((p, i) => ({
-      ...p,
+    projectedPeers = peers.map((_p, i) => ({
+      ..._p,
       x: 0.3 + Math.random() * 0.4,
       y: 0.3 + Math.random() * 0.4,
     }));
@@ -252,20 +262,33 @@ function projectPeers(peers) {
   }
 
   try {
-    const vectors = peers.map((p) => {
-      const seed = hashString(p.peerId);
-      const vec = new Array(384);
-      for (let i = 0; i < 384; i++) {
-        vec[i] = Math.sin(seed * (i + 1) * 0.01) * 0.5 + Math.cos(seed * (i + 2) * 0.02) * 0.5;
-      }
-      if (p.similarity) {
-        const simInfluence = p.similarity * 0.3;
-        for (let i = 0; i < Math.min(384, vec.length); i++) {
-          vec[i] *= 1 + simInfluence;
+    const embeddingService = networkService.service?.getEmbeddingService?.();
+
+    const vectors = await Promise.all(
+      peers.map(async (p) => {
+        if (p.isSynthetic) {
+          return buildDeterministicVec(p.peerId, p.similarity);
         }
-      }
-      return vec;
-    });
+
+        const cacheKey = p.peerId;
+        if (embeddingCache.has(cacheKey)) {
+          return embeddingCache.get(cacheKey);
+        }
+
+        const desc = p.identity?.bio || p.identity?.name || '';
+        if (!desc || !embeddingService?.isLoaded?.()) {
+          return buildDeterministicVec(p.peerId, p.similarity);
+        }
+
+        try {
+          const vec = await embeddingService.compute(desc);
+          embeddingCache.set(cacheKey, vec);
+          return vec;
+        } catch {
+          return buildDeterministicVec(p.peerId, p.similarity);
+        }
+      })
+    );
 
     const umap = new UMAP.UMAP({
       nNeighbors: Math.min(15, peers.length - 1),
@@ -298,12 +321,27 @@ function projectPeers(peers) {
     }));
   } catch (err) {
     console.warn('[Space] UMAP projection failed:', err);
-    projectedPeers = peers.map((p, i) => ({
+    projectedPeers = peers.map((p) => ({
       ...p,
       x: 0.2 + Math.random() * 0.6,
       y: 0.2 + Math.random() * 0.6,
     }));
   }
+}
+
+function buildDeterministicVec(peerId, similarity) {
+  const seed = hashString(peerId);
+  const vec = new Array(384);
+  for (let i = 0; i < 384; i++) {
+    vec[i] = Math.sin(seed * (i + 1) * 0.01) * 0.5 + Math.cos(seed * (i + 2) * 0.02) * 0.5;
+  }
+  if (similarity) {
+    const simInfluence = similarity * 0.3;
+    for (let i = 0; i < 384; i++) {
+      vec[i] *= 1 + simInfluence;
+    }
+  }
+  return vec;
 }
 
 function hashString(str) {
@@ -474,6 +512,27 @@ function handleClick(e) {
   );
 }
 
+function handleKeyDown(e) {
+  if (!projectedPeers.length) return;
+
+  const idx = hoveredPeer ? projectedPeers.findIndex((p) => p.peerId === hoveredPeer.peerId) : 0;
+
+  if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+    e.preventDefault();
+    hoveredPeer = projectedPeers[(idx + 1) % projectedPeers.length];
+    renderCanvas();
+  } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+    e.preventDefault();
+    hoveredPeer = projectedPeers[(idx - 1 + projectedPeers.length) % projectedPeers.length];
+    renderCanvas();
+  } else if (e.key === 'Enter' || e.key === ' ') {
+    if (hoveredPeer) {
+      e.preventDefault();
+      handleClick({ preventDefault: () => {} });
+    }
+  }
+}
+
 function updatePeerCount(count) {
   const el = document.getElementById('peer-count');
   if (el) {
@@ -517,11 +576,11 @@ async function loadChannelDrift(container) {
   panel.innerHTML = renderDriftBadge(topDrift);
 }
 
-export function update(container) {
+export async function update(container) {
   if (!isInitialized) return;
 
   const state = getState();
-  updateFromState(state);
+  await updateFromState(state);
   renderCanvas();
   loadChannelDrift(container);
 }
@@ -541,4 +600,5 @@ export function destroy() {
   canvas?.removeEventListener('mousemove', handleMouseMove);
   canvas?.removeEventListener('click', handleClick);
   canvas?.removeEventListener('mouseleave', () => hideTooltip());
+  canvas?.removeEventListener('keydown', handleKeyDown);
 }

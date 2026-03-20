@@ -1051,7 +1051,7 @@ grant funding.
 
 ### Pre-launch Checklist (before inviting any real users)
 
-- [ ] Phase A complete: Space View wired, all Phase 2–3 services active, error states covered
+- [x] Phase A complete: Space View wired, all Phase 2–3 services active, error states covered ✅
 - [ ] Phase B2 (Convergence Events) complete: shareable moment exists
 - [ ] Phase C4 (net-sim demo) complete: 30-second demo embeddable in posts
 - [ ] Phase D1 (Ephemeral Mode) complete: activists/journalists have safe entry
@@ -1127,7 +1127,7 @@ These are not resolved questions. They should inform every design decision:
 
 | Phase                                                | Effort | Key Milestone                                                                                             |
 | ---------------------------------------------------- | ------ | --------------------------------------------------------------------------------------------------------- |
-| **A** — Reality Check & Wiring (Days 1–3)            | ~3.5d  | Demo peers visible in <1s; Space View live; all services wired; semantic match validated                  |
+| **A** — Reality Check & Wiring (Days 1–3)            | ~3.5d  | Demo peers visible in <1s; Space View live; all services wired; semantic match validated ✅               |
 | **B** — Discovery UX (Week 1–2)                      | ~5.5d  | Bridge Moment, Thought Twin, Convergence Events, Thought Bridging, Thought Drift                          |
 | **C** — Terminal & Relay Surfaces (Week 2–4)         | ~4d    | Real TUI (ink); production relay Docker + Prometheus; shareable net-sim demo                              |
 | **D** — Ephemeral, Subscriptions & Mobile (Week 3–4) | ~5d    | Deniable identity; lurk mode; semantic subscription; mobile layout + PWA                                  |

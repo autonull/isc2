@@ -73,7 +73,11 @@ export function createRouter(screens, defaultRoute, mainContent, sidebar) {
 
     // Cleanup previous screen
     if (currentScreen?.destroy) {
-      try { currentScreen.destroy(); } catch (err) { /* ignore */ }
+      try {
+        currentScreen.destroy();
+      } catch (err) {
+        /* ignore */
+      }
     }
 
     try {
@@ -109,7 +113,9 @@ export function createRouter(screens, defaultRoute, mainContent, sidebar) {
           total += parseInt(localStorage.getItem(key) || '0', 10);
         }
       }
-    } catch { /* localStorage unavailable */ }
+    } catch {
+      /* localStorage unavailable */
+    }
     return total;
   }
 
@@ -117,7 +123,7 @@ export function createRouter(screens, defaultRoute, mainContent, sidebar) {
     if (currentRoute === '/chats') return;
 
     const count = getTotalUnreadCount();
-    document.querySelectorAll('[data-testid="nav-tab-chats"]').forEach(el => {
+    document.querySelectorAll('[data-testid="nav-tab-chats"]').forEach((el) => {
       let badge = el.querySelector('.nav-unread-badge');
 
       if (count > 0) {
@@ -140,7 +146,7 @@ export function createRouter(screens, defaultRoute, mainContent, sidebar) {
   }
 
   // Listen for chat unread updates
-  window.addEventListener('storage', e => {
+  window.addEventListener('storage', (e) => {
     if (e.key?.startsWith('isc:chat:unread:')) updateChatsBadge();
   });
 
@@ -158,42 +164,50 @@ export function createRouter(screens, defaultRoute, mainContent, sidebar) {
 export function setupEventHandlers({ onNavigate, mainContent }) {
   const { postService, networkService, modals } = globalThis.ISC_SERVICES ?? {};
 
-  document.addEventListener('isc:toast', e => toasts.show(e.detail?.message, e.detail?.type, e.detail?.duration));
+  document.addEventListener('isc:toast', (e) =>
+    toasts.show(e.detail?.message, e.detail?.type, e.detail?.duration)
+  );
   document.addEventListener('isc:new-channel', () => onNavigate('/compose'));
   document.addEventListener('isc:need-channel', () => {
     toasts.warning('Please select or create a channel first');
     onNavigate('/compose');
   });
 
-  document.addEventListener('isc:refresh-feed', e => {
+  document.addEventListener('isc:refresh-feed', (e) => {
     if (window.location.hash === '#/now') {
-      import('./screens/now.js').then(m => m.update?.(mainContent, { scrollToTop: e.detail?.scrollToTop ?? false }));
+      import('./screens/now.js').then((m) =>
+        m.update?.(mainContent, { scrollToTop: e.detail?.scrollToTop ?? false })
+      );
     }
   });
 
-  document.addEventListener('isc:like-post', async e => {
+  document.addEventListener('isc:like-post', async (e) => {
     const { postId } = e.detail || {};
     if (!postId || !postService) return;
     postService.like(postId).catch(() => {});
   });
 
-  document.addEventListener('isc:delete-post', async e => {
+  document.addEventListener('isc:delete-post', async (e) => {
     const { postId } = e.detail || {};
     if (!postId || !modals || !postService) return;
 
-    const ok = await modals.confirm('Delete this post?', { title: '🗑️ Delete Post', confirmText: 'Delete', danger: true });
+    const ok = await modals.confirm('Delete this post?', {
+      title: '🗑️ Delete Post',
+      confirmText: 'Delete',
+      danger: true,
+    });
     if (!ok) return;
 
     try {
       await postService.delete(postId);
-      import('./screens/now.js').then(m => m.update?.(mainContent));
+      import('./screens/now.js').then((m) => m.update?.(mainContent));
       toasts.success('Post deleted');
     } catch (err) {
       toasts.error(err.message);
     }
   });
 
-  document.addEventListener('isc:reply-post', e => {
+  document.addEventListener('isc:reply-post', (e) => {
     const { postId } = e.detail || {};
     if (!postId || !postService) return;
 
@@ -218,7 +232,7 @@ export function setupEventHandlers({ onNavigate, mainContent }) {
       await networkService.discoverPeers();
       actions.setMatches(networkService.getMatches());
       if (window.location.hash === '#/discover') {
-        import('./screens/discover.js').then(m => m.update?.(mainContent));
+        import('./screens/discover.js').then((m) => m.update?.(mainContent));
       }
     } catch (err) {
       toasts.error(err.message);
@@ -235,15 +249,63 @@ export function setupEventHandlers({ onNavigate, mainContent }) {
  * @param {Object} options.modals
  */
 export function setupKeyboardShortcuts({ onNavigate, onToggleDebug, mainContent, modals }) {
-  document.addEventListener('keydown', e => {
+  document.addEventListener('keydown', (e) => {
     const mod = e.ctrlKey || e.metaKey;
     const inInput = ['INPUT', 'TEXTAREA'].includes(document.activeElement?.tagName);
 
-    if (e.key === '?' && !mod && !inInput) { e.preventDefault(); modals?.showHelp?.(); }
-    if (e.key === 'k' && mod) { e.preventDefault(); onNavigate('/compose'); }
-    if (e.key === ',' && mod) { e.preventDefault(); onNavigate('/settings'); }
-    if (e.key === 'd' && mod) { e.preventDefault(); onToggleDebug(); }
-    if (e.key === '/' && !mod && !inInput) { e.preventDefault(); mainContent?.querySelector('input, textarea')?.focus(); }
+    if (e.key === '?' && !mod && !inInput) {
+      e.preventDefault();
+      modals?.showHelp?.();
+    }
+    if (e.key === 'k' && mod) {
+      e.preventDefault();
+      onNavigate('/compose');
+    }
+    if (e.key === ',' && mod) {
+      e.preventDefault();
+      onNavigate('/settings');
+    }
+    if (e.key === 'd' && mod) {
+      e.preventDefault();
+      onToggleDebug();
+    }
+    if (e.key === '/' && !mod && !inInput) {
+      e.preventDefault();
+      mainContent?.querySelector('input, textarea')?.focus();
+    }
     if (e.key === 'Escape') modals?.close?.();
+
+    if (e.key === 'Tab' && !mod && !inInput) {
+      e.preventDefault();
+      cycleSidebarFocus(e.shiftKey ? -1 : 1);
+    }
+
+    if (e.key === 'Enter' && !mod && !inInput) {
+      const focused = document.activeElement;
+      if (focused?.classList.contains('nav-item')) {
+        const href = focused.getAttribute('href');
+        if (href) window.location.hash = href;
+      }
+    }
+
+    if (e.key === 'n' && mod && !inInput) {
+      e.preventDefault();
+      onNavigate('/compose');
+    }
+
+    if (e.key === ' ' && mod && !inInput) {
+      e.preventDefault();
+      document.dispatchEvent(new CustomEvent('isc:toggle-chaos'));
+    }
   });
+}
+
+function cycleSidebarFocus(direction) {
+  const items = [...document.querySelectorAll('.nav-item, [role="tab"]')];
+  if (!items.length) return;
+
+  const focused = document.activeElement;
+  const idx = focused && items.includes(focused) ? items.indexOf(focused) : -1;
+  const next = (idx + direction + items.length) % items.length;
+  items[next]?.focus();
 }
