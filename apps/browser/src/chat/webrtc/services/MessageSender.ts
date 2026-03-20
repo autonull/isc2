@@ -16,16 +16,19 @@ const logger = loggers.chat;
 
 export class MessageSender {
   private queue: MessageQueue;
-  private pendingDelivery = new Map<number, {
-    messageId: number;
-    timestamp: number;
-    peerId: string;
-    retryCount: number;
-  }>();
+  private pendingDelivery = new Map<
+    number,
+    {
+      messageId: number;
+      timestamp: number;
+      peerId: string;
+      retryCount: number;
+    }
+  >();
 
   constructor(queue: MessageQueue) {
     this.queue = queue;
-    
+
     // Start delivery monitoring
     this.startDeliveryMonitor();
   }
@@ -38,14 +41,17 @@ export class MessageSender {
       const now = Date.now();
       for (const [messageId, data] of this.pendingDelivery.entries()) {
         const elapsed = now - data.timestamp;
-        
+
         // Timeout after 30 seconds
         if (elapsed > CHAT_CONFIG.messageTimeout) {
           if (data.retryCount < 3) {
             // Retry sending
             data.retryCount++;
             data.timestamp = now;
-            logger.debug('Retrying message', { messageId: String(messageId), attempt: String(data.retryCount) });
+            logger.debug('Retrying message', {
+              messageId: String(messageId),
+              attempt: String(data.retryCount),
+            });
           } else {
             // Mark as failed after 3 retries
             this.pendingDelivery.delete(messageId);
@@ -68,7 +74,6 @@ export class MessageSender {
     // Rate limit check
     const rateCheck = checkChatRate(node.peerId.toString());
     if (!rateCheck.allowed) {
-      const reason = rateCheck.blocked ? 'blocked' : 'rate limited';
       throw new Error(
         rateCheck.blocked
           ? `Chat blocked due to repeated violations. Try again in ${rateCheck.retryAfter}s`
@@ -76,12 +81,7 @@ export class MessageSender {
       );
     }
 
-    const messageId = this.queue.add(
-      message,
-      CHAT_CONFIG.messageTimeout,
-      () => {},
-      onStatusUpdate
-    );
+    const messageId = this.queue.add(message, CHAT_CONFIG.messageTimeout, () => {}, onStatusUpdate);
 
     const messageWithId = { ...message, id: String(messageId), status: 'pending' as MessageStatus };
 

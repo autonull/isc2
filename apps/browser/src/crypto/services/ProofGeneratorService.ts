@@ -6,7 +6,12 @@ import { encode } from '@isc/core';
 import { dbPut } from '../../db/helpers.js';
 import { ZK_STORES, ZK_PROTOCOL, type ZKConfig, ZK_CONFIG } from '../config/zkConfig.js';
 import type { Embedding, ProximityProof, ProofData } from '../models/proof.js';
-import { generateSalt, hashCommitment, embeddingToBytes, hashVerificationKey } from '../utils/commitment.js';
+import {
+  generateSalt,
+  hashCommitment,
+  embeddingToBytes,
+  hashVerificationKey,
+} from '../utils/commitment.js';
 
 /**
  * Generate a zero-knowledge proximity proof
@@ -61,13 +66,13 @@ export async function generateProximityProof(
  * Generate proof data (RESEARCH: simplified scheme)
  */
 async function generateProofData(
-  embeddingA: Embedding,
-  embeddingB: Embedding,
+  _embeddingA: Embedding,
+  _embeddingB: Embedding,
   threshold: number,
   actualSimilarity: number,
   commitmentA: Uint8Array,
   commitmentB: Uint8Array,
-  config: ZKConfig
+  _config: ZKConfig
 ): Promise<ProofData> {
   const publicInputs = encode({
     commitmentA: Array.from(commitmentA),
@@ -83,7 +88,7 @@ async function generateProofData(
   };
 
   const proof = encode(proofPayload);
-  const verificationKeyHash = await hashVerificationKey(config);
+  const verificationKeyHash = await hashVerificationKey(_config);
 
   return {
     protocol: ZK_PROTOCOL.NAME,

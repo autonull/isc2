@@ -81,7 +81,7 @@ export class GroupFormation {
   async createGroupInvite(
     roomId: string,
     members: string[],
-    initiatorPeerId: string,
+    _initiatorPeerId: string,
     signingKey: CryptoKey
   ): Promise<GroupInvite> {
     const timestamp = Date.now();

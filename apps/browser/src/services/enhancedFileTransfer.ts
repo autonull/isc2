@@ -8,7 +8,6 @@
  * - Transfer state management
  */
 
-import type { Libp2p } from 'libp2p';
 import { FileProtocol } from '../protocol/file.js';
 
 export interface TransferProgress {
@@ -50,20 +49,23 @@ const MIME_CATEGORIES = {
 };
 
 export class EnhancedFileTransferService {
+  private node: any;
   private protocol: FileProtocol;
-  private node: Libp2p;
   private stagedFiles = new Map<string, FileInfo>();
+  private stagedData = new Map<string, Uint8Array>();
   private transferListeners = new Set<(progress: TransferProgress) => void>();
 
-  constructor(node: Libp2p) {
+  constructor(node: any) {
     this.node = node;
     this.protocol = new FileProtocol(node);
     this.setupProtocolHandler();
   }
 
   private setupProtocolHandler(): void {
-    this.node.handle('/isc/file/1.0.0', ({ stream }) => {
-      this.protocol.handleStream(stream, (hash) => this.getStagedFile(hash)).catch(console.error);
+    this.node.handle('/isc/file/1.0.0', (event: any) => {
+      this.protocol
+        .handleStream(event.stream, (hash: string) => this.getStagedFile(hash))
+        .catch(console.error);
     });
   }
 
@@ -126,8 +128,13 @@ export class EnhancedFileTransferService {
       const oldest = Array.from(this.stagedFiles.entries()).sort(
         (a, b) => a[1].createdAt - b[1].createdAt
       )[0];
-      if (oldest) this.stagedFiles.delete(oldest[0]);
+      if (oldest) {
+        this.stagedFiles.delete(oldest[0]);
+        this.stagedData.delete(oldest[0]);
+      }
     }
+
+    const fileData = new Uint8Array(await file.arrayBuffer());
 
     const fileInfo: FileInfo = {
       hash,
@@ -140,7 +147,8 @@ export class EnhancedFileTransferService {
     };
 
     this.stagedFiles.set(hash, fileInfo);
-    await this.saveToStorage(fileInfo, file);
+    this.stagedData.set(hash, fileData);
+    await this.saveToStorage(fileInfo, fileData);
     return fileInfo;
   }
 
@@ -168,10 +176,10 @@ export class EnhancedFileTransferService {
     const fileInfo = this.stagedFiles.get(hash);
     if (!fileInfo) throw new Error('File not found in staged files');
 
-    const fileData = await this.getFileDataFromStorage(hash);
+    const fileData = this.stagedData.get(hash) ?? (await this.getFileDataFromStorage(hash));
     if (!fileData) throw new Error('File data not available');
 
-    const stream = await this.node.dialProtocol(peerId as any, '/isc/file/1.0.0');
+    const stream = await this.node.dialProtocol(peerId, '/isc/file/1.0.0');
     await stream.sink([new TextEncoder().encode(`SEND:${hash}:${fileInfo.name}`)]);
 
     for (let i = 0; i < fileData.length; i += CHUNK_SIZE) {
@@ -186,8 +194,9 @@ export class EnhancedFileTransferService {
 
   getStagedFile(hash: string): { data: Uint8Array; name: string } | null {
     const fileInfo = this.stagedFiles.get(hash);
-    if (!fileInfo) return null;
-    return null;
+    const fileData = this.stagedData.get(hash);
+    if (!fileInfo || !fileData) return null;
+    return { data: fileData, name: fileInfo.name };
   }
 
   getFileInfo(hash: string): FileInfo | null {
@@ -200,6 +209,7 @@ export class EnhancedFileTransferService {
 
   async deleteFile(hash: string): Promise<void> {
     this.stagedFiles.delete(hash);
+    this.stagedData.delete(hash);
     await this.removeFromStorage(hash);
   }
 
@@ -227,30 +237,27 @@ export class EnhancedFileTransferService {
     return blob.type || 'application/octet-stream';
   }
 
-  private async saveToStorage(fileInfo: FileInfo, file: File): Promise<void> {
-    const { dbPut } = await import('../db/helpers.js');
-    const db = await import('../db/factory.js').then((m) =>
-      m.getDB('isc-files', 1, ['files', 'fileData'])
-    );
+  private async saveToStorage(fileInfo: FileInfo, fileData: Uint8Array): Promise<void> {
+    const { getDB, dbPut } = await import('../db/factory.js');
+    const db = await getDB('isc-files', 1, ['files', 'fileData']);
     await dbPut(db, 'files', { ...fileInfo, data: null });
-    const data = new Uint8Array(await file.arrayBuffer());
-    await dbPut(db, 'fileData', { hash: fileInfo.hash, data, createdAt: Date.now() });
+    await dbPut(db, 'fileData', { hash: fileInfo.hash, data: fileData, createdAt: Date.now() });
   }
 
   private async getFileDataFromStorage(hash: string): Promise<Uint8Array | null> {
-    const { dbGet } = await import('../db/helpers.js');
-    const db = await import('../db/factory.js').then((m) =>
-      m.getDB('isc-files', 1, ['files', 'fileData'])
+    const { getDB, dbGet } = await import('../db/factory.js');
+    const db = await getDB('isc-files', 1, ['files', 'fileData']);
+    const record = await dbGet<{ hash: string; data: Uint8Array; createdAt: number }>(
+      db,
+      'fileData',
+      hash
     );
-    const record = await dbGet(db, 'fileData', hash);
-    return record?.data || null;
+    return record?.data ?? null;
   }
 
   private async removeFromStorage(hash: string): Promise<void> {
-    const { dbDelete } = await import('../db/helpers.js');
-    const db = await import('../db/factory.js').then((m) =>
-      m.getDB('isc-files', 1, ['files', 'fileData'])
-    );
+    const { getDB, dbDelete } = await import('../db/factory.js');
+    const db = await getDB('isc-files', 1, ['files', 'fileData']);
     await dbDelete(db, 'files', hash);
     await dbDelete(db, 'fileData', hash);
   }
@@ -258,7 +265,7 @@ export class EnhancedFileTransferService {
 
 let _instance: EnhancedFileTransferService | null = null;
 
-export function getEnhancedFileTransferService(node: Libp2p): EnhancedFileTransferService {
+export function getEnhancedFileTransferService(node: any): EnhancedFileTransferService {
   if (!_instance) _instance = new EnhancedFileTransferService(node);
   return _instance;
 }

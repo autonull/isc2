@@ -7,7 +7,7 @@ import { DelegationClient } from '../../delegation/fallback.js';
 import { dbGet, dbPut, dbGetAll } from '../../db/helpers.js';
 import { COURT_CONFIG } from '../config/courtConfig.js';
 import type { Verdict } from '../models/appeal.js';
-import type { Jury, JuryVote } from '../models/jury.js';
+import type { Jury } from '../models/jury.js';
 import { getAppeal } from './AppealService.js';
 
 /**

@@ -5,7 +5,6 @@
  */
 
 import type { DecayInteraction, DecayCurvePoint } from '../types/reputation.js';
-import { REPUTATION_CONSTANTS } from '../config/reputationConfig.js';
 
 export class DecayCalculator {
   /**
@@ -90,11 +89,7 @@ export class DecayCalculator {
   /**
    * Calculate time until reputation reaches a target score
    */
-  static timeToReachScore(
-    currentScore: number,
-    targetScore: number,
-    halfLifeDays: number
-  ): number {
+  static timeToReachScore(currentScore: number, targetScore: number, halfLifeDays: number): number {
     if (currentScore <= targetScore) {
       return 0;
     }

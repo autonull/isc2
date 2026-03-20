@@ -16,7 +16,7 @@ export class ReputationCache {
   /**
    * Cache reputation score
    */
-  static async cache(peerID: string, reputation: DecayReputation): Promise<void> {
+  static async cache(_peerID: string, reputation: DecayReputation): Promise<void> {
     await dbPut(REPUTATION_STORES.SCORES, {
       ...reputation,
       cachedAt: Date.now(),

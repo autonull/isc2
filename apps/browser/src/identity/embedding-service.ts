@@ -51,7 +51,7 @@ class EmbeddingServiceClass {
     const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
     const modelDownloaded = localStorage.getItem(MODEL_CACHE_KEY);
 
-    if (isMobile && !modelDownloaded && typeof window !== 'undefined' && window.confirm) {
+    if (isMobile && !modelDownloaded && typeof window !== 'undefined' && 'confirm' in window) {
       const proceed = confirm(
         'ISC needs to download a 22 MB AI model (once only). Proceed on WiFi?'
       );

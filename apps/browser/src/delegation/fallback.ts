@@ -1,13 +1,8 @@
-import type {
-  DelegateRequest,
-  DelegateResponse,
-  DelegateCapability,
-  DelegationHealth,
-} from '@isc/protocol/messages';
+import type { DelegateRequest, DelegateResponse } from '@isc/protocol/messages';
 import { SupernodeDiscovery } from './discovery.js';
 import { HealthSelector } from './selection.js';
 import { rankSupernodes, type ScoredSupernode, type SupernodeStats } from './scoring.js';
-import { createDelegationRequest, decryptResponsePayload } from './request.js';
+import { createDelegationRequest } from './request.js';
 import { verifyDelegationResponse } from './verify.js';
 
 export interface DelegationConfig {
@@ -192,7 +187,10 @@ export class DelegationClient {
     }
   }
 
-  private async dialSupernode(peerID: string, request: DelegateRequest): Promise<DelegateResponse> {
+  private async dialSupernode(
+    _peerID: string,
+    _request: DelegateRequest
+  ): Promise<DelegateResponse> {
     throw new Error('Not implemented: dialSupernode requires network adapter');
   }
 
@@ -232,7 +230,11 @@ export class DelegationClient {
       return { matches, scores: [] };
     },
     sig_verify: async (payload) => {
-      const req = this.decodePayload<{ payload: Uint8Array; signature: Uint8Array; publicKey: Uint8Array }>(payload);
+      const req = this.decodePayload<{
+        payload: Uint8Array;
+        signature: Uint8Array;
+        publicKey: Uint8Array;
+      }>(payload);
       const valid = await this.config.localHandler.handleSigVerify(
         req.payload,
         req.signature,

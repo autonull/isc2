@@ -11,11 +11,14 @@
  * - Panel expansion state (progressive disclosure)
  */
 
-import type { Channel } from '@isc/core';
-
 export type ChannelViewMode = 'list' | 'space' | 'grid';
 export type ChannelSortOrder = 'recency' | 'similarity' | 'activity' | 'alphabetical';
-export type ChannelFilterType = 'showMe' | 'showOthers' | 'showTrusted' | 'showHighAlignment' | 'showLowAlignment';
+export type ChannelFilterType =
+  | 'showMe'
+  | 'showOthers'
+  | 'showTrusted'
+  | 'showHighAlignment'
+  | 'showLowAlignment';
 
 export interface ChannelSettings {
   channelId: string;
@@ -69,8 +72,15 @@ const STORAGE_KEY_PREFIX = 'isc_channel_settings_';
 export interface ChannelSettingsService {
   getSettings(channelId: string): Promise<ChannelSettings>;
   updateSettings(channelId: string, updates: Partial<ChannelSettings>): Promise<ChannelSettings>;
-  getSetting<K extends keyof ChannelSettings>(channelId: string, key: K): Promise<ChannelSettings[K]>;
-  setSetting<K extends keyof ChannelSettings>(channelId: string, key: K, value: ChannelSettings[K]): Promise<void>;
+  getSetting<K extends keyof ChannelSettings>(
+    channelId: string,
+    key: K
+  ): Promise<ChannelSettings[K]>;
+  setSetting<K extends keyof ChannelSettings>(
+    channelId: string,
+    key: K,
+    value: ChannelSettings[K]
+  ): Promise<void>;
   togglePanel(channelId: string, panelKey: string): Promise<void>;
   archiveChannel(channelId: string): Promise<void>;
   unarchiveChannel(channelId: string): Promise<void>;
@@ -127,7 +137,10 @@ export function createChannelSettingsService(): ChannelSettingsService {
       return loadSettings(channelId);
     },
 
-    async updateSettings(channelId: string, updates: Partial<ChannelSettings>): Promise<ChannelSettings> {
+    async updateSettings(
+      channelId: string,
+      updates: Partial<ChannelSettings>
+    ): Promise<ChannelSettings> {
       const current = loadSettings(channelId);
       const updated = {
         ...current,
@@ -140,12 +153,19 @@ export function createChannelSettingsService(): ChannelSettingsService {
       return updated;
     },
 
-    async getSetting<K extends keyof ChannelSettings>(channelId: string, key: K): Promise<ChannelSettings[K]> {
+    async getSetting<K extends keyof ChannelSettings>(
+      channelId: string,
+      key: K
+    ): Promise<ChannelSettings[K]> {
       const settings = loadSettings(channelId);
       return settings[key];
     },
 
-    async setSetting<K extends keyof ChannelSettings>(channelId: string, key: K, value: ChannelSettings[K]): Promise<void> {
+    async setSetting<K extends keyof ChannelSettings>(
+      channelId: string,
+      key: K,
+      value: ChannelSettings[K]
+    ): Promise<void> {
       const current = loadSettings(channelId);
       const updated = { ...current, [key]: value, channelId };
       saveSettings(updated);

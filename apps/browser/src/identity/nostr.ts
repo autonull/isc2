@@ -9,10 +9,7 @@
  * HKDF-SHA256, ensuring the Nostr nsec controls the derived ISC identity.
  */
 
-import { importKeypair } from '@isc/core';
-
 const NOSTR_IDENTITY_ID = 'nostr-linked';
-const NOSTR_KIND = 0;
 const ISC_DERIVATION_CONTEXT = 'ISC-NOSTR-BRIDGE-v1';
 
 interface NostrLinkedIdentity {
@@ -113,7 +110,7 @@ async function deriveEd25519FromSecp256k1(secp256k1Scalar: Uint8Array): Promise<
 
   return crypto.subtle
     .generateKey({ name: 'Ed25519' }, false, ['sign', 'verify'])
-    .then(async (keyPair) => {
+    .then(async () => {
       const privateKeyBytes = seed.slice(0, 32);
       const publicKeyBytes = seed.slice(32, 64);
 
@@ -199,31 +196,6 @@ function exportKeypair(
   ]).then(([publicKey, privateKey]) => ({
     publicKey: new Uint8Array(publicKey),
     privateKey: new Uint8Array(privateKey),
-  }));
-}
-
-function importEd25519Keypair(
-  publicKey: Uint8Array,
-  privateKey: Uint8Array
-): Promise<CryptoKeyPair> {
-  return Promise.all([
-    crypto.subtle.importKey(
-      'raw',
-      publicKey.buffer as unknown as ArrayBuffer,
-      { name: 'Ed25519' },
-      true,
-      ['verify']
-    ),
-    crypto.subtle.importKey(
-      'raw',
-      privateKey.buffer as unknown as ArrayBuffer,
-      { name: 'Ed25519' },
-      true,
-      ['sign']
-    ),
-  ]).then(([publicKeyKey, privateKeyKey]) => ({
-    publicKey: publicKeyKey,
-    privateKey: privateKeyKey,
   }));
 }
 

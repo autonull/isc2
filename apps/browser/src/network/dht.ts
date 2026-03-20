@@ -13,14 +13,7 @@ import { bootstrap } from '@libp2p/bootstrap';
 import type { Libp2p } from 'libp2p';
 import { checkQueryRate, checkAnnounceRate } from '../rateLimit.js';
 import { verifySignature, isPeerBlocked } from '../crypto/verifier.js';
-import {
-  sign,
-  encode,
-  type Signature,
-  getSecurityTier,
-  shouldSkipSignature,
-  TIER_RATE_LIMITS,
-} from '@isc/core';
+import { sign, encode, type Signature, getSecurityTier, shouldSkipSignature } from '@isc/core';
 import { getKeypair } from '../identity/index.js';
 import { loggers } from '../utils/logger.js';
 
@@ -202,7 +195,7 @@ export class RealDHTClient {
     }
   }
 
-  async query(key: string, count: number = 20): Promise<Uint8Array[]> {
+  async query(key: string, _count: number = 20): Promise<Uint8Array[]> {
     if (!this.dht) {
       throw new Error('DHT not initialized');
     }

@@ -28,7 +28,7 @@ export function createSingleton<T extends new (...args: any[]) => any>(
     if (!instance) {
       instance = new ServiceClass(config ?? defaultConfig) as InstanceType<T>;
     }
-    return instance;
+    return instance!;
   };
 }
 
@@ -45,7 +45,7 @@ export function createListenerManager<T extends (...args: any[]) => void>() {
     },
 
     emit(...args: Parameters<T>): void {
-      listeners.forEach(listener => listener(...args));
+      listeners.forEach((listener) => listener(...args));
     },
 
     clear(): void {
@@ -121,8 +121,9 @@ export function createCache<T>(options?: { maxAge?: number; maxSize?: number }) 
 
     set(key: string, value: T): void {
       if (cache.size >= maxSize) {
-        const oldest = Array.from(cache.entries())
-          .sort((a, b) => a[1].timestamp - b[1].timestamp)[0];
+        const oldest = Array.from(cache.entries()).sort(
+          (a, b) => a[1].timestamp - b[1].timestamp
+        )[0];
         if (oldest) cache.delete(oldest[0]);
       }
       cache.set(key, { value, timestamp: Date.now() });
@@ -210,7 +211,7 @@ export function hashString(str: string): number {
   let hash = 0;
   for (let i = 0; i < str.length; i++) {
     const char = str.charCodeAt(i);
-    hash = ((hash << 5) - hash) + char;
+    hash = (hash << 5) - hash + char;
     hash = hash & hash;
   }
   return Math.abs(hash);

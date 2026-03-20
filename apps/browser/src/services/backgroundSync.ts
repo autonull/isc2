@@ -171,7 +171,14 @@ export class BackgroundSyncManager {
       this.port?.postMessage({ type: 'GET_STATE', tabId: this.tabId });
 
       const onState = (response: BackgroundSyncResponse) => {
-        if (response.type === 'STATE') resolve(response.payload);
+        if (response.type === 'STATE') {
+          resolve({
+            initialized: true,
+            peerId: (response.payload as any)?.peerId ?? null,
+            connected: true,
+            connectionCount: (response.payload as any)?.connectionCount ?? 0,
+          });
+        }
       };
       this.port?.addEventListener('message', onState as EventListener, { once: true });
     });

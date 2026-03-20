@@ -7,7 +7,7 @@
 
 import { BrowserNetworkService, type PeerMatch as NetworkPeerMatch } from '@isc/network';
 import { loggers } from '../logger.js';
-import { actions, getState } from '../state.js';
+import { actions } from '../state.js';
 import { NetworkError, ChannelError, MessageError, IdentityError } from '../errors.js';
 import { STATUS } from '../constants.js';
 import { getBackgroundSyncManager, type BackgroundSyncManager } from './backgroundSync.js';
@@ -37,7 +37,7 @@ class NetworkServiceWrapper {
   private sharedWorker: BackgroundSyncManager | null = null;
   private messageQueue: MessageQueueService | null = null;
   private log = loggers.network;
-  private initialized = false;
+  private _initialized = false;
   private reconnectAttempts = 0;
   private maxReconnectAttempts = 5;
   private useBackgroundWorker = typeof SharedWorker !== 'undefined';
@@ -72,7 +72,7 @@ class NetworkServiceWrapper {
 
       this.service = new BrowserNetworkService();
       await this.service.initialize();
-      this.initialized = true;
+      this._initialized = true;
       this.setupEventListeners();
       this.log.info('Network service initialized');
       return true;
@@ -189,7 +189,7 @@ class NetworkServiceWrapper {
       try {
         this.service?.destroy();
         this.service = null;
-        this.initialized = false;
+        this._initialized = false;
         await this.initialize();
       } catch (err) {
         this.log.error('Reconnect failed', { error: (err as Error).message });
@@ -336,7 +336,7 @@ class NetworkServiceWrapper {
   async destroy(): Promise<void> {
     try {
       this.service?.destroy();
-      this.initialized = false;
+      this._initialized = false;
       this.log.info('Network service destroyed');
     } catch (err) {
       this.log.error('Destroy failed', { error: (err as Error).message });

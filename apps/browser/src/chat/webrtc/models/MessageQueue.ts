@@ -69,7 +69,7 @@ export class MessageQueue {
   }
 
   clear(): void {
-    for (const [id, pending] of this.queue.entries()) {
+    for (const [, pending] of this.queue.entries()) {
       clearTimeout(pending.timeoutId);
       pending.reject(new Error('Queue cleared'));
     }

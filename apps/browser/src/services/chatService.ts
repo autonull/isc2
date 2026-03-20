@@ -4,8 +4,7 @@
  * Manages direct message conversations and message history.
  */
 
-import type { ChatService as IChatService } from '../di/container.js';
-import { dbGet, dbGetAll, dbPut, dbFilter } from '../db/helpers.js';
+import { dbGetAll, dbPut, dbFilter } from '../db/helpers.js';
 import { getPeerID } from '../identity/index.js';
 import { loggers } from '../utils/logger.js';
 
@@ -36,13 +35,17 @@ interface Message {
 /**
  * Handle database errors consistently
  */
-function handleDbError(operation: string, err: unknown, context?: Record<string, unknown>): never[] {
+function handleDbError(
+  operation: string,
+  err: unknown,
+  context?: Record<string, unknown>
+): never[] {
   const error = err instanceof Error ? err : new Error(String(err));
   logger.error(`Failed to ${operation}`, error, context);
   return [];
 }
 
-class ChatServiceImpl implements IChatService {
+class ChatServiceImpl {
   async getConversations(): Promise<Conversation[]> {
     try {
       const conversations = await dbGetAll<Conversation>(CONVERSATIONS_STORE);
@@ -54,7 +57,10 @@ class ChatServiceImpl implements IChatService {
 
   async getMessages(conversationId: string): Promise<Message[]> {
     try {
-      const messages = await dbFilter<Message>(MESSAGES_STORE, m => m.conversationId === conversationId);
+      const messages = await dbFilter<Message>(
+        MESSAGES_STORE,
+        (m) => m.conversationId === conversationId
+      );
       return messages.sort((a, b) => a.timestamp - b.timestamp);
     } catch (err) {
       return handleDbError('get messages', err, { conversationId });
@@ -77,7 +83,7 @@ class ChatServiceImpl implements IChatService {
 
       // Update conversation last message
       const conversations = await this.getConversations();
-      const conversation = conversations.find(c => c.id === conversationId);
+      const conversation = conversations.find((c) => c.id === conversationId);
       if (conversation) {
         conversation.lastMessage = content;
         conversation.lastMessageTime = Date.now();
@@ -96,7 +102,7 @@ class ChatServiceImpl implements IChatService {
   async createConversation(userId: string): Promise<Conversation> {
     try {
       const conversations = await this.getConversations();
-      const existing = conversations.find(c => c.participantId === userId);
+      const existing = conversations.find((c) => c.participantId === userId);
       if (existing) {
         return existing;
       }
@@ -123,13 +129,13 @@ class ChatServiceImpl implements IChatService {
 
 let _instance: ChatServiceImpl | null = null;
 
-export function getChatService(): IChatService {
+export function getChatService(): ChatServiceImpl {
   if (!_instance) {
     _instance = new ChatServiceImpl();
   }
   return _instance;
 }
 
-export function createChatService(): IChatService {
+export function createChatService(): ChatServiceImpl {
   return getChatService();
 }

@@ -15,6 +15,7 @@ import {
   acknowledgeThoughtTwin,
   dismissThoughtTwin,
 } from '../../services/thoughtTwin.ts';
+import { getDriftInfo } from '../../services/channelHistory.ts';
 
 let demoModeService = null;
 let UMAP = null;
@@ -79,6 +80,7 @@ export function render() {
           <span class="peer-count" id="peer-count">0 peers</span>
           <span class="similarity-hint">Click a peer to connect</span>
         </div>
+        <div class="channel-drift-panel" id="channel-drift-panel"></div>
       </div>
     </div>
   `;
@@ -154,6 +156,7 @@ export function bind(container) {
 
   initSpaceView();
   loadThoughtTwin(container);
+  loadChannelDrift(container);
 }
 
 function resizeCanvas() {
@@ -478,12 +481,49 @@ function updatePeerCount(count) {
   }
 }
 
+function renderDriftBadge(drift) {
+  if (!drift) return '';
+  return `
+    <div class="drift-badge" title="Your thoughts have ${drift.direction} over ${drift.daysElapsed} days">
+      <span class="drift-icon">📡</span>
+      <span class="drift-text">${drift.driftAngle}° ${drift.direction}</span>
+    </div>
+  `;
+}
+
+async function loadChannelDrift(container) {
+  const panel = container.querySelector('#channel-drift-panel');
+  if (!panel) return;
+
+  const conversations = window.__iscConversations || [];
+  const activeChannels = conversations.slice(0, 2);
+
+  if (activeChannels.length === 0) {
+    panel.innerHTML = '';
+    return;
+  }
+
+  const driftInfos = await Promise.all(
+    activeChannels.map((c) => getDriftInfo(c.channelId || c.peerId).catch(() => null))
+  );
+
+  const validDrifts = driftInfos.filter(Boolean);
+  if (validDrifts.length === 0) {
+    panel.innerHTML = '';
+    return;
+  }
+
+  const topDrift = validDrifts.sort((a, b) => b.driftAngle - a.driftAngle)[0];
+  panel.innerHTML = renderDriftBadge(topDrift);
+}
+
 export function update(container) {
   if (!isInitialized) return;
 
   const state = getState();
   updateFromState(state);
   renderCanvas();
+  loadChannelDrift(container);
 }
 
 export function destroy() {
