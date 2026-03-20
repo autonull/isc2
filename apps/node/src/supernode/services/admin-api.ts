@@ -1,24 +1,10 @@
-/**
- * WebSocket Admin API for ISC Relay Node
- *
- * Provides real-time control and monitoring for relay operators.
- * Authentication required for write operations.
- *
- * Endpoints:
- * - status: Get node status and metrics
- * - config: Update node configuration
- * - simulator/*: Control simulator module
- * - peers: View connected peers
- * - logs: Stream node logs
- */
-
 import { WebSocketServer, WebSocket } from 'ws';
-import { createServer, IncomingMessage, ServerResponse } from 'http';
+import { createServer, type IncomingMessage, type ServerResponse } from 'http';
 import { readFile } from 'fs/promises';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import type { Libp2p } from 'libp2p';
-import type { Simulator } from '../services/simulator.js';
+import type { Simulator } from './simulator.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -31,15 +17,22 @@ export interface AdminConfig {
 export interface AdminRequest {
   id: string;
   action: string;
-  params?: Record<string, any>;
+  params?: Record<string, unknown>;
   authToken?: string;
 }
 
 export interface AdminResponse {
   id: string;
   success: boolean;
-  data?: any;
+  data?: unknown;
   error?: string;
+}
+
+export interface HealthStatus {
+  status: string;
+  peers: number;
+  uptime: number;
+  version: string;
 }
 
 const DEFAULT_CONFIG: AdminConfig = {
@@ -57,46 +50,36 @@ export class AdminAPI {
   private clients: Set<WebSocket> = new Set();
   private logBuffer: string[] = [];
   private adminUiHtml: string | null = null;
+  private startTime = Date.now();
 
   constructor(config: Partial<AdminConfig> = {}) {
     this.config = { ...DEFAULT_CONFIG, ...config };
   }
 
-  /**
-   * Initialize admin API with node services
-   */
   initialize(relayNode: Libp2p, simulator?: Simulator): void {
     this.relayNode = relayNode;
-    this.simulator = simulator || null;
+    this.simulator = simulator ?? null;
   }
 
-  /**
-   * Start WebSocket admin server with HTTP for UI
-   */
   async start(): Promise<void> {
-    // Load admin UI HTML
+    this.startTime = Date.now();
+
     try {
-      const uiPath = join(__dirname, '../admin-ui.html');
-      this.adminUiHtml = await readFile(uiPath, 'utf-8');
+      this.adminUiHtml = await readFile(join(__dirname, '../admin-ui.html'), 'utf-8');
       console.log('[AdminAPI] Admin UI loaded');
-    } catch (err) {
+    } catch {
       console.warn('[AdminAPI] Admin UI not found, WebSocket only');
     }
 
-    // Create HTTP server
     this.server = createServer((req, res) => this.handleHttp(req, res));
-
-    // Attach WebSocket server
     this.wss = new WebSocketServer({ server: this.server });
 
     this.wss.on('connection', (ws, req) => {
-      const ip = req.socket.remoteAddress || 'unknown';
-
+      const ip = req.socket.remoteAddress ?? 'unknown';
       if (this.config.allowedIPs.length > 0 && !this.config.allowedIPs.includes(ip)) {
         ws.close(4003, 'IP not allowed');
         return;
       }
-
       this.handleConnection(ws, ip);
     });
 
@@ -108,11 +91,17 @@ export class AdminAPI {
     });
   }
 
-  /**
-   * Handle HTTP requests (serve admin UI)
-   */
   private handleHttp(req: IncomingMessage, res: ServerResponse): void {
-    if (req.url === '/' || req.url === '/admin') {
+    const path = req.url ?? '';
+
+    if (path === '/health') {
+      const health = this.getHealthStatus();
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(health));
+      return;
+    }
+
+    if (path === '/' || path === '/admin') {
       if (this.adminUiHtml) {
         res.writeHead(200, { 'Content-Type': 'text/html' });
         res.end(this.adminUiHtml);
@@ -127,36 +116,31 @@ export class AdminAPI {
     res.end('Not found');
   }
 
-  /**
-   * Stop admin server
-   */
+  private getHealthStatus(): HealthStatus {
+    const peers = this.relayNode?.getConnections().length ?? 0;
+    return {
+      status: 'ok',
+      peers,
+      uptime: Math.floor((Date.now() - this.startTime) / 1000),
+      version: '0.1.0',
+    };
+  }
+
   stop(): void {
-    if (this.wss) {
-      this.wss.close();
-      this.wss = null;
-    }
-    if (this.server) {
-      this.server.close();
-      this.server = null;
-    }
+    this.wss?.close();
+    this.wss = null;
+    this.server?.close();
+    this.server = null;
     this.clients.clear();
   }
 
-  /**
-   * Log a message (buffered for admin viewing)
-   */
   log(message: string): void {
     const entry = `[${new Date().toISOString()}] ${message}`;
     this.logBuffer.push(entry);
-    if (this.logBuffer.length > 1000) {
-      this.logBuffer.shift();
-    }
+    if (this.logBuffer.length > 1000) this.logBuffer.shift();
     this.broadcast({ type: 'log', message: entry });
   }
 
-  /**
-   * Handle new WebSocket connection
-   */
   private handleConnection(ws: WebSocket, ip: string): void {
     console.log(`[AdminAPI] Client connected from ${ip}`);
     this.clients.add(ws);
@@ -167,7 +151,7 @@ export class AdminAPI {
       try {
         const request = JSON.parse(data.toString()) as AdminRequest;
         this.handleRequest(ws, request);
-      } catch (err) {
+      } catch {
         this.send(ws, { type: 'error', message: 'Invalid JSON' });
       }
     });
@@ -183,39 +167,33 @@ export class AdminAPI {
     });
   }
 
-  /**
-   * Handle incoming request
-   */
   private handleRequest(ws: WebSocket, request: AdminRequest): void {
     const { id, action, params, authToken } = request;
+    const requiresAuth = action.startsWith('config') || action.startsWith('simulator');
 
-    const requiresAuth = ['config', 'simulator'].some(prefix => action.startsWith(prefix));
     if (requiresAuth && authToken !== this.config.authToken) {
       this.send(ws, { id, success: false, error: 'Authentication required' });
       return;
     }
 
     this.routeRequest(ws, id, action, params)
-      .then(data => this.send(ws, { id, success: true, data }))
-      .catch(err => this.send(ws, { id, success: false, error: err.message }));
+      .then((data) => this.send(ws, { id, success: true, data }))
+      .catch((err) => this.send(ws, { id, success: false, error: err.message }));
   }
 
-  /**
-   * Route request to handler
-   */
   private async routeRequest(
-    ws: WebSocket,
-    id: string,
+    _ws: WebSocket,
+    _id: string,
     action: string,
-    params?: Record<string, any>
-  ): Promise<any> {
+    params?: Record<string, unknown>
+  ): Promise<unknown> {
     switch (action) {
       case 'status':
         return this.getStatus();
       case 'config':
         return this.updateConfig(params);
       case 'simulator:start':
-        return this.simulatorStart(params?.botCount);
+        return this.simulatorStart(params?.botCount as number | undefined);
       case 'simulator:stop':
         return this.simulatorStop();
       case 'simulator:status':
@@ -227,19 +205,22 @@ export class AdminAPI {
       case 'peers':
         return this.getPeers();
       case 'logs':
-        return this.getLogs(params?.lines || 100);
+        return this.getLogs((params?.lines as number) ?? 100);
       default:
         throw new Error(`Unknown action: ${action}`);
     }
   }
 
-  /**
-   * Get node status
-   */
-  private async getStatus(): Promise<any> {
-    if (!this.relayNode) {
-      throw new Error('Relay node not initialized');
-    }
+  private getStatus(): {
+    peerId: string;
+    status: string;
+    connections: number;
+    addresses: string[];
+    protocols: string[];
+    uptime: number;
+    memory: ReturnType<typeof process.memoryUsage>;
+  } {
+    if (!this.relayNode) throw new Error('Relay node not initialized');
 
     const peerId = this.relayNode.peerId.toString();
     const connections = this.relayNode.getConnections();
@@ -249,130 +230,81 @@ export class AdminAPI {
       peerId,
       status: this.relayNode.status,
       connections: connections.length,
-      addresses: multiaddrs.map(a => a.toString()),
+      addresses: multiaddrs.map((a) => a.toString()),
       protocols: Array.from(this.relayNode.getProtocols()),
       uptime: process.uptime(),
       memory: process.memoryUsage(),
     };
   }
 
-  /**
-   * Update node configuration
-   */
-  private async updateConfig(params?: Record<string, any>): Promise<any> {
+  private updateConfig(params?: Record<string, unknown>): { updated: boolean; config: unknown } {
     return { updated: true, config: params };
   }
 
-  /**
-   * Start simulator
-   */
-  private async simulatorStart(botCount?: number): Promise<any> {
-    if (!this.simulator) {
-      throw new Error('Simulator not available');
-    }
-
-    await this.simulator.start(botCount || 5);
-    return { started: true, botCount: botCount || 5 };
+  private async simulatorStart(botCount?: number): Promise<{ started: boolean; botCount: number }> {
+    if (!this.simulator) throw new Error('Simulator not available');
+    const count = botCount ?? 5;
+    await this.simulator.start(count);
+    return { started: true, botCount: count };
   }
 
-  /**
-   * Stop simulator
-   */
-  private async simulatorStop(): Promise<any> {
-    if (!this.simulator) {
-      throw new Error('Simulator not available');
-    }
-
+  private async simulatorStop(): Promise<{ stopped: boolean }> {
+    if (!this.simulator) throw new Error('Simulator not available');
     await this.simulator.stop();
     return { stopped: true };
   }
 
-  /**
-   * Get simulator status
-   */
-  private async simulatorStatus(): Promise<any> {
-    if (!this.simulator) {
-      return { available: false };
-    }
-
+  private simulatorStatus():
+    | { available: boolean }
+    | ({ available: true } & ReturnType<Simulator['getMetrics']>) {
+    if (!this.simulator) return { available: false };
     return { available: true, ...this.simulator.getMetrics() };
   }
 
-  /**
-   * Configure simulator
-   */
-  private async simulatorConfigure(params?: Record<string, any>): Promise<any> {
-    if (!this.simulator) {
-      throw new Error('Simulator not available');
-    }
-
-    this.simulator.configure(params || {});
+  private simulatorConfigure(params?: Record<string, unknown>): { configured: boolean } {
+    if (!this.simulator) throw new Error('Simulator not available');
+    this.simulator.configure(params ?? {});
     return { configured: true };
   }
 
-  /**
-   * Get bot list
-   */
-  private async simulatorGetBots(): Promise<any> {
-    if (!this.simulator) {
-      return { bots: [] };
-    }
-
+  private simulatorGetBots(): { bots: ReturnType<Simulator['getBots']> } {
+    if (!this.simulator) return { bots: [] };
     return { bots: this.simulator.getBots() };
   }
 
-  /**
-   * Get connected peers
-   */
-  private async getPeers(): Promise<any> {
-    if (!this.relayNode) {
-      throw new Error('Relay node not initialized');
-    }
-
+  private getPeers(): {
+    count: number;
+    peers: Array<{ peerId: string; protocols: string[]; status: string }>;
+  } {
+    if (!this.relayNode) throw new Error('Relay node not initialized');
     const connections = this.relayNode.getConnections();
     return {
       count: connections.length,
-      peers: connections.map(conn => ({
+      peers: connections.map((conn) => ({
         peerId: conn.remotePeer.toString(),
-        protocols: Array.from(conn.streams.map(s => s.protocol).filter(Boolean)),
-        status: conn.status,
+        protocols: Array.from(conn.streams.map((s) => s.protocol).filter(Boolean) as string[]),
+        status: String(conn.status),
       })),
     };
   }
 
-  /**
-   * Get log buffer
-   */
-  private async getLogs(lines: number): Promise<any> {
+  private getLogs(lines: number): { logs: string[] } {
     const start = Math.max(0, this.logBuffer.length - lines);
     return { logs: this.logBuffer.slice(start) };
   }
 
-  /**
-   * Send message to specific client
-   */
-  private send(ws: WebSocket, message: any): void {
-    if (ws.readyState === WebSocket.OPEN) {
-      ws.send(JSON.stringify(message));
-    }
+  private send(ws: WebSocket, message: unknown): void {
+    if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(message));
   }
 
-  /**
-   * Broadcast message to all clients
-   */
-  private broadcast(message: any): void {
+  private broadcast(message: unknown): void {
     const data = JSON.stringify(message);
     for (const ws of this.clients) {
-      if (ws.readyState === WebSocket.OPEN) {
-        ws.send(data);
-      }
+      if (ws.readyState === WebSocket.OPEN) ws.send(data);
     }
   }
 }
 
-/**
- * Create admin API instance
- */
 export function createAdminAPI(config?: Partial<AdminConfig>): AdminAPI {
   return new AdminAPI(config);
 }

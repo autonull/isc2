@@ -8,16 +8,21 @@ import { gossipsub } from '@chainsafe/libp2p-gossipsub';
 import { circuitRelayServer } from '@libp2p/circuit-relay-v2';
 import { identify } from '@libp2p/identify';
 import { ping } from '@libp2p/ping';
-import { generateKeyPair } from '@libp2p/crypto/keys';
 import { createSimulator } from './supernode/services/simulator.js';
 import { createAdminAPI } from './supernode/services/admin-api.js';
 import { createEmbeddingService } from '@isc/network';
+import type { Libp2p } from 'libp2p';
+import type { Simulator } from './supernode/services/simulator.js';
+import type { AdminAPI } from './supernode/services/admin-api.js';
 
-// Configuration from environment
 const ENABLE_SIMULATOR = process.env.ISC_SIMULATOR === 'true';
 const SIMULATOR_BOT_COUNT = parseInt(process.env.ISC_BOT_COUNT || '5');
 const ADMIN_TOKEN = process.env.ISC_ADMIN_TOKEN || 'admin-token-change-me';
 const ADMIN_PORT = parseInt(process.env.ISC_ADMIN_PORT || '9091');
+
+let node: Libp2p | null = null;
+let simulator: Simulator | null = null;
+let adminAPI: AdminAPI | null = null;
 
 export async function main(): Promise<void> {
   console.log('Starting ISC Node Relay Server...');
@@ -26,55 +31,34 @@ export async function main(): Promise<void> {
   const { createEd25519PeerId } = await import('@libp2p/peer-id-factory');
   const peerId = await createEd25519PeerId();
 
-  const node = await createLibp2p({
-    peerId: peerId as any,
+  node = await createLibp2p({
+    peerId,
     start: false,
     addresses: {
-      listen: [
-        '/ip4/127.0.0.1/tcp/9090/ws',
-        '/ip4/127.0.0.1/udp/9091/quic-v1/webtransport'
-      ]
+      listen: ['/ip4/127.0.0.1/tcp/9090/ws', '/ip4/127.0.0.1/udp/9091/quic-v1/webtransport'],
     },
-    transports: [
-      webSockets(),
-      webTransport()
-    ],
+    transports: [webSockets(), webTransport()],
     connectionEncryption: [noise()],
     streamMuxers: [yamux()],
     services: {
-      identify: identify({
-        protocolPrefix: 'ipfs',
-        agentVersion: 'isc-relay/0.1.0'
-      }),
+      identify: identify({ protocolPrefix: 'ipfs', agentVersion: 'isc-relay/0.1.0' }),
       ping: ping(),
       relay: circuitRelayServer({
-        reservations: {
-          maxReservations: Infinity,
-          applyDefaultLimit: false,
-        }
+        reservations: { maxReservations: Infinity, applyDefaultLimit: false },
       }),
-      dht: kadDHT({
-        protocol: '/ipfs/kad/1.0.0',
-        clientMode: false
-      }),
-      pubsub: gossipsub({ allowPublishToZeroPeers: true } as any) as any
-    }
-  });
+      dht: kadDHT({ protocol: '/ipfs/kad/1.0.0', clientMode: false }),
+      pubsub: gossipsub({ allowPublishToZeroPeers: true }),
+    },
+  } as any);
 
   await node.start();
 
   console.log('Relay server listening on:');
-  node.getMultiaddrs().forEach((addr) => {
-    console.log(addr.toString());
-  });
+  node.getMultiaddrs().forEach((addr) => console.log(addr.toString()));
 
-  const wsAddr = node.getMultiaddrs().find(a => a.toString().includes('/ws'));
-  if (wsAddr) {
-    console.log(`\n\nBOOTSTRAP_NODE=${wsAddr.toString()}\n\n`);
-  }
+  const wsAddr = node.getMultiaddrs().find((a) => a.toString().includes('/ws'));
+  if (wsAddr) console.log(`\n\nBOOTSTRAP_NODE=${wsAddr.toString()}\n\n`);
 
-  // Initialize Simulator if enabled
-  let simulator = null;
   if (ENABLE_SIMULATOR) {
     try {
       const embeddingService = createEmbeddingService();
@@ -90,12 +74,8 @@ export async function main(): Promise<void> {
     }
   }
 
-  // Initialize Admin API
-  const adminAPI = createAdminAPI({
-    port: ADMIN_PORT,
-    authToken: ADMIN_TOKEN,
-  });
-  adminAPI.initialize(node, simulator || undefined);
+  adminAPI = createAdminAPI({ port: ADMIN_PORT, authToken: ADMIN_TOKEN });
+  adminAPI.initialize(node, simulator ?? undefined);
   adminAPI.start();
 
   console.log(`[AdminAPI] Available at http://localhost:${ADMIN_PORT}`);
@@ -103,7 +83,57 @@ export async function main(): Promise<void> {
   console.log('\n=== ISC Relay Node Ready ===\n');
 }
 
-// Support executing directly
+async function shutdown(signal: string): Promise<void> {
+  console.log(`\n[Shutdown] Received ${signal}, starting graceful shutdown...`);
+
+  if (simulator) {
+    console.log('[Shutdown] Stopping simulator...');
+    try {
+      await simulator.stop();
+    } catch (err) {
+      console.error('[Shutdown] Error stopping simulator:', err);
+    }
+  }
+
+  if (adminAPI) {
+    console.log('[Shutdown] Stopping admin API...');
+    try {
+      adminAPI.stop();
+    } catch (err) {
+      console.error('[Shutdown] Error stopping admin API:', err);
+    }
+  }
+
+  if (node) {
+    console.log('[Shutdown] Stopping libp2p node...');
+    try {
+      await node.stop();
+      console.log('[Shutdown] libp2p node stopped');
+    } catch (err) {
+      console.error('[Shutdown] Error stopping libp2p:', err);
+    }
+  }
+
+  console.log('[Shutdown] Graceful shutdown complete');
+  process.exit(0);
+}
+
+process.on('SIGINT', () => {
+  console.log('\n[Shutdown] SIGINT received');
+  shutdown('SIGINT').catch((err) => {
+    console.error('[Shutdown] Fatal error:', err);
+    process.exit(1);
+  });
+});
+
+process.on('SIGTERM', () => {
+  console.log('\n[Shutdown] SIGTERM received');
+  shutdown('SIGTERM').catch((err) => {
+    console.error('[Shutdown] Fatal error:', err);
+    process.exit(1);
+  });
+});
+
 if (import.meta.url === `file://${process.argv[1]}`) {
   main().catch((err) => {
     console.error('Failed to start node:', err);
