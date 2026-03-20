@@ -1,7 +1,7 @@
 // @ts-nocheck
 /**
  * ISC Network - Browser Network Service
- * 
+ *
  * Main network service for browser applications.
  * Integrates embedding, DHT, storage, and peer management.
  */
@@ -62,6 +62,7 @@ export interface ChannelData {
   createdAt: number;
   members: string[];
   embedding?: number[];
+  isLurker?: boolean;
 }
 
 /**
@@ -87,11 +88,12 @@ export interface Identity {
   bio: string;
   publicKey?: string;
   createdAt: number;
+  isEphemeral?: boolean;
 }
 
 /**
  * Browser Network Service
- * 
+ *
  * Main entry point for network functionality in browser apps.
  */
 export class BrowserNetworkService {
@@ -114,6 +116,11 @@ export class BrowserNetworkService {
   constructor(config: Partial<NetworkServiceConfig> = {}) {
     this.config = { ...DEFAULT_CONFIG, ...config };
     this.storage = createStorage();
+  }
+
+  private shouldPersist(): boolean {
+    if (typeof window === 'undefined') return true;
+    return window.localStorage.getItem('isc-ephemeral-session') !== 'true';
   }
 
   /**
@@ -141,14 +148,19 @@ export class BrowserNetworkService {
         console.log('[Network] Real libp2p network adapter started.');
 
         if (typeof window !== 'undefined') {
-           (window as any).__iscNetworkAdapter = this.networkAdapter;
+          (window as any).__iscNetworkAdapter = this.networkAdapter;
         }
 
         // Swap out the local in-memory DHT for the real libp2p DHT
         this.dht = new Libp2pDHT(this.networkAdapter);
-        console.log('[Network] Swapped InMemoryDHT with real Libp2pDHT connected to NetworkAdapter.');
+        console.log(
+          '[Network] Swapped InMemoryDHT with real Libp2pDHT connected to NetworkAdapter.'
+        );
       } catch (err) {
-        console.warn('[Network] Failed to start real network adapter, falling back to in-memory DHT. Err: ', err);
+        console.warn(
+          '[Network] Failed to start real network adapter, falling back to in-memory DHT. Err: ',
+          err
+        );
         this.networkAdapter = null;
       }
 
@@ -177,13 +189,27 @@ export class BrowserNetworkService {
    * Load or create user identity
    */
   private async loadIdentity(): Promise<void> {
+    const isEphemeral =
+      typeof window !== 'undefined' &&
+      window.localStorage.getItem('isc-ephemeral-session') === 'true';
+
+    if (isEphemeral) {
+      this.identity = {
+        peerId: `ephemeral-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        name: 'Anonymous',
+        bio: 'Ephemeral User',
+        createdAt: Date.now(),
+      };
+      console.log('[Network] Ephemeral identity created (not persisted):', this.identity.peerId);
+      return;
+    }
+
     const saved = await this.storage.get<Identity>('isc-identity');
-    
+
     if (saved) {
       this.identity = saved;
       console.log('[Network] Loaded identity:', saved.name);
     } else {
-      // Create new identity
       this.identity = {
         peerId: `browser-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
         name: 'Anonymous',
@@ -199,6 +225,18 @@ export class BrowserNetworkService {
    * Load cached channels, posts, and matches
    */
   private async loadCachedData(): Promise<void> {
+    const isEphemeral =
+      typeof window !== 'undefined' &&
+      window.localStorage.getItem('isc-ephemeral-session') === 'true';
+
+    if (isEphemeral) {
+      console.log('[Network] Ephemeral mode - not loading cached data');
+      this.channels = [];
+      this.posts = [];
+      this.matches = [];
+      return;
+    }
+
     const [channels, posts, matches] = await Promise.all([
       this.storage.get<ChannelData[]>('isc-channels'),
       this.storage.get<PostData[]>('isc-posts'),
@@ -209,7 +247,9 @@ export class BrowserNetworkService {
     this.posts = posts || [];
     this.matches = matches || [];
 
-    console.log(`[Network] Loaded cache: ${this.channels.length} channels, ${this.posts.length} posts, ${this.matches.length} matches`);
+    console.log(
+      `[Network] Loaded cache: ${this.channels.length} channels, ${this.posts.length} posts, ${this.matches.length} matches`
+    );
   }
 
   /**
@@ -245,11 +285,35 @@ export class BrowserNetworkService {
       clearInterval(this.discoveryTimer);
     }
 
+    const getOptimizedInterval = (): number => {
+      const base = this.config.discoverInterval;
+
+      if (typeof document !== 'undefined' && document.hidden) {
+        return Math.max(base, 60000);
+      }
+
+      if (typeof navigator !== 'undefined' && navigator.getBattery) {
+        navigator
+          .getBattery()
+          .then((battery) => {
+            if (battery.level < 0.2 && !battery.charging) {
+              console.log('[Network] Low battery - reducing discovery frequency');
+              this.stopAutoDiscovery();
+              this.discoveryTimer = setInterval(() => this.discoverPeers(), Math.max(base, 120000));
+            }
+          })
+          .catch(() => {});
+      }
+
+      return base;
+    };
+
+    const interval = getOptimizedInterval();
     this.discoveryTimer = setInterval(() => {
       this.discoverPeers();
-    }, this.config.discoverInterval);
+    }, interval);
 
-    console.log(`[Network] Auto-discovery started (${this.config.discoverInterval}ms interval)`);
+    console.log(`[Network] Auto-discovery started (${interval}ms interval)`);
   }
 
   /**
@@ -275,14 +339,17 @@ export class BrowserNetworkService {
 
       // Filter out self and duplicates
       const uniqueMatches = newMatches.filter(
-        m => m.peer.id !== this.localPeer!.id &&
-        !this.matches.some(existing => existing.peer.id === m.peer.id)
+        (m) =>
+          m.peer.id !== this.localPeer!.id &&
+          !this.matches.some((existing) => existing.peer.id === m.peer.id)
       );
 
       if (uniqueMatches.length > 0) {
         // Add new matches
         this.matches = [...uniqueMatches, ...this.matches].slice(0, this.config.maxCachedMatches);
-        await this.storage.set('isc-matches', this.matches);
+        if (this.shouldPersist()) {
+          await this.storage.set('isc-matches', this.matches);
+        }
 
         // Notify
         for (const match of uniqueMatches) {
@@ -322,7 +389,9 @@ export class BrowserNetworkService {
     };
 
     this.channels.push(channel);
-    await this.storage.set('isc-channels', this.channels);
+    if (this.shouldPersist()) {
+      await this.storage.set('isc-channels', this.channels);
+    }
 
     // Announce channel to DHT
     await this.announceChannel(channel);
@@ -338,6 +407,9 @@ export class BrowserNetworkService {
    */
   private async announceChannel(channel: ChannelData): Promise<void> {
     if (!this.embedding) return;
+
+    // Skip announcing lurker channels - they don't contribute to semantic position
+    if (channel.isLurker) return;
 
     // Create a peer-like announcement for the channel
     const channelPeer = new VirtualPeer({
@@ -357,7 +429,7 @@ export class BrowserNetworkService {
    * Get the underlying network adapter for tests or advanced interactions
    */
   getNetworkAdapter(): BrowserNetworkAdapter | null {
-     return this.networkAdapter;
+    return this.networkAdapter;
   }
 
   /**
@@ -380,10 +452,12 @@ export class BrowserNetworkService {
         const post: PostData = JSON.parse(new TextDecoder().decode(data));
 
         // Ensure we don't process our own posts twice
-        if (this.posts.some(p => p.id === post.id)) return;
+        if (this.posts.some((p) => p.id === post.id)) return;
 
         this.posts.unshift(post);
-        await this.storage.set('isc-posts', this.posts);
+        if (this.shouldPersist()) {
+          await this.storage.set('isc-posts', this.posts);
+        }
 
         this.events.onPostCreated?.(post);
         console.log(`[Network] Received post in ${post.channelName} via Gossipsub`);
@@ -399,7 +473,7 @@ export class BrowserNetworkService {
    * Create a new post
    */
   async createPost(channelId: string, content: string): Promise<PostData> {
-    const channel = this.channels.find(c => c.id === channelId);
+    const channel = this.channels.find((c) => c.id === channelId);
     if (!channel) {
       throw new Error(`Channel ${channelId} not found`);
     }
@@ -415,7 +489,9 @@ export class BrowserNetworkService {
     };
 
     this.posts.unshift(post);
-    await this.storage.set('isc-posts', this.posts);
+    if (this.shouldPersist()) {
+      await this.storage.set('isc-posts', this.posts);
+    }
 
     this.events.onPostCreated?.(post);
     console.log(`[Network] Created post in ${channel.name}`);
@@ -434,7 +510,7 @@ export class BrowserNetworkService {
             console.log(`[Network] Broadcasted post via Gossipsub`);
           }
           // Persist with embedding
-          if (post.embedding) {
+          if (post.embedding && this.shouldPersist()) {
             await this.storage.set('isc-posts', this.posts);
           }
         } catch (err) {
@@ -450,21 +526,47 @@ export class BrowserNetworkService {
    * Delete a channel by ID
    */
   async deleteChannel(channelId: string): Promise<void> {
-    this.channels = this.channels.filter(c => c.id !== channelId);
-    this.posts = this.posts.filter(p => p.channelId !== channelId);
-    await Promise.all([
-      this.storage.set('isc-channels', this.channels),
-      this.storage.set('isc-posts', this.posts),
-    ]);
+    this.channels = this.channels.filter((c) => c.id !== channelId);
+    this.posts = this.posts.filter((p) => p.channelId !== channelId);
+    if (this.shouldPersist()) {
+      await Promise.all([
+        this.storage.set('isc-channels', this.channels),
+        this.storage.set('isc-posts', this.posts),
+      ]);
+    }
     console.log(`[Network] Deleted channel: ${channelId}`);
+  }
+
+  /**
+   * Set lurk mode for a channel
+   * Lurker channels are not included in the user's semantic position
+   */
+  async setChannelLurkMode(channelId: string, isLurker: boolean): Promise<void> {
+    const channel = this.channels.find((c) => c.id === channelId);
+    if (!channel) {
+      throw new Error('Channel not found');
+    }
+
+    channel.isLurker = isLurker;
+
+    if (this.shouldPersist()) {
+      await this.storage.set('isc-channels', this.channels);
+    }
+
+    // Re-announce to DHT with updated lurker status
+    await this.announceChannel(channel);
+
+    console.log(`[Network] Channel ${channelId} lurk mode: ${isLurker}`);
   }
 
   /**
    * Delete a post by ID
    */
   async deletePost(postId: string): Promise<void> {
-    this.posts = this.posts.filter(p => p.id !== postId);
-    await this.storage.set('isc-posts', this.posts);
+    this.posts = this.posts.filter((p) => p.id !== postId);
+    if (this.shouldPersist()) {
+      await this.storage.set('isc-posts', this.posts);
+    }
     console.log(`[Network] Deleted post: ${postId}`);
   }
 
@@ -472,13 +574,15 @@ export class BrowserNetworkService {
    * Like a post (client-side optimistic — persisted locally only)
    */
   async likePost(postId: string): Promise<void> {
-    const post = this.posts.find(p => p.id === postId) as any;
+    const post = this.posts.find((p) => p.id === postId) as any;
     if (!post) return;
     if (!post.likes) post.likes = [];
     const myId = this.identity?.peerId || 'unknown';
     if (!post.likes.includes(myId)) {
       post.likes.push(myId);
-      await this.storage.set('isc-posts', this.posts);
+      if (this.shouldPersist()) {
+        await this.storage.set('isc-posts', this.posts);
+      }
     }
   }
 
@@ -503,7 +607,7 @@ export class BrowserNetworkService {
    */
   getPosts(channelId?: string): PostData[] {
     if (channelId) {
-      return this.posts.filter(p => p.channelId === channelId);
+      return this.posts.filter((p) => p.channelId === channelId);
     }
     return [...this.posts];
   }
@@ -523,6 +627,16 @@ export class BrowserNetworkService {
   }
 
   /**
+   * Check if current session is ephemeral
+   */
+  isEphemeralSession(): boolean {
+    return (
+      typeof window !== 'undefined' &&
+      window.localStorage.getItem('isc-ephemeral-session') === 'true'
+    );
+  }
+
+  /**
    * Update identity
    */
   async updateIdentity(updates: Partial<Identity>): Promise<void> {
@@ -531,7 +645,10 @@ export class BrowserNetworkService {
     }
 
     this.identity = { ...this.identity, ...updates };
-    await this.storage.set('isc-identity', this.identity);
+
+    if (this.shouldPersist()) {
+      await this.storage.set('isc-identity', this.identity);
+    }
 
     // Re-announce with updated bio
     if (updates.bio && this.embedding) {
@@ -568,15 +685,27 @@ export class BrowserNetworkService {
    */
   private extractKeywords(text: string): string[] {
     const keywords = [
-      'ai', 'artificial intelligence', 'machine learning', 'neural',
-      'distributed', 'systems', 'consensus', 'blockchain',
-      'climate', 'carbon', 'energy',
-      'quantum', 'computing',
-      'bio', 'gene', 'crispr',
-      'robotics', 'automation',
+      'ai',
+      'artificial intelligence',
+      'machine learning',
+      'neural',
+      'distributed',
+      'systems',
+      'consensus',
+      'blockchain',
+      'climate',
+      'carbon',
+      'energy',
+      'quantum',
+      'computing',
+      'bio',
+      'gene',
+      'crispr',
+      'robotics',
+      'automation',
     ];
     const lower = text.toLowerCase();
-    return keywords.filter(k => lower.includes(k));
+    return keywords.filter((k) => lower.includes(k));
   }
 
   /**

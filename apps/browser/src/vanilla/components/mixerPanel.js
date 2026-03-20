@@ -5,14 +5,32 @@
  */
 
 import { channelSettingsService, getSpecificityLabel } from '../../services/channelSettings.js';
-import { channelService } from '../../services/index.js';
+import { channelService, networkService } from '../../services/index.js';
 import { toasts } from '../../utils/toast.js';
 import { escapeHtml } from '../../utils/dom.js';
 
 const PRESETS = {
-  discovery: { name: 'Discovery', icon: '🌍', description: 'Broad matching', specificity: 20, minSimilarity: 0.35 },
-  balanced: { name: 'Balanced', icon: '⚖️', description: 'Mix of familiar and new', specificity: 50, minSimilarity: 0.55 },
-  focus: { name: 'Focus', icon: '🎯', description: 'Narrow matching', specificity: 80, minSimilarity: 0.75 },
+  discovery: {
+    name: 'Discovery',
+    icon: '🌍',
+    description: 'Broad matching',
+    specificity: 20,
+    minSimilarity: 0.35,
+  },
+  balanced: {
+    name: 'Balanced',
+    icon: '⚖️',
+    description: 'Mix of familiar and new',
+    specificity: 50,
+    minSimilarity: 0.55,
+  },
+  focus: {
+    name: 'Focus',
+    icon: '🎯',
+    description: 'Narrow matching',
+    specificity: 80,
+    minSimilarity: 0.75,
+  },
 };
 
 const VIEW_MODES = [
@@ -39,35 +57,39 @@ export function renderMixerPanel(activeChannel) {
   if (!activeChannel) return '';
 
   const settings = channelSettingsService.getSettings(activeChannel.id);
-  const { specificity, viewMode, isMuted, panelsExpanded, filters, minSimilarity, sortOrder } = settings;
+  const { specificity, viewMode, isMuted, panelsExpanded, filters, minSimilarity, sortOrder } =
+    settings;
   const specificityLabel = getSpecificityLabel(specificity);
   const isExpanded = panelsExpanded.mixerExpanded;
+  const isLurker = activeChannel.isLurker ?? false;
 
   return `
-    <div class="mixer-panel ${isExpanded ? 'mixer-panel-expanded' : ''}" data-channel-id="${escapeHtml(activeChannel.id)}">
-      ${renderHeader(activeChannel, isMuted, isExpanded)}
-      ${renderEssentialControls(specificity, specificityLabel, viewMode)}
-      ${isExpanded ? renderExpandedContent(filters, minSimilarity, sortOrder) : ''}
-    </div>
-  `;
+<div class="mixer-panel ${isExpanded ? 'mixer-panel-expanded' : ''}" data-channel-id="${escapeHtml(activeChannel.id)}">
+  ${renderHeader(activeChannel, isMuted, isLurker, isExpanded)}
+  ${renderEssentialControls(specificity, specificityLabel, viewMode)}
+  ${isExpanded ? renderExpandedContent(filters, minSimilarity, sortOrder) : ''}
+</div>
+`;
 }
 
-function renderHeader(channel, isMuted, isExpanded) {
+function renderHeader(channel, isMuted, isLurker, isExpanded) {
   return `
-    <div class="mixer-compact-header">
-      <h2 class="mixer-channel-name">
-        ${escapeHtml(channel.name)}
-        ${isMuted ? '<span class="status-icon" title="Muted">🔇</span>' : ''}
-      </h2>
-      <div class="mixer-header-actions">
-        <button class="mixer-icon-btn mixer-btn-expand" id="mixer-expand" title="${isExpanded ? 'Collapse' : 'More options'}">
-          ${isExpanded ? '▼' : '▲'}
-        </button>
-        <button class="mixer-icon-btn" id="mixer-edit" title="Edit channel">✏️</button>
-        <button class="mixer-icon-btn" id="mixer-mute" title="${isMuted ? 'Unmute' : 'Mute'}">${isMuted ? '🔇' : '🔈'}</button>
-      </div>
-    </div>
-  `;
+<div class="mixer-compact-header">
+  <h2 class="mixer-channel-name">
+    ${escapeHtml(channel.name)}
+    ${isMuted ? '<span class="status-icon" title="Muted">🔇</span>' : ''}
+    ${isLurker ? '<span class="status-icon" title="Lurk mode - not included in your vector">👁</span>' : ''}
+  </h2>
+  <div class="mixer-header-actions">
+    <button class="mixer-icon-btn mixer-btn-expand" id="mixer-expand" title="${isExpanded ? 'Collapse' : 'More options'}">
+      ${isExpanded ? '▼' : '▲'}
+    </button>
+    <button class="mixer-icon-btn" id="mixer-edit" title="Edit channel">✏️</button>
+    <button class="mixer-icon-btn" id="mixer-mute" title="${isMuted ? 'Unmute' : 'Mute'}">${isMuted ? '🔇' : '🔈'}</button>
+    <button class="mixer-icon-btn" id="mixer-lurk" title="${isLurker ? 'Stop lurk mode' : "Lurk (don't include in my vector)"}">${isLurker ? '👁' : '👁‍🗨'}</button>
+  </div>
+</div>
+`;
 }
 
 function renderEssentialControls(specificity, specificityLabel, viewMode) {
@@ -92,12 +114,16 @@ function renderPrecisionControl(specificity, specificityLabel) {
       <input type="range" class="mixer-slider mixer-slider-compact" id="mixer-specificity-slider"
              min="0" max="100" value="${specificity}" />
       <div class="mixer-presets-row">
-        ${Object.entries(PRESETS).map(([key, preset]) => `
+        ${Object.entries(PRESETS)
+          .map(
+            ([key, preset]) => `
           <button class="mixer-preset-chip ${specificity === preset.specificity ? 'active' : ''}"
                   data-preset="${key}" title="${preset.description}">
             ${preset.icon}
           </button>
-        `).join('')}
+        `
+          )
+          .join('')}
       </div>
     </div>
   `;
@@ -108,12 +134,14 @@ function renderViewControl(viewMode) {
     <div class="mixer-view-control">
       <span class="mixer-control-label">👁 View</span>
       <div class="mixer-button-group mixer-view-buttons">
-        ${VIEW_MODES.map(({ mode, icon, label }) => `
+        ${VIEW_MODES.map(
+          ({ mode, icon, label }) => `
           <button class="mixer-view-btn ${viewMode === mode ? 'active' : ''}"
                   data-view-mode="${mode}" title="${label}">
             ${icon}
           </button>
-        `).join('')}
+        `
+        ).join('')}
       </div>
     </div>
   `;
@@ -136,11 +164,13 @@ function renderFiltersSection(filters, minSimilarity) {
         <span class="mixer-section-title-compact">🔍 Filters</span>
       </div>
       <div class="mixer-filters-row">
-        ${FILTERS.map(({ key, icon, label }) => `
+        ${FILTERS.map(
+          ({ key, icon, label }) => `
           <button class="mixer-filter-chip ${filters[key] ? 'active' : ''}" data-filter="${key}">
             ${icon} ${label}
           </button>
-        `).join('')}
+        `
+        ).join('')}
       </div>
       <div class="mixer-similarity-control">
         <span class="mixer-control-label">Min similarity: <strong>${Math.round(minSimilarity * 100)}%</strong></span>
@@ -157,9 +187,11 @@ function renderSortSection(sortOrder) {
       <div class="mixer-section-header-compact">
         <span class="mixer-section-title-compact">📊 Sort</span>
         <select class="mixer-select-compact" id="mixer-sort-order">
-          ${SORT_OPTIONS.map(({ value, label }) => `
+          ${SORT_OPTIONS.map(
+            ({ value, label }) => `
             <option value="${value}" ${sortOrder === value ? 'selected' : ''}>${label}</option>
-          `).join('')}
+          `
+          ).join('')}
         </select>
       </div>
     </div>
@@ -218,6 +250,7 @@ export function bindMixerPanel(container, activeChannel) {
   onAll('[data-filter]', 'click', toggleFilter);
   on('#mixer-edit', 'click', openEditModal);
   on('#mixer-mute', 'click', toggleMute);
+  on('#mixer-lurk', 'click', toggleLurk);
   on('#mixer-archive', 'click', archiveChannel);
   on('#mixer-reset', 'click', resetSettings);
 
@@ -226,7 +259,7 @@ export function bindMixerPanel(container, activeChannel) {
   }
 
   function onAll(selector, event, handler) {
-    container.querySelectorAll(selector).forEach(el => el.addEventListener(event, handler));
+    container.querySelectorAll(selector).forEach((el) => el.addEventListener(event, handler));
   }
 
   function toggleExpanded() {
@@ -294,6 +327,23 @@ export function bindMixerPanel(container, activeChannel) {
     refreshMixerPanel(container, activeChannel);
   }
 
+  async function toggleLurk() {
+    const channel = activeChannel;
+    const isLurker = channel.isLurker ?? false;
+    try {
+      await networkService.setChannelLurkMode(channel.id, !isLurker);
+      toasts.info(
+        isLurker
+          ? 'Channel added to your vector'
+          : 'Channel set to lurk mode - not included in your semantic position'
+      );
+      refreshMixerPanel(container, activeChannel);
+      document.dispatchEvent(new CustomEvent('isc:refresh-feed'));
+    } catch (err) {
+      toasts.error('Failed to update lurk mode: ' + err.message);
+    }
+  }
+
   function archiveChannel() {
     if (!confirm('Archive this channel?')) return;
     channelSettingsService.archiveChannel(activeChannel.id);
@@ -321,10 +371,15 @@ function showEditModal(channel) {
   on('#edit-modal-close', 'click', close);
   on('#edit-modal-cancel', 'click', close);
   on('#edit-modal-save', 'click', saveChanges);
-  modal.addEventListener('click', e => { if (e.target === modal) close(); });
+  modal.addEventListener('click', (e) => {
+    if (e.target === modal) close();
+  });
 
   document.addEventListener('keydown', function handleEscape(e) {
-    if (e.key === 'Escape') { close(); document.removeEventListener('keydown', handleEscape); }
+    if (e.key === 'Escape') {
+      close();
+      document.removeEventListener('keydown', handleEscape);
+    }
   });
 
   function on(selector, event, handler) {
@@ -355,7 +410,7 @@ function showEditModal(channel) {
     const mixerPanel = document.querySelector('.mixer-panel');
     if (!mixerPanel) return;
     const { channels, activeChannelId } = getState();
-    const updatedChannel = channels.find(c => c.id === activeChannelId);
+    const updatedChannel = channels.find((c) => c.id === activeChannelId);
     if (updatedChannel) refreshMixerPanel(mixerPanel, updatedChannel);
   }
 }

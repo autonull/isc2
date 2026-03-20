@@ -4,7 +4,7 @@
  * Creates and manages the application layout structure.
  */
 
-import { el } from './utils/dom.js';
+import { el, isMobile } from './utils/dom.js';
 import { createSidebar } from './components/sidebar.js';
 import { createStatusBar } from './components/status-bar.js';
 import { modals } from './components/modal.js';
@@ -71,6 +71,21 @@ export function buildLayout(container, { onNavigate }) {
   toasts.init();
 
   const debugPanel = buildDebugPanel(container);
+
+  function applyMobileLayout() {
+    const mobile = isMobile();
+    layout.classList.toggle('irc-layout-mobile', mobile);
+    sidebarEl.classList.toggle('hidden', mobile);
+    tabBar.classList.toggle('tab-bar-mobile', mobile);
+  }
+
+  applyMobileLayout();
+
+  let resizeTimeout;
+  window.addEventListener('resize', () => {
+    clearTimeout(resizeTimeout);
+    resizeTimeout = setTimeout(applyMobileLayout, 150);
+  });
 
   function updateTabBar(route) {
     tabBar.querySelectorAll('.tab').forEach((tab) => {

@@ -3114,3 +3114,111 @@ body {
 .bridge-dismiss:hover {
   color: var(--c-text);
 }
+
+/* Mobile Layout */
+.irc-layout-mobile {
+  grid-template-columns: 1fr !important;
+  grid-template-rows: 1fr auto !important;
+}
+
+.irc-layout-mobile .irc-sidebar {
+  display: none;
+}
+
+.irc-layout-mobile .irc-main {
+  height: calc(100vh - var(--status-bar-h) - 60px);
+}
+
+.tab-bar-mobile {
+  position: fixed !important;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 60px;
+  background: var(--c-bg-sidebar);
+  border-top: 1px solid var(--c-border);
+  display: flex !important;
+  justify-content: space-around;
+  padding: 0 !important;
+  z-index: 100;
+}
+
+.tab-bar-mobile .tab {
+  flex: 1;
+  justify-content: center;
+  padding: 8px;
+  font-size: 12px;
+}
+
+.tab-bar-mobile .tab-icon {
+  font-size: 20px;
+}
+
+.tab-bar-mobile .tab-label {
+  display: block;
+  margin-top: 2px;
+}
+
+/* Mobile-specific UI elements */
+@media (max-width: 767px) {
+  .screen {
+    padding: 0;
+  }
+
+  .screen-header {
+    padding: 12px;
+  }
+
+  .screen-title {
+    font-size: 18px;
+  }
+
+  .mixer-panel {
+    margin: 0;
+    border-radius: 0;
+  }
+
+  .feed-view-list .post {
+    padding: 12px;
+  }
+
+  .feed-view-list .post-author {
+    font-size: 13px;
+  }
+
+  .feed-view-list .post-content {
+    font-size: 14px;
+  }
+
+  .compose-area {
+    padding: 8px;
+  }
+
+  .compose-input {
+    font-size: 14px;
+    min-height: 40px;
+  }
+
+  .modal {
+    width: 95%;
+    max-width: none;
+    margin: 10px;
+  }
+
+  .modal-header {
+    padding: 12px;
+  }
+
+  .modal-body {
+    padding: 12px;
+  }
+
+  .modal-actions {
+    padding: 12px;
+    flex-direction: column;
+  }
+
+  .modal-actions .btn {
+    width: 100%;
+  }
+}

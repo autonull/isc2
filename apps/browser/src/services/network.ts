@@ -279,6 +279,20 @@ class NetworkServiceWrapper {
     }
   }
 
+  async setChannelLurkMode(channelId: string, isLurker: boolean): Promise<void> {
+    try {
+      await this.service?.setChannelLurkMode?.(channelId, isLurker);
+      this.log.info('Channel lurk mode updated', { channelId, isLurker });
+      this.syncState();
+    } catch (err) {
+      this.log.error('Failed to set channel lurk mode', { error: (err as Error).message });
+      throw new ChannelError('Failed to set channel lurk mode', {
+        originalError: (err as Error).message,
+        channelId,
+      });
+    }
+  }
+
   getPosts(channelId?: string) {
     return this.service?.getPosts(channelId) ?? [];
   }
