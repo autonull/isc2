@@ -54,6 +54,11 @@ test.describe('Mixer Panel - Visibility', () => {
   test('mixer panel has mute button', async ({ page }) => {
     await expect(page.locator('#mixer-mute')).toBeVisible();
   });
+
+  test('mixer panel does NOT have channel switcher dropdown', async ({ page }) => {
+    // Channel switching should only happen from sidebar
+    await expect(page.locator('#mixer-channel-select')).not.toBeVisible();
+  });
 });
 
 // ── Precision Slider ──────────────────────────────────────────────────────────
@@ -146,10 +151,18 @@ test.describe('Mixer Panel - View Mode', () => {
 
   test('clicking view mode button changes active state', async ({ page }) => {
     await page.click('[data-view-mode="space"]');
-    await page.waitForTimeout(300);
+    await page.waitForTimeout(500);
 
     await expect(page.locator('[data-view-mode="space"]')).toHaveClass(/active/);
     await expect(page.locator('[data-view-mode="list"]')).not.toHaveClass(/active/);
+  });
+
+  test('view mode change updates feed container class', async ({ page }) => {
+    await page.click('[data-view-mode="grid"]');
+    await page.waitForTimeout(500);
+
+    const feedContainer = page.locator('#now-feed');
+    await expect(feedContainer).toHaveClass(/feed-view-grid/);
   });
 });
 
@@ -279,32 +292,6 @@ test.describe('Mixer Panel - Sort', () => {
 
     const selected = await page.locator('#mixer-sort-order').inputValue();
     expect(selected).toBe('similarity');
-  });
-});
-
-// ── Channel Switcher ──────────────────────────────────────────────────────────
-
-test.describe('Mixer Panel - Channel Switcher', () => {
-  test('channel select dropdown is visible', async ({ page }) => {
-    await expect(page.locator('#mixer-channel-select')).toBeVisible();
-  });
-
-  test('channel select shows available channels', async ({ page }) => {
-    const options = page.locator('#mixer-channel-select option');
-    await expect(options).toHaveCount(2);
-  });
-
-  test('current channel is selected in dropdown', async ({ page }) => {
-    const selected = await page.locator('#mixer-channel-select').inputValue();
-    expect(selected).toBe('channel-1');
-  });
-
-  test('changing channel updates selection', async ({ page }) => {
-    await page.selectOption('#mixer-channel-select', 'channel-2');
-    await page.waitForTimeout(500);
-
-    const selected = await page.locator('#mixer-channel-select').inputValue();
-    expect(selected).toBe('channel-2');
   });
 });
 

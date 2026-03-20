@@ -4,8 +4,7 @@
  * Compact channel control surface with progressive disclosure.
  */
 
-import { getState, actions } from '../../state.js';
-import { channelSettingsService, specificityToCosineThreshold, getSpecificityLabel } from '../../services/channelSettings.js';
+import { channelSettingsService, getSpecificityLabel } from '../../services/channelSettings.js';
 import { channelService } from '../../services/index.js';
 import { toasts } from '../../utils/toast.js';
 import { escapeHtml } from '../../utils/dom.js';
@@ -56,15 +55,10 @@ export function renderMixerPanel(activeChannel) {
 function renderHeader(channel, isMuted, isExpanded) {
   return `
     <div class="mixer-compact-header">
-      <div class="mixer-channel-row">
-        <h2 class="mixer-channel-name">
-          ${escapeHtml(channel.name)}
-          ${isMuted ? '<span class="status-icon" title="Muted">🔇</span>' : ''}
-        </h2>
-        <select id="mixer-channel-select" class="mixer-channel-select">
-          ${renderChannelOptions(channel.id)}
-        </select>
-      </div>
+      <h2 class="mixer-channel-name">
+        ${escapeHtml(channel.name)}
+        ${isMuted ? '<span class="status-icon" title="Muted">🔇</span>' : ''}
+      </h2>
       <div class="mixer-header-actions">
         <button class="mixer-icon-btn mixer-btn-expand" id="mixer-expand" title="${isExpanded ? 'Collapse' : 'More options'}">
           ${isExpanded ? '▼' : '▲'}
@@ -74,17 +68,6 @@ function renderHeader(channel, isMuted, isExpanded) {
       </div>
     </div>
   `;
-}
-
-function renderChannelOptions(activeChannelId) {
-  const { channels } = getState();
-  if (!channels?.length) return '';
-
-  return channels.map(ch => `
-    <option value="${escapeHtml(ch.id)}" ${ch.id === activeChannelId ? 'selected' : ''}>
-      #${escapeHtml(ch.name)}
-    </option>
-  `).join('');
 }
 
 function renderEssentialControls(specificity, specificityLabel, viewMode) {
@@ -227,7 +210,6 @@ export function bindMixerPanel(container, activeChannel) {
   if (!activeChannel) return;
 
   on('#mixer-expand', toggleExpanded);
-  on('#mixer-channel-select', 'change', switchChannel);
   on('#mixer-specificity-slider', 'input', updateSpecificity);
   on('#mixer-similarity-slider', 'input', updateSimilarity);
   on('#mixer-sort-order', 'change', updateSortOrder);
@@ -250,12 +232,6 @@ export function bindMixerPanel(container, activeChannel) {
   function toggleExpanded() {
     channelSettingsService.togglePanel(activeChannel.id, 'mixerExpanded');
     refreshMixerPanel(container, activeChannel);
-  }
-
-  function switchChannel(e) {
-    actions.setActiveChannel(e.target.value);
-    toasts.success('Switched to channel');
-    setTimeout(() => document.dispatchEvent(new CustomEvent('isc:refresh-feed')), 100);
   }
 
   function applyPreset(e) {

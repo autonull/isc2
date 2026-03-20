@@ -996,6 +996,61 @@ body {
 .post-action-btn:hover { background: var(--c-bg-hover); color: var(--c-text); }
 .post-action-btn.liked { color: var(--c-danger); }
 
+/* Feed View Modes */
+.feed-list { display: flex; flex-direction: column; gap: 10px; }
+
+.feed-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 12px;
+}
+.feed-grid .post-card { margin-bottom: 0; }
+
+.feed-space {
+  position: relative;
+  min-height: 600px;
+  background: radial-gradient(ellipse at center, #1a1d26 0%, #0d0f14 100%);
+  border-radius: var(--r-lg);
+  overflow: hidden;
+}
+.space-post {
+  position: absolute;
+  transition: transform 0.2s, opacity 0.2s;
+  cursor: pointer;
+}
+.space-post:hover {
+  transform: scale(1.05);
+  z-index: 10;
+}
+.space-post-content {
+  background: rgba(42, 45, 56, 0.9);
+  border: 1px solid rgba(74, 144, 217, 0.3);
+  border-radius: var(--r-md);
+  padding: 12px;
+  max-width: 200px;
+  backdrop-filter: blur(4px);
+}
+.space-post-author {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--c-brand);
+  display: block;
+  margin-bottom: 6px;
+}
+.space-post-text {
+  font-size: 12px;
+  color: var(--c-text);
+  line-height: 1.4;
+  margin: 0 0 6px 0;
+}
+.space-post-score {
+  font-size: 10px;
+  color: var(--c-text-muted);
+  background: rgba(74, 144, 217, 0.15);
+  padding: 2px 6px;
+  border-radius: var(--r-sm);
+}
+
 .info-banner {
   border-radius: var(--r-md);
   padding: 10px 14px;
@@ -1755,6 +1810,37 @@ body {
   gap: var(--mixer-gap);
 }
 
+.mixer-view-control {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.mixer-view-buttons {
+  display: flex;
+  gap: 4px;
+}
+
+.mixer-view-btn {
+  background: var(--mixer-bg-element);
+  border: 1px solid var(--mixer-border);
+  border-radius: var(--mixer-radius-sm);
+  padding: 6px 8px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.mixer-view-btn:hover {
+  background: var(--mixer-bg-element-hover);
+}
+
+.mixer-view-btn.active {
+  background: var(--mixer-bg-element-active);
+  border-color: var(--mixer-border-active);
+}
+
 .mixer-precision-header {
   display: flex;
   justify-content: space-between;
@@ -1841,37 +1927,6 @@ body {
 }
 
 .mixer-preset-chip.active {
-  background: var(--mixer-bg-element-active);
-  border-color: var(--mixer-border-active);
-}
-
-.mixer-view-control {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 6px;
-}
-
-.mixer-view-buttons {
-  display: flex;
-  gap: 4px;
-}
-
-.mixer-view-btn {
-  background: var(--mixer-bg-element);
-  border: 1px solid var(--mixer-border);
-  border-radius: var(--mixer-radius-sm);
-  padding: 6px 8px;
-  font-size: 14px;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.mixer-view-btn:hover {
-  background: var(--mixer-bg-element-hover);
-}
-
-.mixer-view-btn.active {
   background: var(--mixer-bg-element-active);
   border-color: var(--mixer-border-active);
 }

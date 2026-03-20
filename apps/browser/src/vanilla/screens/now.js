@@ -2,11 +2,13 @@
  * Now Screen — Semantic "For You" feed
  *
  * Shows posts ranked by similarity to the user's active channel.
+ * Supports List, Space, and Grid view modes.
  */
 
 import { feedService, postService, channelService } from '../../services/index.js';
 import { networkService } from '../../services/network.ts';
 import { getState, actions } from '../../state.js';
+import { channelSettingsService } from '../../services/channelSettings.js';
 import { toasts } from '../../utils/toast.js';
 import { formatTime } from '../../utils/time.js';
 import { escapeHtml } from '../utils/dom.js';
@@ -14,6 +16,7 @@ import { renderEmpty, renderList, bindDelegate, autoGrow, setupCtrlEnterSubmit }
 import { renderMixerPanel, bindMixerPanel } from '../components/mixerPanel.js';
 
 let refreshing = false;
+let viewModeUnsubscribe = null;
 
 export function render() {
   const { channels, activeChannelId } = getState();
@@ -23,6 +26,7 @@ export function render() {
   const connLabel = connected ? 'connected' : (netStatus?.status ?? 'disconnected');
   const effectiveChannelId = activeChannelId ?? channels?.[0]?.id ?? null;
   const activeChannel = channels?.find(c => c.id === effectiveChannelId);
+  const viewMode = activeChannel ? channelSettingsService.getSettings(activeChannel.id).viewMode : 'list';
 
   return `
     <div class="screen now-screen" data-testid="now-screen">
@@ -30,8 +34,8 @@ export function render() {
       <div class="screen-body" data-testid="now-body">
         <div id="mixer-container">${activeChannel ? renderMixerPanel(activeChannel) : ''}</div>
         ${renderComposeArea(channels, effectiveChannelId, activeChannel)}
-        <div id="now-feed" data-testid="feed-container" data-component="feed" data-feed="for-you">
-          ${posts.length === 0 ? renderEmptyState(channels, connected, connLabel) : renderPosts(posts, channels)}
+        <div id="now-feed" class="feed-view-${viewMode}" data-testid="feed-container" data-component="feed" data-feed="for-you">
+          ${posts.length === 0 ? renderEmptyState(channels, connected, connLabel) : renderPosts(posts, channels, viewMode)}
         </div>
       </div>
     </div>
@@ -145,16 +149,49 @@ function renderHowStep(num, title, desc) {
   `;
 }
 
-function renderPosts(posts, channels) {
-  return `
+function renderPosts(posts, channels, viewMode = 'list') {
+  const countHtml = `
     <div class="post-count text-muted mb-2" style="font-size:12px" data-testid="post-count">
       ${posts.length} post${posts.length !== 1 ? 's' : ''}
     </div>
-    ${renderList(posts, p => renderPost(p, channels))}
+  `;
+
+  switch (viewMode) {
+    case 'grid':
+      return countHtml + renderGridPosts(posts, channels);
+    case 'space':
+      return countHtml + renderSpacePosts(posts, channels);
+    case 'list':
+    default:
+      return countHtml + renderListPosts(posts, channels);
+  }
+}
+
+function renderListPosts(posts, channels) {
+  return `<div class="feed-list">${posts.map(p => renderPost(p, channels)).join('')}</div>`;
+}
+
+function renderGridPosts(posts, channels) {
+  return `
+    <div class="feed-grid">
+      ${posts.map(p => renderPostCard(p, channels)).join('')}
+    </div>
+  `;
+}
+
+function renderSpacePosts(posts, channels) {
+  return `
+    <div class="feed-space">
+      ${posts.map((p, i) => renderSpacePost(p, channels, i)).join('')}
+    </div>
   `;
 }
 
 function renderPost(post, channels) {
+  return renderPostCard(post, channels, true);
+}
+
+function renderPostCard(post, channels, showActions = true) {
   const author = escapeHtml(post.author || post.identity?.name || 'Anonymous');
   const initials = (post.author || post.identity?.name || 'A')[0].toUpperCase();
   const content = escapeHtml(post.content || '');
@@ -179,6 +216,7 @@ function renderPost(post, channels) {
         </div>
       </div>
       <div class="post-content" data-testid="post-content">${content}</div>
+      ${showActions ? `
       <div class="post-actions">
         <button class="post-action-btn" data-action="like" data-like-btn data-post-id="${escapeHtml(post.id)}"
                 data-liked="false" data-testid="like-btn-${escapeHtml(post.id)}">
@@ -192,6 +230,30 @@ function renderPost(post, channels) {
                 data-testid="delete-btn-${escapeHtml(post.id)}" style="margin-left:auto">
           🗑
         </button>
+      </div>
+      ` : ''}
+    </div>
+  `;
+}
+
+function renderSpacePost(post, channels, index) {
+  const author = escapeHtml(post.author || post.identity?.name || 'Anonymous');
+  const content = escapeHtml(post.content || '');
+  const score = post.score != null ? Math.round(post.score * 100) : null;
+  
+  // Pseudo-random positioning based on post ID for deterministic layout
+  const seed = post.id.charCodeAt(0) + (post.id.charCodeAt(post.id.length - 1) || 0) + index;
+  const left = 10 + (seed % 60);
+  const top = 10 + ((seed * 7) % 80);
+  const scale = 0.8 + ((seed * 13) % 40) / 100;
+  
+  return `
+    <div class="space-post" data-testid="post-card" data-post-id="${escapeHtml(post.id)}"
+         style="left:${left}%;top:${top}%;transform:scale(${scale})">
+      <div class="space-post-content">
+        <span class="space-post-author">${author}</span>
+        <p class="space-post-text">${content.slice(0, 140)}${content.length > 140 ? '…' : ''}</p>
+        ${score != null ? `<span class="space-post-score">${score}%</span>` : ''}
       </div>
     </div>
   `;
@@ -208,6 +270,17 @@ export function bind(container) {
   container.querySelector('#compose-channel-sel')?.addEventListener('change', e => {
     actions.setActiveChannel(e.target.value);
   });
+
+  // Listen for view mode changes
+  const handleViewChange = e => {
+    const { mode } = e.detail || {};
+    if (!mode) return;
+    const feed = container.querySelector('#now-feed');
+    if (!feed) return;
+    feed.className = `feed-view-${mode}`;
+    update(container);
+  };
+  document.addEventListener('isc:channel-view-change', handleViewChange);
 
   const composeForm = container.querySelector('#compose-form');
   const composeInput = container.querySelector('#compose-input');
@@ -260,7 +333,10 @@ export function bind(container) {
   const unbindReply = bindDelegate(container, '[data-reply-btn]', 'click', handleReply);
   const unbindDelete = bindDelegate(container, '[data-delete-btn]', 'click', handleDelete);
 
-  return [unbindLike, unbindReply, unbindDelete];
+  return [
+    unbindLike, unbindReply, unbindDelete,
+    () => document.removeEventListener('isc:channel-view-change', handleViewChange),
+  ];
 }
 
 function handleLike(e, target) {
