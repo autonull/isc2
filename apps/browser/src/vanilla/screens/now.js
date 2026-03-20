@@ -1,59 +1,60 @@
 /**
  * Now Screen — Semantic "For You" feed
+ *
  * Shows posts ranked by similarity to the user's active channel.
- * If no channels exist, guides user to create one first.
  */
 
 import { feedService, postService, channelService } from '../../services/index.js';
 import { networkService } from '../../services/network.ts';
 import { getState, actions } from '../../state.js';
-import { escapeHtml } from '../../utils/dom.js';
-import { formatTime } from '../../utils/time.js';
 import { toasts } from '../../utils/toast.js';
-import { renderMixerPanel, bindMixerPanel, refreshMixerPanel } from '../components/mixerPanel.js';
+import { formatTime } from '../../utils/time.js';
+import { escapeHtml } from '../utils/dom.js';
+import { renderEmpty, renderList, bindDelegate, autoGrow, setupCtrlEnterSubmit } from '../utils/screen.js';
+import { renderMixerPanel, bindMixerPanel } from '../components/mixerPanel.js';
 
 let refreshing = false;
 
 export function render() {
   const { channels, activeChannelId } = getState();
-  const posts      = feedService.getForYou(50);
-  const netStatus  = networkService.getStatus();
-  const connected  = netStatus?.connected ?? false;
-  const connLabel  = connected ? 'connected' : (netStatus?.status ?? 'disconnected');
-  // Use the first channel as fallback when no channel is explicitly active
+  const posts = feedService.getForYou(50);
+  const netStatus = networkService.getStatus();
+  const connected = netStatus?.connected ?? false;
+  const connLabel = connected ? 'connected' : (netStatus?.status ?? 'disconnected');
   const effectiveChannelId = activeChannelId ?? channels?.[0]?.id ?? null;
   const activeChannel = channels?.find(c => c.id === effectiveChannelId);
 
   return `
     <div class="screen now-screen" data-testid="now-screen">
-      <div class="screen-header" data-testid="now-header">
-        <div style="display:flex;align-items:center;gap:12px;min-width:0">
-          <h1 class="screen-title">🏠 Now</h1>
-          ${activeChannel
-            ? `<span class="active-channel-badge" data-testid="active-channel-badge" title="Active channel — posts are ranked by similarity to this channel">
-                 <span style="opacity:.5">#</span>${escapeHtml(activeChannel.name)}
-               </span>`
-            : `<span class="screen-subtitle">For You</span>`}
-        </div>
-        <div class="header-actions">
-          <span class="status-badge ${connected ? 'online' : 'offline'}" data-testid="network-status-badge">
-            ${connected ? '● Online' : `○ ${escapeHtml(connLabel)}`}
-          </span>
-          <button class="btn btn-icon" id="now-refresh" title="Refresh feed" data-testid="refresh-feed" aria-label="Refresh feed">↻</button>
-          <button class="btn btn-primary btn-sm" id="go-compose" data-testid="create-channel-button" aria-label="Create new channel">+ Channel</button>
-        </div>
-      </div>
-
+      ${renderHeader(activeChannel, connected, connLabel)}
       <div class="screen-body" data-testid="now-body">
-        <!-- Mixer Panel - Channel Control Surface -->
-        <div id="mixer-container">
-          ${activeChannel ? renderMixerPanel(activeChannel) : ''}
-        </div>
-        
+        <div id="mixer-container">${activeChannel ? renderMixerPanel(activeChannel) : ''}</div>
         ${renderComposeArea(channels, effectiveChannelId, activeChannel)}
         <div id="now-feed" data-testid="feed-container" data-component="feed" data-feed="for-you">
-          ${posts.length === 0 ? renderEmpty(channels, connected, connLabel) : renderPosts(posts, channels)}
+          ${posts.length === 0 ? renderEmptyState(channels, connected, connLabel) : renderPosts(posts, channels)}
         </div>
+      </div>
+    </div>
+  `;
+}
+
+function renderHeader(activeChannel, connected, connLabel) {
+  return `
+    <div class="screen-header" data-testid="now-header">
+      <div style="display:flex;align-items:center;gap:12px;min-width:0">
+        <h1 class="screen-title">🏠 Now</h1>
+        ${activeChannel
+          ? `<span class="active-channel-badge" data-testid="active-channel-badge" title="Active channel">
+               <span style="opacity:.5">#</span>${escapeHtml(activeChannel.name)}
+             </span>`
+          : `<span class="screen-subtitle">For You</span>`}
+      </div>
+      <div class="header-actions">
+        <span class="status-badge ${connected ? 'online' : 'offline'}" data-testid="network-status-badge">
+          ${connected ? '● Online' : `○ ${escapeHtml(connLabel)}`}
+        </span>
+        <button class="btn btn-icon" id="now-refresh" title="Refresh feed" data-testid="refresh-feed">↻</button>
+        <button class="btn btn-primary btn-sm" id="go-compose" data-testid="create-channel-button">+ Channel</button>
       </div>
     </div>
   `;
@@ -65,21 +66,21 @@ function renderComposeArea(channels, activeChannelId, activeChannel) {
   return `
     <div class="compose-area" data-testid="compose-container">
       <form id="compose-form" data-testid="compose-form">
-        ${channels.length > 1 ? `
-          <div class="compose-channel-select">
-            <select id="compose-channel-sel" class="form-select" style="margin-bottom:10px;font-size:13px" aria-label="Post to channel">
-              ${channels.map(ch => `
-                <option value="${escapeHtml(ch.id)}" ${ch.id === activeChannelId ? 'selected' : ''}>
-                  #${escapeHtml(ch.name)}
-                </option>
-              `).join('')}
-            </select>
-          </div>
-        ` : activeChannel ? `
-          <div class="compose-channel-label">
-            <span class="channel-pill">#${escapeHtml(activeChannel.name)}</span>
-          </div>
-        ` : ''}
+        ${channels.length > 1
+          ? `
+            <div class="compose-channel-select">
+              <select id="compose-channel-sel" class="form-select" style="margin-bottom:10px;font-size:13px">
+                ${channels.map(ch => `
+                  <option value="${escapeHtml(ch.id)}" ${ch.id === activeChannelId ? 'selected' : ''}>
+                    #${escapeHtml(ch.name)}
+                  </option>
+                `).join('')}
+              </select>
+            </div>
+          `
+          : activeChannel
+            ? `<div class="compose-channel-label"><span class="channel-pill">#${escapeHtml(activeChannel.name)}</span></div>`
+            : ''}
         <textarea
           class="compose-input"
           id="compose-input"
@@ -88,7 +89,6 @@ function renderComposeArea(channels, activeChannelId, activeChannel) {
           rows="3"
           maxlength="2000"
           data-testid="compose-input"
-          aria-label="Compose a post"
         ></textarea>
         <div class="compose-footer">
           <span class="compose-count" data-testid="compose-count">0 / 2000</span>
@@ -99,79 +99,49 @@ function renderComposeArea(channels, activeChannelId, activeChannel) {
   `;
 }
 
-function renderEmpty(channels, connected, connLabel) {
+function renderEmptyState(channels, connected, connLabel) {
   if (!channels?.length) {
     return `
-      <div class="empty-state" data-testid="now-empty-state">
-        <div class="empty-state-icon">💭</div>
-        <div class="empty-state-title">What are you thinking about?</div>
-        <div class="empty-state-description">
-          Create a <strong>channel</strong> — a short description of your current thoughts.
-          ISC will embed it locally and find peers thinking similar things.
-        </div>
-        <a class="btn btn-primary" href="#/compose" data-testid="now-empty-cta">✏️ Create Your First Channel</a>
-      </div>
+      ${renderEmpty({
+        icon: '💭',
+        title: 'What are you thinking about?',
+        description: 'Create a <strong>channel</strong> — a short description of your current thoughts. ISC will embed it locally and find peers thinking similar things.',
+        actions: [{ label: '✏️ Create Your First Channel', href: '#/compose', variant: 'primary' }],
+      })}
 
       <div class="card card-blue mt-4" data-testid="now-how-it-works">
         <div class="card-title">🧠 How ISC Works</div>
         <div class="how-it-works-steps">
-          <div class="how-step">
-            <span class="how-step-num">1</span>
-            <div>
-              <strong>Describe your thought</strong>
-              <p>Write a channel description — your words, your voice.</p>
-            </div>
-          </div>
-          <div class="how-step">
-            <span class="how-step-num">2</span>
-            <div>
-              <strong>Local AI creates your vector</strong>
-              <p>A tiny LLM runs in your browser, turning your description into a 384-dimensional idea-fingerprint. Your text never leaves your device.</p>
-            </div>
-          </div>
-          <div class="how-step">
-            <span class="how-step-num">3</span>
-            <div>
-              <strong>Find your thought neighbors</strong>
-              <p>Peers with similar mental models appear in Discover — ranked by how close your ideas are in semantic space.</p>
-            </div>
-          </div>
-          <div class="how-step">
-            <span class="how-step-num">4</span>
-            <div>
-              <strong>Connect directly</strong>
-              <p>No servers, no algorithms. Pure peer-to-peer WebRTC. Your conversations are end-to-end encrypted.</p>
-            </div>
-          </div>
+          ${renderHowStep(1, 'Describe your thought', 'Write a channel description — your words, your voice.')}
+          ${renderHowStep(2, 'Local AI creates your vector', 'A tiny LLM runs in your browser, turning your description into a 384-dimensional idea-fingerprint. Your text never leaves your device.')}
+          ${renderHowStep(3, 'Find your thought neighbors', 'Peers with similar mental models appear in Discover — ranked by how close your ideas are in semantic space.')}
+          ${renderHowStep(4, 'Connect directly', 'No servers, no algorithms. Pure peer-to-peer WebRTC. Your conversations are end-to-end encrypted.')}
         </div>
       </div>
 
-      ${!connected ? `
-        <div class="info-banner warning mt-4" data-testid="network-warning">
-          ○ Network is ${escapeHtml(connLabel)} — connect to find peers
-        </div>
-      ` : ''}
+      ${!connected ? `<div class="info-banner warning mt-4">○ Network is ${escapeHtml(connLabel)} — connect to find peers</div>` : ''}
     `;
   }
 
+  return renderEmpty({
+    icon: '📭',
+    title: 'No posts yet',
+    description: connected
+      ? 'Post something to your channel, or discover peers and see what they\'re sharing.'
+      : 'Connect to the network to find peers with similar interests.',
+    actions: [{ label: '📡 Discover Peers', href: '#/discover', variant: 'primary' }],
+  });
+}
+
+function renderHowStep(num, title, desc) {
   return `
-    <div class="empty-state" data-testid="now-empty-state">
-      <div class="empty-state-icon">📭</div>
-      <div class="empty-state-title">No posts yet</div>
-      <div class="empty-state-description">
-        ${connected
-          ? 'Post something to your channel, or discover peers and see what they\'re sharing.'
-          : 'Connect to the network to see posts from peers with similar interests.'}
-      </div>
-      <div class="form-actions" style="justify-content:center">
-        <a href="#/discover" class="btn btn-primary">📡 Discover Peers</a>
+    <div class="how-step">
+      <span class="how-step-num">${num}</span>
+      <div>
+        <strong>${escapeHtml(title)}</strong>
+        <p>${escapeHtml(desc)}</p>
       </div>
     </div>
-    ${!connected ? `
-      <div class="info-banner warning mt-4" data-testid="network-warning">
-        ○ Network is ${escapeHtml(connLabel)} — posts will appear when connected
-      </div>
-    ` : ''}
   `;
 }
 
@@ -180,20 +150,20 @@ function renderPosts(posts, channels) {
     <div class="post-count text-muted mb-2" style="font-size:12px" data-testid="post-count">
       ${posts.length} post${posts.length !== 1 ? 's' : ''}
     </div>
-    ${posts.map(p => renderPost(p, channels)).join('')}
+    ${renderList(posts, p => renderPost(p, channels))}
   `;
 }
 
 function renderPost(post, channels) {
-  const author   = escapeHtml(post.author || post.identity?.name || 'Anonymous');
+  const author = escapeHtml(post.author || post.identity?.name || 'Anonymous');
   const initials = (post.author || post.identity?.name || 'A')[0].toUpperCase();
-  const content  = escapeHtml(post.content || '');
-  const time     = post.timestamp ? formatTime(post.timestamp) : '';
-  const channel  = channels?.find(c => c.id === post.channelId);
+  const content = escapeHtml(post.content || '');
+  const time = post.timestamp ? formatTime(post.timestamp) : '';
+  const channel = channels?.find(c => c.id === post.channelId);
   const chanName = channel ? escapeHtml(channel.name) : (post.channelId ? escapeHtml(post.channelId.slice(0, 12)) : '');
-  const likes    = post.likes?.length ?? 0;
-  const replies  = post.replies?.length ?? 0;
-  const score    = post.score != null ? Math.round(post.score * 100) : null;
+  const likes = post.likes?.length ?? 0;
+  const replies = post.replies?.length ?? 0;
+  const score = post.score != null ? Math.round(post.score * 100) : null;
 
   return `
     <div class="post-card" data-testid="post-card" data-component="post" data-post-id="${escapeHtml(post.id)}">
@@ -204,22 +174,22 @@ function renderPost(post, channels) {
           ${chanName ? `<span class="post-channel">#${chanName}</span>` : ''}
         </div>
         <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
-          ${score != null ? `<span class="post-score" title="Semantic relevance to your channels">${score}%</span>` : ''}
+          ${score != null ? `<span class="post-score" title="Semantic relevance">${score}%</span>` : ''}
           <span class="post-time">${time}</span>
         </div>
       </div>
       <div class="post-content" data-testid="post-content">${content}</div>
       <div class="post-actions">
         <button class="post-action-btn" data-action="like" data-like-btn data-post-id="${escapeHtml(post.id)}"
-                data-liked="false" data-testid="like-btn-${escapeHtml(post.id)}" aria-label="Like post">
+                data-liked="false" data-testid="like-btn-${escapeHtml(post.id)}">
           ♡ <span class="like-count">${likes}</span>
         </button>
         <button class="post-action-btn" data-action="reply" data-reply-btn data-post-id="${escapeHtml(post.id)}"
-                data-testid="reply-btn-${escapeHtml(post.id)}" aria-label="Reply">
+                data-testid="reply-btn-${escapeHtml(post.id)}">
           ↩ ${replies}
         </button>
         <button class="post-action-btn" data-action="delete" data-delete-btn data-post-id="${escapeHtml(post.id)}"
-                data-testid="delete-btn-${escapeHtml(post.id)}" style="margin-left:auto" aria-label="Delete post">
+                data-testid="delete-btn-${escapeHtml(post.id)}" style="margin-left:auto">
           🗑
         </button>
       </div>
@@ -231,37 +201,23 @@ export function bind(container) {
   const { channels, activeChannelId } = getState();
   const activeChannel = channels?.find(c => c.id === activeChannelId);
 
-  // Initialize Mixer Panel
-  if (activeChannel) {
-    bindMixerPanel(container, activeChannel);
-  }
+  if (activeChannel) bindMixerPanel(container, activeChannel);
 
-  // Refresh button
-  container.querySelector('#now-refresh')?.addEventListener('click', () => {
-    doRefresh(container);
-  });
-
-  // Navigate to compose
-  container.querySelector('#go-compose')?.addEventListener('click', () => {
-    window.location.hash = '#/compose';
-  });
-
-  // Channel selector
+  container.querySelector('#now-refresh')?.addEventListener('click', () => doRefresh(container));
+  container.querySelector('#go-compose')?.addEventListener('click', () => { window.location.hash = '#/compose'; });
   container.querySelector('#compose-channel-sel')?.addEventListener('change', e => {
     actions.setActiveChannel(e.target.value);
   });
 
-  // Compose form
-  const composeForm  = container.querySelector('#compose-form');
+  const composeForm = container.querySelector('#compose-form');
   const composeInput = container.querySelector('#compose-input');
   const composeCount = container.querySelector('[data-testid="compose-count"]');
-  const submitBtn    = container.querySelector('[data-testid="compose-submit"]');
+  const submitBtn = container.querySelector('[data-testid="compose-submit"]');
 
   composeInput?.addEventListener('input', () => {
     const len = composeInput.value.length;
     if (composeCount) composeCount.textContent = `${len} / 2000`;
     if (submitBtn) submitBtn.disabled = len === 0;
-    // Auto-grow textarea
     autoGrow(composeInput);
   });
 
@@ -273,6 +229,7 @@ export function bind(container) {
     const { channels, activeChannelId } = getState();
     const sel = container.querySelector('#compose-channel-sel');
     const targetChannelId = sel?.value || activeChannelId || channels?.[0]?.id;
+
     if (!targetChannelId) {
       document.dispatchEvent(new CustomEvent('isc:need-channel'));
       return;
@@ -296,42 +253,63 @@ export function bind(container) {
     }
   });
 
-  // Ctrl+Enter to submit
-  composeInput?.addEventListener('keydown', e => {
-    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') composeForm?.requestSubmit();
-  });
+  setupCtrlEnterSubmit(composeInput, composeForm);
 
-  // Post actions (delegated)
-  container.addEventListener('click', e => {
-    const likeBtn   = e.target.closest('[data-like-btn]');
-    const replyBtn  = e.target.closest('[data-reply-btn]');
-    const deleteBtn = e.target.closest('[data-delete-btn]');
+  // Delegated post actions
+  const unbindLike = bindDelegate(container, '[data-like-btn]', 'click', handleLike);
+  const unbindReply = bindDelegate(container, '[data-reply-btn]', 'click', handleReply);
+  const unbindDelete = bindDelegate(container, '[data-delete-btn]', 'click', handleDelete);
 
-    if (likeBtn) {
-      const liked = likeBtn.dataset.liked === 'true';
-      likeBtn.dataset.liked = liked ? 'false' : 'true';
-      likeBtn.classList.toggle('liked', !liked);
-      const counter = likeBtn.querySelector('.like-count');
-      if (counter) counter.textContent = String(parseInt(counter.textContent || '0') + (liked ? -1 : 1));
-      document.dispatchEvent(new CustomEvent('isc:like-post', { detail: { postId: likeBtn.dataset.postId } }));
-    }
-    if (replyBtn)  document.dispatchEvent(new CustomEvent('isc:reply-post',  { detail: { postId: replyBtn.dataset.postId } }));
-    if (deleteBtn) document.dispatchEvent(new CustomEvent('isc:delete-post', { detail: { postId: deleteBtn.dataset.postId } }));
-  });
+  return [unbindLike, unbindReply, unbindDelete];
+}
+
+function handleLike(e, target) {
+  const liked = target.dataset.liked === 'true';
+  target.dataset.liked = liked ? 'false' : 'true';
+  target.classList.toggle('liked', !liked);
+  const counter = target.querySelector('.like-count');
+  if (counter) counter.textContent = String(parseInt(counter.textContent || '0') + (liked ? -1 : 1));
+  document.dispatchEvent(new CustomEvent('isc:like-post', { detail: { postId: target.dataset.postId } }));
+}
+
+function handleReply(e, target) {
+  document.dispatchEvent(new CustomEvent('isc:reply-post', { detail: { postId: target.dataset.postId } }));
+}
+
+async function handleDelete(e, target) {
+  const { modals } = globalThis.ISC_SERVICES ?? {};
+  if (!modals) return;
+
+  const ok = await modals.confirm('Delete this post?', { title: '🗑️ Delete Post', confirmText: 'Delete', danger: true });
+  if (!ok) return;
+
+  const { postService } = globalThis.ISC_SERVICES ?? {};
+  if (!postService) return;
+
+  try {
+    await postService.delete(target.dataset.postId);
+    document.dispatchEvent(new CustomEvent('isc:refresh-feed'));
+    toasts.success('Post deleted');
+  } catch (err) {
+    toasts.error(err.message);
+  }
 }
 
 export function update(container, { scrollToTop = false } = {}) {
   if (refreshing) return;
   const feed = container.querySelector('#now-feed');
   if (!feed) return;
+
   const { channels } = getState();
   const posts = feedService.getForYou(50);
   const netStatus = networkService.getStatus();
   const connected = netStatus?.connected ?? false;
   const connLabel = connected ? 'connected' : (netStatus?.status ?? 'disconnected');
+
   feed.innerHTML = posts.length === 0
-    ? renderEmpty(channels, connected, connLabel)
+    ? renderEmptyState(channels, connected, connLabel)
     : renderPosts(posts, channels);
+
   if (scrollToTop) {
     const body = container.querySelector('[data-testid="now-body"]');
     if (body) body.scrollTop = 0;
@@ -346,16 +324,10 @@ async function doRefresh(container) {
   if (btn) { btn.classList.add('spinning'); btn.disabled = true; }
 
   try {
-    // Let the network discover any new posts
     await networkService.discoverPeers?.().catch(() => {});
     update(container);
   } finally {
     refreshing = false;
     if (btn) { btn.classList.remove('spinning'); btn.disabled = false; }
   }
-}
-
-function autoGrow(el) {
-  el.style.height = 'auto';
-  el.style.height = Math.min(el.scrollHeight, 200) + 'px';
 }

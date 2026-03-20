@@ -1,8 +1,23 @@
 /**
  * Status Bar Component
- * Fixed bottom bar showing connection status, peer/channel counts, and last log entry
+ *
+ * Fixed bottom bar showing connection status, peer/channel counts, and last log entry.
  */
 
+const STATUS_CONFIG = {
+  connected: { class: 'online', label: 'Online' },
+  connecting: { class: 'connecting', label: 'Connecting...' },
+  disconnected: { class: 'offline', label: 'Offline' },
+  error: { class: 'offline', label: 'Error' },
+};
+
+/**
+ * Create status bar component
+ * @param {HTMLElement} container
+ * @param {Object} options
+ * @param {Function} options.onToggleDebug
+ * @returns {Object} StatusBar API
+ */
 export function createStatusBar(container, { onToggleDebug }) {
   const el = document.createElement('div');
   el.className = 'status-bar';
@@ -26,32 +41,53 @@ export function createStatusBar(container, { onToggleDebug }) {
   `;
 
   container.appendChild(el);
-
   el.querySelector('[data-testid="debug-toggle"]')?.addEventListener('click', () => onToggleDebug?.());
 
   const fields = {
-    dot:     el.querySelector('[data-field="status-dot"]'),
-    text:    el.querySelector('[data-field="status-text"]'),
-    peers:   el.querySelector('[data-field="peer-count"]'),
-    channels:el.querySelector('[data-field="channel-count"]'),
-    log:     el.querySelector('[data-field="log-text"]'),
+    dot: el.querySelector('[data-field="status-dot"]'),
+    text: el.querySelector('[data-field="status-text"]'),
+    peers: el.querySelector('[data-field="peer-count"]'),
+    channels: el.querySelector('[data-field="channel-count"]'),
+    log: el.querySelector('[data-field="log-text"]'),
   };
 
   return {
+    /**
+     * Update status bar with new state
+     * @param {Object} state
+     * @param {string} state.status
+     * @param {number} [state.peerCount]
+     * @param {number} [state.channelCount]
+     */
     update({ status, peerCount = 0, channelCount = 0 }) {
-      const cls = { connected: 'online', connecting: 'connecting', disconnected: 'offline', error: 'offline' }[status] ?? 'offline';
-      const label = { connected: 'Online', connecting: 'Connecting...', disconnected: 'Offline', error: 'Error' }[status] ?? 'Offline';
+      const config = getStatusConfig(status);
 
-      if (fields.dot)      { fields.dot.className = `status-dot ${cls}`; }
-      if (fields.text)     { fields.text.className = `status-text ${cls}`; fields.text.textContent = label; }
-      if (fields.peers)    fields.peers.textContent = String(peerCount);
+      if (fields.dot) fields.dot.className = `status-dot ${config.class}`;
+      if (fields.text) {
+        fields.text.className = `status-text ${config.class}`;
+        fields.text.textContent = config.label;
+      }
+      if (fields.peers) fields.peers.textContent = String(peerCount);
       if (fields.channels) fields.channels.textContent = String(channelCount);
     },
 
+    /**
+     * Set log message
+     * @param {string} message
+     */
     setLog(message) {
       if (fields.log) fields.log.textContent = message;
     },
 
     destroy() { el.remove(); },
   };
+}
+
+/**
+ * Get status configuration
+ * @param {string} status
+ * @returns {{class: string, label: string}}
+ */
+function getStatusConfig(status) {
+  return STATUS_CONFIG[status] ?? { class: 'offline', label: 'Offline' };
 }
