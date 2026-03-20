@@ -1,8 +1,9 @@
 /**
  * Mixer Panel Component
  *
- * Channel control surface with progressive disclosure.
- * Renders the full Mixer UI with all adjustable parameters.
+ * Compact channel control surface with progressive disclosure.
+ * Default: Shows only essential controls (precision slider, view mode).
+ * Expanded: Shows filters, sort, and advanced options.
  */
 
 import { getState, actions } from '../../state.js';
@@ -18,219 +19,147 @@ const PRESETS = {
   discovery: {
     name: 'Discovery',
     icon: '🌍',
-    description: 'Broad matching - find diverse perspectives',
+    description: 'Broad matching',
     specificity: 20,
     minSimilarity: 0.35,
   },
   balanced: {
     name: 'Balanced',
     icon: '⚖️',
-    description: 'Mix of familiar and new ideas',
+    description: 'Mix of familiar and new',
     specificity: 50,
     minSimilarity: 0.55,
   },
   focus: {
     name: 'Focus',
     icon: '🎯',
-    description: 'Narrow matching - deep dive into topics',
+    description: 'Narrow matching',
     specificity: 80,
     minSimilarity: 0.75,
   },
 };
 
 /**
- * Render the Mixer Panel HTML
+ * Render the compact Mixer Panel HTML
  */
 export function renderMixerPanel(activeChannel) {
   if (!activeChannel) return '';
 
   const settings = channelSettingsService.getSettings(activeChannel.id);
-  const { specificity, viewMode, isArchived, isMuted, panelsExpanded, filters, minSimilarity, sortOrder, sortDescending } = settings;
+  const { specificity, viewMode, isArchived, isMuted, panelsExpanded, filters, minSimilarity } = settings;
   const cosineThreshold = specificityToCosineThreshold(specificity);
   const specificityLabel = getSpecificityLabel(specificity);
 
-  // Determine which panels should be expanded by default
-  const defaultExpanded = {
-    view: true, // Always show view mode
-    specificity: true, // Always show precision - it's the key feature
-    filters: panelsExpanded.filters,
-    sort: panelsExpanded.sort,
-    advanced: panelsExpanded.advanced,
-  };
+  // Only show expanded if explicitly toggled
+  const isExpanded = panelsExpanded.mixerExpanded === true;
 
   return `
-    <div class="mixer-panel" data-testid="mixer-panel" data-channel-id="${escapeHtml(activeChannel.id)}">
-      <!-- Header Row: Channel Info + Status + Actions -->
-      <div class="mixer-header">
-        <div class="mixer-channel-info">
-          <div class="mixer-channel-row">
-            <h2 class="mixer-channel-name">
-              ${escapeHtml(activeChannel.name)}
-              ${isMuted ? '<span class="status-icon" title="Muted">🔇</span>' : ''}
-              ${isArchived ? '<span class="status-icon" title="Archived">📦</span>' : ''}
-            </h2>
-            <div class="mixer-channel-switcher">
-              <span class="mixer-label-inline">Channel:</span>
-              <select id="mixer-channel-select" class="mixer-channel-select" data-testid="channel-select">
-                ${renderChannelOptions(activeChannel.id)}
-              </select>
-            </div>
-          </div>
-          ${activeChannel.description ? `
-            <p class="mixer-channel-description">${escapeHtml(activeChannel.description)}</p>
-          ` : `
-            <p class="mixer-channel-description empty">Click edit to add a description</p>
-          `}
+    <div class="mixer-panel ${isExpanded ? 'mixer-panel-expanded' : ''}" data-testid="mixer-panel" data-channel-id="${escapeHtml(activeChannel.id)}">
+      <!-- Compact Header (always visible) -->
+      <div class="mixer-compact-header">
+        <div class="mixer-channel-row">
+          <h2 class="mixer-channel-name">
+            ${escapeHtml(activeChannel.name)}
+            ${isMuted ? '<span class="status-icon" title="Muted">🔇</span>' : ''}
+          </h2>
+          <select id="mixer-channel-select" class="mixer-channel-select" data-testid="channel-select">
+            ${renderChannelOptions(activeChannel.id)}
+          </select>
         </div>
-        <div class="mixer-actions">
-          <button class="mixer-icon-btn" id="mixer-edit" title="Edit channel" data-testid="edit-channel-btn">✏️</button>
+        <div class="mixer-header-actions">
+          <button class="mixer-icon-btn mixer-btn-expand" id="mixer-expand" title="${isExpanded ? 'Collapse' : 'More options'}">
+            ${isExpanded ? '▼' : '▲'}
+          </button>
+          <button class="mixer-icon-btn" id="mixer-edit" title="Edit channel">✏️</button>
           <button class="mixer-icon-btn" id="mixer-mute" title="${isMuted ? 'Unmute' : 'Mute'}">${isMuted ? '🔇' : '🔈'}</button>
-          <button class="mixer-icon-btn" id="mixer-archive" title="Archive channel">📦</button>
         </div>
       </div>
 
-      <!-- Quick Presets Bar -->
-      <div class="mixer-presets">
-        <span class="mixer-presets-label">Quick presets:</span>
-        <div class="mixer-button-group">
-          ${Object.entries(PRESETS).map(([key, preset]) => `
-            <button class="mixer-preset-btn ${specificity === preset.specificity ? 'active' : ''}" 
-                    data-preset="${key}"
-                    title="${preset.description}">
-              ${preset.icon} ${preset.name}
-            </button>
-          `).join('')}
-        </div>
-      </div>
-
-      <!-- Precision Panel (Always Expanded) -->
-      <div class="mixer-section mixer-section-primary">
-        <div class="mixer-section-header">
-          <div>
-            <h4 class="mixer-section-title">🎯 Precision</h4>
-            <p class="mixer-section-description">
-              Controls how closely posts must match your channel's topic.
-              <span class="mixer-help-toggle" title="Higher precision = more focused, fewer posts. Lower = more diverse, broader matching.">ⓘ</span>
-            </p>
-          </div>
-        </div>
-        <div class="mixer-section-content">
-          <div class="mixer-slider-with-values">
-            <input type="range" class="mixer-slider" id="mixer-specificity-slider"
-                   min="0" max="100" value="${specificity}"
-                   data-testid="specificity-slider" />
-            <div class="mixer-slider-labels">
-              <span>Broad</span>
-              <span>Balanced</span>
-              <span>Narrow</span>
+      <!-- Essential Controls (always visible) -->
+      <div class="mixer-essential">
+        <!-- Precision Slider -->
+        <div class="mixer-precision-control">
+          <div class="mixer-precision-header">
+            <span class="mixer-control-label">🎯 Precision</span>
+            <div class="mixer-precision-value">
+              <span class="mixer-value-badge">${specificity}%</span>
+              <span class="mixer-value-label">${specificityLabel.label}</span>
             </div>
           </div>
-          <div class="mixer-value-row mixer-value-row-highlight">
-            <span class="mixer-value-item">
-              <span class="mixer-value-label">Specificity</span>
-              <span class="mixer-value-strong">${specificity}%</span>
-            </span>
-            <span class="mixer-value-item">
-              <span class="mixer-value-label">Cosine threshold</span>
-              <span class="mixer-value-strong">${cosineThreshold.toFixed(2)}</span>
-            </span>
-            <span class="mixer-value-item">
-              <span class="mixer-value-label">${specificityLabel.icon}</span>
-              <span class="mixer-value-strong">${specificityLabel.label}</span>
-            </span>
+          <input type="range" class="mixer-slider mixer-slider-compact" id="mixer-specificity-slider"
+                 min="0" max="100" value="${specificity}"
+                 data-testid="specificity-slider" />
+          <div class="mixer-presets-row">
+            ${Object.entries(PRESETS).map(([key, preset]) => `
+              <button class="mixer-preset-chip ${specificity === preset.specificity ? 'active' : ''}" 
+                      data-preset="${key}"
+                      title="${preset.description}">
+                ${preset.icon}
+              </button>
+            `).join('')}
           </div>
         </div>
-      </div>
 
-      <!-- View Mode Panel (Always Expanded) -->
-      <div class="mixer-section mixer-section-primary">
-        <div class="mixer-section-header">
-          <h4 class="mixer-section-title">👁 View Mode</h4>
-        </div>
-        <div class="mixer-section-content">
-          <div class="mixer-button-group">
-            <button class="mixer-toggle-btn ${viewMode === 'list' ? 'active' : ''}" data-view-mode="list" data-testid="view-mode-list">
-              📋 List
+        <!-- View Mode Buttons -->
+        <div class="mixer-view-control">
+          <span class="mixer-control-label">👁 View</span>
+          <div class="mixer-button-group mixer-view-buttons">
+            <button class="mixer-view-btn ${viewMode === 'list' ? 'active' : ''}" data-view-mode="list" title="List view">
+              📋
             </button>
-            <button class="mixer-toggle-btn ${viewMode === 'space' ? 'active' : ''}" data-view-mode="space" data-testid="view-mode-space">
-              🌌 Space
+            <button class="mixer-view-btn ${viewMode === 'space' ? 'active' : ''}" data-view-mode="space" title="Space view">
+              🌌
             </button>
-            <button class="mixer-toggle-btn ${viewMode === 'grid' ? 'active' : ''}" data-view-mode="grid" data-testid="view-mode-grid">
-              ▦ Grid
+            <button class="mixer-view-btn ${viewMode === 'grid' ? 'active' : ''}" data-view-mode="grid" title="Grid view">
+              ▦
             </button>
           </div>
         </div>
       </div>
 
-      <!-- Filters Panel -->
-      <div class="mixer-section">
-        <div class="mixer-section-header" id="mixer-toggle-filters" style="cursor:pointer">
-          <h4 class="mixer-section-title">🔍 Filters</h4>
-          <span class="mixer-toggle-icon">${defaultExpanded.filters ? '▼' : '▶'}</span>
-        </div>
-        ${defaultExpanded.filters ? `
-          <div class="mixer-section-content">
-            <div class="mixer-button-group">
-              <button class="mixer-toggle-btn ${filters.showMe ? 'active' : ''}" data-filter="showMe">👤 My posts</button>
-              <button class="mixer-toggle-btn ${filters.showOthers ? 'active' : ''}" data-filter="showOthers">👥 Others</button>
-              <button class="mixer-toggle-btn ${filters.showTrusted ? 'active' : ''}" data-filter="showTrusted">✓ Trusted</button>
-              <button class="mixer-toggle-btn ${filters.showHighAlignment ? 'active' : ''}" data-filter="showHighAlignment">🔥 High alignment</button>
-              <button class="mixer-toggle-btn ${filters.showLowAlignment ? 'active' : ''}" data-filter="showLowAlignment">🌱 Low alignment</button>
+      <!-- Expanded Controls (collapsible) -->
+      ${isExpanded ? `
+        <div class="mixer-expanded-content">
+          <!-- Filters -->
+          <div class="mixer-section-compact">
+            <div class="mixer-section-header-compact">
+              <span class="mixer-section-title-compact">🔍 Filters</span>
             </div>
-            <div class="mixer-filter-row">
-              <label class="mixer-label">
-                Min similarity: <strong>${Math.round(minSimilarity * 100)}%</strong>
-                <span class="mixer-help-toggle" title="Posts below this similarity threshold will be hidden">ⓘ</span>
-              </label>
-              <input type="range" class="mixer-slider" id="mixer-similarity-slider"
+            <div class="mixer-filters-row">
+              <button class="mixer-filter-chip ${filters.showMe ? 'active' : ''}" data-filter="showMe">👤 Me</button>
+              <button class="mixer-filter-chip ${filters.showOthers ? 'active' : ''}" data-filter="showOthers">👥 Others</button>
+              <button class="mixer-filter-chip ${filters.showTrusted ? 'active' : ''}" data-filter="showTrusted">✓ Trusted</button>
+              <button class="mixer-filter-chip ${filters.showHighAlignment ? 'active' : ''}" data-filter="showHighAlignment">🔥 High</button>
+              <button class="mixer-filter-chip ${filters.showLowAlignment ? 'active' : ''}" data-filter="showLowAlignment">🌱 Low</button>
+            </div>
+            <div class="mixer-similarity-control">
+              <span class="mixer-control-label">Min similarity: <strong>${Math.round(minSimilarity * 100)}%</strong></span>
+              <input type="range" class="mixer-slider mixer-slider-mini" id="mixer-similarity-slider"
                      min="0" max="100" value="${Math.round(minSimilarity * 100)}" />
             </div>
           </div>
-        ` : ''}
-      </div>
 
-      <!-- Sort Panel -->
-      <div class="mixer-section">
-        <div class="mixer-section-header" id="mixer-toggle-sort" style="cursor:pointer">
-          <h4 class="mixer-section-title">📊 Sort Order</h4>
-          <span class="mixer-toggle-icon">${defaultExpanded.sort ? '▼' : '▶'}</span>
-        </div>
-        ${defaultExpanded.sort ? `
-          <div class="mixer-section-content">
-            <div class="mixer-sort-row">
-              <select class="mixer-select" id="mixer-sort-order" data-testid="sort-order-select">
-                <option value="recency" ${sortOrder === 'recency' ? 'selected' : ''}>🕐 Most recent</option>
-                <option value="similarity" ${sortOrder === 'similarity' ? 'selected' : ''}>🎯 Best match</option>
-                <option value="activity" ${sortOrder === 'activity' ? 'selected' : ''}>🔥 Most active</option>
-                <option value="alphabetical" ${sortOrder === 'alphabetical' ? 'selected' : ''}>A-Z Alphabetical</option>
+          <!-- Sort -->
+          <div class="mixer-section-compact">
+            <div class="mixer-section-header-compact">
+              <span class="mixer-section-title-compact">📊 Sort</span>
+              <select class="mixer-select-compact" id="mixer-sort-order">
+                <option value="recency" ${settings.sortOrder === 'recency' ? 'selected' : ''}>Recent</option>
+                <option value="similarity" ${settings.sortOrder === 'similarity' ? 'selected' : ''}>Match</option>
+                <option value="activity" ${settings.sortOrder === 'activity' ? 'selected' : ''}>Active</option>
               </select>
-              <button class="mixer-toggle-btn" id="mixer-sort-direction" title="Toggle ascending/descending">
-                ${sortDescending ? '↓ Descending' : '↑ Ascending'}
-              </button>
             </div>
           </div>
-        ` : ''}
-      </div>
 
-      <!-- Advanced Panel -->
-      <div class="mixer-section">
-        <div class="mixer-section-header" id="mixer-toggle-advanced" style="cursor:pointer">
-          <h4 class="mixer-section-title">⚙️ Advanced</h4>
-          <span class="mixer-toggle-icon">${defaultExpanded.advanced ? '▼' : '▶'}</span>
-        </div>
-        ${defaultExpanded.advanced ? `
-          <div class="mixer-section-content">
-            <div class="mixer-advanced-info">
-              <div>Channel ID: <code>${escapeHtml(activeChannel.id.slice(0, 16))}...</code></div>
-              <div>Created: ${new Date(activeChannel.createdAt).toLocaleString()}</div>
-              <div>Views: ${settings.viewCount} | Last viewed: ${settings.lastViewedAt > 0 ? new Date(settings.lastViewedAt).toLocaleString() : 'Never'}</div>
-            </div>
-            <div class="mixer-advanced-actions">
-              <button class="mixer-btn mixer-btn-secondary" id="mixer-reset">Reset to defaults</button>
+          <!-- Actions -->
+          <div class="mixer-section-compact">
+            <div class="mixer-actions-row">
+              <button class="mixer-btn-compact" id="mixer-archive">📦 Archive</button>
+              <button class="mixer-btn-compact mixer-btn-danger" id="mixer-reset">↺ Reset</button>
             </div>
           </div>
-        ` : ''}
-      </div>
+        </div>
+      ` : ''}
     </div>
   `;
 }
@@ -288,12 +217,17 @@ export function renderEditModal(channel) {
 export function bindMixerPanel(container, activeChannel) {
   if (!activeChannel) return;
 
+  // Expand/collapse toggle
+  container.querySelector('#mixer-expand')?.addEventListener('click', () => {
+    channelSettingsService.togglePanel(activeChannel.id, 'mixerExpanded');
+    refreshMixerPanel(container, activeChannel);
+  });
+
   // Channel switcher
   container.querySelector('#mixer-channel-select')?.addEventListener('change', (e) => {
     const newChannelId = e.target.value;
     actions.setActiveChannel(newChannelId);
-    toasts.success(`Switched to #${activeChannel.name}`);
-    // Refresh the page to show new channel content
+    toasts.success(`Switched to channel`);
     setTimeout(() => {
       document.dispatchEvent(new CustomEvent('isc:refresh-feed'));
     }, 100);
@@ -312,22 +246,16 @@ export function bindMixerPanel(container, activeChannel) {
       });
       refreshMixerPanel(container, activeChannel);
       toasts.success(`Applied ${preset.name} preset`);
-
-      // Trigger feed refresh
-      document.dispatchEvent(new CustomEvent('isc:channel-sort-change', {
-        detail: { specificity: preset.specificity, minSimilarity: preset.minSimilarity }
-      }));
+      document.dispatchEvent(new CustomEvent('isc:refresh-feed'));
     });
   });
 
-  // Panel toggle handlers (for collapsible sections)
-  const togglePanels = ['filters', 'sort', 'advanced'];
-  togglePanels.forEach(panel => {
-    const toggle = container.querySelector(`#mixer-toggle-${panel}`);
-    toggle?.addEventListener('click', () => {
-      channelSettingsService.togglePanel(activeChannel.id, panel);
-      refreshMixerPanel(container, activeChannel);
-    });
+  // Precision slider
+  container.querySelector('#mixer-specificity-slider')?.addEventListener('input', (e) => {
+    const value = parseInt(e.target.value, 10);
+    channelSettingsService.updateSettings(activeChannel.id, { specificity: value });
+    refreshMixerPanel(container, activeChannel);
+    document.dispatchEvent(new CustomEvent('isc:refresh-feed'));
   });
 
   // View mode buttons
@@ -336,25 +264,8 @@ export function bindMixerPanel(container, activeChannel) {
       const mode = btn.dataset.viewMode;
       channelSettingsService.updateSettings(activeChannel.id, { viewMode: mode });
       refreshMixerPanel(container, activeChannel);
-      // Dispatch event for view change
       document.dispatchEvent(new CustomEvent('isc:channel-view-change', { detail: { mode } }));
     });
-  });
-
-  // Specificity slider
-  const specificitySlider = container.querySelector('#mixer-specificity-slider');
-  specificitySlider?.addEventListener('input', (e) => {
-    const value = parseInt(e.target.value, 10);
-    channelSettingsService.updateSettings(activeChannel.id, { specificity: value });
-    refreshMixerPanel(container, activeChannel);
-  });
-
-  // Similarity slider
-  const similaritySlider = container.querySelector('#mixer-similarity-slider');
-  similaritySlider?.addEventListener('input', (e) => {
-    const value = parseInt(e.target.value, 10) / 100;
-    channelSettingsService.updateSettings(activeChannel.id, { minSimilarity: value });
-    refreshMixerPanel(container, activeChannel);
   });
 
   // Filter buttons
@@ -367,61 +278,60 @@ export function bindMixerPanel(container, activeChannel) {
         filters: { ...settings.filters, [filterType]: newValue },
       });
       refreshMixerPanel(container, activeChannel);
+      document.dispatchEvent(new CustomEvent('isc:refresh-feed'));
     });
   });
 
-  // Sort order select
-  const sortSelect = container.querySelector('#mixer-sort-order');
-  sortSelect?.addEventListener('change', (e) => {
-    channelSettingsService.updateSettings(activeChannel.id, { sortOrder: e.target.value });
-    document.dispatchEvent(new CustomEvent('isc:channel-sort-change', { 
-      detail: { sortOrder: e.target.value } 
-    }));
-  });
-
-  // Sort direction toggle
-  const sortDirBtn = container.querySelector('#mixer-sort-direction');
-  sortDirBtn?.addEventListener('click', () => {
-    const settings = channelSettingsService.getSettings(activeChannel.id);
-    channelSettingsService.updateSettings(activeChannel.id, { sortDescending: !settings.sortDescending });
+  // Similarity slider
+  container.querySelector('#mixer-similarity-slider')?.addEventListener('input', (e) => {
+    const value = parseInt(e.target.value, 10) / 100;
+    channelSettingsService.updateSettings(activeChannel.id, { minSimilarity: value });
     refreshMixerPanel(container, activeChannel);
-    document.dispatchEvent(new CustomEvent('isc:channel-sort-change', { 
-      detail: { sortDescending: !settings.sortDescending } 
-    }));
+    document.dispatchEvent(new CustomEvent('isc:refresh-feed'));
   });
 
-  // Action buttons
+  // Sort order
+  container.querySelector('#mixer-sort-order')?.addEventListener('change', (e) => {
+    channelSettingsService.updateSettings(activeChannel.id, { sortOrder: e.target.value });
+    document.dispatchEvent(new CustomEvent('isc:refresh-feed'));
+  });
+
+  // Edit button
   container.querySelector('#mixer-edit')?.addEventListener('click', () => {
     showEditModal(activeChannel);
   });
 
+  // Mute button
   container.querySelector('#mixer-mute')?.addEventListener('click', () => {
     const settings = channelSettingsService.getSettings(activeChannel.id);
     if (settings.isMuted) {
       channelSettingsService.unmuteChannel(activeChannel.id);
+      toasts.info('Channel unmuted');
     } else {
       channelSettingsService.muteChannel(activeChannel.id);
+      toasts.info('Channel muted');
     }
     refreshMixerPanel(container, activeChannel);
   });
 
+  // Archive button
   container.querySelector('#mixer-archive')?.addEventListener('click', () => {
-    const confirmed = confirm('Archive this channel? It will be hidden from the main view.');
+    const confirmed = confirm('Archive this channel?');
     if (confirmed) {
       channelSettingsService.archiveChannel(activeChannel.id);
-      refreshMixerPanel(container, activeChannel);
       toasts.info('Channel archived');
+      refreshMixerPanel(container, activeChannel);
       document.dispatchEvent(new CustomEvent('isc:refresh-channels'));
     }
   });
 
   // Reset button
   container.querySelector('#mixer-reset')?.addEventListener('click', () => {
-    const confirmed = confirm('Reset all settings for this channel to defaults?');
+    const confirmed = confirm('Reset all settings to defaults?');
     if (confirmed) {
       channelSettingsService.resetSettings(activeChannel.id);
+      toasts.info('Settings reset');
       refreshMixerPanel(container, activeChannel);
-      toasts.info('Settings reset to defaults');
     }
   });
 }
