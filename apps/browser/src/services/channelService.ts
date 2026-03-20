@@ -1,6 +1,6 @@
 /**
  * Channel Service
- * 
+ *
  * Business logic layer for channel operations.
  * Wraps ChannelManager with additional UI-friendly functionality.
  */
@@ -34,11 +34,11 @@ export function createChannelService(channelManager: ChannelManager): ChannelSer
       if (!input.name || input.name.trim().length < 3) {
         throw new Error('Channel name must be at least 3 characters');
       }
-      
+
       if (!input.description || input.description.trim().length < 10) {
         throw new Error('Channel description must be at least 10 characters');
       }
-      
+
       if (input.spread !== undefined && (input.spread < 0 || input.spread > 100)) {
         throw new Error('Spread must be between 0 and 100');
       }
@@ -71,7 +71,7 @@ export function createChannelService(channelManager: ChannelManager): ChannelSer
 
     async getActiveChannels(): Promise<Channel[]> {
       const channels = await channelManager.getAllChannels();
-      return channels.filter(c => channelManager.isActive(c.id));
+      return channels.filter((c) => channelManager.isActive(c.id));
     },
 
     async updateChannel(id: string, updates: Partial<Channel>): Promise<Channel | null> {
@@ -90,11 +90,11 @@ export function createChannelService(channelManager: ChannelManager): ChannelSer
 
     async activateChannel(id: string): Promise<void> {
       const channels = await channelManager.getAllChannels();
-      const activeCount = channels.filter(c => channelManager.isActive(c.id)).length;
+      const activeCount = channels.filter((c) => channelManager.isActive(c.id)).length;
       if (activeCount >= 5) {
         throw new Error(`Maximum 5 active channels allowed`);
       }
-      
+
       await channelManager.activateChannel(id, []);
     },
 
@@ -110,12 +110,13 @@ export function createChannelService(channelManager: ChannelManager): ChannelSer
   };
 }
 
-const MAX_ACTIVE_CHANNELS = 5;
-
 /**
  * Validate channel input
  */
-export function validateChannelInput(input: CreateChannelInput): { valid: boolean; errors: string[] } {
+export function validateChannelInput(input: CreateChannelInput): {
+  valid: boolean;
+  errors: string[];
+} {
   const errors: string[] = [];
 
   if (!input.name || input.name.trim().length < 3) {
@@ -160,9 +161,10 @@ export function formatChannel(channel: Channel): {
 } {
   return {
     name: channel.name,
-    description: channel.description.length > 100 
-      ? channel.description.slice(0, 100) + '...' 
-      : channel.description,
+    description:
+      channel.description.length > 100
+        ? channel.description.slice(0, 100) + '...'
+        : channel.description,
     spread: `${channel.spread}%`,
     relationCount: channel.relations?.length ?? 0,
     createdAt: new Date(channel.createdAt).toLocaleDateString(),

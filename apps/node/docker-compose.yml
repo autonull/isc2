@@ -1,0 +1,32 @@
+version: '3.8'
+
+services:
+  isc-relay:
+    build:
+      context: ..
+      dockerfile: apps/node/Dockerfile
+    container_name: isc-relay
+    ports:
+      - '9090:9090'
+      - '9091:9091'
+    environment:
+      - ISC_ADMIN_TOKEN=${ISC_ADMIN_TOKEN:-admin-token-change-me}
+      - ISC_ADMIN_PORT=9091
+      - ISC_PORT=9090
+      - ISC_SIMULATOR=${ISC_SIMULATOR:-false}
+      - ISC_BOT_COUNT=${ISC_BOT_COUNT:-5}
+      - ISC_ANNOUNCE=${ISC_ANNOUNCE:-false}
+    volumes:
+      - isc-identity:/app/data
+    restart: unless-stopped
+    healthcheck:
+      test: ['CMD', 'wget', '-q', '--spider', 'http://localhost:9091/health']
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    stop_grace_period: 30s
+
+volumes:
+  isc-identity:
+    driver: local

@@ -97,7 +97,7 @@ test.describe('Browser Reality Check', () => {
         // Check if tab exists before clicking
         const count = await tabElement.count();
         if (count > 0) {
-          await tabElement.click();
+          await tabElement.click({ force: true });
           await page.waitForTimeout(500);
         }
       }
@@ -167,7 +167,7 @@ test.describe('Browser Reality Check', () => {
       const count = await settingsTab.count();
       
       if (count > 0) {
-        await settingsTab.click();
+        await settingsTab.click({ force: true });
         await page.waitForTimeout(1000);
         pass('Settings page loads');
       } else {

@@ -25,7 +25,7 @@ describe('PostProtocol', () => {
 
     await protocol.requestHistoricalPosts('peer1', 'channel1');
 
-    expect(mockNode.dialProtocol).toHaveBeenCalledWith('peer1', '/isc/post/1.0');
+    expect(mockNode.dialProtocol).toHaveBeenCalledWith('peer1', '/isc/post/1.0.0');
     expect(mockSink).toHaveBeenCalled();
     expect(onHistoricalPost).toHaveBeenCalledTimes(2);
     expect(mockStream.close).toHaveBeenCalled();

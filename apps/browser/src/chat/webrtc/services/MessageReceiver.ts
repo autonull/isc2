@@ -4,11 +4,9 @@
  * Handles incoming message processing, verification, and acknowledgments.
  */
 
-import type { Libp2p } from 'libp2p';
 import type { Stream } from '@libp2p/interface';
 import { fromString, toString } from 'uint8arrays';
 import type { ChatMessage, TypingIndicator, MessageStatus } from '../types/chat.js';
-import { CHAT_CONFIG } from '../config/chatConfig.js';
 import { verifySignature, isPeerBlocked } from '../../../crypto/verifier.js';
 import { loggers } from '../../../utils/logger.js';
 
@@ -121,7 +119,7 @@ export class MessageReceiver {
     if (this.callbacks.onStatusUpdate) {
       this.callbacks.onStatusUpdate(messageId, 'delivered');
     }
-    
+
     // Clean up pending ack
     this.pendingAcks.delete(messageId);
   }
@@ -142,8 +140,6 @@ export class MessageReceiver {
    * Get or cache public key
    */
   private async getPublicKey(peerId: string, publicKeyHex: string): Promise<CryptoKey> {
-    const cacheKey = CHAT_CONFIG.signatureKeyPrefix + peerId;
-
     if (this.publicKeyCache.has(peerId) && this.publicKeyCache.get(peerId) === publicKeyHex) {
       const keyData = this.hexToBytes(publicKeyHex);
       return await this.importPublicKey(keyData);

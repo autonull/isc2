@@ -40,7 +40,7 @@ export class StreamManager {
    * Close all streams
    */
   async closeAll(): Promise<void> {
-    for (const [peerId, stream] of this.activeStreams.entries()) {
+    for (const [, stream] of this.activeStreams.entries()) {
       await stream.close();
     }
     this.activeStreams.clear();

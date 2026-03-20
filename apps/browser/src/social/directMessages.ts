@@ -107,7 +107,16 @@ export async function getGroupDM(groupID: string): Promise<GroupDM | null> {
  * Decrypt DM content
  */
 export async function decryptDM(dm: DirectMessage): Promise<string> {
-  return DMEncryptionService.decryptContent(dm.encryptedContent);
+  if (dm.type === 'session_init') {
+    await DMEncryptionService.acceptSession(dm);
+    return '[Secure session established]';
+  }
+
+  if (dm.messageNumber !== undefined && dm.mac && dm.iv && dm.dhPublic) {
+    return DMEncryptionService.decryptContent(dm);
+  }
+
+  return DMEncryptionService.decryptContentLegacy(dm.encryptedContent);
 }
 
 /**

@@ -6,7 +6,6 @@ import { dbGet, dbPut, dbFilter } from '../../db/helpers.js';
 import { COURT_CONFIG } from '../config/courtConfig.js';
 import type { CourtSession } from '../models/session.js';
 import type { AppealCase } from '../models/appeal.js';
-import type { Verdict } from '../models/appeal.js';
 import { getAllVerdicts } from './VerdictService.js';
 
 /**
@@ -48,10 +47,7 @@ export async function addAppealToSession(sessionId: string, appealId: string): P
 /**
  * Move appeal from active to completed in session
  */
-export async function completeAppealInSession(
-  sessionId: string,
-  appealId: string
-): Promise<void> {
+export async function completeAppealInSession(sessionId: string, appealId: string): Promise<void> {
   const session = await getCourtSession(sessionId);
   if (!session) return;
 
@@ -74,7 +70,7 @@ export async function endCourtSession(sessionId: string): Promise<void> {
 /**
  * Get court statistics
  */
-export async function getCourtStats(councilId: string): Promise<{
+export async function getCourtStats(_councilId: string): Promise<{
   totalAppeals: number;
   pendingAppeals: number;
   completedAppeals: number;
@@ -102,8 +98,7 @@ export async function getCourtStats(councilId: string): Promise<{
       : 0;
 
   const overturnCount = councilVerdicts.filter((v) => v.decision === 'overturn').length;
-  const overturnRate =
-    councilVerdicts.length > 0 ? overturnCount / councilVerdicts.length : 0;
+  const overturnRate = councilVerdicts.length > 0 ? overturnCount / councilVerdicts.length : 0;
 
   return {
     totalAppeals: councilAppeals.length,

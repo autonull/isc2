@@ -8,7 +8,6 @@
 import type { Post } from '../types/extended.js';
 import type { Channel } from '@isc/core';
 import { cosineSimilarity, computeEngagementScore as coreComputeEngagementScore } from '@isc/core';
-import { formatRelativeTime } from '@isc/core';
 import { getEmbeddingService } from '@isc/network';
 
 const FOLLOWING_KEY = 'isc-following';
@@ -41,10 +40,7 @@ function saveFollowingList(following: string[]): void {
   localStorage.setItem(FOLLOWING_KEY, JSON.stringify(following));
 }
 
-export function createFeedService(
-  postService: any,
-  channelManager: any
-): FeedService {
+export function createFeedService(postService: any, channelManager: any): FeedService {
   return {
     async getForYouFeed(channelId?: string): Promise<Post[]> {
       const cacheKey = channelId ? `foryou-${channelId}` : 'foryou';
@@ -72,7 +68,7 @@ export function createFeedService(
 
     async getFollowingFeed(): Promise<Post[]> {
       const following = getFollowingList();
-      
+
       if (following.length === 0) {
         return [];
       }
@@ -86,9 +82,7 @@ export function createFeedService(
 
       const allPosts = await postService.getAllPosts();
       const followingSet = new Set(following);
-      const followedPosts = allPosts.filter(post => 
-        followingSet.has(post.author)
-      );
+      const followedPosts = allPosts.filter((post: Post) => followingSet.has(post.author));
 
       const sorted = followedPosts.sort((a: Post, b: Post) => b.timestamp - a.timestamp);
 
@@ -128,8 +122,16 @@ export function createFeedService(
       const posts = await postService.getAllPosts();
 
       return posts.sort((a: Post, b: Post) => {
-        const scoreA = computeEngagementScore(a);
-        const scoreB = computeEngagementScore(b);
+        const scoreA = coreComputeEngagementScore({
+          likes: a.likeCount,
+          reposts: a.repostCount,
+          replies: a.replyCount,
+        });
+        const scoreB = coreComputeEngagementScore({
+          likes: b.likeCount,
+          reposts: b.repostCount,
+          replies: b.replyCount,
+        });
         return scoreB - scoreA;
       });
     },
@@ -174,11 +176,23 @@ async function scorePosts(posts: Post[], channelManager: any): Promise<Post[]> {
 
   // If no active channels, sort by engagement
   if (activeChannels.length === 0) {
-    return posts.sort((a, b) => coreComputeEngagementScore(b) - coreComputeEngagementScore(a));
+    return posts.sort(
+      (a, b) =>
+        coreComputeEngagementScore({
+          likes: b.likeCount,
+          reposts: b.repostCount,
+          replies: b.replyCount,
+        }) -
+        coreComputeEngagementScore({
+          likes: a.likeCount,
+          reposts: a.repostCount,
+          replies: a.replyCount,
+        })
+    );
   }
 
   // Score each post based on channel similarity
-  const scored = posts.map(post => {
+  const scored = posts.map((post: Post) => {
     const score = computeRelevanceScore(post, activeChannels);
     return { ...post, _score: score };
   });
@@ -192,8 +206,12 @@ async function scorePosts(posts: Post[], channelManager: any): Promise<Post[]> {
  */
 function computeRelevanceScore(post: Post, channels: Channel[]): number {
   // Base score from engagement
-  const engagementScore = coreComputeEngagementScore(post);
-  
+  const engagementScore = coreComputeEngagementScore({
+    likes: post.likeCount,
+    reposts: post.repostCount,
+    replies: post.replyCount,
+  });
+
   // Check if post matches any active channel
   let channelMatchScore = 0;
   for (const channel of channels) {
@@ -205,10 +223,10 @@ function computeRelevanceScore(post: Post, channels: Channel[]): number {
 
   // Recency bonus (newer posts get higher score)
   const age = Date.now() - post.timestamp;
-  const recencyScore = Math.max(0, 1 - (age / (7 * 24 * 60 * 60 * 1000))); // 7 days half-life
+  const recencyScore = Math.max(0, 1 - age / (7 * 24 * 60 * 60 * 1000)); // 7 days half-life
 
   // Combined score
-  return engagementScore + channelMatchScore + (recencyScore * 5);
+  return engagementScore + channelMatchScore + recencyScore * 5;
 }
 
 /**
@@ -221,9 +239,9 @@ export async function computeTextChannelSimilarity(
   const embeddingService = getEmbeddingService();
   if (embeddingService.isLoaded()) {
     try {
-      const textEmbedding = await embeddingService.embed(text);
+      const textEmbedding = await (embeddingService as any).embed(text);
       const channelText = `${channel.name} ${channel.description}`;
-      const channelEmbedding = await embeddingService.embed(channelText);
+      const channelEmbedding = await (embeddingService as any).embed(channelText);
       return Math.max(0, cosineSimilarity(textEmbedding, channelEmbedding));
     } catch (e) {
       console.warn('Failed to embed text or channel for similarity', e);
@@ -233,22 +251,21 @@ export async function computeTextChannelSimilarity(
   // Fallback if embedding is not loaded
   const textLower = text.toLowerCase();
   const channelLower = channel.name.toLowerCase();
-  const descLower = channel.description.toLowerCase();
-  
+
   let score = 0;
-  
+
   // Check if channel name appears in text
   if (textLower.includes(channelLower)) {
     score += 0.5;
   }
-  
+
   // Check for keyword matches in description
-  const keywords = channel.description.split(/\s+/).filter(w => w.length > 4);
+  const keywords = channel.description.split(/\s+/).filter((w) => w.length > 4);
   for (const keyword of keywords.slice(0, 10)) {
     if (textLower.includes(keyword.toLowerCase())) {
       score += 0.1;
     }
   }
-  
+
   return Math.min(1, score);
 }

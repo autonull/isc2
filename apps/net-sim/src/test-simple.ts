@@ -8,7 +8,7 @@
  */
 
 import { createHash } from 'crypto';
-import { cosineSimilarity, lshHash } from '@isc/core/math';
+import { cosineSimilarity, lshHash } from '@isc/core/math/index.js';
 import type { SignedAnnouncement } from '@isc/core/types';
 
 // Configuration

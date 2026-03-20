@@ -2,13 +2,8 @@
  * Proof Utilities - Import/Export and benchmarking
  */
 
-import { encode } from '@isc/core';
-import { ZK_PROTOCOL, ZK_CONFIG } from '../config/zkConfig.js';
-import type {
-  Embedding,
-  ProximityProof,
-  SerializableProof,
-} from '../models/proof.js';
+import { ZK_PROTOCOL } from '../config/zkConfig.js';
+import type { ProximityProof, SerializableProof } from '../models/proof.js';
 import { generateProximityProof } from './ProofGeneratorService.js';
 import { verifyProximityProof } from './ProofVerifierService.js';
 import { normalize } from '../utils/commitment.js';
@@ -58,9 +53,7 @@ export function importProof(serialized: SerializableProof): ProximityProof {
 /**
  * Performance benchmark for proof generation
  */
-export async function benchmarkProofGeneration(
-  dimensions: number = 384
-): Promise<{
+export async function benchmarkProofGeneration(dimensions: number = 384): Promise<{
   dimensions: number;
   generationTimeMs: number;
   verificationTimeMs: number;

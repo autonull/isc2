@@ -4,7 +4,6 @@
  * Manages peer discovery, search, and recommendations.
  */
 
-import type { DiscoveryService as IDiscoveryService, PeerMatch } from '@isc/network';
 import { getWebUINetworkService } from './networkService.js';
 import { loggers } from '../utils/logger.js';
 
@@ -19,31 +18,32 @@ interface PeerProfile {
   lastSeen?: number;
 }
 
-/**
- * Map PeerMatch to PeerProfile
- */
-function toPeerProfile(match: PeerMatch): PeerProfile {
-  const anyMatch = match as Record<string, unknown>;
+function toPeerProfile(match: any): PeerProfile {
+  const peerId = match.peerId ?? match.peer?.id ?? '';
+  const identity = match.identity ?? match.peer;
   return {
-    id: match.id,
-    name: (anyMatch.name as string) ?? `@${match.id.slice(0, 8)}`,
-    bio: (anyMatch.bio as string) ?? '',
-    similarity: anyMatch.similarity as number | undefined,
-    online: (anyMatch.online as boolean) ?? false,
-    lastSeen: anyMatch.lastSeen as number | undefined,
+    id: peerId,
+    name: identity?.name ?? `@${peerId.slice(0, 8)}`,
+    bio: identity?.bio ?? identity?.description ?? '',
+    similarity: match.similarity ?? 0,
+    online: match.online ?? false,
+    lastSeen: match.lastSeen,
   };
 }
 
-class DiscoveryServiceImpl implements IDiscoveryService {
+class DiscoveryServiceImpl {
   async searchPeers(query: string): Promise<PeerProfile[]> {
     try {
       const networkService = getWebUINetworkService();
       const matches = await networkService.discoverPeers();
 
       const queryLower = query.toLowerCase();
-      const filtered = matches.filter(match => {
+      const filtered = matches.filter((match: any) => {
         const profile = toPeerProfile(match);
-        return profile.name.toLowerCase().includes(queryLower) || profile.bio.toLowerCase().includes(queryLower);
+        return (
+          profile.name.toLowerCase().includes(queryLower) ||
+          profile.bio.toLowerCase().includes(queryLower)
+        );
       });
 
       return filtered.map(toPeerProfile);
@@ -59,12 +59,9 @@ class DiscoveryServiceImpl implements IDiscoveryService {
       const networkService = getWebUINetworkService();
       const matches = await networkService.discoverPeers();
 
-      // Sort by similarity and return top recommendations
-      const sorted = matches.sort((a: PeerMatch, b: PeerMatch) => {
-        const aSim = (a as Record<string, unknown>).similarity as number ?? 0;
-        const bSim = (b as Record<string, unknown>).similarity as number ?? 0;
-        return bSim - aSim;
-      });
+      const sorted = [...matches].sort(
+        (_a: any, _b: any) => (_b.similarity ?? 0) - (_a.similarity ?? 0)
+      );
 
       return sorted.slice(0, 10).map(toPeerProfile);
     } catch (err) {
@@ -78,7 +75,7 @@ class DiscoveryServiceImpl implements IDiscoveryService {
     try {
       const networkService = getWebUINetworkService();
       const matches = await networkService.discoverPeers();
-      const match = matches.find(m => m.id === userId);
+      const match = matches.find((m: any) => (m.peerId ?? m.peer?.id) === userId);
 
       return match ? toPeerProfile(match) : null;
     } catch (err) {
@@ -91,13 +88,13 @@ class DiscoveryServiceImpl implements IDiscoveryService {
 
 let _instance: DiscoveryServiceImpl | null = null;
 
-export function getDiscoveryService(): IDiscoveryService {
+export function getDiscoveryService(): DiscoveryServiceImpl {
   if (!_instance) {
     _instance = new DiscoveryServiceImpl();
   }
   return _instance;
 }
 
-export function createDiscoveryService(): IDiscoveryService {
+export function createDiscoveryService(): DiscoveryServiceImpl {
   return getDiscoveryService();
 }

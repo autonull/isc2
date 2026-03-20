@@ -10,7 +10,6 @@ import { computeReputationCached } from '../../reputation/decay.js';
 import { getCouncil, isCouncilEligible } from '../../social/moderation.js';
 import { COURT_CONFIG } from '../config/courtConfig.js';
 import type { Jury, JuryVote } from '../models/jury.js';
-import type { Verdict } from '../models/appeal.js';
 import type { JurorStats } from '../models/session.js';
 import { checkVerdictReadiness, enforceVerdict } from './VerdictService.js';
 
@@ -154,9 +153,7 @@ export async function submitJurorVote(
  * Get juror statistics
  */
 export async function getJurorStats(peerID: string): Promise<JurorStats> {
-  const juries = await dbFilter<Jury>(COURT_CONFIG.stores.JURY, (j) =>
-    j.jurors.includes(peerID)
-  );
+  const juries = await dbFilter<Jury>(COURT_CONFIG.stores.JURY, (j) => j.jurors.includes(peerID));
 
   const votes: JuryVote[] = [];
   for (const jury of juries) {
@@ -217,8 +214,9 @@ export async function isEligibleJuror(peerID: string, councilId: string): Promis
  * Get active juries for a user
  */
 export async function getActiveJuries(peerID: string): Promise<Jury[]> {
-  return dbFilter<Jury>(COURT_CONFIG.stores.JURY, (j) =>
-    j.jurors.includes(peerID) && j.status === 'active' && j.expiresAt > Date.now()
+  return dbFilter<Jury>(
+    COURT_CONFIG.stores.JURY,
+    (j) => j.jurors.includes(peerID) && j.status === 'active' && j.expiresAt > Date.now()
   );
 }
 

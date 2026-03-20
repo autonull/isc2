@@ -17,8 +17,10 @@ export class FileTransferService {
 
   constructor(node: Libp2p) {
     this.protocol = new FileProtocol(node);
-    node.handle('/isc/file/1.0', ({ stream }) => {
-      this.protocol.handleStream(stream, (hash) => this.getStagedFile(hash)).catch(console.error);
+    node.handle('/isc/file/1.0.0', (event: any) => {
+      this.protocol
+        .handleStream(event.stream, (hash: string) => this.getStagedFile(hash))
+        .catch(console.error);
     });
   }
 
@@ -31,8 +33,9 @@ export class FileTransferService {
 
     // Cleanup if too many staged files
     if (this.stagedFiles.size >= this.MAX_STAGED_FILES) {
-      const oldest = Array.from(this.stagedFiles.entries())
-        .sort((a, b) => a[1].timestamp - b[1].timestamp)[0];
+      const oldest = Array.from(this.stagedFiles.entries()).sort(
+        (a, b) => a[1].timestamp - b[1].timestamp
+      )[0];
       if (oldest) this.stagedFiles.delete(oldest[0]);
     }
 
@@ -64,9 +67,8 @@ export class FileTransferService {
   }
 
   private async saveToStorage(hash: string): Promise<void> {
-    const { dbPut } = await import('../db/helpers.js');
-    const db = await import('../db/factory.js')
-      .then(m => m.getDB('isc-files', 1, ['files']));
+    const { getDB, dbPut } = await import('../db/factory.js');
+    const db = await getDB('isc-files', 1, ['files']);
     await dbPut(db, 'files', this.stagedFiles.get(hash)!);
   }
 }
