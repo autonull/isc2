@@ -8,13 +8,18 @@
 import { h, Fragment } from 'preact';
 import { useState, useEffect } from 'preact/hooks';
 import { useNavigation } from '@isc/navigation';
-import { useFeed, useActiveChannel } from '../hooks/index.js';
+import { useFeed, useActiveChannel, useChannels } from '../hooks/index.js';
 import { useDependencies } from '../di/container.js';
 import { PostList } from '../components/PostList.js';
 import { ComposePost } from '../components/ComposePost.js';
 import { FeedSkeleton } from '../components/Skeleton.js';
 import { RefreshButton } from '../components/PullToRefresh.js';
+import { MixerPanel } from '../components/MixerPanel.js';
+import { SpaceView } from '../components/SpaceView.js';
+import { getSpaceViewService } from '../services/spaceView.js';
 import type { PostData } from '@isc/network';
+import type { Channel } from '@isc/core';
+import type { ChannelViewMode, ChannelSettings } from '../services/channelSettingsService.js';
 
 const styles = {
   screen: { display: 'flex', flexDirection: 'column' as const, minHeight: '100%', background: '#f5f8fa' } as const,
@@ -31,11 +36,26 @@ const styles = {
 export function NowScreen() {
   const { navigate } = useNavigation();
   const activeChannel = useActiveChannel();
+  const { channels } = useChannels();
   const { posts: hookPosts, loading, error, refresh, syncing, syncError } = useFeed('for-you');
-  const { networkService } = useDependencies();
-  
+  const { networkService, channelSettings, channelService } = useDependencies();
+
   const [networkPosts, setNetworkPosts] = useState<PostData[]>([]);
   const [networkStatus, setNetworkStatus] = useState<string>('disconnected');
+  const [viewMode, setViewMode] = useState<ChannelViewMode>('list');
+  const [channelSettingsState, setChannelSettingsState] = useState<ChannelSettings | null>(null);
+  const [spaceViewService, setSpaceViewService] = useState<any>(null);
+
+  // Initialize space view service
+  useEffect(() => {
+    if (activeChannel) {
+      const service = getSpaceViewService();
+      setSpaceViewService(service);
+      return () => {
+        // Cleanup if needed
+      };
+    }
+  }, [activeChannel]);
 
   // Load posts from network service
   useEffect(() => {
@@ -71,6 +91,46 @@ export function NowScreen() {
     refresh();
     if (networkService) {
       setNetworkPosts(networkService.getPosts());
+    }
+  };
+
+  const handleViewModeChange = (mode: ChannelViewMode) => {
+    setViewMode(mode);
+  };
+
+  const handleSettingsChange = (settings: ChannelSettings) => {
+    setChannelSettingsState(settings);
+  };
+
+  const handleEditChannel = async (updatedChannel: Channel) => {
+    if (!channelService) return;
+    try {
+      await channelService.updateChannel(updatedChannel.id, {
+        name: updatedChannel.name,
+        description: updatedChannel.description,
+      });
+      refresh();
+    } catch (err) {
+      console.error('[Now] Failed to update channel:', err);
+    }
+  };
+
+  const handleArchiveChannel = async (channelId: string) => {
+    if (!channelSettings) return;
+    try {
+      await channelSettings.archiveChannel(channelId);
+      refresh();
+    } catch (err) {
+      console.error('[Now] Failed to archive channel:', err);
+    }
+  };
+
+  const handleMuteChannel = async (channelId: string) => {
+    if (!channelSettings) return;
+    try {
+      await channelSettings.muteChannel(channelId);
+    } catch (err) {
+      console.error('[Now] Failed to mute channel:', err);
     }
   };
 
@@ -123,6 +183,28 @@ export function NowScreen() {
       </div>
 
       <div style={styles.content}>
+        {/* Mixer Panel - Channel control surface */}
+        {activeChannel && channelSettings && (
+          <MixerPanel
+            channel={activeChannel}
+            settingsService={channelSettings}
+            matchCount={allPosts.length}
+            pingTime={networkStatus === 'connected' ? 45 : undefined}
+            onViewModeChange={handleViewModeChange}
+            onSettingsChange={handleSettingsChange}
+            onEditChannel={handleEditChannel}
+            onArchiveChannel={handleArchiveChannel}
+            onMuteChannel={handleMuteChannel}
+          />
+        )}
+
+        {/* Space View Mode */}
+        {viewMode === 'space' && spaceViewService && activeChannel ? (
+          <div style={{ marginBottom: '16px' }}>
+            <SpaceView service={spaceViewService} height={400} />
+          </div>
+        ) : null}
+
         {syncing && (
           <div
             data-testid="sync-indicator"

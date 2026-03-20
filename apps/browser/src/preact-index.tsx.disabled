@@ -12,6 +12,7 @@ import { createSettingsService } from './services/settingsService.js';
 import { createVideoService } from './services/videoService.js';
 import { createChatService } from './services/chatService.js';
 import { createDiscoveryService } from './services/discoveryService.js';
+import { createChannelSettingsService } from './services/channelSettingsService.js';
 import { exposeDebugAPI, createDebugOverlay } from './dev/debugTools.js';
 import './styles/main.css';
 
@@ -52,6 +53,7 @@ async function init() {
     const videoService = createVideoService();
     const chatService = createChatService();
     const discoveryService = createDiscoveryService();
+    const channelSettingsService = createChannelSettingsService();
 
     // Create dependencies (all wired up)
     const dependencies = {
@@ -66,6 +68,7 @@ async function init() {
       video: videoService,
       chat: chatService,
       discovery: discoveryService,
+      channelSettings: channelSettingsService,
     };
 
     // Expose debug tools in development

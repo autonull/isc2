@@ -6,6 +6,7 @@ import preact from '@preact/preset-vite';
 export default defineConfig({
   server: {
     port: 3000,
+    sourcemapIgnoreList: (source) => source.includes('node_modules'),
     headers: {
       // Content Security Policy for XSS protection
       'Content-Security-Policy': `

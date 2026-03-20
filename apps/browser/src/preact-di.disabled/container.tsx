@@ -15,6 +15,7 @@ import type { FeedService } from '../services/feedService.js';
 import type { FileTransferService } from '../services/fileTransferService.js';
 import type { PostSyncService } from '../services/postSyncService.js';
 import type { } from '../services/networkService.js';
+import type { ChannelSettingsService } from '../services/channelSettingsService.js';
 
 // Service interfaces for DI
 export interface IdentityService {
@@ -70,6 +71,7 @@ export interface AppDependencies {
   discovery: DiscoveryService | null;
   fileTransferService: FileTransferService | null;
   postSyncService: PostSyncService | null;
+  channelSettings: ChannelSettingsService | null;
 }
 
 /**
@@ -90,6 +92,7 @@ export const nullDependencies: AppDependencies = {
   discovery: null,
   fileTransferService: null,
   postSyncService: null,
+  channelSettings: null,
 };
 
 /**
@@ -234,6 +237,14 @@ export function usePostSyncService(): PostSyncService | null {
 }
 
 /**
+ * Hook to get channel settings service
+ */
+export function useChannelSettingsService(): ChannelSettingsService | null {
+  const { channelSettings } = useDependencies();
+  return channelSettings;
+}
+
+/**
  * Create mock dependencies for testing
  */
 export function createMockDependencies(overrides?: Partial<AppDependencies>): AppDependencies {
@@ -344,6 +355,21 @@ export function createMockDependencies(overrides?: Partial<AppDependencies>): Ap
     async requestHistoricalPosts() {},
   };
 
+  const mockChannelSettings = {
+    async getSettings() { return { channelId: 'mock', viewMode: 'list' as const, filters: { showMe: true, showOthers: true, showTrusted: true, showHighAlignment: true, showLowAlignment: true }, minSimilarity: 0.55, sortOrder: 'recency' as const, sortDescending: true, specificity: 50, isArchived: false, isMuted: false, panelsExpanded: { basic: true, filters: false, sort: false, view: false, advanced: false }, lastViewedAt: 0, viewCount: 0 }; },
+    async updateSettings() { return { channelId: 'mock', viewMode: 'list' as const, filters: { showMe: true, showOthers: true, showTrusted: true, showHighAlignment: true, showLowAlignment: true }, minSimilarity: 0.55, sortOrder: 'recency' as const, sortDescending: true, specificity: 50, isArchived: false, isMuted: false, panelsExpanded: { basic: true, filters: false, sort: false, view: false, advanced: false }, lastViewedAt: 0, viewCount: 0 }; },
+    async getSetting() { return null as any; },
+    async setSetting() {},
+    async togglePanel() {},
+    async archiveChannel() {},
+    async unarchiveChannel() {},
+    async muteChannel() {},
+    async unmuteChannel() {},
+    async recordView() {},
+    async getArchivedChannels() { return []; },
+    async resetSettings() {},
+  };
+
   const mockNetworkService = {
     async initialize() {},
     getStatus() { return 'disconnected'; },
@@ -373,6 +399,7 @@ export function createMockDependencies(overrides?: Partial<AppDependencies>): Ap
     discovery: mockDiscovery,
     fileTransferService: mockFileTransferService as unknown as FileTransferService,
     postSyncService: mockPostSyncService as unknown as PostSyncService,
+    channelSettings: mockChannelSettings as unknown as ChannelSettingsService,
     ...overrides,
   };
 }

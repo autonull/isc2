@@ -10,6 +10,7 @@ import { getState, actions } from '../../state.js';
 import { escapeHtml } from '../../utils/dom.js';
 import { formatTime } from '../../utils/time.js';
 import { toasts } from '../../utils/toast.js';
+import { renderMixerPanel, bindMixerPanel, refreshMixerPanel } from '../components/mixerPanel.js';
 
 let refreshing = false;
 
@@ -44,6 +45,11 @@ export function render() {
       </div>
 
       <div class="screen-body" data-testid="now-body">
+        <!-- Mixer Panel - Channel Control Surface -->
+        <div id="mixer-container">
+          ${activeChannel ? renderMixerPanel(activeChannel) : ''}
+        </div>
+        
         ${renderComposeArea(channels, effectiveChannelId, activeChannel)}
         <div id="now-feed" data-testid="feed-container" data-component="feed" data-feed="for-you">
           ${posts.length === 0 ? renderEmpty(channels, connected, connLabel) : renderPosts(posts, channels)}
@@ -222,6 +228,14 @@ function renderPost(post, channels) {
 }
 
 export function bind(container) {
+  const { channels, activeChannelId } = getState();
+  const activeChannel = channels?.find(c => c.id === activeChannelId);
+
+  // Initialize Mixer Panel
+  if (activeChannel) {
+    bindMixerPanel(container, activeChannel);
+  }
+
   // Refresh button
   container.querySelector('#now-refresh')?.addEventListener('click', () => {
     doRefresh(container);
