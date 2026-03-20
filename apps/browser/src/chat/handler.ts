@@ -15,7 +15,7 @@ export interface ChatConfig {
   onMessage?: (message: ChatMessage) => void;
 }
 
-const PROTOCOL_CHAT = '/isc/chat/1.0';
+const PROTOCOL_CHAT = '/isc/chat/1.0.0';
 
 export class ChatHandler {
   private config: ChatConfig;
@@ -75,7 +75,12 @@ export class ChatHandler {
       });
 
       const keyData = new Uint8Array(32);
-      keyData.set(message.senderID.slice(0, 32).split('').map((c) => c.charCodeAt(0)));
+      keyData.set(
+        message.senderID
+          .slice(0, 32)
+          .split('')
+          .map((c) => c.charCodeAt(0))
+      );
 
       const key = await crypto.subtle.importKey(
         'raw',

@@ -17,7 +17,9 @@
   "dependencies": {
     "@isc/adapters": "workspace:^",
     "@isc/core": "workspace:*",
-    "@xenova/transformers": "^2.17.2"
+    "@isc/protocol": "workspace:*",
+    "@xenova/transformers": "^2.17.2",
+    "libp2p": "^1.0"
   },
   "devDependencies": {
     "@types/node": "^22.13.10",

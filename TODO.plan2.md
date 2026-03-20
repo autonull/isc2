@@ -888,9 +888,9 @@ blocklisted peer is rejected; blocklist persists across page reloads.
 
 ---
 
-## Phase F — Protocol & Ecosystem (Month 2–3)
+## Phase F — Protocol & Ecosystem (Month 2–3) ✅ COMPLETE
 
-### F1 — Governance Framework for Model Decisions ★ BEFORE COMMUNITY LAUNCH
+### F1 — Governance Framework for Model Decisions ★ BEFORE COMMUNITY LAUNCH ✅ DONE
 
 **§9, Plan 1 P7.1** | **Effort**: ~2 days (design doc + lightweight process)
 
@@ -1055,7 +1055,7 @@ grant funding.
 - [ ] Phase B2 (Convergence Events) complete: shareable moment exists
 - [ ] Phase C4 (net-sim demo) complete: 30-second demo embeddable in posts
 - [ ] Phase D1 (Ephemeral Mode) complete: activists/journalists have safe entry
-- [ ] Phase F1 (Governance) drafted: model governance documented before community forms
+- [x] Phase F1 (Governance) drafted: model governance documented before community forms ✅
 - [ ] One relay deployed publicly with uptime > 99% over 7 days
 - [ ] `docs/PHILOSOPHY.md` written
 
@@ -1133,5 +1133,5 @@ These are not resolved questions. They should inform every design decision:
 | **D** — Ephemeral, Subscriptions & Mobile (Week 3–4) | ~5d    | Deniable identity; lurk mode; semantic subscription; mobile layout + PWA                                  |
 | **E** — Privacy Hardening (Week 4–7)                 | ~10d   | Forward secrecy; relay-only mode; predator routing mitigations                                            |
 | **P** — Protocol Security Tiers (Month 2)            | ~10d   | Tier 0 (no-crypto LAN); Tier 1 (signing + vouch + gossipsub); Tier 2 (RLN + Merkle registry + blocklists) |
-| **F** — Protocol & Ecosystem (Month 2–3)             | ~3w    | Open protocol spec; governance; Nostr bridge; Bluesky bridge                                              |
+| **F** — Protocol & Ecosystem (Month 2–3)             | ~3w    | Open protocol spec ✅; governance ✅; Nostr bridge ✅; Bluesky bridge doc ✅                              |
 | **G** — Advanced (Month 3+)                          | open   | Vibe rooms; ZK proofs; policy research tools; distributed shards                                          |

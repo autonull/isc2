@@ -10,7 +10,8 @@ import { identify } from '@libp2p/identify';
 import { ping } from '@libp2p/ping';
 import { createSimulator } from './supernode/services/simulator.js';
 import { createAdminAPI } from './supernode/services/admin-api.js';
-import { createEmbeddingService } from '@isc/network';
+import { createEmbeddingService, registerTierNegotiation } from '@isc/network';
+import { setSecurityTier, getTierName, DEFAULT_GENESIS_HASH, TIER_PROTOCOL } from '@isc/core';
 import type { Libp2p } from 'libp2p';
 import type { Simulator } from './supernode/services/simulator.js';
 import type { AdminAPI } from './supernode/services/admin-api.js';
@@ -19,6 +20,8 @@ const ENABLE_SIMULATOR = process.env.ISC_SIMULATOR === 'true';
 const SIMULATOR_BOT_COUNT = parseInt(process.env.ISC_BOT_COUNT || '5');
 const ADMIN_TOKEN = process.env.ISC_ADMIN_TOKEN || 'admin-token-change-me';
 const ADMIN_PORT = parseInt(process.env.ISC_ADMIN_PORT || '9091');
+const SECURITY_TIER = parseInt(process.env.ISC_TIER || '2') as 0 | 1 | 2;
+const NETWORK_ID = process.env.ISC_NETWORK_ID || DEFAULT_GENESIS_HASH;
 
 let node: Libp2p | null = null;
 let simulator: Simulator | null = null;
@@ -28,8 +31,19 @@ export async function main(): Promise<void> {
   console.log('Starting ISC Node Relay Server...');
   console.log(`Simulator: ${ENABLE_SIMULATOR ? 'Enabled' : 'Disabled'}`);
 
+  setSecurityTier(SECURITY_TIER, NETWORK_ID);
+  console.log(`Security tier: ${getTierName(SECURITY_TIER)} (${SECURITY_TIER})`);
+  console.log(`Network ID: ${NETWORK_ID}`);
+
   const { createEd25519PeerId } = await import('@libp2p/peer-id-factory');
   const peerId = await createEd25519PeerId();
+
+  const transports = [webSockets(), webTransport()];
+  const streamMuxers = [yamux()];
+
+  const connectionEncryption = SECURITY_TIER === 0 ? [] : [noise()];
+
+  const dhtProtocol = SECURITY_TIER === 0 ? '/isc/kad/0.1.0' : '/ipfs/kad/1.0.0';
 
   node = await createLibp2p({
     peerId,
@@ -37,19 +51,55 @@ export async function main(): Promise<void> {
     addresses: {
       listen: ['/ip4/127.0.0.1/tcp/9090/ws', '/ip4/127.0.0.1/udp/9091/quic-v1/webtransport'],
     },
-    transports: [webSockets(), webTransport()],
-    connectionEncryption: [noise()],
-    streamMuxers: [yamux()],
+    transports,
+    connectionEncryption,
+    streamMuxers,
     services: {
-      identify: identify({ protocolPrefix: 'ipfs', agentVersion: 'isc-relay/0.1.0' }),
+      identify: identify({
+        protocolPrefix: 'ipfs',
+        agentVersion: `isc-relay/0.1.0 tier=${SECURITY_TIER}`,
+      }),
       ping: ping(),
       relay: circuitRelayServer({
         reservations: { maxReservations: Infinity, applyDefaultLimit: false },
       }),
-      dht: kadDHT({ protocol: '/ipfs/kad/1.0.0', clientMode: false }),
+      dht: kadDHT({ protocol: dhtProtocol, clientMode: false }),
       pubsub: gossipsub({ allowPublishToZeroPeers: true }),
     },
   } as any);
+
+  registerTierNegotiation(
+    node,
+    () => SECURITY_TIER,
+    () => NETWORK_ID,
+    {
+      onMismatch: (local, remote, peerId) => {
+        console.warn(`[Tier] Rejected ${peerId}: tier mismatch (local=${local}, remote=${remote})`);
+      },
+      onMatch: (tier, networkID, peerId) => {
+        console.log(`[Tier] Accepted ${peerId}: tier=${tier}, network=${networkID}`);
+      },
+    }
+  );
+
+  await node.handle([TIER_PROTOCOL], async ({ stream, connection }) => {
+    try {
+      const remotePeerId = connection.remotePeer.toString();
+      const encoded = new TextEncoder().encode(
+        JSON.stringify({
+          v: 2,
+          tier: SECURITY_TIER,
+          peerID: node!.peerId.toString(),
+          ts: Date.now(),
+          type: 'tier_identify',
+          networkID: NETWORK_ID,
+        })
+      );
+      await stream.sink([encoded]);
+    } catch (err) {
+      console.debug('[Tier] Identify push error:', err);
+    }
+  });
 
   await node.start();
 

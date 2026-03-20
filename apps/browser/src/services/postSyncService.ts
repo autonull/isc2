@@ -14,7 +14,7 @@ export class PostSyncService {
     });
 
     // Also need to register handler for incoming streams
-    node.handle('/isc/post/1.0', ({ stream }) => {
+    node.handle('/isc/post/1.0.0', ({ stream }) => {
       this.protocol.handleStream(stream).catch(console.error);
     });
   }
@@ -50,8 +50,7 @@ export class PostSyncService {
 
   private async savePost(post: PostData): Promise<void> {
     const { dbPut } = await import('../db/helpers.js');
-    const db = await import('../db/factory.js')
-      .then(m => m.getDB('isc-posts', 1, ['posts']));
+    const db = await import('../db/factory.js').then((m) => m.getDB('isc-posts', 1, ['posts']));
     await dbPut(db, 'posts', post);
   }
 }

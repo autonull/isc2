@@ -7,7 +7,11 @@ export class AppError extends Error {
   constructor(
     message: string,
     code: string,
-    { recoverable = true, context, cause }: { recoverable?: boolean; context?: string; cause?: unknown } = {}
+    {
+      recoverable = true,
+      context,
+      cause,
+    }: { recoverable?: boolean; context?: string; cause?: unknown } = {}
   ) {
     super(message);
     this.name = 'AppError';
@@ -52,6 +56,11 @@ export const ErrorCodes = {
   NOT_FOUND: 'NOT_FOUND',
   DUPLICATE: 'DUPLICATE',
   RATE_LIMITED: 'RATE_LIMITED',
+  TIER_MISMATCH: 'TIER_MISMATCH',
+  INVALID_SIGNATURE: 'INVALID_SIGNATURE',
+  RLN_QUOTA_EXCEEDED: 'RLN_QUOTA_EXCEEDED',
+  MODEL_NOT_IN_REGISTRY: 'MODEL_NOT_IN_REGISTRY',
+  VOUCH_TIMEOUT: 'VOUCH_TIMEOUT',
   INTERNAL: 'INTERNAL',
   UNKNOWN: 'UNKNOWN',
 } as const;
@@ -124,10 +133,14 @@ export function withErrorHandling<T extends unknown[], R>(
       const appError =
         error instanceof AppError
           ? error
-          : new AppError(error instanceof Error ? error.message : String(error), ErrorCodes.UNKNOWN, {
-              context,
-              cause: error,
-            });
+          : new AppError(
+              error instanceof Error ? error.message : String(error),
+              ErrorCodes.UNKNOWN,
+              {
+                context,
+                cause: error,
+              }
+            );
 
       onError?.(appError);
       throw appError;

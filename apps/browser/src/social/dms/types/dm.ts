@@ -8,7 +8,7 @@ export type GroupEventType = 'created' | 'member_added' | 'member_removed' | 'me
 
 export interface DirectMessage {
   id: string;
-  type: 'dm' | 'group';
+  type: 'dm' | 'group' | 'session_init';
   sender: string;
   recipient: string;
   encryptedContent: Uint8Array;
@@ -17,6 +17,14 @@ export interface DirectMessage {
   read: boolean;
   groupID?: string;
   deleted?: boolean;
+  messageNumber?: number;
+  dhPublic?: Uint8Array;
+  mac?: Uint8Array;
+  iv?: Uint8Array;
+  sessionInit?: {
+    initiatorPublic: Uint8Array;
+    initiatorIdentity: string;
+  };
 }
 
 export interface GroupDM {

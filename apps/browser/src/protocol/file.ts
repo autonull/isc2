@@ -9,7 +9,7 @@ import type { Libp2p } from 'libp2p';
 import type { Stream } from '@libp2p/interface';
 import { toString, fromString } from 'uint8arrays';
 
-const PROTOCOL_FILE = '/isc/file/1.0';
+const PROTOCOL_FILE = '/isc/file/1.0.0';
 const CHUNK_SIZE = 8192; // 8KB chunks - balance between overhead and throughput
 const MAX_FILE_SIZE = 100 * 1024 * 1024; // 100MB limit for browser memory
 
@@ -57,7 +57,7 @@ export class FileProtocol {
     async function* yieldChunks() {
       for (const chunk of chunks) {
         yield chunk;
-        await new Promise(r => setTimeout(r, 1)); // Prevent overwhelming network
+        await new Promise((r) => setTimeout(r, 1)); // Prevent overwhelming network
       }
       yield fromString(`EOF:${file.name}`, 'utf-8');
     }
@@ -66,7 +66,10 @@ export class FileProtocol {
     await stream.close();
   }
 
-  async handleStream(stream: Stream, getStagedFile: (hash: string) => { data: Uint8Array, name: string } | null): Promise<void> {
+  async handleStream(
+    stream: Stream,
+    getStagedFile: (hash: string) => { data: Uint8Array; name: string } | null
+  ): Promise<void> {
     try {
       let requestedHash = '';
       for await (const chunk of stream.source as AsyncIterable<Uint8Array>) {
@@ -84,7 +87,7 @@ export class FileProtocol {
             // chunk data
             for (let i = 0; i < fileData.data.length; i += CHUNK_SIZE) {
               yield fileData.data.slice(i, Math.min(i + CHUNK_SIZE, fileData.data.length));
-              await new Promise(r => setTimeout(r, 1)); // Prevent overwhelming network
+              await new Promise((r) => setTimeout(r, 1)); // Prevent overwhelming network
             }
             yield fromString(`EOF:${fileData.name}`, 'utf-8');
           }
@@ -115,7 +118,11 @@ export class FileProtocol {
   static async computeHash(file: File): Promise<string> {
     // Determine crypto.subtle context properly depending on node or browser test environments.
     let cryptoSubtle: any;
-    if (typeof crypto !== 'undefined' && crypto.subtle && typeof crypto.subtle.digest === 'function') {
+    if (
+      typeof crypto !== 'undefined' &&
+      crypto.subtle &&
+      typeof crypto.subtle.digest === 'function'
+    ) {
       cryptoSubtle = crypto.subtle;
     } else {
       const cryptoMod = await import('crypto').catch(() => null);
@@ -123,11 +130,12 @@ export class FileProtocol {
     }
 
     if (!cryptoSubtle || typeof cryptoSubtle.digest !== 'function') {
-      throw new Error("crypto.subtle.digest is not available");
+      throw new Error('crypto.subtle.digest is not available');
     }
 
     const hashBuffer = await cryptoSubtle.digest('SHA-256', await file.arrayBuffer());
     return Array.from(new Uint8Array(hashBuffer))
-      .map(b => b.toString(16).padStart(2, '0')).join('');
+      .map((b) => b.toString(16).padStart(2, '0'))
+      .join('');
   }
 }

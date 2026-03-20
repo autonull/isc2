@@ -20,6 +20,21 @@ export {
   type EncryptedKeypair,
 } from './encryption.js';
 
+export {
+  // Double Ratchet for forward secrecy
+  initializeRatchet,
+  initializeRatchetFromFirstMessage,
+  ratchetForSend,
+  ratchetForReceive,
+  encryptMessage,
+  decryptMessage,
+  serializeRatchetState,
+  deserializeRatchetState,
+  getRatchetPublicKey,
+  type RatchetState,
+  type RatchetKeys,
+} from './doubleRatchet.js';
+
 // Phase 8: Advanced Cryptography
 // @internal - Advanced features not yet in active use
 export {

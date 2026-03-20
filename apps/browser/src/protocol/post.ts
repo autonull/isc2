@@ -11,7 +11,7 @@ import type { Stream } from '@libp2p/interface';
 import { toString, fromString } from 'uint8arrays';
 import type { PostData } from '@isc/network';
 
-const PROTOCOL_POST = '/isc/post/1.0';
+const PROTOCOL_POST = '/isc/post/1.0.0';
 const MAX_HISTORY_POSTS = 100; // Limit to prevent overwhelming
 
 interface PostCallbacks {
@@ -35,11 +35,14 @@ export class PostProtocol {
     const stream = await this.node.dialProtocol(peerId as any, PROTOCOL_POST);
 
     async function* yieldRequest() {
-      yield fromString(JSON.stringify({
-        type: 'SYNC_REQUEST',
-        channelId,
-        timestamp: Date.now(),
-      }) + '\n', 'utf-8');
+      yield fromString(
+        JSON.stringify({
+          type: 'SYNC_REQUEST',
+          channelId,
+          timestamp: Date.now(),
+        }) + '\n',
+        'utf-8'
+      );
     }
     await stream.sink(yieldRequest());
 
@@ -60,7 +63,7 @@ export class PostProtocol {
             this.callbacks.onHistoricalPost(post);
             count++;
           }
-        } catch(e) {
+        } catch (e) {
           console.error('Failed to parse post response', e, line);
         }
       }
@@ -86,7 +89,7 @@ export class PostProtocol {
             } else if (this.callbacks.onHistoricalPost) {
               this.callbacks.onHistoricalPost(data);
             }
-          } catch(e) {
+          } catch (e) {
             console.error('Failed to parse post chunk', e, line);
           }
         }
@@ -97,7 +100,10 @@ export class PostProtocol {
   }
 
   private async handleSyncRequest(stream: Stream, channelId: string): Promise<void> {
-    if (!this.callbacks.onSyncRequest) { await stream.close(); return; }
+    if (!this.callbacks.onSyncRequest) {
+      await stream.close();
+      return;
+    }
     const posts = await this.callbacks.onSyncRequest(channelId);
 
     async function* yieldPosts() {

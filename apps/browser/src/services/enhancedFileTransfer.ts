@@ -62,8 +62,8 @@ export class EnhancedFileTransferService {
   }
 
   private setupProtocolHandler(): void {
-    this.node.handle('/isc/file/1.0', ({ stream }) => {
-      this.protocol.handleStream(stream, hash => this.getStagedFile(hash)).catch(console.error);
+    this.node.handle('/isc/file/1.0.0', ({ stream }) => {
+      this.protocol.handleStream(stream, (hash) => this.getStagedFile(hash)).catch(console.error);
     });
   }
 
@@ -71,10 +71,17 @@ export class EnhancedFileTransferService {
     if (file.type) return file.type;
     const ext = file.name.split('.').pop()?.toLowerCase() || '';
     const mimeMap: Record<string, string> = {
-      jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png',
-      gif: 'image/gif', webp: 'image/webp', mp4: 'video/mp4',
-      webm: 'video/webm', mp3: 'audio/mpeg', pdf: 'application/pdf',
-      txt: 'text/plain', zip: 'application/zip',
+      jpg: 'image/jpeg',
+      jpeg: 'image/jpeg',
+      png: 'image/png',
+      gif: 'image/gif',
+      webp: 'image/webp',
+      mp4: 'video/mp4',
+      webm: 'video/webm',
+      mp3: 'audio/mpeg',
+      pdf: 'application/pdf',
+      txt: 'text/plain',
+      zip: 'application/zip',
     };
     return mimeMap[ext] || 'application/octet-stream';
   }
@@ -93,7 +100,7 @@ export class EnhancedFileTransferService {
     if (file.size > 5 * 1024 * 1024) return undefined;
 
     if (MIME_CATEGORIES.image.includes(mimeType)) {
-      return new Promise(resolve => {
+      return new Promise((resolve) => {
         const reader = new FileReader();
         reader.onload = () => resolve(reader.result as string);
         reader.onerror = () => resolve(undefined);
@@ -105,7 +112,9 @@ export class EnhancedFileTransferService {
 
   async stageFile(file: File): Promise<FileInfo> {
     if (file.size > MAX_FILE_SIZE) {
-      throw new Error(`File too large: ${(file.size / 1024 / 1024).toFixed(2)}MB (max: ${MAX_FILE_SIZE / 1024 / 1024}MB)`);
+      throw new Error(
+        `File too large: ${(file.size / 1024 / 1024).toFixed(2)}MB (max: ${MAX_FILE_SIZE / 1024 / 1024}MB)`
+      );
     }
 
     const mimeType = this.detectMimeType(file);
@@ -114,8 +123,9 @@ export class EnhancedFileTransferService {
     const categories = this.categorizeFile(mimeType);
 
     if (this.stagedFiles.size >= MAX_STAGED_FILES) {
-      const oldest = Array.from(this.stagedFiles.entries())
-        .sort((a, b) => a[1].createdAt - b[1].createdAt)[0];
+      const oldest = Array.from(this.stagedFiles.entries()).sort(
+        (a, b) => a[1].createdAt - b[1].createdAt
+      )[0];
       if (oldest) this.stagedFiles.delete(oldest[0]);
     }
 
@@ -134,7 +144,11 @@ export class EnhancedFileTransferService {
     return fileInfo;
   }
 
-  async downloadFile(peerId: string, hash: string, fileName?: string): Promise<{ blob: Blob; info: FileInfo }> {
+  async downloadFile(
+    peerId: string,
+    hash: string,
+    fileName?: string
+  ): Promise<{ blob: Blob; info: FileInfo }> {
     const blob = await this.protocol.requestFile(peerId, hash);
     const mimeType = this.detectMimeTypeFromBlob(blob, fileName || hash);
 
@@ -157,13 +171,13 @@ export class EnhancedFileTransferService {
     const fileData = await this.getFileDataFromStorage(hash);
     if (!fileData) throw new Error('File data not available');
 
-    const stream = await this.node.dialProtocol(peerId as any, '/isc/file/1.0');
+    const stream = await this.node.dialProtocol(peerId as any, '/isc/file/1.0.0');
     await stream.sink([new TextEncoder().encode(`SEND:${hash}:${fileInfo.name}`)]);
 
     for (let i = 0; i < fileData.length; i += CHUNK_SIZE) {
       const chunk = fileData.slice(i, Math.min(i + CHUNK_SIZE, fileData.length));
       await stream.sink([chunk]);
-      await new Promise(r => setTimeout(r, 2));
+      await new Promise((r) => setTimeout(r, 2));
     }
 
     await stream.sink([new TextEncoder().encode(`EOF:${fileInfo.name}`)]);
@@ -197,10 +211,17 @@ export class EnhancedFileTransferService {
   private detectMimeTypeFromBlob(blob: Blob, fileName: string): string {
     const ext = fileName.split('.').pop()?.toLowerCase() || '';
     const mimeMap: Record<string, string> = {
-      jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png',
-      gif: 'image/gif', webp: 'image/webp', mp4: 'video/mp4',
-      webm: 'video/webm', mp3: 'audio/mpeg', pdf: 'application/pdf',
-      txt: 'text/plain', zip: 'application/zip',
+      jpg: 'image/jpeg',
+      jpeg: 'image/jpeg',
+      png: 'image/png',
+      gif: 'image/gif',
+      webp: 'image/webp',
+      mp4: 'video/mp4',
+      webm: 'video/webm',
+      mp3: 'audio/mpeg',
+      pdf: 'application/pdf',
+      txt: 'text/plain',
+      zip: 'application/zip',
     };
     if (mimeMap[ext]) return mimeMap[ext];
     return blob.type || 'application/octet-stream';
@@ -208,7 +229,9 @@ export class EnhancedFileTransferService {
 
   private async saveToStorage(fileInfo: FileInfo, file: File): Promise<void> {
     const { dbPut } = await import('../db/helpers.js');
-    const db = await import('../db/factory.js').then(m => m.getDB('isc-files', 1, ['files', 'fileData']));
+    const db = await import('../db/factory.js').then((m) =>
+      m.getDB('isc-files', 1, ['files', 'fileData'])
+    );
     await dbPut(db, 'files', { ...fileInfo, data: null });
     const data = new Uint8Array(await file.arrayBuffer());
     await dbPut(db, 'fileData', { hash: fileInfo.hash, data, createdAt: Date.now() });
@@ -216,14 +239,18 @@ export class EnhancedFileTransferService {
 
   private async getFileDataFromStorage(hash: string): Promise<Uint8Array | null> {
     const { dbGet } = await import('../db/helpers.js');
-    const db = await import('../db/factory.js').then(m => m.getDB('isc-files', 1, ['files', 'fileData']));
+    const db = await import('../db/factory.js').then((m) =>
+      m.getDB('isc-files', 1, ['files', 'fileData'])
+    );
     const record = await dbGet(db, 'fileData', hash);
     return record?.data || null;
   }
 
   private async removeFromStorage(hash: string): Promise<void> {
     const { dbDelete } = await import('../db/helpers.js');
-    const db = await import('../db/factory.js').then(m => m.getDB('isc-files', 1, ['files', 'fileData']));
+    const db = await import('../db/factory.js').then((m) =>
+      m.getDB('isc-files', 1, ['files', 'fileData'])
+    );
     await dbDelete(db, 'files', hash);
     await dbDelete(db, 'fileData', hash);
   }

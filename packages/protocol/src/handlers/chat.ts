@@ -6,6 +6,7 @@ export interface ChatHandlerConfig {
   getSigningKey: () => Promise<CryptoKeyPair>;
   verifyMessage: (msg: ChatMessage, publicKey: Uint8Array) => Promise<boolean>;
   onMessage: (msg: ChatMessage, peerId: string) => void;
+  getSecurityTier?: () => number;
   messageTimeout?: number;
 }
 
@@ -40,7 +41,10 @@ export class ChatHandler {
 
       for await (const message of decodeJsonStream<ChatMessage>(stream.source)) {
         if (!(await this.validateMessage(message))) {
-          await this.sendError(stream, { code: 'INVALID_SIGNATURE', message: 'Message signature verification failed' });
+          await this.sendError(stream, {
+            code: 'INVALID_SIGNATURE',
+            message: 'Message signature verification failed',
+          });
           continue;
         }
 
@@ -78,6 +82,7 @@ export class ChatHandler {
       channelID: channelId,
       msg: message,
       timestamp,
+      tier: (this.config.getSecurityTier?.() ?? 2) as 0 | 1 | 2,
       signature: new Uint8Array(signature),
     };
 
@@ -88,6 +93,7 @@ export class ChatHandler {
   }
 
   private async validateMessage(message: ChatMessage): Promise<boolean> {
+    if (!message.signature) return false;
     try {
       const payload = JSON.stringify({
         channelID: message.channelID,

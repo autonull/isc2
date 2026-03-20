@@ -17,6 +17,8 @@ interface SettingsData {
   privacy: {
     showOnline: boolean;
     allowDirectMessages: boolean;
+    relayOnly: boolean;
+    showIPWarning: boolean;
   };
   [key: string]: any;
 }
@@ -29,6 +31,8 @@ const DEFAULT_SETTINGS: SettingsData = {
   privacy: {
     showOnline: true,
     allowDirectMessages: true,
+    relayOnly: false,
+    showIPWarning: true,
   },
 };
 
