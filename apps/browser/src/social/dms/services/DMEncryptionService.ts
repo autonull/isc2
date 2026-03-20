@@ -2,7 +2,7 @@
  * DM Encryption Service
  *
  * Handles encryption and decryption of direct messages using Double Ratchet
- * for forward secrecy.
+ * for forward secrecy and sealed sender for relay privacy.
  */
 
 import { getPeerPublicKey, getKeypair, getPeerID } from '../../../identity/index.js';
@@ -11,6 +11,12 @@ import {
   type SessionInitMessage,
 } from '../../../services/secureSession.js';
 import type { DirectMessage } from '../types/dm.js';
+import {
+  sealSenderIdentity,
+  unsealSenderIdentity,
+  extractSealedEnvelope,
+  type SealedEnvelope,
+} from './sealedSender.js';
 
 export interface EncryptedPayload {
   encryptedContent: Uint8Array;
@@ -18,6 +24,7 @@ export interface EncryptedPayload {
   iv: Uint8Array;
   messageNumber: number;
   dhPublic: Uint8Array;
+  sealedSender?: SealedEnvelope;
 }
 
 const toBytes = async (key: CryptoKey): Promise<Uint8Array> =>
@@ -26,6 +33,51 @@ const toBytes = async (key: CryptoKey): Promise<Uint8Array> =>
 export class DMEncryptionService {
   static async hasSession(recipient: string): Promise<boolean> {
     return getSecureSessionManager().getSession(recipient).load();
+  }
+
+  static async sealForRelay(recipient: string): Promise<SealedEnvelope | null> {
+    const recipientKey = await getPeerPublicKey(recipient);
+    if (!recipientKey) return null;
+
+    const senderId = await getPeerID();
+    if (!senderId) return null;
+
+    return sealSenderIdentity(senderId, await toBytes(recipientKey));
+  }
+
+  static async unsealFromRelay(
+    sealed: SealedEnvelope,
+    recipientPrivateKey: CryptoKey
+  ): Promise<string | null> {
+    try {
+      const unsealed = await unsealSenderIdentity(sealed, recipientPrivateKey);
+      return unsealed.senderId;
+    } catch {
+      return null;
+    }
+  }
+
+  static isSealedMessage(dm: DirectMessage): boolean {
+    return !!dm.sealedSender;
+  }
+
+  static async handleSealedMessage(
+    dm: DirectMessage
+  ): Promise<{ senderId: string; content: string } | null> {
+    if (!dm.sealedSender) return null;
+
+    const keypair = getKeypair();
+    if (!keypair) return null;
+
+    try {
+      const senderId = await this.unsealFromRelay(dm.sealedSender, keypair.privateKey);
+      if (!senderId) return null;
+
+      const content = await this.decryptContent(dm);
+      return { senderId, content };
+    } catch {
+      return null;
+    }
   }
 
   static async initializeSession(recipient: string): Promise<DirectMessage> {

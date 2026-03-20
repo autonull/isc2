@@ -65,12 +65,39 @@ export function verifyMerkleRoot(registry: ModelRegistry, computedRoot: string):
   return registry.merkleRoot === computedRoot;
 }
 
-export function verifyRegistrySignature(registry: ModelRegistry): boolean {
+export async function verifyRegistrySignature(
+  registry: ModelRegistry,
+  _maintainerPublicKeys: CryptoKey[]
+): Promise<boolean> {
   if (!registry.sig || registry.sig.length === 0) return false;
-  return true;
+
+  const payload = new TextEncoder().encode(
+    JSON.stringify({
+      merkleRoot: registry.merkleRoot,
+      merkleLeaves: registry.merkleLeaves,
+      version: registry.version,
+      updatedAt: registry.updatedAt,
+    })
+  );
+
+  for (const key of _maintainerPublicKeys) {
+    try {
+      const valid = await crypto.subtle.verify(
+        { name: 'Ed25519' },
+        key,
+        registry.sig.buffer as ArrayBuffer,
+        payload
+      );
+      if (valid) return true;
+    } catch {
+      continue;
+    }
+  }
+
+  return false;
 }
 
-export function computeMerkleRoot(leaves: string[]): string {
+export async function computeMerkleRoot(leaves: string[]): Promise<string> {
   if (leaves.length === 0) return '';
   if (leaves.length === 1) {
     return sha256Hex(leaves[0]);
@@ -82,20 +109,18 @@ export function computeMerkleRoot(leaves: string[]): string {
   for (let i = 0; i < sorted.length; i += 2) {
     const left = sorted[i];
     const right = sorted[i + 1] ?? left;
-    pairs.push(sha256Hex(left + right));
+    pairs.push(await sha256Hex(left + right));
   }
 
   return computeMerkleRoot(pairs);
 }
 
-function sha256Hex(input: string): string {
-  let hash = 0;
-  for (let i = 0; i < input.length; i++) {
-    const char = input.charCodeAt(i);
-    hash = (hash << 5) - hash + char;
-    hash = hash & hash;
-  }
-  return Math.abs(hash).toString(16).padStart(8, '0');
+async function sha256Hex(input: string): Promise<string> {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(input);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map((b) => b.toString(16).padStart(2, '0')).join('');
 }
 
 export function clearRegistryCache(): void {

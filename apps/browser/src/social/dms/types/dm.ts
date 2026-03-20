@@ -25,6 +25,11 @@ export interface DirectMessage {
     initiatorPublic: Uint8Array;
     initiatorIdentity: string;
   };
+  sealedSender?: {
+    encryptedSender: Uint8Array;
+    iv: Uint8Array;
+    ephemeralPublicKey: Uint8Array;
+  };
 }
 
 export interface GroupDM {

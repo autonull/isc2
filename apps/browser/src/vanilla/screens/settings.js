@@ -7,6 +7,14 @@ import { networkService } from '../../services/network.ts';
 import { escapeHtml } from '../../utils/dom.js';
 import { toasts } from '../../utils/toast.js';
 import { modals } from '../components/modal.js';
+import {
+  importNostrIdentity,
+  isNostrLinked,
+  unlinkNostrIdentity,
+  validateNsec,
+  exportNostrLinkedPubkey,
+  formatNpub,
+} from '../../identity/nostr.js';
 
 export function render() {
   const identity = identityService.getIdentity();
@@ -91,6 +99,23 @@ function renderIdentity(identity) {
           <input type="file" id="import-identity-file" accept=".json" style="display:none" data-testid="import-identity-input" />
         </label>
       </div>
+
+      <div class="divider mt-4 mb-4"></div>
+
+      <div class="section-subtitle">🌐 Nostr Identity Bridge</div>
+      <div class="form-hint mb-3">Link your existing Nostr identity (nsec) to use with ISC</div>
+      <div class="form-group">
+        <label class="form-label" for="nostr-nsec-input">Nostr Private Key (nsec)</label>
+        <input type="password" id="nostr-nsec-input" class="form-input font-mono"
+               placeholder="nsec1…" maxlength="100"
+               data-testid="nostr-nsec-input" />
+        <div class="form-hint">Never share your private key. It stays in your browser only.</div>
+      </div>
+      <div class="form-actions">
+        <button class="btn btn-primary" id="link-nostr-btn" data-testid="link-nostr-btn">🔗 Link Nostr Identity</button>
+        <button class="btn btn-danger" id="unlink-nostr-btn" data-testid="unlink-nostr-btn" style="display:none">Unlink</button>
+      </div>
+      <div id="nostr-status" class="mt-3" data-testid="nostr-status"></div>
     </section>
   `;
 }
@@ -114,9 +139,9 @@ function renderDiscovery(settings) {
       <div class="form-group mt-4">
         <label class="form-label" for="discover-interval">Discovery Interval</label>
         <select id="discover-interval" class="form-select" data-testid="discover-interval-select">
-          <option value="15000"  ${settings.discoverInterval === 15000  ? 'selected' : ''}>15 seconds</option>
-          <option value="30000"  ${settings.discoverInterval === 30000  ? 'selected' : ''}>30 seconds</option>
-          <option value="60000"  ${settings.discoverInterval === 60000  ? 'selected' : ''}>1 minute</option>
+          <option value="15000"  ${settings.discoverInterval === 15000 ? 'selected' : ''}>15 seconds</option>
+          <option value="30000"  ${settings.discoverInterval === 30000 ? 'selected' : ''}>30 seconds</option>
+          <option value="60000"  ${settings.discoverInterval === 60000 ? 'selected' : ''}>1 minute</option>
           <option value="300000" ${settings.discoverInterval === 300000 ? 'selected' : ''}>5 minutes</option>
         </select>
       </div>
@@ -144,8 +169,8 @@ function renderAppearance(settings) {
       <div class="form-group">
         <label class="form-label" for="theme-select">Theme</label>
         <select id="theme-select" class="form-select" data-testid="theme-select">
-          <option value="dark"   ${settings.theme === 'dark'   ? 'selected' : ''}>Dark</option>
-          <option value="light"  ${settings.theme === 'light'  ? 'selected' : ''}>Light</option>
+          <option value="dark"   ${settings.theme === 'dark' ? 'selected' : ''}>Dark</option>
+          <option value="light"  ${settings.theme === 'light' ? 'selected' : ''}>Light</option>
           <option value="system" ${settings.theme === 'system' ? 'selected' : ''}>System</option>
         </select>
       </div>
@@ -194,16 +219,21 @@ function renderChannels(channels) {
   return `
     <section class="settings-section" data-testid="channels-section">
       <div class="section-title">📢 Your Channels (${channels.length})</div>
-      ${channels.length === 0
-        ? '<div class="text-muted" style="font-size:13px">No channels created yet.</div>'
-        : `<div data-testid="channels-list">
-            ${channels.map(ch => `
+      ${
+        channels.length === 0
+          ? '<div class="text-muted" style="font-size:13px">No channels created yet.</div>'
+          : `<div data-testid="channels-list">
+            ${channels
+              .map(
+                (ch) => `
               <div class="toggle-row" data-channel-id="${escapeHtml(ch.id)}">
                 <span class="toggle-label-text" style="font-family:var(--font-mono)">#${escapeHtml(ch.name)}</span>
                 <button class="btn btn-danger btn-sm delete-channel-btn" data-channel-id="${escapeHtml(ch.id)}"
                         data-testid="delete-channel-${escapeHtml(ch.id)}">Delete</button>
               </div>
-            `).join('')}
+            `
+              )
+              .join('')}
           </div>`
       }
     </section>
@@ -259,10 +289,10 @@ export function bind(container) {
   applyTheme(settingsService.get().theme ?? 'dark');
 
   // Profile form
-  container.querySelector('#profile-form')?.addEventListener('submit', async e => {
+  container.querySelector('#profile-form')?.addEventListener('submit', async (e) => {
     e.preventDefault();
     const name = container.querySelector('#settings-name')?.value.trim();
-    const bio  = container.querySelector('#settings-bio')?.value.trim();
+    const bio = container.querySelector('#settings-bio')?.value.trim();
     try {
       await identityService.update({ name, bio });
       toasts.success('Profile saved!');
@@ -272,11 +302,11 @@ export function bind(container) {
   });
 
   // Character counters
-  container.querySelector('#settings-name')?.addEventListener('input', e => {
+  container.querySelector('#settings-name')?.addEventListener('input', (e) => {
     const n = container.querySelector('#name-count');
     if (n) n.textContent = `${e.target.value.length} / 50`;
   });
-  container.querySelector('#settings-bio')?.addEventListener('input', e => {
+  container.querySelector('#settings-bio')?.addEventListener('input', (e) => {
     const n = container.querySelector('#bio-count');
     if (n) n.textContent = `${e.target.value.length} / 200`;
   });
@@ -284,17 +314,22 @@ export function bind(container) {
   // Export identity
   container.querySelector('#export-identity')?.addEventListener('click', () => {
     const data = identityService.export();
-    if (!data) { toasts.error('No identity to export'); return; }
+    if (!data) {
+      toasts.error('No identity to export');
+      return;
+    }
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-    const url  = URL.createObjectURL(blob);
-    const a    = document.createElement('a');
-    a.href = url; a.download = `isc-identity-${Date.now()}.json`; a.click();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `isc-identity-${Date.now()}.json`;
+    a.click();
     URL.revokeObjectURL(url);
     toasts.success('Identity exported!');
   });
 
   // Import identity
-  container.querySelector('#import-identity-file')?.addEventListener('change', async e => {
+  container.querySelector('#import-identity-file')?.addEventListener('change', async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
     const ok = await modals.confirm(
@@ -312,31 +347,107 @@ export function bind(container) {
     }
   });
 
+  // Nostr identity linking
+  async function updateNostrStatus() {
+    const statusEl = container.querySelector('#nostr-status');
+    const unlinkBtn = container.querySelector('#unlink-nostr-btn');
+    if (!statusEl) return;
+
+    const linked = await isNostrLinked();
+    if (linked) {
+      const npub = await exportNostrLinkedPubkey();
+      statusEl.innerHTML = `<span class="text-success">✓ Linked to Nostr</span><br><span class="text-muted font-mono" style="font-size:12px">${formatNpub(npub || '')}</span>`;
+      if (unlinkBtn) unlinkBtn.style.display = '';
+    } else {
+      statusEl.innerHTML = '';
+      if (unlinkBtn) unlinkBtn.style.display = 'none';
+    }
+  }
+
+  updateNostrStatus();
+
+  container.querySelector('#link-nostr-btn')?.addEventListener('click', async () => {
+    const nsecInput = container.querySelector('#nostr-nsec-input');
+    const nsec = nsecInput?.value?.trim();
+
+    if (!nsec) {
+      toasts.error('Please enter your Nostr private key (nsec)');
+      return;
+    }
+
+    if (!validateNsec(nsec)) {
+      toasts.error('Invalid Nostr private key format. Expected: nsec1…');
+      return;
+    }
+
+    const ok = await modals.confirm(
+      'Linking your Nostr identity will associate it with your ISC peer ID. Continue?',
+      { title: '🔗 Link Nostr Identity', confirmText: 'Link' }
+    );
+    if (!ok) return;
+
+    try {
+      await importNostrIdentity(nsec);
+      if (nsecInput) nsecInput.value = '';
+      await updateNostrStatus();
+      toasts.success('Nostr identity linked!');
+    } catch (err) {
+      toasts.error(`Failed to link: ${err.message}`);
+    }
+  });
+
+  container.querySelector('#unlink-nostr-btn')?.addEventListener('click', async () => {
+    const ok = await modals.confirm('Unlink your Nostr identity? You can re-link later.', {
+      title: '🔓 Unlink Nostr',
+      confirmText: 'Unlink',
+      danger: true,
+    });
+    if (!ok) return;
+
+    try {
+      await unlinkNostrIdentity();
+      await updateNostrStatus();
+      toasts.success('Nostr identity unlinked');
+    } catch (err) {
+      toasts.error(`Failed to unlink: ${err.message}`);
+    }
+  });
+
   // Discovery settings
-  container.querySelector('#similarity-threshold')?.addEventListener('input', e => {
+  container.querySelector('#similarity-threshold')?.addEventListener('input', (e) => {
     const v = container.querySelector('#sim-value');
     if (v) v.textContent = e.target.value;
   });
 
   container.querySelector('#save-discovery')?.addEventListener('click', () => {
     settingsService.set({
-      autoDiscover:        container.querySelector('#auto-discover')?.checked ?? true,
-      discoverInterval:    parseInt(container.querySelector('#discover-interval')?.value ?? '30000', 10),
-      similarityThreshold: (parseInt(container.querySelector('#similarity-threshold')?.value ?? '30', 10)) / 100,
+      autoDiscover: container.querySelector('#auto-discover')?.checked ?? true,
+      discoverInterval: parseInt(
+        container.querySelector('#discover-interval')?.value ?? '30000',
+        10
+      ),
+      similarityThreshold:
+        parseInt(container.querySelector('#similarity-threshold')?.value ?? '30', 10) / 100,
     });
     toasts.success('Discovery settings saved!');
   });
 
   // Preference toggles (live-save)
-  const liveSettings = ['theme-select', 'notifications-toggle', 'sound-toggle', 'show-online-toggle', 'allow-dms-toggle'];
-  liveSettings.forEach(id => {
-    container.querySelector(`#${id}`)?.addEventListener('change', e => {
+  const liveSettings = [
+    'theme-select',
+    'notifications-toggle',
+    'sound-toggle',
+    'show-online-toggle',
+    'allow-dms-toggle',
+  ];
+  liveSettings.forEach((id) => {
+    container.querySelector(`#${id}`)?.addEventListener('change', (e) => {
       const key = {
-        'theme-select':       'theme',
-        'notifications-toggle':'notifications',
-        'sound-toggle':       'soundEnabled',
+        'theme-select': 'theme',
+        'notifications-toggle': 'notifications',
+        'sound-toggle': 'soundEnabled',
         'show-online-toggle': 'showOnline',
-        'allow-dms-toggle':   'allowDMs',
+        'allow-dms-toggle': 'allowDMs',
       }[id];
       if (key) {
         const value = e.target.type === 'checkbox' ? e.target.checked : e.target.value;
@@ -351,25 +462,31 @@ export function bind(container) {
   });
 
   // Request browser notification permission when the toggle is first enabled
-  container.querySelector('#notifications-toggle')?.addEventListener('change', async e => {
+  container.querySelector('#notifications-toggle')?.addEventListener('change', async (e) => {
     if (!e.target.checked || !('Notification' in window)) return;
     if (Notification.permission === 'granted') return; // already have permission
     const perm = await Notification.requestPermission();
     if (perm !== 'granted') {
       e.target.checked = false;
       settingsService.set({ notifications: false });
-      toasts.warning('Notification permission denied — enable it in browser settings to receive alerts');
+      toasts.warning(
+        'Notification permission denied — enable it in browser settings to receive alerts'
+      );
     } else {
-      toasts.success('Notifications enabled! You\'ll be alerted when messages arrive.');
+      toasts.success("Notifications enabled! You'll be alerted when messages arrive.");
     }
   });
 
   // Delete channel
-  container.addEventListener('click', async e => {
+  container.addEventListener('click', async (e) => {
     const deleteBtn = e.target.closest('.delete-channel-btn');
     if (!deleteBtn) return;
     const chId = deleteBtn.dataset.channelId;
-    const ok = await modals.confirm('Delete this channel? This cannot be undone.', { title: '🗑️ Delete Channel', confirmText: 'Delete', danger: true });
+    const ok = await modals.confirm('Delete this channel? This cannot be undone.', {
+      title: '🗑️ Delete Channel',
+      confirmText: 'Delete',
+      danger: true,
+    });
     if (!ok) return;
     try {
       await channelService.delete(chId);
@@ -389,7 +506,7 @@ export function bind(container) {
     if (!ok) return;
     localStorage.clear();
     // Also clear IndexedDB where channels, posts, matches, and identity are stored
-    await new Promise(resolve => {
+    await new Promise((resolve) => {
       const req = indexedDB.deleteDatabase('isc-storage');
       req.onsuccess = req.onerror = req.onblocked = () => resolve(undefined);
     });
@@ -399,10 +516,11 @@ export function bind(container) {
 
   // Logout
   container.querySelector('#logout-btn')?.addEventListener('click', async () => {
-    const ok = await modals.confirm(
-      'Clear your identity? You will get a new one on next launch.',
-      { title: '🚪 Logout', confirmText: 'Logout', danger: true }
-    );
+    const ok = await modals.confirm('Clear your identity? You will get a new one on next launch.', {
+      title: '🚪 Logout',
+      confirmText: 'Logout',
+      danger: true,
+    });
     if (!ok) return;
     try {
       await identityService.clear();

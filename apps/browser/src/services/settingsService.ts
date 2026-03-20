@@ -37,18 +37,16 @@ const DEFAULT_SETTINGS: SettingsData = {
 };
 
 class SettingsServiceImpl implements ISettingsService {
-  private cache: SettingsData | null = null;
+  private cache: SettingsData = DEFAULT_SETTINGS;
 
   private load(): SettingsData {
-    if (this.cache) return this.cache;
+    if (this.cache !== DEFAULT_SETTINGS) return this.cache;
 
     try {
       const stored = localStorage.getItem(STORAGE_KEY);
-      if (stored) {
-        this.cache = { ...DEFAULT_SETTINGS, ...JSON.parse(stored) };
-      } else {
-        this.cache = { ...DEFAULT_SETTINGS };
-      }
+      this.cache = stored
+        ? { ...DEFAULT_SETTINGS, ...JSON.parse(stored) }
+        : { ...DEFAULT_SETTINGS };
     } catch {
       this.cache = { ...DEFAULT_SETTINGS };
     }
