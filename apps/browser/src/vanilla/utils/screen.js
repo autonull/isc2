@@ -124,7 +124,7 @@ export function renderError(message, { retryLabel = 'Retry', onRetry } = {}) {
  * @param {string} options.icon
  * @param {string} options.title
  * @param {string} [options.description]
- * @param {Array<{label:string,href?:string,onClick?:string,variant?:string}>} [options.actions]
+ * @param {Array<{label:string,href?:string,action?:string,variant?:string}>} [options.actions]
  * @returns {string}
  */
 export function renderEmpty({ icon, title, description, actions }) {
@@ -135,10 +135,10 @@ export function renderEmpty({ icon, title, description, actions }) {
       ${description ? `<div class="empty-state-description">${escapeHtml(description)}</div>` : ''}
       ${actions?.length ? `
         <div class="form-actions" style="justify-content:center;margin-top:16px">
-          ${actions.map(({ label, href, onClick, variant = 'primary' }) => `
+          ${actions.map(({ label, href, action, variant = 'primary' }) => `
             ${href
               ? `<a href="${escapeHtml(href)}" class="btn btn-${variant}">${escapeHtml(label)}</a>`
-              : `<button class="btn btn-${variant}" onclick="${onClick}">${escapeHtml(label)}</button>`
+              : `<button class="btn btn-${variant}" data-action="${escapeHtml(action ?? '')}">${escapeHtml(label)}</button>`
             }
           `).join('')}
         </div>

@@ -43,6 +43,9 @@ export function createRouter(screens, defaultRoute, mainContent, sidebar) {
 
   function parseRoute() {
     const hash = window.location.hash.replace('#', '').trim();
+    if (hash && !screens[hash] && import.meta.env?.DEV !== false) {
+      console.warn(`[Router] Unknown route: ${hash}, falling back to ${defaultRoute}`);
+    }
     return screens[hash] ? hash : defaultRoute;
   }
 
@@ -160,9 +163,13 @@ export function createRouter(screens, defaultRoute, mainContent, sidebar) {
  * @param {Object} options
  * @param {Function} options.onNavigate
  * @param {HTMLElement} options.mainContent
+ * @param {Object} options.services
+ * @param {Object} options.services.postService
+ * @param {Object} options.services.networkService
+ * @param {Object} options.services.modals
  */
-export function setupEventHandlers({ onNavigate, mainContent }) {
-  const { postService, networkService, modals } = globalThis.ISC_SERVICES ?? {};
+export function setupEventHandlers({ onNavigate, mainContent, services }) {
+  const { postService, networkService, modals } = services || {};
 
   document.addEventListener('isc:toast', (e) =>
     toasts.show(e.detail?.message, e.detail?.type, e.detail?.duration)

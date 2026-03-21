@@ -130,6 +130,66 @@ body {
   flex-shrink: 0;
 }
 
+/* Sidebar nav strip (IRC-style) */
+.sidebar-nav-strip {
+  display: flex;
+  align-items: stretch;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+  flex-shrink: 0;
+  gap: 1px;
+  padding: 4px 6px;
+}
+
+.snav-btn {
+  flex: 1;
+  height: 34px;
+  border-radius: var(--r-sm);
+  font-size: 16px;
+  line-height: 1;
+  color: var(--c-text-dim);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: background 0.1s, color 0.1s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+.snav-btn:hover { background: var(--c-bg-hover); color: var(--c-text); }
+.snav-btn.active { background: var(--c-bg-active); color: var(--c-brand); }
+.snav-btn:focus-visible {
+  outline: 2px solid var(--c-brand);
+  outline-offset: -2px;
+}
+
+/* Sidebar status footer */
+.sidebar-status-strip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  font-size: 11px;
+  font-family: var(--font-mono);
+  color: var(--c-text-muted);
+  flex-shrink: 0;
+}
+.sidebar-status-dot { font-size: 9px; }
+.sidebar-status-text { white-space: nowrap; }
+.sidebar-status-peers { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sidebar-debug-btn {
+  margin-left: auto; background: none; border: none;
+  color: var(--c-text-muted); cursor: pointer;
+  font-size: 12px; font-family: var(--font-mono); padding: 0 2px;
+}
+.sidebar-debug-btn:hover { color: var(--c-text); }
+
+/* Status dot colors */
+.status-online { color: var(--c-online); }
+.status-offline { color: var(--c-offline); }
+.status-connecting { color: var(--c-connecting); }
+
 .irc-sidebar-scroll {
   flex: 1;
   overflow-y: auto;
@@ -207,6 +267,14 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
+}
+
+.channels-label {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1.2px;
+  color: var(--c-text-muted);
 }
 
 .irc-add-btn {
@@ -2387,6 +2455,26 @@ body {
 /* Tab bar: badge floats above the icon */
 .tab-bar .tab {
   position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  min-height: 52px;
+  padding: 6px 4px;
+}
+.tab-bar .tab .tab-icon {
+  font-size: 18px;
+  line-height: 1;
+}
+.tab-bar .tab .tab-label {
+  font-size: 11px;
+  letter-spacing: 0.2px;
+  line-height: 1;
+  color: var(--c-text-dim);
+}
+.tab-bar .tab.active .tab-label {
+  color: var(--c-text);
 }
 .tab-bar .tab .nav-unread-badge {
   position: absolute;

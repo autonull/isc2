@@ -5,7 +5,6 @@
  */
 
 import { subscribe, getState, actions } from '../state.js';
-import { networkService } from '../services/network.ts';
 import { getColdStartService } from '../services/coldStart.ts';
 import { toasts } from '../utils/toast.js';
 import { logger } from '../logger.js';
@@ -15,27 +14,23 @@ import { buildLayout, setupLoggerInterceptor } from './layout.js';
 import { createRouter, setupEventHandlers, setupKeyboardShortcuts } from './router.js';
 import { createSplash } from './components/splash.js';
 import { modals } from './components/modal.js';
-import { postService } from '../services/index.js';
+import { postService, networkService } from '../services/index.js';
 
 import * as NowScreen from './screens/now.js';
 import * as DiscoverScreen from './screens/discover.js';
 import * as ChatsScreen from './screens/chats.js';
 import * as SettingsScreen from './screens/settings.js';
 import * as ComposeScreen from './screens/compose.js';
-import * as VideoScreen from './screens/video.js';
-import * as SpaceScreen from './screens/space.js';
 
 const SCREENS = {
   '/now': NowScreen,
-  '/space': SpaceScreen,
   '/discover': DiscoverScreen,
   '/chats': ChatsScreen,
   '/settings': SettingsScreen,
   '/compose': ComposeScreen,
-  '/video': VideoScreen,
 };
 
-const DEFAULT_ROUTE = '/space';
+const DEFAULT_ROUTE = '/now';
 
 export function createApp(container) {
   let layout = null;
@@ -83,7 +78,7 @@ export function createApp(container) {
         mainContent: layout.main,
         modals,
       });
-      setupEventHandlers({ onNavigate: navigate, mainContent: layout.main });
+      setupEventHandlers({ onNavigate: navigate, mainContent: layout.main, services: { postService, networkService, modals } });
 
       document.addEventListener('isc:toggle-chaos', () => {
         const coldStart = getColdStartService();
@@ -171,8 +166,6 @@ export function createApp(container) {
       if (matchesChanged) {
         if (router?.getCurrentRoute() === '/discover') DiscoverScreen.update(layout.main);
         if (router?.getCurrentRoute() === '/chats') ChatsScreen.update(layout.main);
-        if (router?.getCurrentRoute() === '/video') VideoScreen.update(layout.main);
-        if (router?.getCurrentRoute() === '/space') SpaceScreen.update(layout.main);
       }
 
       if (router?.getCurrentRoute() === '/now' && (channelsChanged || activeChannelChanged)) {
@@ -182,10 +175,9 @@ export function createApp(container) {
   }
 
   function updateStatusBar(state) {
-    layout.statusBar?.update({
+    layout.sidebar?.setStatus({
       status: state.status,
       peerCount: state.matches?.length ?? 0,
-      channelCount: state.channels?.length ?? 0,
     });
   }
 

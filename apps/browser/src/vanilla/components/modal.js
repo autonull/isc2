@@ -113,7 +113,10 @@ export const modals = {
           return;
         }
         const btn = e.target.closest('[data-action]');
-        if (btn) settle(btn.dataset.action === 'confirm');
+        if (btn) {
+          settle(btn.dataset.action === 'confirm');
+          this.close();
+        }
       });
     });
   },

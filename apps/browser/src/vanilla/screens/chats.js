@@ -440,7 +440,6 @@ async function openChat(container, peerId) {
   await loadBridgeSuggestion(peerId, similarity);
 
   chatPanel.innerHTML = renderChatView(peerId, conversations);
-  bindChatInputHandlers(container);
 
   const dismissBtn = container.querySelector('#bridge-dismiss');
   dismissBtn?.addEventListener('click', () => {

@@ -10,6 +10,7 @@ import { toasts } from '../../utils/toast.js';
 import { escapeHtml } from '../../utils/dom.js';
 import { getMultilingualService } from '../../services/multilingual.ts';
 import { getState, actions } from '../../state.js';
+import { modals } from './modal.js';
 
 const PRESETS = {
   discovery: {
@@ -354,16 +355,25 @@ export function bindMixerPanel(container, activeChannel) {
     }
   }
 
-  function archiveChannel() {
-    if (!confirm('Archive this channel?')) return;
+  async function archiveChannel() {
+    const ok = await modals.confirm('Archive this channel?', {
+      title: 'Archive Channel',
+      confirmText: 'Archive',
+    });
+    if (!ok) return;
     channelSettingsService.archiveChannel(activeChannel.id);
     toasts.info('Channel archived');
     refreshMixerPanel(container, activeChannel);
     document.dispatchEvent(new CustomEvent('isc:refresh-channels'));
   }
 
-  function resetSettings() {
-    if (!confirm('Reset all settings to defaults?')) return;
+  async function resetSettings() {
+    const ok = await modals.confirm('Reset all settings to defaults?', {
+      title: 'Reset Settings',
+      confirmText: 'Reset',
+      danger: true,
+    });
+    if (!ok) return;
     channelSettingsService.resetSettings(activeChannel.id);
     toasts.info('Settings reset');
     refreshMixerPanel(container, activeChannel);

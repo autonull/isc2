@@ -202,7 +202,7 @@ export function bind(container) {
     saveBtn.textContent = '…';
 
     try {
-      await channelService.create(name, desc, spread);
+      await channelService.create(name, desc, spread, selectedTags);
       toasts.success(`Channel "#${name}" created!`);
       if (successDiv) successDiv.style.display = 'flex';
       setTimeout(() => { window.location.hash = '#/now'; }, 1200);

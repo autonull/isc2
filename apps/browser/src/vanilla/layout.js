@@ -6,17 +6,15 @@
 
 import { el, isMobile } from './utils/dom.js';
 import { createSidebar } from './components/sidebar.js';
-import { createStatusBar } from './components/status-bar.js';
 import { modals } from './components/modal.js';
 import { toasts } from '../utils/toast.js';
 
 const TABS = [
-  { id: 'space', icon: '🗺️', label: 'Space', route: '/space' },
-  { id: 'now', icon: '🏠', label: 'Now', route: '/now' },
-  { id: 'discover', icon: '📡', label: 'Discover', route: '/discover' },
-  { id: 'chats', icon: '💬', label: 'Chats', route: '/chats' },
-  { id: 'compose', icon: '➕', label: 'New', route: '/compose' },
-  { id: 'settings', icon: '⚙️', label: 'Settings', route: '/settings' },
+  { id: 'now', icon: '⌂', label: 'Now', route: '/now' },
+  { id: 'discover', icon: '◎', label: 'Discover', route: '/discover' },
+  { id: 'chats', icon: '◷', label: 'Chats', route: '/chats' },
+  { id: 'channels', icon: '≡', label: 'Channels', action: 'open-channel-drawer' },
+  { id: 'settings', icon: '⚙', label: 'Settings', route: '/settings' },
 ];
 
 /**
@@ -60,12 +58,6 @@ export function buildLayout(container, { onNavigate }) {
   layout.appendChild(tabBar);
   container.appendChild(layout);
 
-  const statusBarContainer = el('div');
-  const statusBar = createStatusBar(statusBarContainer, {
-    onToggleDebug: () => container.dispatchEvent(new CustomEvent('isc:toggle-debug')),
-  });
-  container.appendChild(statusBarContainer);
-
   const toastContainer = el('div', { id: 'toast-container', className: 'toast-container' });
   container.appendChild(toastContainer);
   toasts.init();
@@ -98,7 +90,6 @@ export function buildLayout(container, { onNavigate }) {
 
   function destroy() {
     sidebar?.destroy?.();
-    statusBar?.destroy?.();
     container.innerHTML = '';
   }
 
@@ -106,7 +97,6 @@ export function buildLayout(container, { onNavigate }) {
     container: layout,
     main: mainContent,
     sidebar,
-    statusBar,
     updateTabBar,
     destroy,
     get debugPanel() {
@@ -124,13 +114,19 @@ function buildTabBar(onNavigate) {
 
   TABS.forEach((tab) => {
     const btn = el('button', {
-      className: `tab${tab.id === 'compose' ? ' compose' : ''}`,
+      className: 'tab',
       'data-testid': `nav-tab-${tab.id}`,
       'data-tab': tab.id,
       'aria-label': tab.label,
     });
-    btn.innerHTML = `<span class="tab-icon">${tab.icon}</span><span style="font-size:10px">${tab.label}</span>`;
-    btn.addEventListener('click', () => onNavigate(tab.route));
+    btn.innerHTML = `<span class="tab-icon">${tab.icon}</span><span class="tab-label">${tab.label}</span>`;
+    if (tab.route) {
+      btn.addEventListener('click', () => onNavigate(tab.route));
+    } else if (tab.action === 'open-channel-drawer') {
+      btn.addEventListener('click', () =>
+        document.dispatchEvent(new CustomEvent('isc:toggle-channel-drawer'))
+      );
+    }
     nav.appendChild(btn);
   });
 

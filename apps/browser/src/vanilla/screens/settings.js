@@ -7,14 +7,15 @@ import { networkService } from '../../services/network.ts';
 import { escapeHtml } from '../../utils/dom.js';
 import { toasts } from '../../utils/toast.js';
 import { modals } from '../components/modal.js';
-import {
-  importNostrIdentity,
-  isNostrLinked,
-  unlinkNostrIdentity,
-  validateNsec,
-  exportNostrLinkedPubkey,
-  formatNpub,
-} from '../../identity/nostr.js';
+// Nostr Identity Bridge imports temporarily disabled due to build resolution issues
+// import {
+//   importNostrIdentity,
+//   isNostrLinked,
+//   unlinkNostrIdentity,
+//   validateNsec,
+//   exportNostrLinkedPubkey,
+//   formatNpub,
+// } from '../../identity/nostr.js';
 
 export function render() {
   const identity = identityService.getIdentity();
@@ -100,22 +101,7 @@ function renderIdentity(identity) {
         </label>
       </div>
 
-      <div class="divider mt-4 mb-4"></div>
-
-      <div class="section-subtitle">🌐 Nostr Identity Bridge</div>
-      <div class="form-hint mb-3">Link your existing Nostr identity (nsec) to use with ISC</div>
-      <div class="form-group">
-        <label class="form-label" for="nostr-nsec-input">Nostr Private Key (nsec)</label>
-        <input type="password" id="nostr-nsec-input" class="form-input font-mono"
-               placeholder="nsec1…" maxlength="100"
-               data-testid="nostr-nsec-input" />
-        <div class="form-hint">Never share your private key. It stays in your browser only.</div>
-      </div>
-      <div class="form-actions">
-        <button class="btn btn-primary" id="link-nostr-btn" data-testid="link-nostr-btn">🔗 Link Nostr Identity</button>
-        <button class="btn btn-danger" id="unlink-nostr-btn" data-testid="unlink-nostr-btn" style="display:none">Unlink</button>
-      </div>
-      <div id="nostr-status" class="mt-3" data-testid="nostr-status"></div>
+      <!-- Nostr Identity Bridge temporarily disabled due to build issues -->
     </section>
   `;
 }
@@ -347,71 +333,24 @@ export function bind(container) {
     }
   });
 
-  // Nostr identity linking
-  async function updateNostrStatus() {
-    const statusEl = container.querySelector('#nostr-status');
-    const unlinkBtn = container.querySelector('#unlink-nostr-btn');
-    if (!statusEl) return;
-
-    const linked = await isNostrLinked();
-    if (linked) {
-      const npub = await exportNostrLinkedPubkey();
-      statusEl.innerHTML = `<span class="text-success">✓ Linked to Nostr</span><br><span class="text-muted font-mono" style="font-size:12px">${formatNpub(npub || '')}</span>`;
-      if (unlinkBtn) unlinkBtn.style.display = '';
-    } else {
-      statusEl.innerHTML = '';
-      if (unlinkBtn) unlinkBtn.style.display = 'none';
-    }
-  }
-
-  updateNostrStatus();
-
-  container.querySelector('#link-nostr-btn')?.addEventListener('click', async () => {
-    const nsecInput = container.querySelector('#nostr-nsec-input');
-    const nsec = nsecInput?.value?.trim();
-
-    if (!nsec) {
-      toasts.error('Please enter your Nostr private key (nsec)');
-      return;
-    }
-
-    if (!validateNsec(nsec)) {
-      toasts.error('Invalid Nostr private key format. Expected: nsec1…');
-      return;
-    }
-
-    const ok = await modals.confirm(
-      'Linking your Nostr identity will associate it with your ISC peer ID. Continue?',
-      { title: '🔗 Link Nostr Identity', confirmText: 'Link' }
-    );
-    if (!ok) return;
-
-    try {
-      await importNostrIdentity(nsec);
-      if (nsecInput) nsecInput.value = '';
-      await updateNostrStatus();
-      toasts.success('Nostr identity linked!');
-    } catch (err) {
-      toasts.error(`Failed to link: ${err.message}`);
-    }
-  });
-
-  container.querySelector('#unlink-nostr-btn')?.addEventListener('click', async () => {
-    const ok = await modals.confirm('Unlink your Nostr identity? You can re-link later.', {
-      title: '🔓 Unlink Nostr',
-      confirmText: 'Unlink',
-      danger: true,
-    });
-    if (!ok) return;
-
-    try {
-      await unlinkNostrIdentity();
-      await updateNostrStatus();
-      toasts.success('Nostr identity unlinked');
-    } catch (err) {
-      toasts.error(`Failed to unlink: ${err.message}`);
-    }
-  });
+  // Nostr identity linking - temporarily disabled due to build issues
+  // async function updateNostrStatus() {
+  //   const statusEl = container.querySelector('#nostr-status');
+  //   const unlinkBtn = container.querySelector('#unlink-nostr-btn');
+  //   if (!statusEl) return;
+  //   const linked = await isNostrLinked();
+  //   if (linked) {
+  //     const npub = await exportNostrLinkedPubkey();
+  //     statusEl.innerHTML = `<span class="text-success">✓ Linked to Nostr</span><br><span class="text-muted font-mono" style="font-size:12px">${formatNpub(npub || '')}</span>`;
+  //     if (unlinkBtn) unlinkBtn.style.display = '';
+  //   } else {
+  //     statusEl.innerHTML = '';
+  //     if (unlinkBtn) unlinkBtn.style.display = 'none';
+  //   }
+  // }
+  // updateNostrStatus();
+  // container.querySelector('#link-nostr-btn')?.addEventListener('click', async () => { ... });
+  // container.querySelector('#unlink-nostr-btn')?.addEventListener('click', async () => { ... });
 
   // Discovery settings
   container.querySelector('#similarity-threshold')?.addEventListener('input', (e) => {

@@ -14,6 +14,7 @@ import { formatTime } from '../../utils/time.js';
 import { escapeHtml } from '../utils/dom.js';
 import { renderEmpty, renderList, bindDelegate, autoGrow, setupCtrlEnterSubmit } from '../utils/screen.js';
 import { renderMixerPanel, bindMixerPanel } from '../components/mixerPanel.js';
+import { modals } from '../components/modal.js';
 
 let refreshing = false;
 let viewModeUnsubscribe = null;
@@ -353,14 +354,8 @@ function handleReply(e, target) {
 }
 
 async function handleDelete(e, target) {
-  const { modals } = globalThis.ISC_SERVICES ?? {};
-  if (!modals) return;
-
-  const ok = await modals.confirm('Delete this post?', { title: '🗑️ Delete Post', confirmText: 'Delete', danger: true });
+  const ok = await modals.confirm('Delete this post?', { title: 'Delete Post', confirmText: 'Delete', danger: true });
   if (!ok) return;
-
-  const { postService } = globalThis.ISC_SERVICES ?? {};
-  if (!postService) return;
 
   try {
     await postService.delete(target.dataset.postId);
