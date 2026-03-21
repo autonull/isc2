@@ -9,12 +9,12 @@ export const CHAT_CONFIG: ChatConfig = {
   typingCooldown: 2000,
   typingTimeout: 3000,
   signatureKeyPrefix: 'isc-pubkey-',
-  protocolChat: '/isc/chat/1.0',
+  protocolChat: '/isc/chat/1.0.0',
 } as const;
 
 export const CHAT_CONSTANTS = {
   SIGNATURE_KEY_PREFIX: 'isc-pubkey-',
-  PROTOCOL_CHAT: '/isc/chat/1.0',
+  PROTOCOL_CHAT: '/isc/chat/1.0.0',
   MESSAGE_TIMEOUT_MS: 10000,
   TYPING_COOLDOWN_MS: 2000,
   TYPING_TIMEOUT_MS: 3000,

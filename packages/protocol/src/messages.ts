@@ -33,6 +33,14 @@ export interface Distribution {
   end?: number;
 }
 
+export interface MessageHeader {
+  v: 2;
+  tier: 0 | 1 | 2;
+  peerID: string;
+  ts: number;
+  sig?: Uint8Array;
+}
+
 export interface SignedAnnouncement {
   peerID: string;
   channelID: string;
@@ -41,23 +49,17 @@ export interface SignedAnnouncement {
   relTag?: string;
   ttl: number;
   updatedAt: number;
-  signature: Uint8Array;
-}
-
-export interface AnnouncementPayload {
-  channelID: string;
-  model: string;
-  vec: number[];
-  relTag?: string;
-  ttl: number;
-  updatedAt: number;
+  tier: 0 | 1 | 2;
+  signature?: Uint8Array;
+  rlnProof?: string;
 }
 
 export interface ChatMessage {
   channelID: string;
   msg: string;
   timestamp: number;
-  signature: Uint8Array;
+  tier: 0 | 1 | 2;
+  signature?: Uint8Array;
 }
 
 export interface GroupInvite {
@@ -213,4 +215,66 @@ export interface ReportEvent {
   reason: string;
   timestamp: number;
   signature: Uint8Array;
+}
+
+export interface ScoreDelta {
+  type: 'score_delta';
+  subjectID: string;
+  delta: number;
+  reason: string;
+  timestamp: number;
+  signature?: Uint8Array;
+}
+
+export interface VouchRequest extends MessageHeader {
+  type: 'vouch_request';
+  requesterID: string;
+  requesterPublicKey: Uint8Array;
+}
+
+export interface VouchResponse extends MessageHeader {
+  type: 'vouch_response';
+  voucherID: string;
+  voucheeID: string;
+  granted: boolean;
+  voucherSig?: Uint8Array;
+}
+
+export interface Vouch {
+  voucherID: string;
+  voucheeID: string;
+  granted: boolean;
+  ts: number;
+  sig: Uint8Array;
+}
+
+export interface RLNProof {
+  zA: string;
+  zB: string;
+  internalNullifier: string;
+  chainID: number;
+  epoch: number;
+}
+
+export interface BlocklistEntry {
+  peerID: string;
+  reason: string;
+  reporterID: string;
+  ts: number;
+  sig: Uint8Array;
+}
+
+export interface ModelRegistry {
+  merkleRoot: string;
+  merkleLeaves: string[];
+  maintainerPubKeys: Uint8Array[];
+  version: number;
+  updatedAt: number;
+  sig: Uint8Array;
+}
+
+export interface TierIdentifyPush extends MessageHeader {
+  type: 'tier_identify';
+  tier: 0 | 1 | 2;
+  networkID: string;
 }

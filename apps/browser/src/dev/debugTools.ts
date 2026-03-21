@@ -1,6 +1,6 @@
 /**
  * Debug Tools for Development
- * 
+ *
  * Utilities for debugging and inspecting the app state during development.
  * These should only be used in development mode.
  */
@@ -35,14 +35,15 @@ export function createDebugOverlay(dependencies: AppDependencies) {
 
   const updateOverlay = () => {
     const state = {
-      identity: dependencies.identity ? '✓' : '✗',
-      channels: dependencies.channelManager ? '✓' : '✗',
-      posts: dependencies.postService ? '✓' : '✗',
-      feed: dependencies.feedService ? '✓' : '✗',
-      navigator: dependencies.navigator ? '✓' : '✗',
-      memory: typeof performance !== 'undefined' && 'memory' in performance 
-        ? Math.round((performance as any).memory?.usedJSHeapSize / 1024 / 1024) || '?'
-        : '?',
+      identity: (dependencies as any).identityService ? '✓' : '✗',
+      channels: (dependencies as any).chatService ? '✓' : '✗',
+      posts: (dependencies as any).chatService ? '✓' : '✗',
+      feed: (dependencies as any).chatService ? '✓' : '✗',
+      navigator: typeof navigator !== 'undefined' ? '✓' : '✗',
+      memory:
+        typeof performance !== 'undefined' && 'memory' in performance
+          ? Math.round((performance as any).memory?.usedJSHeapSize / 1024 / 1024) || '?'
+          : '?',
       fps: 0,
     };
 
@@ -61,7 +62,7 @@ export function createDebugOverlay(dependencies: AppDependencies) {
   // FPS counter
   let frameCount = 0;
   let lastTime = performance.now();
-  
+
   const countFPS = () => {
     frameCount++;
     const now = performance.now();
@@ -130,16 +131,25 @@ export function createDebugLogger(name: string) {
  */
 function getColorForName(name: string): string {
   const colors = [
-    '#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4',
-    '#FFEAA7', '#DDA0DD', '#98D8C8', '#F7DC6F',
-    '#BB8FCE', '#85C1E9', '#F8B500', '#00CED1',
+    '#FF6B6B',
+    '#4ECDC4',
+    '#45B7D1',
+    '#96CEB4',
+    '#FFEAA7',
+    '#DDA0DD',
+    '#98D8C8',
+    '#F7DC6F',
+    '#BB8FCE',
+    '#85C1E9',
+    '#F8B500',
+    '#00CED1',
   ];
-  
+
   let hash = 0;
   for (let i = 0; i < name.length; i++) {
     hash = name.charCodeAt(i) + ((hash << 5) - hash);
   }
-  
+
   return colors[Math.abs(hash) % colors.length];
 }
 
@@ -168,19 +178,19 @@ export class PerformanceMonitor {
    */
   measure(from: string, to: string): number | null {
     if (!this.enabled) return null;
-    
+
     const fromTime = this.marks.get(from);
     const toTime = this.marks.get(to);
-    
+
     if (fromTime === undefined || toTime === undefined) {
       return null;
     }
-    
+
     const duration = toTime - fromTime;
     this.measures.push({ name: `${from} → ${to}`, duration });
-    
+
     console.log(`%c⏱ ${from} → ${to}: ${duration.toFixed(2)}ms`, 'color: #4ECDC4');
-    
+
     return duration;
   }
 
@@ -189,7 +199,7 @@ export class PerformanceMonitor {
    */
   async measureAsync<T>(name: string, fn: () => Promise<T>): Promise<T> {
     if (!this.enabled) return fn();
-    
+
     const start = performance.now();
     try {
       return await fn();
@@ -220,10 +230,10 @@ export class PerformanceMonitor {
    */
   summary(): void {
     if (!this.enabled) return;
-    
+
     console.group('📊 Performance Summary');
     console.table(this.measures);
-    
+
     const total = this.measures.reduce((sum, m) => sum + m.duration, 0);
     console.log(`Total: ${total.toFixed(2)}ms`);
     console.groupEnd();
@@ -257,19 +267,18 @@ export class StateInspector<T extends Record<string, any>> {
    * Update state
    */
   setState(changes: Partial<T>): void {
-    const oldState = { ...this.state };
     this.state = { ...this.state, ...changes };
-    
+
     if (this.enabled) {
       this.history.push({
         timestamp: Date.now(),
         changes,
       });
-      
+
       console.log(`%c📦 ${this.name} state updated:`, 'color: #45B7D1', changes);
     }
-    
-    this.listeners.forEach(listener => listener(this.state));
+
+    this.listeners.forEach((listener) => listener(this.state));
   }
 
   /**
@@ -292,7 +301,7 @@ export class StateInspector<T extends Record<string, any>> {
    */
   inspect(): void {
     if (!this.enabled) return;
-    
+
     console.group(`📦 ${this.name} State`);
     console.log('Current:', this.state);
     console.log('History:', this.history.length, 'changes');
@@ -319,7 +328,7 @@ export class NetworkMonitor {
 
   constructor(enabled: boolean = isDev) {
     this.enabled = enabled;
-    
+
     if (enabled && typeof window !== 'undefined') {
       this.setupInterceptors();
     }
@@ -332,36 +341,45 @@ export class NetworkMonitor {
       const url = typeof args[0] === 'string' ? args[0] : (args[0] as Request).url || '';
       const method = args[1]?.method || 'GET';
       const start = performance.now();
-      
+
       try {
         const response = await originalFetch(...args);
         const duration = performance.now() - start;
-        
+
         this.requests.push({
           url,
           method,
           status: response.status,
           duration,
         });
-        
+
         if (this.enabled) {
-          console.log(`%c🌐 ${method} ${url}`, 'color: #96CEB4', `${response.status} (${duration.toFixed(0)}ms)`);
+          console.log(
+            `%c🌐 ${method} ${url}`,
+            'color: #96CEB4',
+            `${response.status} (${duration.toFixed(0)}ms)`
+          );
         }
-        
+
         return response;
       } catch (error) {
         const duration = performance.now() - start;
-        
+
         this.requests.push({
           url,
           method,
           duration,
         });
-        
+
         if (this.enabled) {
-          console.error(`%c🌐 ${method} ${url}`, 'color: #FF6B6B', `FAILED (${duration.toFixed(0)}ms)`, error);
+          console.error(
+            `%c🌐 ${method} ${url}`,
+            'color: #FF6B6B',
+            `FAILED (${duration.toFixed(0)}ms)`,
+            error
+          );
         }
-        
+
         throw error;
       }
     };
@@ -378,7 +396,7 @@ export class NetworkMonitor {
    * Get failed requests
    */
   getFailedRequests(): Array<{ url: string; method: string; duration?: number }> {
-    return this.requests.filter(r => !r.status || r.status >= 400);
+    return this.requests.filter((r) => !r.status || r.status >= 400);
   }
 
   /**
@@ -393,14 +411,15 @@ export class NetworkMonitor {
    */
   summary(): void {
     if (!this.enabled) return;
-    
+
     console.group('🌐 Network Summary');
     console.log('Total requests:', this.requests.length);
     console.log('Failed requests:', this.getFailedRequests().length);
-    
-    const avgDuration = this.requests.reduce((sum, r) => sum + (r.duration || 0), 0) / this.requests.length;
+
+    const avgDuration =
+      this.requests.reduce((sum, r) => sum + (r.duration || 0), 0) / this.requests.length;
     console.log('Average duration:', avgDuration.toFixed(0), 'ms');
-    
+
     console.table(this.requests);
     console.groupEnd();
   }
@@ -419,19 +438,19 @@ export function exposeDebugAPI(dependencies: AppDependencies): void {
     dependencies,
     perf: perfMonitor,
     network: networkMonitor,
-    
+
     // Quick access to services
-    channels: () => dependencies.channelService?.getAllChannels(),
-    posts: () => dependencies.postService?.getAllPosts(),
-    identity: () => dependencies.identity?.getFingerprint(),
-    
+    channels: () => (dependencies as any).chatService?.getConversations(),
+    posts: () => (dependencies as any).chatService?.getMessages?.(''),
+    identity: () => (dependencies as any).identityService?.getFingerprint?.(),
+
     // Utilities
     clear: () => {
       perfMonitor.clear();
       networkMonitor.clear();
       console.clear();
     },
-    
+
     help: () => {
       console.log(`
 ISC Debug API:
@@ -446,7 +465,11 @@ ISC Debug API:
   };
 
   console.log('%c🔧 ISC Debug Tools Enabled', 'color: #4ECDC4; font-weight: bold; font-size: 14px');
-  console.log('Type %cISC_DEBUG.help()', 'color: #45B7D1; font-family: monospace', 'for available commands');
+  console.log(
+    'Type %cISC_DEBUG.help()',
+    'color: #45B7D1; font-family: monospace',
+    'for available commands'
+  );
 }
 
 /**
@@ -484,7 +507,10 @@ export function trackRenders(componentName: string) {
     const avg = renders.reduce((a, b) => a + b, 0) / renders.length;
 
     if (duration > 16) {
-      console.warn(`%c⚠️ ${componentName} slow render: ${duration.toFixed(2)}ms (avg: ${avg.toFixed(2)}ms)`, 'color: #FF6B6B');
+      console.warn(
+        `%c⚠️ ${componentName} slow render: ${duration.toFixed(2)}ms (avg: ${avg.toFixed(2)}ms)`,
+        'color: #FF6B6B'
+      );
     }
   };
 }

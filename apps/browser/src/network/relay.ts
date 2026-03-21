@@ -51,9 +51,7 @@ import type {
   ConnectionQualityStats,
   TURNConfig,
 } from './relay/types/relay.js';
-import { RELAY_CONFIG } from './relay/config/relayConfig.js';
 import { NATTraversalManagerService } from './relay/services/NATTraversalManagerService.js';
-import { calculateConnectionQuality as calcConnectionQuality } from './relay/utils/qualityCalculator.js';
 
 export class NATTraversalManager {
   private service: NATTraversalManagerService;
@@ -139,6 +137,8 @@ export class NATTraversalManager {
   }
 }
 
-export function createNATTraversalManager(config?: Partial<NATTraversalConfig>): NATTraversalManager {
+export function createNATTraversalManager(
+  config?: Partial<NATTraversalConfig>
+): NATTraversalManager {
   return new NATTraversalManager(config);
 }

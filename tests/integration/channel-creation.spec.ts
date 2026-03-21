@@ -13,6 +13,7 @@ import { test, expect } from '@playwright/test';
 
 test.describe('Channel Creation Flow', () => {
   test.beforeEach(async ({ page }) => {
+    await page.addInitScript(() => { localStorage.setItem('isc-onboarding-completed', 'true'); });
     await page.goto('/');
     await page.waitForSelector('[data-testid="sidebar"]', { timeout: 10000 });
   });
@@ -38,13 +39,9 @@ test.describe('Channel Creation Flow', () => {
     // Fill in short name
     await page.fill('[data-testid="compose-name-input"]', 'Ab');
     await page.fill('[data-testid="compose-description-input"]', 'This is a valid description with enough characters');
-    
-    // Try to save
-    await page.click('[data-testid="compose-save"]');
-    await page.waitForTimeout(500);
 
-    // Should show error
-    await expect(page.locator('[data-testid="compose-error"]')).toBeVisible();
+    // Save button should remain disabled — form is invalid
+    await expect(page.locator('[data-testid="compose-save"]')).toBeDisabled();
   });
 
   test('should validate channel description (minimum 10 characters)', async ({ page }) => {
@@ -54,13 +51,9 @@ test.describe('Channel Creation Flow', () => {
     // Fill in valid name but short description
     await page.fill('[data-testid="compose-name-input"]', 'Test Channel');
     await page.fill('[data-testid="compose-description-input"]', 'Short');
-    
-    // Try to save
-    await page.click('[data-testid="compose-save"]');
-    await page.waitForTimeout(500);
 
-    // Should show error
-    await expect(page.locator('[data-testid="compose-error"]')).toBeVisible();
+    // Save button should remain disabled — description too short
+    await expect(page.locator('[data-testid="compose-save"]')).toBeDisabled();
   });
 
   test('should create a valid channel', async ({ page }) => {
@@ -152,9 +145,9 @@ test.describe('Channel Creation Flow', () => {
     await page.fill('[data-testid="compose-name-input"]', 'Test');
     await page.waitForTimeout(200);
 
-    // Check character counter shows 4/50
+    // Check character counter shows 4 / 50
     const nameHelpText = page.locator('[data-testid="compose-name-input"] + div');
-    await expect(nameHelpText).toContainText('4/50');
+    await expect(nameHelpText).toContainText('4 / 50');
 
     // Type in description
     await page.fill('[data-testid="compose-description-input"]', 'Hello World Test');
@@ -162,7 +155,7 @@ test.describe('Channel Creation Flow', () => {
 
     // Check description character counter
     const descHelpText = page.locator('[data-testid="compose-description-input"] + div');
-    await expect(descHelpText).toContainText('16/500');
+    await expect(descHelpText).toContainText('16 / 500');
   });
 
   test('should adjust spread slider', async ({ page }) => {
@@ -180,7 +173,7 @@ test.describe('Channel Creation Flow', () => {
     await page.waitForTimeout(300);
 
     // Verify slider value is displayed
-    const spreadHelpText = page.locator('[data-testid="compose-spread-slider"] + div + div');
+    const spreadHelpText = page.locator('[data-testid="compose-spread-slider"] + div .spread-value');
     await expect(spreadHelpText).toContainText('75%');
   });
 
@@ -206,6 +199,7 @@ test.describe('Channel Creation Flow', () => {
 
 test.describe('Channel Creation - Edge Cases', () => {
   test.beforeEach(async ({ page }) => {
+    await page.addInitScript(() => { localStorage.setItem('isc-onboarding-completed', 'true'); });
     await page.goto('/');
     await page.waitForSelector('[data-testid="sidebar"]', { timeout: 10000 });
   });

@@ -8,8 +8,7 @@
 import type { Post } from '../types/extended.js';
 import { getDB } from '../db/factory.js';
 import { getIdentity, ensureIdentityInitialized } from '../identity/index.js';
-import { encode, sign, computeEngagementScore } from '@isc/core';
-import { formatRelativeTime as formatPostTimestamp } from '@isc/core';
+import { encode, sign } from '@isc/core';
 import { loggers } from '../utils/logger.js';
 
 const logger = loggers.social;
@@ -75,14 +74,16 @@ async function getAllPostsFromDB(): Promise<Post[]> {
  */
 async function signPost(post: Omit<Post, 'signature'>): Promise<Uint8Array> {
   const identity = getIdentity();
-  
+
   if (!identity.keypair) {
-    throw new IdentityRequiredError('Cannot sign post: identity not initialized. Please complete onboarding.');
+    throw new IdentityRequiredError(
+      'Cannot sign post: identity not initialized. Please complete onboarding.'
+    );
   }
 
   const encoded = encode(post);
   const signature = await sign(encoded, identity.keypair.privateKey);
-  return signature;
+  return signature.data;
 }
 
 export function createPostService(): PostService {
@@ -157,7 +158,7 @@ export function createPostService(): PostService {
 
       // Filter by channel if specified
       if (channelId) {
-        posts = posts.filter(p => p.channelID === channelId);
+        posts = posts.filter((p) => p.channelID === channelId);
       }
 
       // Sort by timestamp (newest first)
@@ -170,8 +171,7 @@ export function createPostService(): PostService {
 
     async getPostsByAuthor(author: string): Promise<Post[]> {
       const posts = await getAllPostsFromDB();
-      return posts.filter(p => p.author === author)
-        .sort((a, b) => b.timestamp - a.timestamp);
+      return posts.filter((p) => p.author === author).sort((a, b) => b.timestamp - a.timestamp);
     },
 
     async deletePost(id: string): Promise<void> {

@@ -1,6 +1,7 @@
 package network.isc.core;
 
 import java.util.Base64;
+import java.util.Objects;
 
 /**
  * Represents a post in the ISC system
@@ -85,6 +86,23 @@ public class Post {
      */
     public void setSignatureBase64(String signatureBase64) {
         this.signature = signatureBase64 != null ? Base64.getDecoder().decode(signatureBase64) : null;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        var post = (Post) o;
+        return Objects.equals(id, post.id) &&
+               Objects.equals(author, post.author) &&
+               Objects.equals(content, post.content) &&
+               Objects.equals(channelID, post.channelID) &&
+               Objects.equals(timestamp, post.timestamp);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(id, author, content, channelID, timestamp);
     }
 
     @Override

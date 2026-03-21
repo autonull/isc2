@@ -27,6 +27,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.Consumer;
 import java.util.function.BiConsumer;
 import java.util.List;
@@ -58,6 +60,44 @@ public class NetworkAdapter {
     private Consumer<String> onPeerConnected;
     private BiConsumer<Stream, byte[]> onFileProtocolChunkReceived;
     private Consumer<Object> onSocialEventReceived;
+
+    private volatile boolean isOnline = false;
+    private final List<ConnectionListener> connectionListeners = new CopyOnWriteArrayList<>();
+
+    // For simulation and visualization
+    private network.isc.simulation.NetworkActivityListener networkActivityListener;
+
+    /**
+     * Connection listener interface
+     */
+    @FunctionalInterface
+    public interface ConnectionListener {
+        void onConnectionChanged(boolean isOnline);
+    }
+
+    /**
+     * Add connection listener
+     */
+    public void addConnectionListener(ConnectionListener listener) {
+        connectionListeners.add(listener);
+    }
+
+    /**
+     * Remove connection listener
+     */
+    public void removeConnectionListener(ConnectionListener listener) {
+        connectionListeners.remove(listener);
+    }
+
+    public void setNetworkActivityListener(network.isc.simulation.NetworkActivityListener listener) {
+        this.networkActivityListener = listener;
+    }
+
+    private void notifyActivity(String targetPeerId, String protocol) {
+        if (networkActivityListener != null && targetPeerId != null) {
+            networkActivityListener.onNetworkActivity(host.getPeerId().toString(), targetPeerId, protocol);
+        }
+    }
 
     public NetworkAdapter(PrivKey privKey, int port,
                           Consumer<ChatMessage> onMessageReceived,
@@ -165,6 +205,26 @@ public class NetworkAdapter {
         return host.stop();
     }
 
+    /**
+     * Notify listeners of connection change
+     */
+    private void notifyConnectionChanged() {
+        for (ConnectionListener listener : connectionListeners) {
+            try {
+                listener.onConnectionChanged(isOnline);
+            } catch (Exception e) {
+                log.error("Connection listener error", e);
+            }
+        }
+    }
+
+    /**
+     * Check if network is online
+     */
+    public boolean isOnline() {
+        return isOnline && !host.getNetwork().getConnections().isEmpty();
+    }
+
     public CompletableFuture<Void> dialPeer(String multiaddrStr) {
         Multiaddr target = new Multiaddr(multiaddrStr);
         String chatPid = ProtocolConstants.PROTOCOL_CHAT;
@@ -176,7 +236,17 @@ public class NetworkAdapter {
         String filePid = ProtocolConstants.PROTOCOL_FILE;
         String socialPid = ProtocolConstants.PROTOCOL_SOCIAL;
 
-        return host.getNetwork().connect(target).thenCompose(conn -> {
+        return host.getNetwork().connect(target).exceptionally(ex -> {
+            // Check if there are still active connections before marking offline
+            if (host.getNetwork().getConnections().isEmpty()) {
+                this.isOnline = false;
+                notifyConnectionChanged();
+            }
+            log.warn("Failed to connect to peer: {}", ex.getMessage());
+            throw new CompletionException(ex);
+        }).thenCompose(conn -> {
+            this.isOnline = true;
+            notifyConnectionChanged();
             log.info("Connected to peer: {}", conn.remoteAddress());
 
             if (onPeerConnected != null) {
@@ -379,6 +449,7 @@ public class NetworkAdapter {
             for (AnnounceProtocol.AnnounceController controller : activeAnnouncers) {
                 try {
                     controller.send(ann);
+                    notifyActivity(controller.stream.remotePeerId().toString(), "ANNOUNCE");
                 } catch (Exception e) {
                     log.error("Failed to send announcement to peer", e);
                 }
@@ -391,6 +462,7 @@ public class NetworkAdapter {
             for (QueryProtocol.QueryController controller : activeQueries) {
                 try {
                     controller.send(hashes);
+                    notifyActivity(controller.stream.remotePeerId().toString(), "QUERY");
                 } catch (Exception e) {
                     log.error("Failed to send query to peer", e);
                 }

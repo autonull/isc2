@@ -48,6 +48,19 @@ class EmbeddingServiceClass {
       return this.loadPromise.then(() => this.model!);
     }
 
+    const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
+    const modelDownloaded = localStorage.getItem(MODEL_CACHE_KEY);
+
+    if (isMobile && !modelDownloaded && typeof window !== 'undefined' && 'confirm' in window) {
+      const proceed = confirm(
+        'ISC needs to download a 22 MB AI model (once only). Proceed on WiFi?'
+      );
+      if (!proceed) {
+        this.isLoading = false;
+        throw new Error('Model download cancelled by user');
+      }
+    }
+
     this.isLoading = true;
     if (onProgress) {
       this.onProgressCallbacks.push(onProgress);
@@ -72,7 +85,7 @@ class EmbeddingServiceClass {
         this.notifyProgress();
 
         await this.instance.load(MODEL_ID);
-        
+
         this.loadProgress = 0.9;
         this.notifyProgress();
 
@@ -146,7 +159,8 @@ class EmbeddingServiceClass {
   async computeEmbedding(text: string): Promise<number[]> {
     // Check in-memory cache first
     const cached = this.embeddingCache.get(text);
-    if (cached && Date.now() - cached.timestamp < 3600000) { // 1 hour cache
+    if (cached && Date.now() - cached.timestamp < 3600000) {
+      // 1 hour cache
       return cached.embedding;
     }
 
@@ -154,7 +168,7 @@ class EmbeddingServiceClass {
     if (this.isModelLoaded() && this.model) {
       try {
         const embedding = await this.model.embed(text);
-        
+
         // Cache in memory
         this.embeddingCache.set(text, {
           text,
@@ -181,7 +195,7 @@ class EmbeddingServiceClass {
    * Compute embeddings for multiple texts (batched)
    */
   async computeEmbeddings(texts: string[]): Promise<number[][]> {
-    return Promise.all(texts.map(text => this.computeEmbedding(text)));
+    return Promise.all(texts.map((text) => this.computeEmbedding(text)));
   }
 
   /**
@@ -294,9 +308,7 @@ class EmbeddingServiceClass {
     });
 
     // Load recent embeddings into memory cache (last 100)
-    const recent = all
-      .sort((a, b) => b.timestamp - a.timestamp)
-      .slice(0, 100);
+    const recent = all.sort((a, b) => b.timestamp - a.timestamp).slice(0, 100);
 
     for (const item of recent) {
       this.embeddingCache.set(item.text, item);
@@ -347,7 +359,7 @@ class EmbeddingServiceClass {
     let hash = 0;
     for (let i = 0; i < str.length; i++) {
       const char = str.charCodeAt(i);
-      hash = ((hash << 5) - hash) + char;
+      hash = (hash << 5) - hash + char;
       hash = hash & hash;
     }
     return Math.abs(hash);
@@ -358,37 +370,223 @@ class EmbeddingServiceClass {
    */
   private getVocabulary(): string[] {
     return [
-      'ai', 'ethics', 'technology', 'philosophy', 'science', 'machine', 'learning',
-      'data', 'algorithm', 'model', 'neural', 'network', 'deep', 'intelligence',
-      'distributed', 'system', 'consensus', 'blockchain', 'crypto', 'decentralized',
-      'privacy', 'security', 'encryption', 'peer', 'network', 'protocol', 'p2p',
-      'chat', 'message', 'communication', 'social', 'community', 'trust', 'reputation',
-      'identity', 'verification', 'signature', 'key', 'public', 'private', 'secure',
-      'web', 'internet', 'browser', 'server', 'client', 'api', 'service', 'cloud',
-      'compute', 'storage', 'database', 'cache', 'memory', 'performance', 'optimization',
-      'user', 'interface', 'experience', 'design', 'frontend', 'backend', 'fullstack',
-      'development', 'engineering', 'software', 'code', 'programming', 'language',
-      'javascript', 'typescript', 'python', 'rust', 'go', 'java', 'react', 'node',
-      'open', 'source', 'community', 'collaboration', 'contribution', 'maintainer',
-      'research', 'experiment', 'prototype', 'mvp', 'product', 'feature', 'release',
-      'test', 'quality', 'automation', 'ci', 'cd', 'deployment', 'infrastructure',
-      'docker', 'kubernetes', 'container', 'microservice', 'architecture', 'pattern',
-      'semantic', 'vector', 'embedding', 'similarity', 'match', 'search', 'discovery',
-      'relation', 'context', 'meaning', 'knowledge', 'graph', 'ontology', 'taxonomy',
-      'time', 'location', 'space', 'temporal', 'spatial', 'geographic', 'position',
-      'mood', 'emotion', 'sentiment', 'tone', 'feeling', 'attitude', 'perspective',
-      'domain', 'category', 'topic', 'subject', 'theme', 'field', 'discipline',
-      'cause', 'effect', 'result', 'outcome', 'impact', 'influence', 'consequence',
-      'part', 'whole', 'component', 'element', 'member', 'segment', 'section',
-      'similar', 'different', 'same', 'unique', 'common', 'rare', 'special',
-      'oppose', 'support', 'agree', 'disagree', 'debate', 'discussion', 'argument',
-      'require', 'need', 'want', 'desire', 'goal', 'objective', 'purpose', 'aim',
-      'boost', 'enhance', 'improve', 'optimize', 'increase', 'decrease', 'reduce',
-      'art', 'creativity', 'creative', 'innovation', 'invent', 'create', 'make',
-      'copyright', 'license', 'legal', 'law', 'regulation', 'policy', 'rule', 'norm',
-      'automation', 'robot', 'autonomous', 'automatic', 'manual', 'human', 'artificial',
-      'future', 'prediction', 'forecast', 'trend', 'analysis', 'insight', 'pattern',
-      'question', 'answer', 'problem', 'solution', 'challenge', 'opportunity', 'risk',
+      'ai',
+      'ethics',
+      'technology',
+      'philosophy',
+      'science',
+      'machine',
+      'learning',
+      'data',
+      'algorithm',
+      'model',
+      'neural',
+      'network',
+      'deep',
+      'intelligence',
+      'distributed',
+      'system',
+      'consensus',
+      'blockchain',
+      'crypto',
+      'decentralized',
+      'privacy',
+      'security',
+      'encryption',
+      'peer',
+      'network',
+      'protocol',
+      'p2p',
+      'chat',
+      'message',
+      'communication',
+      'social',
+      'community',
+      'trust',
+      'reputation',
+      'identity',
+      'verification',
+      'signature',
+      'key',
+      'public',
+      'private',
+      'secure',
+      'web',
+      'internet',
+      'browser',
+      'server',
+      'client',
+      'api',
+      'service',
+      'cloud',
+      'compute',
+      'storage',
+      'database',
+      'cache',
+      'memory',
+      'performance',
+      'optimization',
+      'user',
+      'interface',
+      'experience',
+      'design',
+      'frontend',
+      'backend',
+      'fullstack',
+      'development',
+      'engineering',
+      'software',
+      'code',
+      'programming',
+      'language',
+      'javascript',
+      'typescript',
+      'python',
+      'rust',
+      'go',
+      'java',
+      'react',
+      'node',
+      'open',
+      'source',
+      'community',
+      'collaboration',
+      'contribution',
+      'maintainer',
+      'research',
+      'experiment',
+      'prototype',
+      'mvp',
+      'product',
+      'feature',
+      'release',
+      'test',
+      'quality',
+      'automation',
+      'ci',
+      'cd',
+      'deployment',
+      'infrastructure',
+      'docker',
+      'kubernetes',
+      'container',
+      'microservice',
+      'architecture',
+      'pattern',
+      'semantic',
+      'vector',
+      'embedding',
+      'similarity',
+      'match',
+      'search',
+      'discovery',
+      'relation',
+      'context',
+      'meaning',
+      'knowledge',
+      'graph',
+      'ontology',
+      'taxonomy',
+      'time',
+      'location',
+      'space',
+      'temporal',
+      'spatial',
+      'geographic',
+      'position',
+      'mood',
+      'emotion',
+      'sentiment',
+      'tone',
+      'feeling',
+      'attitude',
+      'perspective',
+      'domain',
+      'category',
+      'topic',
+      'subject',
+      'theme',
+      'field',
+      'discipline',
+      'cause',
+      'effect',
+      'result',
+      'outcome',
+      'impact',
+      'influence',
+      'consequence',
+      'part',
+      'whole',
+      'component',
+      'element',
+      'member',
+      'segment',
+      'section',
+      'similar',
+      'different',
+      'same',
+      'unique',
+      'common',
+      'rare',
+      'special',
+      'oppose',
+      'support',
+      'agree',
+      'disagree',
+      'debate',
+      'discussion',
+      'argument',
+      'require',
+      'need',
+      'want',
+      'desire',
+      'goal',
+      'objective',
+      'purpose',
+      'aim',
+      'boost',
+      'enhance',
+      'improve',
+      'optimize',
+      'increase',
+      'decrease',
+      'reduce',
+      'art',
+      'creativity',
+      'creative',
+      'innovation',
+      'invent',
+      'create',
+      'make',
+      'copyright',
+      'license',
+      'legal',
+      'law',
+      'regulation',
+      'policy',
+      'rule',
+      'norm',
+      'automation',
+      'robot',
+      'autonomous',
+      'automatic',
+      'manual',
+      'human',
+      'artificial',
+      'future',
+      'prediction',
+      'forecast',
+      'trend',
+      'analysis',
+      'insight',
+      'pattern',
+      'question',
+      'answer',
+      'problem',
+      'solution',
+      'challenge',
+      'opportunity',
+      'risk',
     ];
   }
 

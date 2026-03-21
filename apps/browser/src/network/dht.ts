@@ -13,7 +13,7 @@ import { bootstrap } from '@libp2p/bootstrap';
 import type { Libp2p } from 'libp2p';
 import { checkQueryRate, checkAnnounceRate } from '../rateLimit.js';
 import { verifySignature, isPeerBlocked } from '../crypto/verifier.js';
-import { sign, encode, type Signature } from '@isc/core';
+import { sign, encode, type Signature, getSecurityTier, shouldSkipSignature } from '@isc/core';
 import { getKeypair } from '../identity/index.js';
 import { loggers } from '../utils/logger.js';
 
@@ -53,6 +53,7 @@ export interface SignedAnnouncement {
   relTag?: string;
   ttl: number;
   updatedAt: number;
+  tier: 0 | 1 | 2;
   signature?: Uint8Array | string;
   publicKey?: string;
 }
@@ -67,21 +68,23 @@ export class RealDHTClient {
   constructor(config: DHTClientConfig = {}) {
     this.config = {
       bootstrapPeers: BOOTSTRAP_PEERS,
-      announceTTL: 300, // 5 minutes
+      announceTTL: 300,
       ...config,
     };
   }
 
   async initialize(): Promise<void> {
     if (this.node) {
-      return; // Already initialized
+      return;
     }
 
+    const tier = getSecurityTier();
+    const connectionEncrypters = shouldSkipSignature(tier as 0 | 1 | 2) ? [] : [noise()];
+
     try {
-      // Create libp2p node with kad-dht service
       this.node = await createLibp2p({
         transports: [webSockets()],
-        connectionEncrypters: [noise()],
+        connectionEncrypters,
         streamMuxers: [yamux()],
         peerDiscovery: [
           bootstrap({
@@ -97,14 +100,14 @@ export class RealDHTClient {
 
       this.dht = this.node.services.dht as KadDHT;
 
-      // Wait for DHT to be ready
       await new Promise<void>((resolve) => {
         setTimeout(resolve, 3000);
       });
 
       logger.info('Initialized', {
         peerId: this.node.peerId.toString(),
-        multiaddrs: this.node.getMultiaddrs().map(m => m.toString()),
+        multiaddrs: this.node.getMultiaddrs().map((m) => m.toString()),
+        tier,
       });
     } catch (error) {
       logger.error('Initialization failed', error as Error, {});
@@ -124,52 +127,54 @@ export class RealDHTClient {
       throw new Error('DHT not initialized');
     }
 
-    // Rate limit check
+    const tier = getSecurityTier() as 0 | 1 | 2;
     const peerId = this.getPeerId();
-    const rateCheck = checkAnnounceRate(peerId);
-    if (!rateCheck.allowed) {
-      const reason = rateCheck.blocked ? 'blocked' : 'rate limited';
-      logger.warn('Announce rejected', { reason, peerId });
-      throw new Error(
-        rateCheck.blocked
-          ? `Announce blocked due to repeated violations. Try again in ${rateCheck.retryAfter}s`
-          : `Announce rate limit exceeded. Try again in ${rateCheck.retryAfter}s`
-      );
+
+    if (tier > 0) {
+      const rateCheck = checkAnnounceRate(peerId);
+      if (!rateCheck.allowed) {
+        const reason = rateCheck.blocked ? 'blocked' : 'rate limited';
+        logger.warn('Announce rejected', { reason, peerId });
+        throw new Error(
+          rateCheck.blocked
+            ? `Announce blocked due to repeated violations. Try again in ${rateCheck.retryAfter}s`
+            : `Announce rate limit exceeded. Try again in ${rateCheck.retryAfter}s`
+        );
+      }
     }
 
     const ttlToUse = ttl || this.config.announceTTL!;
     const expiresAt = Date.now() + ttlToUse * 1000;
 
     try {
-      // Sign the payload if we have a keypair
       let signedValue = value;
       const keypair = getKeypair();
-      
-      if (keypair) {
+      const skipSigning = shouldSkipSignature(tier);
+
+      if (keypair && !skipSigning) {
         try {
-          // Decode the value to add signature
           const decoded = JSON.parse(new TextDecoder().decode(value));
-          
-          // Create signature over the payload (without signature field)
+
           const { signature: _, ...payloadForSigning } = decoded;
           const payloadBytes = encode(payloadForSigning);
-          const signature: Signature = await sign(payloadBytes, keypair.privateKey);
-          
-          // Export public key for verification by others
+          const sig: Signature = await sign(payloadBytes, keypair.privateKey);
+
           const publicKeyBytes = await crypto.subtle.exportKey('raw', keypair.publicKey);
-          
-          // Add signature and public key to payload
+
           const signedPayload = {
             ...decoded,
-            signature: Array.from(signature.data),
+            tier,
+            signature: Array.from(sig.data),
             publicKey: Array.from(new Uint8Array(publicKeyBytes)),
           };
-          
+
           signedValue = new TextEncoder().encode(JSON.stringify(signedPayload));
         } catch (signErr) {
           logger.warn('Failed to sign announcement', { error: (signErr as Error).message });
-          // Continue with unsigned announcement
         }
+      } else {
+        const decoded = JSON.parse(new TextDecoder().decode(value));
+        signedValue = new TextEncoder().encode(JSON.stringify({ ...decoded, tier }));
       }
 
       // Put to DHT
@@ -190,48 +195,45 @@ export class RealDHTClient {
     }
   }
 
-  async query(key: string, count: number = 20): Promise<Uint8Array[]> {
+  async query(key: string, _count: number = 20): Promise<Uint8Array[]> {
     if (!this.dht) {
       throw new Error('DHT not initialized');
     }
 
-    // Rate limit check
+    const tier = getSecurityTier() as 0 | 1 | 2;
     const peerId = this.getPeerId();
-    const rateCheck = checkQueryRate(peerId);
-    if (!rateCheck.allowed) {
-      const reason = rateCheck.blocked ? 'blocked' : 'rate limited';
-      logger.warn('Query rejected', { reason, peerId });
-      throw new Error(
-        rateCheck.blocked
-          ? `Query blocked due to repeated violations. Try again in ${rateCheck.retryAfter}s`
-          : `Query rate limit exceeded. Try again in ${rateCheck.retryAfter}s`
-      );
+
+    if (tier > 0) {
+      const rateCheck = checkQueryRate(peerId);
+      if (!rateCheck.allowed) {
+        const reason = rateCheck.blocked ? 'blocked' : 'rate limited';
+        logger.warn('Query rejected', { reason, peerId });
+        throw new Error(
+          rateCheck.blocked
+            ? `Query blocked due to repeated violations. Try again in ${rateCheck.retryAfter}s`
+            : `Query rate limit exceeded. Try again in ${rateCheck.retryAfter}s`
+        );
+      }
     }
 
     try {
       const results: Uint8Array[] = [];
 
-      // Query DHT
       const keyBytes = new TextEncoder().encode(key);
-      
-      // Iterate over DHT results
+
       for await (const event of this.dht.get(keyBytes)) {
-        // Check if this is a GetValueEvent with value property
         if ('value' in event && event.value) {
           const value = event.value;
-          
-          // Verify signature if present
+
           try {
             const decoded = JSON.parse(new TextDecoder().decode(value)) as SignedAnnouncement;
 
-            if (decoded.signature && decoded.publicKey) {
-              // Check if peer is blocked
+            if (tier > 0 && decoded.signature && decoded.publicKey) {
               if (isPeerBlocked(decoded.peerID)) {
                 logger.warn('Ignoring announcement from blocked peer', { peerId: decoded.peerID });
-                return results;
+                continue;
               }
 
-              // Import public key and verify
               const publicKeyBytes = this.hexToBytes(decoded.publicKey);
               const publicKey = await crypto.subtle.importKey(
                 'raw',
@@ -242,15 +244,16 @@ export class RealDHTClient {
               );
 
               const verificationResult = await verifySignature(decoded, publicKey, decoded.peerID);
-              
+
               if (!verificationResult.valid) {
-                logger.warn('Invalid signature in announcement', { reason: verificationResult.reason });
-                continue; // Skip invalid, continue with other results
+                logger.warn('Invalid signature in announcement', {
+                  reason: verificationResult.reason,
+                });
+                continue;
               }
             }
           } catch (err) {
             logger.warn('Signature verification failed', { error: (err as Error).message });
-            // Continue anyway - some announcements may not have signatures
           }
 
           results.push(value);

@@ -6,7 +6,7 @@
  */
 
 import type { VideoService as IVideoService } from '../di/container.js';
-import { createVideoCall, getActiveVideoCalls, getVideoCall } from '../video/handler.js';
+import { createVideoCall, getActiveVideoCalls } from '../video/handler.js';
 import type { VideoCall } from '../video/types.js';
 import { loggers } from '../utils/logger.js';
 
@@ -32,7 +32,7 @@ class VideoServiceImpl implements IVideoService {
   async endCall(callId: string): Promise<void> {
     try {
       // Update call history
-      const callIndex = callHistory.findIndex(c => c.id === callId);
+      const callIndex = callHistory.findIndex((c) => c.id === callId);
       if (callIndex >= 0) {
         callHistory[callIndex].endedAt = Date.now();
         callHistory[callIndex].active = false;

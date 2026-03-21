@@ -20,14 +20,6 @@ export interface PolicyStorage {
   setDefault(policy: DelegationPolicy): Promise<void>;
 }
 
-const DEFAULT_POLICY: DelegationPolicy = {
-  allowEmbedDelegation: true,
-  allowANNDelegation: true,
-  allowSigVerifyDelegation: true,
-  delegateOnlyChannels: false,
-  allowedChannels: new Set(),
-};
-
 export class DelegationPolicyManager {
   private config: DelegationPolicyConfig;
   private defaultPolicy: DelegationPolicy;
@@ -43,16 +35,25 @@ export class DelegationPolicyManager {
     return override ?? this.defaultPolicy;
   }
 
-  async canDelegate(service: 'embed' | 'ann_query' | 'sig_verify', channelID?: string): Promise<boolean> {
+  async canDelegate(
+    service: 'embed' | 'ann_query' | 'sig_verify',
+    channelID?: string
+  ): Promise<boolean> {
     const policy = await this.getPolicy(channelID);
     switch (service) {
-      case 'embed': return policy.allowEmbedDelegation;
-      case 'ann_query': return policy.allowANNDelegation;
-      case 'sig_verify': return policy.allowSigVerifyDelegation;
+      case 'embed':
+        return policy.allowEmbedDelegation;
+      case 'ann_query':
+        return policy.allowANNDelegation;
+      case 'sig_verify':
+        return policy.allowSigVerifyDelegation;
     }
   }
 
-  async shouldDelegate(channelID: string, service: 'embed' | 'ann_query' | 'sig_verify'): Promise<boolean> {
+  async shouldDelegate(
+    channelID: string,
+    _service: 'embed' | 'ann_query' | 'sig_verify'
+  ): Promise<boolean> {
     const policy = await this.getPolicy(channelID);
     if (!policy.delegateOnlyChannels) return true;
     return policy.allowedChannels.has(channelID);

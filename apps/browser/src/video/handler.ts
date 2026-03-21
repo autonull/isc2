@@ -1,10 +1,17 @@
 import { sign, encode } from '@isc/core';
-import type { VideoCall, VideoParticipant, VideoCallMessage, VideoCallSettings, ScreenShareState, VideoCallStats } from './types.js';
+import type {
+  VideoCall,
+  VideoParticipant,
+  VideoCallMessage,
+  VideoCallSettings,
+  ScreenShareState,
+  VideoCallStats,
+} from './types.js';
 import { DEFAULT_VIDEO_SETTINGS, VIDEO_QUALITY_CONSTRAINTS } from './types.js';
 import { DelegationClient } from '../delegation/fallback.js';
 import { getPeerID, getKeypair } from '../identity/index.js';
 
-const VIDEO_CALL_PROTOCOL = '/isc/video/1.0';
+const VIDEO_CALL_PROTOCOL = '/isc/video/1.0.0';
 const MAX_PARTICIPANTS = 8;
 
 const activeCalls = new Map<string, VideoCall>();
@@ -44,13 +51,16 @@ const RTC_CONFIG: RTCConfiguration = {
 };
 
 const MEDIA_ERROR_MESSAGES: Record<string, string> = {
-  NotAllowedError: 'Camera/microphone permission denied. Please enable permissions in browser settings.',
-  PermissionDeniedError: 'Camera/microphone permission denied. Please enable permissions in browser settings.',
+  NotAllowedError:
+    'Camera/microphone permission denied. Please enable permissions in browser settings.',
+  PermissionDeniedError:
+    'Camera/microphone permission denied. Please enable permissions in browser settings.',
   NotFoundError: 'No camera or microphone found. Please connect a device and try again.',
   DevicesNotFoundError: 'No camera or microphone found. Please connect a device and try again.',
   NotReadableError: 'Camera or microphone is already in use by another application.',
   TrackStartError: 'Camera or microphone is already in use by another application.',
-  OverconstrainedError: 'No device found matching specified constraints. Try lowering video quality.',
+  OverconstrainedError:
+    'No device found matching specified constraints. Try lowering video quality.',
   AbortError: 'Media request aborted. Please try again.',
   NotSupportedError: 'Media constraints not supported by this browser.',
   TypeError: 'Invalid media constraints specified.',
@@ -63,7 +73,13 @@ const MEDIA_ERROR_MESSAGES: Record<string, string> = {
 export class VideoCallError extends Error {
   constructor(
     message: string,
-    public code: 'PERMISSION_DENIED' | 'DEVICE_NOT_FOUND' | 'IN_USE' | 'CONSTRAINT_ERROR' | 'NETWORK_ERROR' | 'UNKNOWN'
+    public code:
+      | 'PERMISSION_DENIED'
+      | 'DEVICE_NOT_FOUND'
+      | 'IN_USE'
+      | 'CONSTRAINT_ERROR'
+      | 'NETWORK_ERROR'
+      | 'UNKNOWN'
   ) {
     super(message);
     this.name = 'VideoCallError';
@@ -71,7 +87,7 @@ export class VideoCallError extends Error {
 
   static fromMediaError(error: Error & { name?: string }): VideoCallError {
     const errorName = error.name || 'UnknownError';
-    
+
     switch (errorName) {
       case 'NotAllowedError':
       case 'PermissionDeniedError':
@@ -137,7 +153,10 @@ async function sendVideoCallMessage(message: VideoCallMessage): Promise<void> {
   await signAndSend(message, key, 60);
 }
 
-function createParticipant(initiator: string, settings: Partial<VideoCallSettings>): VideoParticipant {
+function createParticipant(
+  initiator: string,
+  settings: Partial<VideoCallSettings>
+): VideoParticipant {
   return {
     peerID: initiator,
     isMuted: !(settings.audioEnabled ?? DEFAULT_VIDEO_SETTINGS.audioEnabled),
@@ -149,7 +168,7 @@ function createParticipant(initiator: string, settings: Partial<VideoCallSetting
 
 function cleanupCall(callID: string): void {
   const stream = localStreams.get(callID);
-  if (stream) stream.getTracks().forEach(track => track.stop());
+  if (stream) stream.getTracks().forEach((track) => track.stop());
   localStreams.delete(callID);
   activeCalls.delete(callID);
 }
@@ -195,7 +214,10 @@ export async function createVideoCall(
   } catch (err) {
     cleanupCall(call.callID);
     const action = type === 'direct' ? 'send call invitation' : 'announce group call';
-    throw new VideoCallError(`Failed to ${action}. Check your network connection.`, 'NETWORK_ERROR');
+    throw new VideoCallError(
+      `Failed to ${action}. Check your network connection.`,
+      'NETWORK_ERROR'
+    );
   }
 
   return call;
@@ -284,9 +306,12 @@ export async function toggleMute(callID: string): Promise<boolean> {
 
   participant.isMuted = !participant.isMuted;
 
-  localStreams.get(callID)?.getAudioTracks().forEach((track) => {
-    track.enabled = !participant.isMuted;
-  });
+  localStreams
+    .get(callID)
+    ?.getAudioTracks()
+    .forEach((track) => {
+      track.enabled = !participant.isMuted;
+    });
 
   await sendVideoCallMessage({
     type: participant.isMuted ? 'mute' : 'unmute',
@@ -308,9 +333,12 @@ export async function toggleVideo(callID: string): Promise<boolean> {
 
   participant.isVideoOff = !participant.isVideoOff;
 
-  localStreams.get(callID)?.getVideoTracks().forEach((track) => {
-    track.enabled = !participant.isVideoOff;
-  });
+  localStreams
+    .get(callID)
+    ?.getVideoTracks()
+    .forEach((track) => {
+      track.enabled = !participant.isVideoOff;
+    });
 
   await sendVideoCallMessage({
     type: participant.isVideoOff ? 'video-off' : 'video-on',
@@ -392,16 +420,22 @@ export async function stopScreenShare(callID: string): Promise<void> {
   }
 }
 
-export async function getLocalMediaStream(settings: Partial<VideoCallSettings> = {}): Promise<MediaStream> {
+export async function getLocalMediaStream(
+  settings: Partial<VideoCallSettings> = {}
+): Promise<MediaStream> {
   const finalSettings = { ...DEFAULT_VIDEO_SETTINGS, ...settings };
 
   const constraints: MediaStreamConstraints = {
-    audio: finalSettings.audioEnabled ? {
-      echoCancellation: finalSettings.echoCancellation,
-      noiseSuppression: finalSettings.noiseSuppression,
-      autoGainControl: finalSettings.autoGainControl,
-    } : false,
-    video: finalSettings.videoEnabled ? VIDEO_QUALITY_CONSTRAINTS[finalSettings.videoQuality] : false,
+    audio: finalSettings.audioEnabled
+      ? {
+          echoCancellation: finalSettings.echoCancellation,
+          noiseSuppression: finalSettings.noiseSuppression,
+          autoGainControl: finalSettings.autoGainControl,
+        }
+      : false,
+    video: finalSettings.videoEnabled
+      ? VIDEO_QUALITY_CONSTRAINTS[finalSettings.videoQuality]
+      : false,
   };
 
   try {
@@ -412,7 +446,11 @@ export async function getLocalMediaStream(settings: Partial<VideoCallSettings> =
   }
 }
 
-async function createPeerConnection(callID: string, peerID: string, stream: MediaStream): Promise<RTCPeerConnection> {
+async function createPeerConnection(
+  callID: string,
+  peerID: string,
+  stream: MediaStream
+): Promise<RTCPeerConnection> {
   const pc = new RTCPeerConnection(RTC_CONFIG);
   const connId = `${callID}_${peerID}`;
 
@@ -472,7 +510,9 @@ export async function handleVideoCallMessage(message: VideoCallMessage): Promise
         localStreams.get(message.callID)!
       );
 
-      await pc.setRemoteDescription(new RTCSessionDescription(message.data as RTCSessionDescriptionInit));
+      await pc.setRemoteDescription(
+        new RTCSessionDescription(message.data as RTCSessionDescriptionInit)
+      );
       const answer = await pc.createAnswer();
       await pc.setLocalDescription(answer);
 
@@ -490,7 +530,9 @@ export async function handleVideoCallMessage(message: VideoCallMessage): Promise
     case 'answer': {
       const pc = peerConnections.get(`${message.callID}_${message.sender}`);
       if (pc && message.data) {
-        await pc.setRemoteDescription(new RTCSessionDescription(message.data as RTCSessionDescriptionInit));
+        await pc.setRemoteDescription(
+          new RTCSessionDescription(message.data as RTCSessionDescriptionInit)
+        );
       }
       break;
     }
@@ -524,13 +566,27 @@ function updateCallState(message: VideoCallMessage): void {
   if (!participant) return;
 
   const stateUpdates: Record<VideoCallMessage['type'], () => void> = {
-    mute: () => { participant.isMuted = true; },
-    unmute: () => { participant.isMuted = false; },
-    'video-off': () => { participant.isVideoOff = true; },
-    'video-on': () => { participant.isVideoOff = false; },
-    'screen-share': () => { participant.isScreenSharing = true; },
-    'screen-share-end': () => { participant.isScreenSharing = false; },
-    leave: () => { call.participants = call.participants.filter((p) => p.peerID !== message.sender); },
+    mute: () => {
+      participant.isMuted = true;
+    },
+    unmute: () => {
+      participant.isMuted = false;
+    },
+    'video-off': () => {
+      participant.isVideoOff = true;
+    },
+    'video-on': () => {
+      participant.isVideoOff = false;
+    },
+    'screen-share': () => {
+      participant.isScreenSharing = true;
+    },
+    'screen-share-end': () => {
+      participant.isScreenSharing = false;
+    },
+    leave: () => {
+      call.participants = call.participants.filter((p) => p.peerID !== message.sender);
+    },
     join: () => {},
     offer: () => {},
     answer: () => {},

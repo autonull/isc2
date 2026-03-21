@@ -1,9 +1,9 @@
 /**
  * ISC Network Library
- * 
+ *
  * Core network functionality for peer discovery and communication.
  * Uses real transformer embeddings for semantic matching.
- * 
+ *
  * @packageDocumentation
  */
 
@@ -29,12 +29,7 @@ export {
 } from './embedding.js';
 
 // Peer
-export {
-  VirtualPeer,
-  createPeer,
-  type PeerConfig,
-  type PeerStats,
-} from './peer.js';
+export { VirtualPeer, createPeer, type PeerConfig, type PeerStats } from './peer.js';
 
 // Storage
 export {
@@ -69,3 +64,6 @@ export {
 
 // Default config
 export { DEFAULT_CONFIG } from './types.js';
+
+// Tier negotiation (Phase P0)
+export { registerTierNegotiation, getPeerTier } from './tier.js';

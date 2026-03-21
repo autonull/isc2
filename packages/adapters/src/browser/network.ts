@@ -2,23 +2,44 @@ import type { NetworkAdapter, Stream } from '../interfaces/network.js';
 import type { Libp2p } from '@libp2p/interface';
 import { peerIdFromString } from '@libp2p/peer-id';
 
+export interface BlocklistEntry {
+  peerID: string;
+  reason: string;
+  reporterID: string;
+  ts: number;
+  sig: Uint8Array;
+}
+
 export interface BrowserNetworkConfig {
   bootstrapNodes?: string[];
   maxConnections?: number;
   maxInbound?: number;
+  relayOnly?: boolean;
 }
 
+/**
+ * Default bootstrap nodes for ISC network
+ * These are community-run relay nodes that help new peers discover the network
+ */
 const DEFAULT_BOOTSTRAP_NODES = [
-  // Primary libp2p bootstrap nodes
+  // ISC community relay nodes (to be deployed)
+  // '/dns4/relay0.isc.network/tcp/443/wss/p2p/QmISCRelayNode0PeerID',
+  // '/dns4/relay1.isc.network/tcp/443/wss/p2p/QmISCRelayNode1PeerID',
+
+  // Primary libp2p bootstrap nodes (fallback)
   '/dns4/bootstrap-0.libp2p.io/tcp/443/wss/p2p/QmNnooDu7bfjPFoTZYxMNLWUQJyrVwtbZg5gBMjTezGAJN',
   '/dns4/bootstrap-1.libp2p.io/tcp/443/wss/p2p/QmQCU2EcMqAqQPR2i9bChDtGNJchTbq5TbXJJ16u19uLTa',
+
   // Additional bootstrap nodes for redundancy
   '/dns4/bootstrap-2.libp2p.io/tcp/443/wss/p2p/QmZmViJTcj74zJ8kVDxFbPEJLdVqV5jRnFbVJkVqV5jRn',
   '/dns4/relay.libp2p.io/tcp/443/wss/p2p/QmZmViJTcj74zJ8kVDxFbPEJLdVqV5jRnFbVJkVqV5jRn',
+
   // IPFS bootstrap nodes (compatible with libp2p)
   '/dns4/bootstrap.libp2p.io/tcp/443/wss/p2p/QmbLHAnMoJPWSCR5Zhtx6BHJX9KiRNN6vEf9cqLcVTQJQs',
   '/dns4/bootstrap.libp2p.io/udp/443/quic-v1/webtransport/certhash/uEiByCR7NqKrFPqB8kZJvZvZvZvZvZvZvZvZvZvZvZvZvZv/p2p/QmbLHAnMoJPWSCR5Zhtx6BHJX9KiRNN6vEf9cqLcVTQJQs',
 ];
+
+import type { PubSub } from '@libp2p/interface';
 
 interface DHTService {
   put(key: Uint8Array, value: Uint8Array): Promise<void>;
@@ -28,6 +49,7 @@ interface DHTService {
 interface Libp2pWithDHT extends Libp2p {
   services: {
     dht: DHTService;
+    pubsub: PubSub;
   };
 }
 
@@ -47,13 +69,13 @@ export class BrowserNetworkAdapter implements NetworkAdapter {
       bootstrapNodes: config.bootstrapNodes ?? DEFAULT_BOOTSTRAP_NODES,
       maxConnections: config.maxConnections ?? 50,
       maxInbound: config.maxInbound ?? 20,
+      relayOnly: config.relayOnly ?? false,
     };
   }
 
   async start(): Promise<void> {
     if (this.node) return;
 
-    // Dynamic import to avoid bundling issues
     const { createLibp2p } = await import('libp2p');
     const { webSockets } = await import('@libp2p/websockets');
     const { webTransport } = await import('@libp2p/webtransport');
@@ -61,17 +83,52 @@ export class BrowserNetworkAdapter implements NetworkAdapter {
     const { yamux } = await import('@chainsafe/libp2p-yamux');
     const { kadDHT } = await import('@libp2p/kad-dht');
     const { bootstrap } = await import('@libp2p/bootstrap');
+    const { gossipsub } = await import('@chainsafe/libp2p-gossipsub');
+    const { webRTC } = await import('@libp2p/webrtc');
 
     const bootstrapNodes = this._config.bootstrapNodes.filter(Boolean);
+
+    const inTestMode = typeof window !== 'undefined' && (window as any).isE2ETest;
+    if (inTestMode && (window as any).TEST_BOOTSTRAP_NODE) {
+      bootstrapNodes.unshift((window as any).TEST_BOOTSTRAP_NODE);
+    }
+
+    const connectionGater = this._config.relayOnly
+      ? {
+          denyDialPeer: () => false,
+          acceptDialConnection: async (peerId: any) => {
+            if (!peerId) return true;
+            try {
+              const peer = await this.node?.peerStore.get(peerId);
+              if (!peer || peer.addresses.length === 0) return true;
+              return peer.addresses.some((a: any) => a.toString().includes('/p2p-circuit'));
+            } catch {
+              return false;
+            }
+          },
+        }
+      : undefined;
 
     this.node = (await createLibp2p({
       services: {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         dht: kadDHT() as any,
+        pubsub: gossipsub({ allowPublishToZeroTopicPeers: true }),
       },
-      transports: [webSockets(), webTransport()],
+      transports: [
+        webSockets(),
+        webTransport(),
+        webRTC({
+          rtcConfiguration: {
+            iceServers: [
+              { urls: 'stun:stun.l.google.com:19302' },
+              { urls: 'stun:global.stun.twilio.com:3478' },
+            ],
+          },
+        }),
+      ],
       streamMuxers: [yamux()],
-      connectionEncrypters: [noise()],
+      connectionEncryption: [noise()],
       peerDiscovery: [
         bootstrap({
           list: bootstrapNodes,
@@ -80,11 +137,16 @@ export class BrowserNetworkAdapter implements NetworkAdapter {
       connectionManager: {
         maxConnections: this._config.maxConnections,
       },
+      connectionGater,
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    }) as any) as Libp2pWithDHT;
+    })) as any as Libp2pWithDHT;
 
     await this.node.start();
     this._running = true;
+
+    if (this._config.relayOnly) {
+      console.log('[Network] Started in RELAY-ONLY mode - IP addresses hidden from peers');
+    }
 
     this.node.addEventListener('peer:discovery', (event) => {
       this.emit('peer:discovery', event.detail);
@@ -113,11 +175,12 @@ export class BrowserNetworkAdapter implements NetworkAdapter {
     return this.node?.peerId.toString() ?? '';
   }
 
-  async announce(key: string, value: Uint8Array): Promise<void> {
+  async announce(key: string, value: Uint8Array, _ttl: number = 300000): Promise<void> {
     if (!this.node) throw new Error('Network not started');
 
     const dht = this.node.services.dht;
     const keyBytes = new TextEncoder().encode(key);
+    // Real KadDHT ignores TTL arguments locally, it relies on re-republishing
     await dht.put(keyBytes, value);
   }
 
@@ -159,6 +222,36 @@ export class BrowserNetworkAdapter implements NetworkAdapter {
     };
   }
 
+  async publish(topic: string, data: Uint8Array): Promise<void> {
+    if (!this.node) throw new Error('Network not started');
+    await this.node.services.pubsub.publish(topic, data);
+  }
+
+  subscribe(topic: string, handler: (data: Uint8Array) => void): void {
+    if (!this.node) throw new Error('Network not started');
+    this.node.services.pubsub.subscribe(topic);
+
+    // Create a listener specific to this topic
+    const eventName = `pubsub:${topic}`;
+    if (!this.eventHandlers.has(eventName)) {
+      this.eventHandlers.set(eventName, new Set());
+      // Only register the libp2p listener once per topic
+      this.node.services.pubsub.addEventListener('message', (event) => {
+        if (event.detail.topic === topic) {
+          this.emit(eventName, event.detail.data);
+        }
+      });
+    }
+
+    this.on(eventName, handler);
+  }
+
+  unsubscribe(topic: string): void {
+    if (!this.node) return;
+    this.node.services.pubsub.unsubscribe(topic);
+    this.eventHandlers.delete(`pubsub:${topic}`);
+  }
+
   on(event: string, handler: Function): void {
     if (!this.eventHandlers.has(event)) {
       this.eventHandlers.set(event, new Set());
@@ -185,6 +278,44 @@ export class BrowserNetworkAdapter implements NetworkAdapter {
   async getConnectedPeers(): Promise<string[]> {
     if (!this.node) return [];
     return this.node.getConnections().map((conn) => conn.remotePeer.toString());
+  }
+
+  async getMultiaddrs(): Promise<string[]> {
+    if (!this.node) return [];
+    return this.node.getMultiaddrs().map((ma) => ma.toString());
+  }
+
+  async dialMultiaddr(multiaddrStr: string): Promise<void> {
+    if (!this.node) throw new Error('Network not started');
+    const { multiaddr } = await import('@multiformats/multiaddr');
+    await this.node.dial(multiaddr(multiaddrStr));
+  }
+
+  async fetchBlocklist(): Promise<void> {
+    if (!this.node) return;
+
+    const dhtGet = async (key: string, count: number): Promise<Uint8Array[]> => {
+      const keyBytes = new TextEncoder().encode(key);
+      const results: Uint8Array[] = [];
+      try {
+        for await (const event of this.node!.services.dht.get(keyBytes)) {
+          if (event.name === 'VALUE' && event.value) {
+            results.push(event.value);
+            if (results.length >= count) break;
+          }
+        }
+      } catch {
+        return [];
+      }
+      return results;
+    };
+
+    try {
+      const results = await dhtGet('/isc/blocklist', 50);
+      console.debug(`[Network] Fetched ${results.length} blocklist entries`);
+    } catch (err) {
+      console.warn('[Network] Blocklist fetch failed:', err);
+    }
   }
 }
 

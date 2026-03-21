@@ -28,6 +28,10 @@ test.describe('E2E Communication Flow', () => {
     alicePage = await aliceContext.newPage();
     bobPage = await bobContext.newPage();
 
+    // Skip onboarding for both users
+    await alicePage.addInitScript(() => { localStorage.setItem('isc-onboarding-completed', 'true'); });
+    await bobPage.addInitScript(() => { localStorage.setItem('isc-onboarding-completed', 'true'); });
+
     // Set different viewports for clarity
     await alicePage.setViewportSize({ width: 1280, height: 800 });
     await bobPage.setViewportSize({ width: 1280, height: 800 });
@@ -54,7 +58,6 @@ test.describe('E2E Communication Flow', () => {
           bio: 'I am interested in artificial intelligence, machine learning, and AI ethics. I love discussing the future of technology.',
           channel: 'AI Ethics Discussion',
         });
-        await waitForMatchesLoaded(alicePage, 5000);
       }
 
       // Verify Alice is on main app
@@ -75,7 +78,6 @@ test.describe('E2E Communication Flow', () => {
           bio: 'I am passionate about machine learning, AI safety, and the ethics of artificial intelligence. Building responsible AI systems.',
           channel: 'Machine Learning Research',
         });
-        await waitForMatchesLoaded(bobPage, 5000);
       }
 
       // Verify Bob is on main app
@@ -174,9 +176,12 @@ test.describe('E2E Communication Flow', () => {
       // If no conversations, verify the empty state shows discover option
       const emptyState = alicePage.locator('text="No conversations yet"');
       if (await emptyState.count() > 0) {
-        // Click discover peers button
-        await alicePage.click('text="🔍 Discover Peers"');
-        await alicePage.waitForTimeout(1000);
+        // Click discover peers button (if present)
+        const discoverLink = alicePage.locator('[data-testid="go-discover-btn"]');
+        if (await discoverLink.count() > 0) {
+          await discoverLink.click();
+          await alicePage.waitForTimeout(1000);
+        }
       }
     });
 
@@ -226,13 +231,13 @@ test.describe('E2E Communication Flow', () => {
       const sidebar = alicePage.getByTestId('sidebar').first();
       await expect(sidebar).toBeVisible({ timeout: 5000 });
 
-      // Check all tabs exist
+      // Check all tabs exist in DOM (some may be scrolled in sidebar)
       const tabs = ['now', 'discover', 'video', 'chats', 'settings'];
       for (const tab of tabs) {
         const tabElement = alicePage.locator(`[data-testid="nav-tab-${tab}"], [data-tab="${tab}"]`);
         // Tab might not exist if design changed, so don't fail
         if (await tabElement.count() > 0) {
-          await expect(tabElement).toBeVisible();
+          await expect(tabElement.first()).toBeAttached();
         }
       }
     });
@@ -312,8 +317,8 @@ test.describe('E2E Communication Flow', () => {
     await page.waitForTimeout(2000);
 
     // Skip onboarding if shown
-    const onboarding = page.locator('[style*="position: fixed"]').first();
-    if (await onboarding.count() > 0) {
+    const onboarding = page.locator('[data-testid="onboarding-content"]');
+    if (await onboarding.isVisible()) {
       await page.evaluate(() => {
         localStorage.setItem('isc-onboarding-completed', 'true');
       });

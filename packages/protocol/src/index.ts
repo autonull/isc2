@@ -1,7 +1,6 @@
 import { DHT_KEYS } from './keys.js';
 import { RateLimiter, RATE_LIMITS, globalRateLimiter } from './rateLimit.js';
-import { ChatHandler } from './handlers/chat.js';
-import { handleDelegationHealthStream, sendDelegationHealth, createDelegationHealth } from './handlers/delegationHealth.js';
+import * as handlers from './handlers/index.js';
 import {
   PROTOCOL_CHAT,
   PROTOCOL_DELEGATE,
@@ -10,6 +9,9 @@ import {
   PROTOCOL_FOLLOW,
   PROTOCOL_DM,
   PROTOCOL_RELAY,
+  PROTOCOL_TIER,
+  PROTOCOL_SCORE,
+  PROTOCOL_VOUCH,
 } from './constants.js';
 import type {
   SignedAnnouncement,
@@ -18,6 +20,15 @@ import type {
   DelegateResponse,
   DelegateCapability,
   DelegationHealth,
+  TierIdentifyPush,
+  ScoreDelta,
+  VouchRequest,
+  VouchResponse,
+  Vouch,
+  RLNProof,
+  BlocklistEntry,
+  ModelRegistry,
+  MessageHeader,
 } from './messages.js';
 
 export {
@@ -25,10 +36,7 @@ export {
   RateLimiter,
   RATE_LIMITS,
   globalRateLimiter,
-  ChatHandler,
-  handleDelegationHealthStream,
-  sendDelegationHealth,
-  createDelegationHealth,
+  handlers,
   PROTOCOL_CHAT,
   PROTOCOL_DELEGATE,
   PROTOCOL_ANNOUNCE,
@@ -36,6 +44,9 @@ export {
   PROTOCOL_FOLLOW,
   PROTOCOL_DM,
   PROTOCOL_RELAY,
+  PROTOCOL_TIER,
+  PROTOCOL_SCORE,
+  PROTOCOL_VOUCH,
 };
 export type {
   SignedAnnouncement,
@@ -44,4 +55,13 @@ export type {
   DelegateResponse,
   DelegateCapability,
   DelegationHealth,
+  TierIdentifyPush,
+  ScoreDelta,
+  VouchRequest,
+  VouchResponse,
+  Vouch,
+  RLNProof,
+  BlocklistEntry,
+  ModelRegistry,
+  MessageHeader,
 };

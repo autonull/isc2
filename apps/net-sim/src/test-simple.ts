@@ -8,8 +8,8 @@
  */
 
 import { createHash } from 'crypto';
-import { cosineSimilarity } from '../../../packages/core/src/index.js';
-import type { SignedAnnouncement } from '../../../packages/core/src/types.js';
+import { cosineSimilarity, lshHash } from '@isc/core/math/index.js';
+import type { SignedAnnouncement } from '@isc/core/types';
 
 // Configuration
 const NUM_PEERS = 4;

@@ -1,184 +1,90 @@
 # ISC — Internet Semantic Chat
 
-> **Meet your thought neighbors.**
+> **Open a tab. Type what you're thinking about. Meet the people closest to your current thought, anywhere on earth.**
 
-A fully decentralized, browser-only social platform that uses in-browser LLM embeddings to place ideas in a shared vector space — then serendipitously connects you with peers whose mental distributions are closest to yours.
+No account. No download. No algorithm selecting who you see.
 
-**Minimal servers. No accounts. No surveillance. Just thought and conversation.**
+ISC is a fully decentralized platform that runs an AI language model entirely inside your browser, places your thoughts in a shared semantic space, and connects you with people thinking nearest to you — anywhere in the network, in real time.
+
+The layout is the algorithm. There is no feed ranked by engagement, no follower graph curated by a corporation. Just you, your thoughts, and everyone else who happens to be thinking nearby.
 
 ---
 
-## Quick Start
+## Why This Matters
 
-### CLI Quick Start
+Every existing platform routes information by social graph (who you follow), engagement signal (what gets clicks), or algorithmic recommendation (what the platform wants you to see). None of them route by *meaning*.
+
+ISC routes by semantic proximity. A flood relief coordinator in Lagos and a logistics engineer in Berlin may have never heard of each other — but if they both describe what they're working on during a crisis, ISC finds them within minutes. Not because an algorithm matched their profiles. Because their thoughts landed in the same neighborhood.
+
+This works for coordination across disciplines — a biologist studying network resilience and a city planner studying transit failure share more semantic common ground than either realizes, but would never find each other on any existing platform. It works across languages — the multilingual embedding model finds meaning-proximity regardless of which language you wrote in. It recreates the serendipitous intellectual encounters that used to require being at the right conference at the right time.
+
+No server sees your ideas. No company decides who you meet. The network organizes itself by meaning.
+
+---
+
+## Getting Started
+
+**Prerequisites:** Node 18+, pnpm 8+
 
 ```bash
-# Clone and build
 git clone https://github.com/yourname/isc.git
-cd isc
-pnpm install
-pnpm build
-
-# Initialize your identity
-node apps/cli/dist/index.js init
-
-# Create a channel
-node apps/cli/dist/index.js channel create "AI Ethics" -d "Ethical implications of machine learning"
-
-# Announce to DHT (rate limited: 5/min)
-node apps/cli/dist/index.js announce channel "AI Ethics"
-
-# Query for semantic matches
-node apps/cli/dist/index.js query semantic
-
-# Start a supernode (for delegation)
-node apps/cli/dist/index.js supernode start --port 3000
-
-# Run integration tests
-./tests/integration/cli-swarm.sh
+cd isc && pnpm install
 ```
 
-### Browser PWA Quick Start
+### Web App _(primary)_
 
 ```bash
-# Development server
-cd apps/browser
-pnpm dev
-
-# Open in browser
-# http://localhost:5173
-
-# Production build
-pnpm build
-pnpm preview
-
-# Install as PWA
-# Click the install icon in the browser address bar
-```
-
-### Full Stack Test
-
-```bash
-# Terminal 1: Start supernode
-node apps/cli/dist/index.js supernode start --port 3000
-
-# Terminal 2: Run browser dev server
 cd apps/browser && pnpm dev
-
-# Terminal 3: Run CLI client
-node apps/cli/dist/index.js query semantic
+# Open http://localhost:5173
 ```
 
-### Swarm Scale Test
+Type what you're thinking about. The embedding model loads once (~22 MB, cached locally afterward). Your position in semantic space is announced to the peer network. Matches appear as real people arrive with overlapping thoughts. Click any match to open an end-to-end encrypted conversation — no server involved, no message ever leaves your browser unencrypted.
+
+To deploy publicly, serve the production build from any static host:
 
 ```bash
-# Run 50-peer swarm simulation
-node tests/simulation/swarm-test.js --peers=50 --cycles=10
-
-# Run 100-peer scale test
-node tests/simulation/swarm-test.js --peers=100 --cycles=15
-
-# Expected output (50 peers):
-# ✓ Match rate > 50%
-# ✓ Avg similarity >= 0.70
-# ✓ DHT entries > 0
-# ✓ Avg matches/peer >= 1
+cd apps/browser && pnpm build
+# Serve the dist/ directory with any static file server
 ```
 
-### E2E Browser Tests
+### Terminal UI
+
+For servers, SSH sessions, or anyone who prefers the terminal:
 
 ```bash
-# Install Playwright browsers
-npx playwright install
-
-# Run E2E tests (starts dev server automatically)
-pnpm test:e2e
-
-# Run specific test file
-npx playwright test tests/e2e/core-flows.spec.ts
-
-# Run with UI mode
-npx playwright test --ui
-
-# Run specific browser
-npx playwright test --project=chromium
+cd apps/tui && pnpm start
 ```
 
-**Test Coverage:**
-- Channel management (create, switch, edit)
-- Semantic matching (match list, similarity scores)
-- Chat flows (open panel, send message)
-- Posts & feed (create, like, reply, repost)
-- Navigation (tab switching)
-- PWA features (manifest, service worker, offline)
-- Accessibility (headings, labels, keyboard nav)
+Three-pane layout: channels on the left, conversations in the center, nearby peers on the right. Navigate with arrow keys or `j`/`k`. Same semantic matching as the browser app, no browser required.
 
-### Troubleshooting
+### Community Relay Node
 
-**Build fails with TypeScript errors:**
+Relay nodes make the network resilient and independent. Running one is contributing public intellectual infrastructure — the role universities, libraries, and open-source communities have always played.
+
 ```bash
-# Clean and rebuild
-pnpm clean
-pnpm install
-pnpm build
-```
-
-**CLI commands not found:**
-```bash
-# Rebuild CLI
-cd apps/cli && pnpm build
-# Use full path
-node apps/cli/dist/index.js --help
-```
-
-**Browser app won't start:**
-```bash
-# Check Node version (requires 18+)
-node --version
-# Clear cache and reinstall
-rm -rf node_modules apps/browser/node_modules
-pnpm install
-```
-
-**Swarm test fails:**
-```bash
-# Increase timeout for slower machines
-node tests/simulation/swarm-test.js --peers=50 --cycles=5
-```
-
-**Playwright tests fail:**
-```bash
-# Install browsers
-npx playwright install
-# Run with debug output
-DEBUG=pw:api pnpm test:e2e
-```
-
-**Rate limit errors in CLI:**
-```bash
-# Wait 60 seconds for rate limit to reset
-# Or check status
-isc announce status
-```
-
-### Process Management
-
-**Kill stray processes:**
-```bash
-# Clean up any hanging turbo/node processes
-pnpm cleanup
+# With Docker (recommended)
+docker run ghcr.io/isc2/node --name "My Relay"
 
 # Or run directly
-bash scripts/cleanup.sh
+cd apps/node && pnpm start
 ```
 
-**Prevent hanging:**
-- All test scripts have cleanup handlers (SIGINT, SIGTERM, exit)
-- Swarm test has 5-minute timeout
-- Demo script has 3-minute timeout
-- Always use Ctrl+C to gracefully stop
+Admin dashboard at `http://localhost:9091`. Health check: `GET /health`. Prometheus metrics: `GET /metrics`.
 
-See [PROTOCOL.md](PROTOCOL.md) for complete protocol specification.
+The network sustains itself through community-run relays. The more institutions and individuals run them, the more resilient and decentralized the semantic web becomes.
+
+### Try the Demo First
+
+→ **[Interactive Demo](https://isc2.example/demo)** — 50 peers finding each other in thought-space in real time. Type any concept and watch where it lands.
+
+---
+
+## E2E Tests
+
+```bash
+npx playwright install
+pnpm test:e2e
+```
 
 ---
 

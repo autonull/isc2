@@ -10,7 +10,8 @@
     "./semantic": "./dist/semantic.js",
     "./crypto": "./dist/crypto.js",
     "./types": "./dist/types.js",
-    "./encoding": "./dist/encoding.js"
+    "./encoding": "./dist/encoding.js",
+    "./stake": "./dist/stake/index.js"
   },
   "scripts": {
     "build": "tsc",

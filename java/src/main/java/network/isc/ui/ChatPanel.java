@@ -115,10 +115,10 @@ public class ChatPanel extends JPanel {
     }
 
     public void appendMessage(String sender, String message, long timestamp, String avatarBase64, String postId, int likes, int reposts) {
-        String time = timeFormat.format(new Date(timestamp));
+        var time = timeFormat.format(new Date(timestamp));
 
         // HTML Escaping First
-        String formattedMsg = message
+        var formattedMsg = message
             .replace("&", "&amp;")
             .replace("<", "&lt;")
             .replace(">", "&gt;");
@@ -135,15 +135,16 @@ public class ChatPanel extends JPanel {
             .replaceAll("\\[FILE: (.*?)\\]", "<a href='file://$1' style='color: #1d9bf0; text-decoration: none;'>📎 Attachment: $1</a>")
             .replaceAll("\n", "<br>");
 
-        String imgSrc = "";
+        var imgSrc = "";
         if (avatarBase64 != null && !avatarBase64.isEmpty()) {
             imgSrc = "<img src='data:image/png;base64," + avatarBase64 + "' width='32' height='32' style='vertical-align: middle; border-radius: 16px; margin-right: 8px;'/>";
         } else {
             // Identicon placeholder logic could go here, or just a default box
-            imgSrc = "<span style='display:inline-block; width:32px; height:32px; background-color:#ccc; border-radius:16px; text-align:center; line-height:32px; margin-right:8px; vertical-align: middle;'>" + sender.substring(0, Math.min(1, sender.length())) + "</span>";
+            var shortSender = sender.length() > 5 ? sender.substring(0, 5) + "..." : sender;
+            imgSrc = "<table style='display:inline-block; border-collapse: collapse; margin-right:8px;'><tr><td style='width:32px; height:32px; background-color:#1d9bf0; color:white; border-radius:16px; text-align:center; vertical-align: middle; font-size:10px; font-weight:bold;'>" + sender.substring(0, Math.min(1, sender.length())) + "</td></tr></table>";
         }
 
-        String socialHtml = "";
+        var socialHtml = "";
         if (postId != null) {
              socialHtml = String.format("<div style='font-size: 9pt; color: #888; margin-top: 4px;'>" +
                                         "<a href='like://%s' style='color: #e0245e; text-decoration: none;'>❤️ %d</a> &nbsp;&nbsp;" +
@@ -151,14 +152,15 @@ public class ChatPanel extends JPanel {
                                         "</div>", postId, likes, postId, reposts);
         }
 
-        feedHtml.append("<div style='margin-bottom: 15px; display: flex; align-items: flex-start;'>")
-                .append(imgSrc)
-                .append("<div>")
+        feedHtml.append("<table style='width: 100%; margin-bottom: 15px; border-collapse: collapse;'>")
+                .append("<tr>")
+                .append("<td style='width: 40px; vertical-align: top;'>").append(imgSrc).append("</td>")
+                .append("<td style='vertical-align: top;'>")
                 .append("<span style='color: gray; font-size: 10pt;'>[").append(time).append("] </span>")
-                .append("<b>").append(sender).append(":</b> <br>")
-                .append(formattedMsg)
+                .append("<b style='color: #333;'>").append(sender.length() > 16 ? sender.substring(0, 16) + "..." : sender).append(":</b><br>")
+                .append("<div style='margin-top: 4px; line-height: 1.4;'>").append(formattedMsg).append("</div>")
                 .append(socialHtml)
-                .append("</div></div>");
+                .append("</td></tr></table>");
 
         feedArea.setText(feedHtml.toString() + "</body></html>");
     }

@@ -1,6 +1,7 @@
 # ISC Security Specification
 
-> **Purpose**: Detailed threat model, safety mechanisms, privacy guarantees, and authenticity protocols.
+> **Purpose**: Detailed threat model, safety mechanisms, privacy guarantees, and authenticity
+> protocols.
 >
 > For an overview, see [README.md](README.md#security--safety).
 
@@ -8,14 +9,16 @@
 
 ## Overview
 
-ISC achieves strong authenticity, safety, and privacy properties by building on its fully browser-based, P2P architecture. It starts with structural advantages over centralized platforms:
+ISC achieves strong authenticity, safety, and privacy properties by building on its fully
+browser-based, P2P architecture. It starts with structural advantages over centralized platforms:
 
 - No central server collecting data
 - No persistent profiles beyond user-controlled local storage
 - Ephemeral announcements (TTLs prevent long-term tracking)
 - E2E encryption for all communications
 
-The design is inspired by **Nostr** (cryptographic authenticity, censorship resistance, relay resilience), adopting its best elements while extending them with ISC's vector-space primitives.
+The design is inspired by **Nostr** (cryptographic authenticity, censorship resistance, relay
+resilience), adopting its best elements while extending them with ISC's vector-space primitives.
 
 ---
 
@@ -49,11 +52,13 @@ await storage.set('keypair', {
 
 ### Signed Announcements
 
-Every DHT announcement is signed. See [PROTOCOL.md](PROTOCOL.md#announcement-payload) for the complete `SignedAnnouncement` interface.
+Every DHT announcement is signed. See [PROTOCOL.md](PROTOCOL.md#announcement-payload) for the
+complete `SignedAnnouncement` interface.
 
 ### Signed Posts
 
-All social-layer content carries signatures. See [SOCIAL.md](SOCIAL.md#post-schema) for the complete `SignedPost` interface.
+All social-layer content carries signatures. See [SOCIAL.md](SOCIAL.md#post-schema) for the complete
+`SignedPost` interface.
 
 ---
 
@@ -61,21 +66,24 @@ All social-layer content carries signatures. See [SOCIAL.md](SOCIAL.md#post-sche
 
 ### Structural Baseline
 
-| Property | Benefit |
-|---|---|
-| **Ephemeral TTLs** | Announcements expire; no long-term tracking |
-| **No persistent profiles** | Nothing to scrape or dox |
-| **WebRTC DTLS** | E2E encryption for all chat streams |
+| Property                   | Benefit                                     |
+| -------------------------- | ------------------------------------------- |
+| **Ephemeral TTLs**         | Announcements expire; no long-term tracking |
+| **No persistent profiles** | Nothing to scrape or dox                    |
+| **WebRTC DTLS**            | E2E encryption for all chat streams         |
 
 ### Deployment Modes
 
-ISC supports three deployment modes with different safety assumptions. See [README.md](README.md#deployment-modes) for the complete specification.
+ISC supports three deployment modes with different safety assumptions. See
+[README.md](README.md#deployment-modes) for the complete specification.
 
-**Trusted Network (Phase 1):** Pre-existing social trust, rate limiting + mute/block + semantic filters
+**Trusted Network (Phase 1):** Pre-existing social trust, rate limiting + mute/block + semantic
+filters
 
 **Federated Networks (Phase 2):** Interconnected communities; reputation bridges
 
-**Public Network (Phase 2+):** Open participation, reputation weighting + stake signaling + coherence checks + decentralized moderation
+**Public Network (Phase 2+):** Open participation, reputation weighting + stake signaling +
+coherence checks + decentralized moderation
 
 ---
 
@@ -83,13 +91,15 @@ ISC supports three deployment modes with different safety assumptions. See [READ
 
 ### Rate Limiting
 
-Rate limits prevent spam and abuse. See [PROTOCOL.md](PROTOCOL.md#rate-limits) for the complete specification of layered bounds on DHT activity and WebRTC connections.
+Rate limits prevent spam and abuse. See [PROTOCOL.md](PROTOCOL.md#rate-limits) for the complete
+specification of layered bounds on DHT activity and WebRTC connections.
 
 ### Mute / Block Lists
 
 See [PROTOCOL.md](PROTOCOL.md#moderation-protocol) for the `MuteEvent` interface.
 
-Signed mute events stored in DHT at `/isc/mute/<peerID>`. Clients fetch and cache muted peers locally. Auto-filter flagged peers from match results.
+Signed mute events stored in DHT at `/isc/mute/<peerID>`. Clients fetch and cache muted peers
+locally. Auto-filter flagged peers from match results.
 
 ### Semantic Filters
 
@@ -111,7 +121,8 @@ Signed mute events stored in DHT at `/isc/mute/<peerID>`. Clients fetch and cach
 
 See [SOCIAL.md](SOCIAL.md#web-of-trust) for the `ReputationScore` interface.
 
-Peers accumulate reputation via successful interactions. Low-rep announcements deprioritized in ANN results. Reputation decays with 30-day half-life.
+Peers accumulate reputation via successful interactions. Low-rep announcements deprioritized in ANN
+results. Reputation decays with 30-day half-life.
 
 **Sybil resistance**:
 
@@ -158,7 +169,8 @@ function calculateReputation(interactions: Interaction[], now: number): number {
 
 See [SOCIAL.md](SOCIAL.md) for complete stake-based signaling specification.
 
-Users may lock Lightning satoshis as sybil-resistance signal. Slashed on verified abuse. Never required for basic use.
+Users may lock Lightning satoshis as sybil-resistance signal. Slashed on verified abuse. Never
+required for basic use.
 
 ### Semantic Coherence Checks
 
@@ -166,7 +178,7 @@ Users may lock Lightning satoshis as sybil-resistance signal. Slashed on verifie
 function checkCoherence(announcement: SignedAnnouncement): boolean {
   const descriptionEmbed = await embed(announcement.channelDescription);
   const vecDistance = cosineSimilarity(descriptionEmbed, announcement.vec);
-  
+
   // Announcements with embeddings far from stated description are flagged
   return vecDistance > 0.4;  // Threshold configurable
 }
@@ -178,7 +190,8 @@ function checkCoherence(announcement: SignedAnnouncement): boolean {
 
 See [PROTOCOL.md](PROTOCOL.md#moderation-protocol) for the `ReportEvent` and `MuteEvent` interfaces.
 
-Signed reports stored in DHT. Clients weight reports by reporter reputation. No central moderation team; safety emerges from network geometry.
+Signed reports stored in DHT. Clients weight reports by reporter reputation. No central moderation
+team; safety emerges from network geometry.
 
 ---
 
@@ -186,13 +199,54 @@ Signed reports stored in DHT. Clients weight reports by reporter reputation. No 
 
 ### Built-in Baseline
 
-| Property | Implementation |
-|---|---|
-| **No central servers** | All data lives locally or traverses P2P |
-| **Vector-only announcements** | Only vectors + peerID announced publicly |
-| **Raw text never broadcast** | Unless user explicitly posts |
-| **E2E encrypted chats** | WebRTC DTLS + Noise protocol |
-| **Sealed Box Encryption** | Libsodium `crypto_box_seal` (requires converting Web Crypto `ed25519` keys to `x25519` using `crypto_sign_ed25519_pk_to_curve25519`) |
+| Property                      | Implementation                                                                                                                       |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| **No central servers**        | All data lives locally or traverses P2P                                                                                              |
+| **Vector-only announcements** | Only vectors + peerID announced publicly                                                                                             |
+| **Raw text never broadcast**  | Unless user explicitly posts                                                                                                         |
+| **E2E encrypted chats**       | WebRTC DTLS + Noise protocol                                                                                                         |
+| **Sealed Box Encryption**     | Libsodium `crypto_box_seal` (requires converting Web Crypto `ed25519` keys to `x25519` using `crypto_sign_ed25519_pk_to_curve25519`) |
+| **Forward Secrecy**           | Double Ratchet protocol - session keys rotate with each message                                                                      |
+
+#### Forward Secrecy (Double Ratchet)
+
+ISC implements the Double Ratchet algorithm (Signal Protocol) for all direct messages. This ensures
+that:
+
+- **Compromised keys don't expose past messages**: Even if your current session keys are
+  compromised, previous messages cannot be decrypted
+- **Automatic key rotation**: Session keys rotate with every sent and received message
+- **Out-of-order message support**: The ratchet handles dropped or reordered messages gracefully
+
+```javascript
+// Session initialization (initiator)
+import { initializeRatchet, encryptMessage } from '@isc/core';
+
+const state = await initializeRatchet(localIdentity, remoteIdentity);
+const { keys, messageNumber, dhPublic } = await ratchetForSend(state);
+const { ciphertext, mac, iv } = await encryptMessage(keys, plaintext);
+
+// Session initialization (responder)
+import { initializeRatchetFromFirstMessage, decryptMessage } from '@isc/core';
+
+const state = await initializeRatchetFromFirstMessage(
+  localIdentity,
+  remoteIdentity,
+  initiatorPublic
+);
+const { keys } = await ratchetForReceive(state, dhPublic, messageNumber);
+const plaintext = await decryptMessage(keys, ciphertext, mac, iv);
+```
+
+**Properties**:
+
+- DH ratchet: P-256 elliptic curve
+- Symmetric ratchet: HMAC-SHA256
+- Message encryption: AES-256-GCM
+- Session state persisted in IndexedDB per conversation
+
+**Privacy guarantee**: Compromising a user's key today does NOT give access to their conversation
+history. Each conversation maintains independent ratchet state.
 
 ### Enhanced Capabilities
 
@@ -269,13 +323,13 @@ async function deleteAllData(): Promise<void> {
 
 #### Delegation Privacy
 
-| Guarantee | Implementation |
-|---|---|
-| **Request encryption** | Encrypted with supernode's public key |
-| **Minimal exposure** | Only channel descriptions delegated (never chat messages) |
-| **Per-channel control** | Users can disable delegation via Settings |
-| **No logging policy** | Supernodes expected to discard request contents after computation |
-| **Future: ZK proofs** | Verification without revealing inputs |
+| Guarantee               | Implementation                                                    |
+| ----------------------- | ----------------------------------------------------------------- |
+| **Request encryption**  | Encrypted with supernode's public key                             |
+| **Minimal exposure**    | Only channel descriptions delegated (never chat messages)         |
+| **Per-channel control** | Users can disable delegation via Settings                         |
+| **No logging policy**   | Supernodes expected to discard request contents after computation |
+| **Future: ZK proofs**   | Verification without revealing inputs                             |
 
 ---
 
@@ -313,26 +367,26 @@ async function deleteAllData(): Promise<void> {
 
 ISC operates under the following security assumptions:
 
-| Threat | Assumption | Mitigation (Phase 1: Trusted) | Mitigation (Phase 2+: Public) |
-|--------|------------|-------------------------------|-------------------------------|
-| **Malicious supernodes** | Honest-but-curious; may log requests or return incorrect embeddings | Local sanity checks + trusted operator selection | + Reputation weighting + optional SNARK proofs (future) |
-| **DHT bootstrap peers** | Not actively adversarial; may go offline | Multiple bootstrap peers; graceful reconnect | Same |
-| **Sybil attackers** | Can create many identities | Social trust barrier (invite-only) | Reputation decay + uptime history + opt-in stake |
-| **Network eavesdroppers** | Can observe traffic patterns but not decrypt content | WebRTC DTLS + Noise protocol + E2E encryption | Same |
-| **Browser compromise** | XSS vulnerabilities possible; IndexedDB accessible | Passphrase encryption for private keys (optional) | Same + hardware wallet integration (future) |
-| **Model poisoning** | Attacker distributes malicious embedding model | Canonical model registry (DHT-hosted, signed) | Same |
-| **Reputation gaming** | Attacker creates fake positive interactions | N/A (reputation not yet enabled) | Mutual signing + time-weighted decay |
+| Threat                    | Assumption                                                          | Mitigation (Phase 1: Trusted)                     | Mitigation (Phase 2+: Public)                           |
+| ------------------------- | ------------------------------------------------------------------- | ------------------------------------------------- | ------------------------------------------------------- |
+| **Malicious supernodes**  | Honest-but-curious; may log requests or return incorrect embeddings | Local sanity checks + trusted operator selection  | + Reputation weighting + optional SNARK proofs (future) |
+| **DHT bootstrap peers**   | Not actively adversarial; may go offline                            | Multiple bootstrap peers; graceful reconnect      | Same                                                    |
+| **Sybil attackers**       | Can create many identities                                          | Social trust barrier (invite-only)                | Reputation decay + uptime history + opt-in stake        |
+| **Network eavesdroppers** | Can observe traffic patterns but not decrypt content                | WebRTC DTLS + Noise protocol + E2E encryption     | Same                                                    |
+| **Browser compromise**    | XSS vulnerabilities possible; IndexedDB accessible                  | Passphrase encryption for private keys (optional) | Same + hardware wallet integration (future)             |
+| **Model poisoning**       | Attacker distributes malicious embedding model                      | Canonical model registry (DHT-hosted, signed)     | Same                                                    |
+| **Reputation gaming**     | Attacker creates fake positive interactions                         | N/A (reputation not yet enabled)                  | Mutual signing + time-weighted decay                    |
 
 ---
 
 ## Explicitly Out of Scope
 
-| Threat | Rationale |
-|---|---|
-| **Browser zero-day exploits** | Mitigated by regular dependency updates |
-| **User key compromise without passphrase** | Mitigated by optional passphrase encryption |
-| **Physical device theft** | User responsibility; future: hardware key support |
-| **Government-level traffic correlation** | Tor/I2P integration mitigates but doesn't eliminate |
+| Threat                                     | Rationale                                           |
+| ------------------------------------------ | --------------------------------------------------- |
+| **Browser zero-day exploits**              | Mitigated by regular dependency updates             |
+| **User key compromise without passphrase** | Mitigated by optional passphrase encryption         |
+| **Physical device theft**                  | User responsibility; future: hardware key support   |
+| **Government-level traffic correlation**   | Tor/I2P integration mitigates but doesn't eliminate |
 
 ---
 
@@ -341,7 +395,8 @@ ISC operates under the following security assumptions:
 Before merging delegation-related or cryptographic PRs, ensure:
 
 - [ ] All delegated responses are cryptographically signed (ed25519)
-- [ ] Local verification logic has unit tests for edge cases (invalid sigs, malformed embeddings, timeout)
+- [ ] Local verification logic has unit tests for edge cases (invalid sigs, malformed embeddings,
+      timeout)
 - [ ] Rate limiting is enforced on both request and response paths
 - [ ] Fallback behavior is tested (no supernodes available, network partition)
 - [ ] Memory usage is bounded (no unbounded request queues; max 100 pending delegations)
@@ -351,7 +406,8 @@ Before merging delegation-related or cryptographic PRs, ensure:
 - [ ] DHT announcements include TTL and are signed
 - [ ] WebRTC streams use DTLS encryption (verify via browser DevTools)
 - [ ] Accessibility audit (NVDA, VoiceOver) completed
-- [ ] Browser compromise mitigations: XSS testing completed; passphrase encryption recommended for high-risk users
+- [ ] Browser compromise mitigations: XSS testing completed; passphrase encryption recommended for
+      high-risk users
 
 **PRs failing any checklist item will be rejected without review.**
 
@@ -359,12 +415,12 @@ Before merging delegation-related or cryptographic PRs, ensure:
 
 ## Comparison with Other Platforms
 
-| Aspect | ISC | Nostr | X (Centralized) |
-|---|---|---|---|
-| **Authenticity** | Keypair signing + libp2p | Keypair signing | Platform verification |
-| **Safety** | Layered anti-spam + semantic filters + mutes | Client-side + propagation | Central bans + biases |
-| **Privacy** | No servers; optional Tor; ephemeral keys | Public-by-default; Tor mitigable | Full surveillance |
-| **Censorship resistance** | DHT + WebRTC; no deplatforming | Relay-based; resilient | Platform-controlled |
+| Aspect                    | ISC                                          | Nostr                            | X (Centralized)       |
+| ------------------------- | -------------------------------------------- | -------------------------------- | --------------------- |
+| **Authenticity**          | Keypair signing + libp2p                     | Keypair signing                  | Platform verification |
+| **Safety**                | Layered anti-spam + semantic filters + mutes | Client-side + propagation        | Central bans + biases |
+| **Privacy**               | No servers; optional Tor; ephemeral keys     | Public-by-default; Tor mitigable | Full surveillance     |
+| **Censorship resistance** | DHT + WebRTC; no deplatforming               | Relay-based; resilient           | Platform-controlled   |
 
 ---
 

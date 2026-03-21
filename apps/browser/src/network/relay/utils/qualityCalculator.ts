@@ -4,7 +4,7 @@
  * Pure functions for calculating connection and relay quality scores.
  */
 
-import { QUALITY_WEIGHTS, RELAY_SCORE_WEIGHTS, RELAY_CONSTANTS } from '../config/relayConfig.js';
+import { QUALITY_WEIGHTS, RELAY_CONSTANTS } from '../config/relayConfig.js';
 
 /**
  * Calculate connection quality score from metrics
@@ -54,7 +54,11 @@ export function calculateRelayQualityScore(
 /**
  * Smooth a value with exponential moving average
  */
-export function smoothValue(current: number, newValue: number, factor: number = RELAY_CONSTANTS.CONNECTION_SMOOTHING): number {
+export function smoothValue(
+  current: number,
+  newValue: number,
+  factor: number = RELAY_CONSTANTS.CONNECTION_SMOOTHING
+): number {
   return current * (1 - factor) + newValue * factor;
 }
 

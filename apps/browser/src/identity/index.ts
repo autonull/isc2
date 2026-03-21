@@ -38,7 +38,10 @@ let identityState: IdentityManager = {
   isEncrypted: false,
 };
 
-const setIdentityState = (keypair: CryptoKeyPair, isEncrypted: boolean = false): IdentityManager => ({
+const setIdentityState = (
+  keypair: CryptoKeyPair,
+  isEncrypted: boolean = false
+): IdentityManager => ({
   keypair,
   publicKeyFingerprint: null,
   isInitialized: true,
@@ -120,7 +123,11 @@ export async function initializeIdentity(passphrase?: string): Promise<IdentityM
     });
     identityState = setIdentityState(keypair, true);
   } else {
-    await dbStore.put({ id: DEFAULT_KEYPAIR_ID, publicKey: exported.publicKey, createdAt: Date.now() });
+    await dbStore.put({
+      id: DEFAULT_KEYPAIR_ID,
+      publicKey: exported.publicKey,
+      createdAt: Date.now(),
+    });
     identityState = setIdentityState(keypair, false);
   }
 
@@ -145,7 +152,10 @@ export const exportIdentity = async (): Promise<string> => {
   });
 };
 
-export async function importIdentity(keypairJson: string, passphrase?: string): Promise<IdentityManager> {
+export async function importIdentity(
+  keypairJson: string,
+  passphrase?: string
+): Promise<IdentityManager> {
   const { publicKey, privateKey } = JSON.parse(keypairJson);
   const pubKeyBytes = new Uint8Array(publicKey);
   const privKeyBytes = new Uint8Array(privateKey);
@@ -175,7 +185,9 @@ export { validatePassphraseStrength };
 
 export const getPeerID = async (): Promise<string> => {
   if (!identityState.publicKeyFingerprint) {
-    identityState.publicKeyFingerprint = await formatKeyFingerprint(identityState.keypair!.publicKey);
+    identityState.publicKeyFingerprint = await formatKeyFingerprint(
+      identityState.keypair!.publicKey
+    );
   }
   return identityState.publicKeyFingerprint;
 };
@@ -189,7 +201,7 @@ export const getPublicKey = async (): Promise<Uint8Array> => {
 };
 
 export const getPeerPublicKey = async (peerID: string): Promise<CryptoKey | null> => {
-  const { DelegationClient } = await import('../delegation/fallback');
+  const { DelegationClient } = await import('../delegation/fallback.js');
   const client = DelegationClient.getInstance();
   if (!client) return null;
 
@@ -199,14 +211,20 @@ export const getPeerPublicKey = async (peerID: string): Promise<CryptoKey | null
 
   try {
     const keyData = JSON.parse(new TextDecoder().decode(encoded[0]));
-    return crypto.subtle.importKey('raw', new Uint8Array(keyData.data), { name: 'Ed25519', namedCurve: 'Ed25519' }, false, ['verify']);
+    return crypto.subtle.importKey(
+      'raw',
+      new Uint8Array(keyData.data),
+      { name: 'Ed25519', namedCurve: 'Ed25519' },
+      false,
+      ['verify']
+    );
   } catch {
     return null;
   }
 };
 
 export const announcePublicKey = async (): Promise<void> => {
-  const { DelegationClient } = await import('../delegation/fallback');
+  const { DelegationClient } = await import('../delegation/fallback.js');
   const client = DelegationClient.getInstance();
   if (!client || !identityState.keypair) return;
 
@@ -225,7 +243,7 @@ export async function ensureIdentityInitialized(): Promise<IdentityManager> {
   if (identityState.isInitialized && identityState.keypair) {
     return identityState;
   }
-  
+
   // Try to initialize from storage
   try {
     return await initializeIdentity();

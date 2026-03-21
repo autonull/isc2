@@ -19,6 +19,9 @@ import network.isc.protocol.ProtocolConstants;
 import network.isc.protocol.ChatMessage;
 import network.isc.ui.MainFrame;
 import network.isc.ui.DownloadDialog;
+import network.isc.ui.OnboardingDialog;
+import network.isc.services.OfflineQueueService;
+import network.isc.services.ConnectionMonitorService;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -68,6 +71,24 @@ public class ISCApplication {
     private int port = 4001;
     private String[] bootstrapNodes = new String[0];
     private String dbPath = "isc-data.db";
+    private String appDirOverride = null;
+
+    public void setServerMode(boolean serverMode) { this.serverMode = serverMode; }
+    public void setPort(int port) { this.port = port; }
+    public void setBootstrapNodes(String[] bootstrapNodes) { this.bootstrapNodes = bootstrapNodes; }
+    public void setDbPath(String dbPath) { this.dbPath = dbPath; }
+    public void setAppDirOverride(String appDirOverride) { this.appDirOverride = appDirOverride; }
+
+    // Provide accessors for simulation
+    public NetworkAdapter getNetwork() { return network; }
+    public MainFrame getMainFrame() { return mainFrame; }
+    public MapDBStorageAdapter getStorage() { return storage; }
+    public EmbeddingAdapter getEmbedding() { return embedding; }
+    public PostService getPostService() { return postService; }
+
+    public void start() throws Exception {
+        initialize();
+    }
 
     public static void main(String[] args) {
         List<String> argList = Arrays.asList(args);
@@ -144,7 +165,7 @@ public class ISCApplication {
     private void initialize() throws Exception {
         log.info("Initializing ISC Java Client...");
 
-        String appDir = System.getProperty("user.home") + "/.isc-java";
+        String appDir = appDirOverride != null ? appDirOverride : System.getProperty("user.home") + "/.isc-java";
         File dir = new File(appDir);
         if (!dir.exists()) dir.mkdirs();
 
@@ -216,10 +237,34 @@ public class ISCApplication {
         if (!serverMode) {
             mainFrame = new MainFrame();
             setupSystemTray();
+
+            // Check if onboarding is needed
+            String onboardingComplete = storage.loadConfig("onboarding_complete");
+            if (onboardingComplete == null) {
+                OnboardingDialog dialog = new OnboardingDialog(mainFrame);
+                dialog.setVisible(true);
+
+                if (dialog.isCompleted()) {
+                    // Save onboarding completion
+                    storage.saveConfig("onboarding_complete", "true");
+
+                    // Save initial profile
+                    storage.saveConfig("name", dialog.getName());
+                    storage.saveConfig("bio", dialog.getBio());
+
+                    log.info("Onboarding completed for user: {}", dialog.getName());
+                } else {
+                    log.warn("Onboarding canceled by user");
+                }
+            }
         }
 
-        // Model Downloading & Loading
-        String modelDir = appDir + "/models";
+        // Model Downloading & Loading - Always check from a centralized or shared location if possible to save space in simulations, but we will download it to appDir if needed. Actually, let's allow an override or use a centralized cache.
+        String cacheDir = System.getProperty("user.home") + "/.isc-java/models";
+        File cacheModelFile = new File(cacheDir, "model_quantized.onnx");
+        File cacheTokenizerFile = new File(cacheDir, "tokenizer.json");
+
+        String modelDir = appDirOverride != null ? cacheDir : appDir + "/models";
         File modelFile = new File(modelDir, "model_quantized.onnx");
         File tokenizerFile = new File(modelDir, "tokenizer.json");
 
@@ -312,9 +357,37 @@ public class ISCApplication {
             return;
         }
 
+        // === PURE JAVA DEPENDENCY INJECTION ===
+        // Create offline queue service (no Spring!)
+        OfflineQueueService queueService = new OfflineQueueService(storage, network, postService);
+
+        // Create connection monitor service (no Spring!)
+        ConnectionMonitorService connectionMonitor = new ConnectionMonitorService(network, queueService);
+
+        // Add shutdown hook for clean cleanup
+        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+            queueService.shutdown();
+            connectionMonitor.shutdown();
+            log.info("Services shut down cleanly");
+        }));
+
+        if (mainFrame != null) {
+            connectionMonitor.setOnStatusChanged((label, rgb) -> {
+                mainFrame.updateConnectionStatus(label, rgb);
+            });
+        }
+
         // Initialize Controllers
-        chatController = new ChatController(network, postService, fileTransfer, mainFrame, libp2pKey, localAvatarBase64);
-        dmController = new DirectMessageController(network, storage, fileTransfer, mainFrame, libp2pKey, localAvatarBase64);
+        chatController = new ChatController(
+            network, postService, fileTransfer, mainFrame,
+            libp2pKey, localAvatarBase64,
+            queueService, connectionMonitor
+        );
+        dmController = new DirectMessageController(
+            network, storage, fileTransfer, mainFrame,
+            libp2pKey, localAvatarBase64,
+            queueService, connectionMonitor
+        );
         discoveryController = new DiscoveryController(network, embedding, mainFrame, localDht, libp2pKey);
 
         mainFrame.setChannels(channels);
@@ -405,12 +478,35 @@ public class ISCApplication {
         fileMenu.add(queryItem);
         fileMenu.addSeparator();
         JMenuItem exitItem = new JMenuItem("Exit");
-        exitItem.addActionListener(e -> System.exit(0));
+        exitItem.addActionListener(e -> {
+            stop();
+            System.exit(0);
+        });
         fileMenu.add(exitItem);
         menuBar.add(fileMenu);
 
         mainFrame.setJMenuBar(menuBar);
         mainFrame.setVisible(true);
+    }
+
+    public void stop() {
+        if (network != null) {
+            try {
+                network.stop();
+            } catch (Exception e) {
+                log.error("Error stopping network", e);
+            }
+        }
+        if (embedding != null) {
+            try {
+                embedding.close();
+            } catch (Exception e) {
+                log.error("Error stopping embedding", e);
+            }
+        }
+        if (mainFrame != null) {
+            mainFrame.dispose();
+        }
     }
 
     private void handleDelegation(network.isc.core.SignedDelegation delegation) {

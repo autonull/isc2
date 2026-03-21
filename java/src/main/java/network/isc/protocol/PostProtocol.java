@@ -36,24 +36,24 @@ public class PostProtocol implements ProtocolBinding<PostProtocol.PostController
         Stream stream = (Stream) ch;
         PostController controller = new PostController(stream, mapper);
 
+        stream.pushHandler(new io.netty.handler.codec.LineBasedFrameDecoder(65536));
+        stream.pushHandler(new io.netty.handler.codec.string.StringDecoder(java.nio.charset.StandardCharsets.UTF_8));
+        stream.pushHandler(new io.netty.handler.codec.string.StringEncoder(java.nio.charset.StandardCharsets.UTF_8));
         stream.pushHandler(new io.netty.channel.ChannelInboundHandlerAdapter() {
             @Override
             public void channelRead(io.netty.channel.ChannelHandlerContext ctx, Object msg) {
-                if (msg instanceof ByteBuf) {
-                    ByteBuf buf = (ByteBuf) msg;
-                    byte[] bytes = new byte[buf.readableBytes()];
-                    buf.readBytes(bytes);
-
+                if (msg instanceof String str) {
                     try {
-                        ChatMessage postMsg = mapper.readValue(bytes, ChatMessage.class);
+                        var postMsg = mapper.readValue(str, ChatMessage.class);
                         if (onHistoricalPostReceived != null) {
                             onHistoricalPostReceived.accept(postMsg);
                         }
                     } catch (Exception e) {
                         log.warn("Failed to parse historical post message", e);
                     }
+                } else {
+                    ctx.fireChannelRead(msg);
                 }
-                ctx.fireChannelRead(msg);
             }
 
             @Override
@@ -79,9 +79,8 @@ public class PostProtocol implements ProtocolBinding<PostProtocol.PostController
         public CompletableFuture<Void> send(ChatMessage message) {
             CompletableFuture<Void> cf = new CompletableFuture<>();
             try {
-                byte[] bytes = mapper.writeValueAsBytes(message);
-                ByteBuf buf = Unpooled.wrappedBuffer(bytes);
-                stream.writeAndFlush(buf);
+                var json = mapper.writeValueAsString(message) + "\n";
+                stream.writeAndFlush(json);
                 cf.complete(null);
             } catch (Exception e) {
                 cf.completeExceptionally(e);

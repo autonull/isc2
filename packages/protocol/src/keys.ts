@@ -10,4 +10,7 @@ export const DHT_KEYS = {
   PROFILE: (peerID: string) => `/isc/profile/channels/${peerID}`,
   FOLLOW: (peerID: string) => `/isc/follow/${peerID}`,
   TRENDING: (modelHash: string) => `/isc/trending/${modelHash}`,
+  BLOCKLIST: (peerID: string) => `/isc/blocklist/${peerID}`,
+  VOUCH: (peerID: string) => `/isc/vouch/${peerID}`,
+  GOSSIP: (bucketKey: string) => `/isc/gossip/1.0/${bucketKey}`,
 } as const;
