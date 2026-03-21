@@ -260,6 +260,8 @@ export function bind(container, params = {}) {
   });
 
   setTimeout(() => nameInput?.focus(), 50);
+
+  return [];
 }
 
 function renderContextInputs(container, area) {

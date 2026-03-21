@@ -404,10 +404,11 @@ export function bind(container) {
   };
   window.addEventListener('storage', onStorageTyping);
 
-  window.addEventListener('online', () =>
-    container.querySelector('[data-testid="offline-indicator"]')?.remove()
-  );
-  window.addEventListener('offline', () => {
+  const onOnline = () =>
+    container.querySelector('[data-testid="offline-indicator"]')?.remove();
+  window.addEventListener('online', onOnline);
+
+  const onOffline = () => {
     if (!container.querySelector('[data-testid="offline-indicator"]')) {
       const banner = document.createElement('div');
       banner.className = 'info-banner offline';
@@ -415,7 +416,8 @@ export function bind(container) {
       banner.textContent = '📡 Offline — messages will be queued and delivered when reconnected';
       container.querySelector('.chats-layout')?.before(banner);
     }
-  });
+  };
+  window.addEventListener('offline', onOffline);
 
   bindChatInputHandlers(container);
   if (activePeerId) openChat(container, activePeerId);
@@ -456,6 +458,19 @@ export function bind(container) {
         openChat(container, peerId);
       });
   });
+
+  return [
+    () => document.removeEventListener('isc:start-chat', onStartChat),
+    () => window.removeEventListener('storage', onStorage),
+    () => window.removeEventListener('storage', onStorageTyping),
+    () => window.removeEventListener('online', onOnline),
+    () => window.removeEventListener('offline', onOffline),
+    () => {
+      activePeerId = null;
+      boundContainer = null;
+      clearTimeout(typingTimeout);
+    },
+  ];
 }
 
 async function openChat(container, peerId) {

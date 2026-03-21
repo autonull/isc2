@@ -279,6 +279,12 @@ body {
   padding: 0;
 }
 
+.irc-channel-list .sidebar-empty {
+  padding: 10px 14px;
+  font-size: 12px;
+  color: var(--c-text-muted);
+}
+
 .irc-nav-item {
   border-radius: 0;
   padding: 9px 14px;
@@ -1026,6 +1032,23 @@ body {
   font-size: 14px;
   line-height: 1.6;
 }
+
+/* Onboarding modal */
+.onboarding-text {
+  margin-bottom: 16px;
+}
+.onboarding-hint {
+  font-size: 12px;
+  color: var(--c-text-muted);
+  margin-top: 12px;
+}
+.kbd-hint {
+  font-size: 11px;
+  padding: 1px 6px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 3px;
+}
+
 .modal-actions {
   display: flex;
   gap: 10px;
@@ -1104,6 +1127,10 @@ body {
   font-size: 10px;
   text-transform: uppercase;
   letter-spacing: 0.8px;
+}
+
+.debug-panel-header .debug-clear-btn {
+  font-size: 10px;
 }
 
 .debug-log {
@@ -1213,6 +1240,9 @@ body {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+.active-channel-badge .channel-prefix {
+  opacity: 0.5;
 }
 
 .channel-pill {

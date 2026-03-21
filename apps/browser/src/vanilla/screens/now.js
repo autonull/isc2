@@ -55,7 +55,7 @@ function renderHeader(activeChannel, connected, connLabel) {
         <h1 class="screen-title">🏠 Now</h1>
         ${activeChannel
           ? `<span class="active-channel-badge" data-testid="active-channel-badge" title="Your active channel">
-               <span style="opacity:.5">#</span>${escapeHtml(activeChannel.name)}
+               <span class="channel-prefix">#</span>${escapeHtml(activeChannel.name)}
              </span>`
           : `<span class="screen-subtitle">For You</span>`}
       </div>

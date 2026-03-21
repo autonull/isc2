@@ -81,7 +81,7 @@ function render(el, state) {
 
 function renderChannelItems(channels, activeChannelId) {
   if (!channels?.length) {
-    return '<li class="empty text-muted" data-testid="sidebar-no-channels" data-empty style="padding:10px 14px;font-size:12px">No channels yet — press + to start</li>';
+    return '<li class="sidebar-empty" data-testid="sidebar-no-channels" data-empty>No channels yet — press + to start</li>';
   }
 
   return channels.map(ch => `

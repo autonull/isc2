@@ -23,7 +23,6 @@ const TABS = [
  * @property {HTMLElement} container
  * @property {HTMLElement} main
  * @property {Object} sidebar
- * @property {Object} statusBar
  * @property {Function} updateTabBar
  * @property {Function} destroy
  */
@@ -142,7 +141,7 @@ function buildDebugPanel(container) {
   panel.innerHTML = `
     <div class="debug-panel-header">
       <span class="debug-panel-title">Debug Log</span>
-      <button class="btn-ghost btn-sm" data-testid="debug-clear" style="font-size:10px">Clear</button>
+      <button class="btn-ghost btn-sm debug-clear-btn" data-testid="debug-clear">Clear</button>
     </div>
     <div class="debug-log" id="debug-log" data-testid="debug-log"></div>
   `;

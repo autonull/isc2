@@ -490,6 +490,8 @@ export function bind(container) {
       toasts.error(err.message);
     }
   });
+
+  return [];
 }
 
 export function update(container) {

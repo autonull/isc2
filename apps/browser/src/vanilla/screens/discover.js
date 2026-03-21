@@ -478,6 +478,18 @@ export function bind(container) {
       }
     }
   });
+
+  return [
+    () => {
+      bridgeCandidates = [];
+      convergenceEvent = null;
+      noMatchesBannerEl = null;
+      activeCallout = null;
+      autoDiscovered = false;
+      dismissNoMatchesBanner();
+      dismissCallout(container);
+    },
+  ];
 }
 
 export function update(container) {

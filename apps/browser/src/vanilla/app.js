@@ -106,7 +106,6 @@ export function createApp(container) {
       setupPWAInstallPrompt();
 
       logger.info('[App] Ready');
-      layout.statusBar?.setLog('App initialized');
 
       const initialChannels = networkService.getChannels();
       if (initialChannels.length > 0 && netStatus?.connected) {
@@ -155,8 +154,8 @@ export function createApp(container) {
       const matchesChanged = state.matches?.length !== prev?.matches?.length;
       const activeChannelChanged = state.activeChannelId !== prev?.activeChannelId;
 
-      if (statusChanged || channelsChanged || matchesChanged) {
-        updateStatusBar(state);
+      if (statusChanged || matchesChanged) {
+        updateSidebarStatus(state);
       }
 
       if (channelsChanged || activeChannelChanged) {
@@ -174,7 +173,7 @@ export function createApp(container) {
     });
   }
 
-  function updateStatusBar(state) {
+  function updateSidebarStatus(state) {
     layout.sidebar?.setStatus({
       status: state.status,
       peerCount: state.matches?.length ?? 0,
@@ -216,10 +215,10 @@ export function createApp(container) {
   <h2 class="modal-title">👋 Welcome to ISC</h2>
 </div>
 <div class="modal-body" data-testid="onboarding-content">
-  <p style="margin-bottom:16px">ISC connects you with people thinking about the same things — not by social graph, but by the meaning of your words.</p>
-  <p style="margin-bottom:16px">Your first step is creating a <strong>channel</strong> — a short description of what's on your mind. A tiny AI runs in your browser to turn it into a semantic fingerprint. No text ever leaves your device.</p>
-  <p style="font-size:12px;color:var(--c-text-muted);margin-top:12px">
-    Press <kbd style="font-size:11px;padding:1px 6px;border:1px solid rgba(255,255,255,0.15);border-radius:3px">?</kbd> anytime for keyboard shortcuts.
+  <p class="onboarding-text">ISC connects you with people thinking about the same things — not by social graph, but by the meaning of your words.</p>
+  <p class="onboarding-text">Your first step is creating a <strong>channel</strong> — a short description of what's on your mind. A tiny AI runs in your browser to turn it into a semantic fingerprint. No text ever leaves your device.</p>
+  <p class="onboarding-hint">
+    Press <kbd class="kbd-hint">?</kbd> anytime for keyboard shortcuts.
   </p>
 </div>
 <div class="modal-actions">
