@@ -9,7 +9,7 @@ import { networkService } from '../../services/network.ts';
 import { toasts } from '../../utils/toast.js';
 import { escapeHtml } from '../utils/dom.js';
 import { formatTime, formatTimestamp } from '../../utils/time.js';
-import { renderEmpty } from '../utils/screen.js';
+import { renderEmpty, createScreen } from '../utils/screen.js';
 import { getBridgeSuggestions } from '../../services/thoughtBridging.ts';
 import { markPeerContacted } from '../../services/peerProximity.ts';
 import { modals } from '../components/modal.js';
@@ -17,8 +17,10 @@ import { modals } from '../components/modal.js';
 let activePeerId = null;
 let boundContainer = null;
 let typingTimeout = null;
+let typingInterval = null;
 const TYPING_TTL = 3000;
 let currentBridgeSuggestion = null;
+let handleNewMessage = null;
 
 const SIM_CLASS = {
   0.85: 'very-high',
@@ -204,7 +206,7 @@ function renderChatHeader(name, online, simPct) {
         <div class="chat-avatar">${(name[0] ?? 'A').toUpperCase()}</div>
         <div>
           <span class="chat-peer-name" data-testid="chat-peer-name">${escapeHtml(name)}</span>
-          <div style="display:flex;align-items:center;gap:8px">
+          <div class="flex-row gap-2">
             <span class="chat-peer-status ${online ? 'online' : 'offline'}" data-testid="chat-peer-status">
               ${online ? '● Online' : '○ Offline'}
             </span>
@@ -214,6 +216,7 @@ function renderChatHeader(name, online, simPct) {
       </div>
       <div class="chat-header-actions">
         <button class="btn btn-icon" data-video-call title="Start video call" aria-label="Video call" data-testid="video-call-btn">📹</button>
+        <button class="btn btn-ghost btn-sm" data-chat-more title="More options" aria-label="More options" data-testid="chat-more-btn">⋮</button>
         <button class="btn btn-ghost btn-sm mobile-back-btn" data-close-chat title="Back to conversations" data-testid="close-chat-mobile" aria-label="Close chat">← Back</button>
         <button class="btn btn-icon desktop-close-btn" data-close-chat data-testid="close-chat" title="Close conversation" aria-label="Close chat">×</button>
       </div>
@@ -321,6 +324,51 @@ export function bind(container) {
   boundContainer = container;
   const list = container.querySelector('#conversation-list');
 
+  // F2: Listen for incoming messages from network layer
+  chatService.setIncomingHandler(({ peerId, message }) => {
+    if (peerId === activePeerId) {
+      // Active chat — append message
+      const msgs = container.querySelector('#chat-messages');
+      if (msgs) {
+        msgs.querySelector('.chat-start-state')?.remove();
+        msgs.insertAdjacentHTML('beforeend', renderMessage(message));
+        msgs.scrollTop = msgs.scrollHeight;
+      }
+    }
+    // Always refresh conversation list to show unread badge (F4)
+    update(container);
+  });
+
+  // F3: Show toast for new messages
+  handleNewMessage = e => {
+    const { peerId, peerName, content } = e.detail || {};
+    if (peerId !== activePeerId) {
+      toasts.info(`💬 ${peerName}: ${content.slice(0, 50)}${content.length > 50 ? '…' : ''}`);
+    }
+  };
+  document.addEventListener('isc:new-chat-message', handleNewMessage);
+
+  // F5: Listen for typing indicators from other peers
+  const checkTyping = () => {
+    if (!activePeerId) return;
+    const identity = networkService.getIdentity();
+    const myId = identity?.pubkey ?? identity?.peerId;
+    if (!myId) return;
+
+    const key = `isc:typing:${activePeerId}:to:${myId}`;
+    try {
+      const lastTyping = parseInt(localStorage.getItem(key) || '0', 10);
+      const now = Date.now();
+      const indicator = container.querySelector('#typing-indicator');
+      if (indicator && now - lastTyping < TYPING_TTL) {
+        indicator.classList.remove('hidden');
+        clearTimeout(typingTimeout);
+        typingTimeout = setTimeout(() => indicator.classList.add('hidden'), TYPING_TTL);
+      }
+    } catch { /* ignore */ }
+  };
+  typingInterval = setInterval(checkTyping, 500);
+
   list?.addEventListener('click', (e) => {
     const item = e.target.closest('.conversation-item');
     if (item) {
@@ -422,6 +470,48 @@ export function bind(container) {
   bindChatInputHandlers(container);
   if (activePeerId) openChat(container, activePeerId);
 
+  // I3: More menu for file transfers
+  container.addEventListener('click', (e) => {
+    const moreBtn = e.target.closest('[data-chat-more]');
+    if (moreBtn) {
+      const chatView = container.querySelector('[data-testid="chat-view"]');
+      const peerId = chatView?.dataset.peerId;
+      if (!peerId) return;
+
+      const html = `
+        <div class="modal-header">
+          <h2 class="modal-title">More Options</h2>
+          <button class="modal-close" aria-label="Close">×</button>
+        </div>
+        <div class="modal-body chat-more-menu">
+          <button class="chat-more-item" data-action="send-file" data-testid="send-file-action">
+            <span class="chat-more-icon">📎</span>
+            <span class="chat-more-label">Send File</span>
+            <span class="chat-more-desc">Share a document or image</span>
+          </button>
+          <button class="chat-more-item" data-action="send-photo" data-testid="send-photo-action">
+            <span class="chat-more-icon">🖼️</span>
+            <span class="chat-more-label">Send Photo</span>
+            <span class="chat-more-desc">Share an image from your device</span>
+          </button>
+        </div>
+        <div class="modal-actions">
+          <button class="btn btn-ghost" data-action="cancel">Cancel</button>
+        </div>
+      `;
+      const overlay = modals.open(html);
+      overlay.querySelector('[data-action="cancel"]')?.addEventListener('click', () => modals.close());
+      overlay.querySelector('[data-action="send-file"]')?.addEventListener('click', () => {
+        modals.close();
+        document.dispatchEvent(new CustomEvent('isc:send-file', { detail: { peerId } }));
+      });
+      overlay.querySelector('[data-action="send-photo"]')?.addEventListener('click', () => {
+        modals.close();
+        document.dispatchEvent(new CustomEvent('isc:send-file', { detail: { peerId, accept: 'image/*' } }));
+      });
+    }
+  });
+
   // New conversation button
   container.querySelector('#new-chat-btn')?.addEventListener('click', () => {
     const html = `
@@ -481,6 +571,9 @@ async function openChat(container, peerId) {
     el.classList.toggle('active', active);
     el.setAttribute('aria-selected', String(active));
   });
+
+  // Toggle .chat-open for mobile layout
+  container.querySelector('.chats-layout')?.classList.add('chat-open');
 
   await markPeerContacted(peerId).catch(() => {});
   chatService.markAsRead(peerId);
@@ -617,6 +710,7 @@ function bindChatInputHandlers(container) {
 
   const doClose = () => {
     activePeerId = null;
+    container.querySelector('.chats-layout')?.classList.remove('chat-open');
     container.querySelector('#chat-panel').innerHTML = renderNoChatSelected();
     container.querySelectorAll('.conversation-item').forEach((el) => {
       el.classList.remove('active');
@@ -636,3 +730,15 @@ export function update(container) {
         : conversations.map((c) => renderConvItem(c, activePeerId)).join('');
   }
 }
+
+export function destroy() {
+  activePeerId = null;
+  boundContainer = null;
+  clearTimeout(typingTimeout);
+  currentBridgeSuggestion = null;
+  chatService.setIncomingHandler(null);
+  document.removeEventListener('isc:new-chat-message', handleNewMessage);
+  clearInterval(typingInterval);
+}
+
+export default createScreen({ render, bind, update, destroy });

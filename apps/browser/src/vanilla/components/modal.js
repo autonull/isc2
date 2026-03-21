@@ -5,6 +5,7 @@
  */
 
 import { escapeHtml } from '../../utils/dom.js';
+import { moderationService } from '../../services/index.js';
 
 let activeModal = null;
 
@@ -184,4 +185,114 @@ export const modals = {
       if (e.target.closest('.modal-close, [data-testid="modal-got-it"]')) this.close();
     });
   },
+
+  /**
+   * H1: Show peer profile modal
+   * @param {Object} peer - Peer match object with identity, similarity, etc.
+   */
+  showPeerProfile(peer) {
+    if (!peer) return;
+
+    const identity = peer.identity ?? {};
+    const name = identity.name ?? 'Anonymous';
+    const bio = identity.bio ?? 'No bio provided';
+    const peerId = peer.peerId ?? identity.peerId ?? 'Unknown';
+    const similarity = peer.similarity != null ? Math.round(peer.similarity * 100) : null;
+    const online = peer.online ?? false;
+    const matchedTopics = peer.matchedTopics ?? [];
+    const initials = (name[0] ?? 'A').toUpperCase();
+    const isBlocked = moderationService.isBlocked(peerId);
+
+    const html = `
+      <div class="peer-profile-modal" data-testid="peer-profile-modal">
+        <div class="modal-header">
+          <h2 class="modal-title">Peer Profile</h2>
+          <button class="modal-close" data-testid="modal-close" aria-label="Close">×</button>
+        </div>
+        <div class="modal-body peer-profile-body">
+          <div class="peer-profile-header">
+            <div class="peer-avatar-large${online ? ' online' : ''}">${initials}</div>
+            <div class="peer-profile-info">
+              <h3 class="peer-profile-name">${escapeHtml(name)}</h3>
+              <div class="flex-row gap-2">
+                <span class="peer-status-badge ${online ? 'online' : 'offline'}">
+                  ${online ? '● Online' : '○ Offline'}
+                </span>
+                ${similarity != null ? `
+                  <span class="peer-sim-badge">${similarity}% match</span>
+                ` : ''}
+              </div>
+            </div>
+          </div>
+          <div class="peer-profile-section">
+            <h4 class="peer-profile-label">About</h4>
+            <p class="peer-profile-bio">${escapeHtml(bio)}</p>
+          </div>
+          ${matchedTopics.length > 0 ? `
+            <div class="peer-profile-section">
+              <h4 class="peer-profile-label">Shared Interests</h4>
+              <div class="peer-topics">
+                ${matchedTopics.slice(0, 10).map(t => `
+                  <span class="peer-topic-tag">${escapeHtml(t)}</span>
+                `).join('')}
+              </div>
+            </div>
+          ` : ''}
+          <div class="peer-profile-section">
+            <h4 class="peer-profile-label">Peer ID</h4>
+            <code class="peer-profile-id">${escapeHtml(peerId.slice(0, 16))}${peerId.length > 16 ? '…' : ''}</code>
+          </div>
+          ${isBlocked ? `
+            <div class="peer-profile-section danger">
+              <h4 class="peer-profile-label text-danger">⚠️ This peer is blocked</h4>
+              <p class="text-muted text-sm">You will not see messages or updates from this peer.</p>
+            </div>
+          ` : ''}
+        </div>
+        <div class="modal-actions peer-profile-actions">
+          <button class="btn btn-ghost" data-action="close">Close</button>
+          ${isBlocked ? `
+            <button class="btn btn-primary" data-action="unblock">Unblock Peer</button>
+          ` : `
+            <button class="btn btn-danger" data-action="block">Block Peer</button>
+            <button class="btn btn-primary" data-action="start-chat">Start Conversation</button>
+          `}
+        </div>
+      </div>
+    `;
+
+    const overlay = this.open(html);
+    overlay.addEventListener('click', e => {
+      if (e.target.closest('.modal-close, [data-action="close"]')) {
+        this.close();
+        return;
+      }
+      if (e.target.closest('[data-action="start-chat"]')) {
+        this.close();
+        // Navigate to chats and open conversation with this peer
+        window.location.hash = '#/chats';
+        setTimeout(() => {
+          document.dispatchEvent(new CustomEvent('isc:start-chat', { detail: { peerId } }));
+        }, 100);
+        return;
+      }
+      // J1: Block peer
+      if (e.target.closest('[data-action="block"]')) {
+        moderationService.block(peerId, 'User blocked via profile');
+        this.close();
+        // Re-open modal to show blocked state
+        setTimeout(() => this.showPeerProfile(peer), 100);
+        return;
+      }
+      // J1: Unblock peer
+      if (e.target.closest('[data-action="unblock"]')) {
+        moderationService.unblock(peerId);
+        this.close();
+        // Re-open modal to show unblocked state
+        setTimeout(() => this.showPeerProfile(peer), 100);
+      }
+    });
+  },
 };
+
+export default modals;

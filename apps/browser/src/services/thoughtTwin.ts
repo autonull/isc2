@@ -38,6 +38,12 @@ export async function getThoughtTwin(): Promise<ThoughtTwin | null> {
 
 export async function shouldShowThoughtTwinNotification(): Promise<ThoughtTwinNotification> {
   try {
+    // I2: Respect user preference - check if ThoughtTwin notifications are disabled
+    const settingsDisabled = localStorage.getItem('isc:disable-thoughttwin') === 'true';
+    if (settingsDisabled) {
+      return { twin: null, shouldShow: false };
+    }
+
     const db = await getSettingsDB();
     const settings = await dbGet<{ value: number }>(db, SETTINGS_STORE, THOUGHT_TWIN_KEY);
     const now = Date.now();

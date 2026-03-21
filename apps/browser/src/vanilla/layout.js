@@ -64,6 +64,16 @@ export function buildLayout(container, { onNavigate }) {
   container.appendChild(toastContainer);
   toasts.init();
 
+  // L1: Global ARIA live region for status announcements
+  const liveRegion = el('div', {
+    id: 'aria-live-region',
+    className: 'sr-only',
+    role: 'status',
+    'aria-live': 'polite',
+    'aria-atomic': 'true',
+  });
+  container.appendChild(liveRegion);
+
   const debugPanel = buildDebugPanel(container);
 
   function applyMobileLayout() {

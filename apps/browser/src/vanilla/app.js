@@ -53,9 +53,23 @@ export function createApp(container) {
         logger.warn('[App] Network init failed, continuing offline:', err.message);
       });
 
+      // G1: Track real model load progress
       const embeddingService = networkService.service?.getEmbeddingService?.();
-      if (embeddingService && !embeddingService.isLoaded()) {
+      if (embeddingService) {
         splash.update('Loading AI model… (first load may take ~30s)', 60);
+        
+        // Poll for load progress
+        const pollInterval = setInterval(() => {
+          if (embeddingService.isLoaded()) {
+            splash.update('AI model ready', 75);
+            clearInterval(pollInterval);
+          } else if (embeddingService.getError()) {
+            // G3: Embedding fallback - continue without AI features
+            logger.warn('[App] Embedding failed, using fallback mode');
+            splash.update('AI unavailable — using text matching', 75);
+            clearInterval(pollInterval);
+          }
+        }, 500);
       }
 
       splash.update('Initializing UI…', 80);
@@ -263,26 +277,12 @@ export function createApp(container) {
         document.removeEventListener('isc:peers-found', showPrompt);
 
         const installBanner = document.createElement('div');
+        installBanner.className = 'pwa-install-banner';
         installBanner.id = 'pwa-install-banner';
         installBanner.innerHTML = `
         <span>Install ISC for the best experience</span>
         <button id="pwa-install-btn">Install</button>
         <button id="pwa-dismiss-btn">Later</button>
-      `;
-        installBanner.style.cssText = `
-        position: fixed;
-        bottom: 60px;
-        left: 50%;
-        transform: translateX(-50%);
-        background: var(--c-surface-raised, #2a2a2a);
-        border: 1px solid var(--c-border, #444);
-        border-radius: 8px;
-        padding: 12px 16px;
-        display: flex;
-        align-items: center;
-        gap: 12px;
-        z-index: 1000;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.3);
       `;
         document.body.appendChild(installBanner);
 

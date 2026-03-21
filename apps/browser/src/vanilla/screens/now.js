@@ -12,7 +12,7 @@ import { channelSettingsService } from '../../services/channelSettings.js';
 import { toasts } from '../../utils/toast.js';
 import { formatTime } from '../../utils/time.js';
 import { escapeHtml } from '../utils/dom.js';
-import { renderEmpty, renderList, bindDelegate, autoGrow, setupCtrlEnterSubmit } from '../utils/screen.js';
+import { renderEmpty, renderList, bindDelegate, autoGrow, setupCtrlEnterSubmit, createScreen } from '../utils/screen.js';
 import { renderMixerPanel, bindMixerPanel } from '../components/mixerPanel.js';
 import { modals } from '../components/modal.js';
 import {
@@ -23,6 +23,11 @@ import {
 
 let refreshing = false;
 let viewModeUnsubscribe = null;
+let _replyTo = null;
+let _lastPostCount = 0;
+let _postsPage = 1;
+const PAGE_SIZE = 20;
+let _lazyObserver = null;
 
 export function render() {
   const { channels, activeChannelId } = getState();
@@ -165,19 +170,118 @@ function renderPosts(posts, channels, viewMode = 'list') {
     </div>
   `;
 
+  const visible = posts.slice(0, _postsPage * PAGE_SIZE);
+  const hasMore = posts.length > visible.length;
+
+  let content;
   switch (viewMode) {
     case 'grid':
-      return countHtml + renderGridPosts(posts, channels);
+      content = renderGridPosts(visible, channels);
+      break;
     case 'space':
-      return countHtml + renderSpacePosts(posts, channels);
+      content = renderSpacePosts(visible, channels);
+      break;
     case 'list':
     default:
-      return countHtml + renderListPosts(posts, channels);
+      content = renderListPosts(visible, channels);
   }
+
+  return `
+    ${countHtml}
+    ${content}
+    ${hasMore ? `
+      <div class="load-more-row">
+        <button class="btn btn-ghost btn-sm" id="load-more-btn"
+                data-testid="load-more-posts">
+          Load earlier posts (${posts.length - visible.length} more)
+        </button>
+      </div>
+    ` : ''}
+  `;
 }
 
 function renderListPosts(posts, channels) {
-  return `<div class="feed-list">${posts.map(p => renderPost(p, channels)).join('')}</div>`;
+  const postMap = new Map(posts.map(p => [p.id, p]));
+  const topLevel = posts.filter(p => !p.replyTo);
+
+  return `<div class="feed-list">${topLevel.map(post => {
+    const replies = posts.filter(r => r.replyTo === post.id);
+    return `
+      ${renderPostCard(post, channels)}
+      ${replies.length ? `
+        <div class="post-thread" data-parent-id="${escapeHtml(post.id)}">
+          ${replies.slice(0, 3).map(r => renderReplyPost(r, post, channels)).join('')}
+          ${replies.length > 3 ? `
+            <button class="thread-expand-btn"
+                    data-thread="${escapeHtml(post.id)}"
+                    data-testid="expand-thread-${escapeHtml(post.id)}">
+              Show all ${replies.length} replies
+            </button>
+          ` : ''}
+        </div>
+      ` : ''}
+    `;
+  }).join('')}</div>`;
+}
+
+function renderReplyPost(post, parentPost, channels) {
+  const parentSnippet = escapeHtml((parentPost.content || '').slice(0, 60)) +
+    (parentPost.content?.length > 60 ? '…' : '');
+  return `
+    <div class="post-card post-card-reply" data-post-id="${escapeHtml(post.id)}"
+         data-testid="post-card-reply">
+      <div class="post-reply-context">
+        <span class="reply-indicator" aria-hidden="true">↩</span>
+        <span class="reply-parent-snippet">${parentSnippet}</span>
+      </div>
+      ${renderPostCardBody(post, channels)}
+    </div>
+  `;
+}
+
+function renderPostCardBody(post, channels) {
+  const author = escapeHtml(post.author || post.identity?.name || 'Anonymous');
+  const initials = (post.author || post.identity?.name || 'A')[0].toUpperCase();
+  const content = escapeHtml(post.content || '');
+  const time = post.timestamp ? formatTime(post.timestamp) : '';
+  const channel = channels?.find(c => c.id === post.channelId);
+  const chanName = channel ? escapeHtml(channel.name) : (post.channelId ? escapeHtml(post.channelId.slice(0, 12)) : '');
+  const likes = post.likes?.length ?? 0;
+  const score = post.score != null ? Math.round(post.score * 100) : null;
+
+  const myIdentity = networkService.getIdentity();
+  const myPeerId = myIdentity?.peerId ?? myIdentity?.pubkey;
+  const isOwn = post.identity?.peerId === myPeerId || post.identity?.pubkey === myPeerId;
+  const liked = postService.getLikedPosts().has(post.id);
+
+  return `
+    <div class="post-header">
+      <div class="post-avatar">${initials}</div>
+      <div class="post-meta">
+        <span class="post-author">${author}</span>
+        ${chanName ? `<span class="post-channel">#${chanName}</span>` : ''}
+      </div>
+      <div class="post-meta-actions">
+        ${score != null ? `<span class="post-score" title="Semantic relevance">${score}%</span>` : ''}
+        <span class="post-time">${time}</span>
+      </div>
+    </div>
+    <div class="post-content" data-testid="post-content">${content}</div>
+    <div class="post-actions">
+      <button class="post-action-btn${liked ? ' liked' : ''}" data-action="like" data-like-btn data-post-id="${escapeHtml(post.id)}"
+              data-liked="${liked}" data-testid="like-btn-${escapeHtml(post.id)}">
+        <span aria-hidden="true">${liked ? '♥' : '♡'}</span>
+        <span class="post-action-label">Like</span>
+        <span class="like-count">${likes}</span>
+      </button>
+      ${isOwn ? `
+      <button class="post-action-btn" data-action="delete" data-delete-btn data-post-id="${escapeHtml(post.id)}"
+              data-testid="delete-btn-${escapeHtml(post.id)}">
+        <span class="post-action-label">Delete</span>
+      </button>
+      ` : ''}
+    </div>
+  `;
 }
 
 function renderGridPosts(posts, channels) {
@@ -207,16 +311,18 @@ function renderPostCard(post, channels, showActions = true) {
   const time = post.timestamp ? formatTime(post.timestamp) : '';
   const channel = channels?.find(c => c.id === post.channelId);
   const chanName = channel ? escapeHtml(channel.name) : (post.channelId ? escapeHtml(post.channelId.slice(0, 12)) : '');
-  const likes = post.likes?.length ?? 0;
   const replies = post.replies?.length ?? 0;
-  const score = post.score != null ? Math.round(post.score * 100) : null;
 
   const myIdentity = networkService.getIdentity();
   const myPeerId = myIdentity?.peerId ?? myIdentity?.pubkey;
   const isOwn = post.identity?.peerId === myPeerId || post.identity?.pubkey === myPeerId;
+  const liked = postService.getLikedPosts().has(post.id);
 
+  // M1: Lazy render - use data attribute for deferred content
   return `
-    <div class="post-card" data-testid="post-card" data-component="post" data-post-id="${escapeHtml(post.id)}">
+    <div class="post-card" data-testid="post-card" data-component="post" data-post-id="${escapeHtml(post.id)}"
+         tabindex="0" role="article" aria-label="${escapeHtml(author)}: ${escapeHtml((content).slice(0,80))}"
+         data-lazy="true">
       <div class="post-header">
         <div class="post-avatar">${initials}</div>
         <div class="post-meta">
@@ -224,18 +330,17 @@ function renderPostCard(post, channels, showActions = true) {
           ${chanName ? `<span class="post-channel">#${chanName}</span>` : ''}
         </div>
         <div class="post-meta-actions">
-          ${score != null ? `<span class="post-score" title="Semantic relevance">${score}%</span>` : ''}
           <span class="post-time">${time}</span>
         </div>
       </div>
       <div class="post-content" data-testid="post-content">${content}</div>
       ${showActions ? `
       <div class="post-actions">
-        <button class="post-action-btn" data-action="like" data-like-btn data-post-id="${escapeHtml(post.id)}"
-                data-liked="false" data-testid="like-btn-${escapeHtml(post.id)}">
-          <span aria-hidden="true">♡</span>
+        <button class="post-action-btn${liked ? ' liked' : ''}" data-action="like" data-like-btn data-post-id="${escapeHtml(post.id)}"
+                data-liked="${liked}" data-testid="like-btn-${escapeHtml(post.id)}">
+          <span aria-hidden="true">${liked ? '♥' : '♡'}</span>
           <span class="post-action-label">Like</span>
-          <span class="like-count">${likes}</span>
+          <span class="like-count">${post.likes?.length ?? 0}</span>
         </button>
         <button class="post-action-btn" data-action="reply" data-reply-btn data-post-id="${escapeHtml(post.id)}"
                 data-testid="reply-btn-${escapeHtml(post.id)}">
@@ -245,7 +350,7 @@ function renderPostCard(post, channels, showActions = true) {
         </button>
         ${isOwn ? `
         <button class="post-action-btn" data-action="delete" data-delete-btn data-post-id="${escapeHtml(post.id)}"
-                data-testid="delete-btn-${escapeHtml(post.id)}" class="ml-auto">
+                data-testid="delete-btn-${escapeHtml(post.id)}">
           <span class="post-action-label">Delete</span>
         </button>
         ` : ''}
@@ -283,6 +388,52 @@ export function bind(container) {
   const activeChannel = channels?.find(c => c.id === activeChannelId);
 
   if (activeChannel) bindMixerPanel(container, activeChannel);
+
+  // M1: Lazy-render off-screen posts with Intersection Observer
+  if ('IntersectionObserver' in window) {
+    _lazyObserver = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          const card = entry.target;
+          if (card.dataset.lazy === 'true') {
+            card.dataset.lazy = 'false';
+            card.classList.add('loaded');
+          }
+          _lazyObserver.unobserve(card);
+        }
+      });
+    }, { rootMargin: '200px' });
+
+    container.querySelectorAll('.post-card[data-lazy="true"]').forEach(card => {
+      _lazyObserver.observe(card);
+    });
+  }
+
+  // L3: Feed keyboard navigation (arrow keys)
+  const feed = container.querySelector('#now-feed');
+  if (feed) {
+    feed.addEventListener('keydown', (e) => {
+      const posts = [...feed.querySelectorAll('.post-card[tabindex="0"]')];
+      if (!posts.length) return;
+      
+      const current = document.activeElement;
+      const idx = posts.indexOf(current);
+      
+      if (e.key === 'ArrowDown' || e.key === 'j') {
+        e.preventDefault();
+        const next = posts[Math.min(idx + 1, posts.length - 1)];
+        next?.focus();
+      } else if (e.key === 'ArrowUp' || e.key === 'k') {
+        e.preventDefault();
+        const prev = posts[Math.max(idx - 1, 0)];
+        prev?.focus();
+      } else if (e.key === 'Enter' && current) {
+        // Activate focused post's first action button
+        const likeBtn = current.querySelector('[data-action="like"]');
+        likeBtn?.click();
+      }
+    });
+  }
 
   // Check for ThoughtTwin notification
   shouldShowThoughtTwinNotification().then(notification => {
@@ -379,7 +530,16 @@ export function bind(container) {
     try {
       composeInput.disabled = true;
       if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = '…'; }
-      await postService.create(targetChannelId, content);
+      
+      // E2: Reply flow - use reply() if replying to a post
+      if (_replyTo) {
+        await postService.reply(_replyTo.id, content);
+        _replyTo = null;
+        container.querySelector('.compose-reply-context')?.remove();
+      } else {
+        await postService.create(targetChannelId, content);
+      }
+      
       composeInput.value = '';
       composeInput.style.height = '';
       if (composeCount) composeCount.textContent = '0 / 2000';
@@ -396,15 +556,89 @@ export function bind(container) {
 
   setupCtrlEnterSubmit(composeInput, composeForm);
 
+  // E3: Live refresh when new posts arrive
+  const { subscribe } = await import('../../state.js');
+  const unsubPosts = subscribe(state => {
+    const count = state.posts?.length ?? 0;
+    if (count !== _lastPostCount && !refreshing) {
+      _lastPostCount = count;
+      const feed = container.querySelector('#now-feed');
+      if (feed) {
+        const posts = feedService.getForYou(_postsPage * PAGE_SIZE);
+        const { channels } = getState();
+        const activeChannel = channels?.find(c => c.id === activeChannelId);
+        const viewMode = activeChannel ? channelSettingsService.getSettings(activeChannel.id).viewMode : 'list';
+        feed.innerHTML = posts.length === 0
+          ? renderEmptyState(channels, true, 'connected')
+          : renderPosts(posts, channels, viewMode);
+      }
+    }
+  });
+
   // Delegated post actions
   const unbindLike = bindDelegate(container, '[data-like-btn]', 'click', handleLike);
   const unbindReply = bindDelegate(container, '[data-reply-btn]', 'click', handleReply);
   const unbindDelete = bindDelegate(container, '[data-delete-btn]', 'click', handleDelete);
 
+  // E1: Thread expand handler
+  container.addEventListener('click', e => {
+    const expandBtn = e.target.closest('.thread-expand-btn');
+    if (expandBtn) {
+      expandBtn.closest('.post-thread')?.classList.add('thread-expanded');
+      expandBtn.remove();
+      return;
+    }
+
+    // E4: Load more handler
+    if (e.target.closest('#load-more-btn')) {
+      _postsPage++;
+      update(container);
+      return;
+    }
+
+    // E2: Reply flow - set reply context
+    const replyBtn = e.target.closest('[data-reply-btn]');
+    if (replyBtn) {
+      const postId = replyBtn.dataset.postId;
+      const allPosts = feedService.getForYou(200);
+      const post = allPosts.find(p => p.id === postId);
+      if (post) {
+        _replyTo = { id: postId, content: post.content, author: post.author ?? post.identity?.name };
+        setReplyContext(container, _replyTo);
+      }
+    }
+  });
+
   return [
     unbindLike, unbindReply, unbindDelete,
     () => document.removeEventListener('isc:channel-view-change', handleViewChange),
+    unsubPosts,
+    () => { _lastPostCount = 0; },
   ];
+}
+
+function setReplyContext(container, replyTo) {
+  const composeArea = container.querySelector('[data-testid="compose-container"]');
+  if (!composeArea) return;
+
+  let ctx = composeArea.querySelector('.compose-reply-context');
+  if (!ctx) {
+    ctx = document.createElement('div');
+    ctx.className = 'compose-reply-context';
+    composeArea.prepend(ctx);
+  }
+  ctx.innerHTML = `
+    <span class="reply-label">↩ Replying to ${escapeHtml(replyTo.author ?? 'post')}</span>
+    <span class="reply-snippet">
+      ${escapeHtml((replyTo.content || '').slice(0, 60))}…
+    </span>
+    <button class="reply-cancel" data-cancel-reply aria-label="Cancel reply">×</button>
+  `;
+  ctx.querySelector('[data-cancel-reply]')?.addEventListener('click', () => {
+    _replyTo = null;
+    ctx.remove();
+  });
+  container.querySelector('[data-testid="compose-input"]')?.focus();
 }
 
 function handleLike(e, target) {
@@ -485,4 +719,14 @@ async function doRefresh(container) {
 export function destroy() {
   import('../utils/spaceCanvas.js').then(m => m.destroySpaceCanvas());
   refreshing = false;
+  _replyTo = null;
+  _lastPostCount = 0;
+  _postsPage = 1;
+  // M1: Cleanup lazy observer
+  if (_lazyObserver) {
+    _lazyObserver.disconnect();
+    _lazyObserver = null;
+  }
 }
+
+export default createScreen({ render, bind, update, destroy });

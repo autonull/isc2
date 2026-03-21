@@ -92,20 +92,34 @@ export function createRouter(screens, defaultRoute, mainContent, sidebar) {
       currentScreen = screen;
     } catch (err) {
       logger.error(`[Router] Screen render error (${route}):`, err.message);
-      mainContent.innerHTML = renderError(err, route);
+      mainContent.innerHTML = renderErrorScreen(err, route);
+      mainContent.querySelector('[data-action="reload"]')?.addEventListener('click', () => {
+        location.reload();
+      });
     }
 
     sidebar?.update?.(route);
     updateChatsBadge();
+
+    // L2: Focus management on screen transition
+    // Move focus to main content for screen readers
+    mainContent.setAttribute('tabindex', '-1');
+    mainContent.focus({ preventScroll: false });
+    
+    // Announce screen change
+    import('./utils/dom.js').then(({ announce }) => {
+      const screenTitle = route.slice(1).charAt(0).toUpperCase() + route.slice(2);
+      announce(`Navigated to ${screenTitle} screen`);
+    });
   }
 
-  function renderError(err, route) {
+  function renderErrorScreen(err, route) {
     return `
       <div class="empty-state" data-testid="screen-error">
         <div class="empty-state-icon">⚠️</div>
         <div class="empty-state-title">Screen Error</div>
         <div class="empty-state-description">${escapeHtml(err.message)}</div>
-        <button class="btn btn-primary mt-4" onclick="location.reload()">Reload</button>
+        <button class="btn btn-primary mt-4" data-action="reload">Reload</button>
       </div>
     `;
   }
@@ -311,7 +325,7 @@ export function setupKeyboardShortcuts({ onNavigate, onToggleDebug, mainContent,
 }
 
 function cycleSidebarFocus(direction) {
-  const items = [...document.querySelectorAll('.nav-item, [role="tab"]')];
+  const items = [...document.querySelectorAll('.snav-btn, .irc-channel-item, .nav-item, [role="tab"]')];
   if (!items.length) return;
 
   const focused = document.activeElement;

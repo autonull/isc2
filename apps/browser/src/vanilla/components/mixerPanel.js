@@ -384,7 +384,7 @@ export function bindMixerPanel(container, activeChannel) {
   }
 }
 
-function showEditModal(channel) {
+export function showEditModal(channel) {
   const tempContainer = document.createElement('div');
   tempContainer.innerHTML = renderEditModal(channel);
   const modal = tempContainer.firstElementChild;
@@ -407,7 +407,7 @@ function showEditModal(channel) {
   });
 
   function on(selector, event, handler) {
-    document.querySelector(selector)?.addEventListener(event, handler);
+    modal.querySelector(selector)?.addEventListener(event, handler);
   }
 
   const langService = getMultilingualService();
@@ -415,8 +415,8 @@ function showEditModal(channel) {
   let langDebounceTimer = null;
 
   function updateLangIndicator(text) {
-    const indicator = document.querySelector('#lang-indicator');
-    const hint = document.querySelector('#edit-lang-hint');
+    const indicator = modal.querySelector('#lang-indicator');
+    const hint = modal.querySelector('#edit-lang-hint');
     if (!indicator || !hint) return;
 
     if (!text || text.length < 3) {
@@ -439,14 +439,14 @@ function showEditModal(channel) {
     }
   }
 
-  document.querySelector('#edit-channel-description')?.addEventListener('input', (e) => {
+  modal.querySelector('#edit-channel-description')?.addEventListener('input', (e) => {
     clearTimeout(langDebounceTimer);
     langDebounceTimer = setTimeout(() => updateLangIndicator(e.target.value), 300);
   });
 
   async function saveChanges() {
-    const name = document.querySelector('#edit-channel-name')?.value.trim();
-    const description = document.querySelector('#edit-channel-description')?.value.trim() || '';
+    const name = modal.querySelector('#edit-channel-name')?.value.trim();
+    const description = modal.querySelector('#edit-channel-description')?.value.trim() || '';
 
     if (!name || name.length < 3) {
       toasts.error('Channel name must be at least 3 characters');

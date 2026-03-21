@@ -9,7 +9,7 @@ import { networkService } from '../../services/network.ts';
 import { toasts } from '../../utils/toast.js';
 import { modals } from '../components/modal.js';
 import { escapeHtml } from '../utils/dom.js';
-import { renderEmpty, bindDelegate, renderLoading } from '../utils/screen.js';
+import { renderEmpty, bindDelegate, renderLoading, createScreen } from '../utils/screen.js';
 import { getBridgeMomentCandidates, markPeerContacted } from '../../services/peerProximity.ts';
 import { convergenceService } from '../../services/convergence.ts';
 
@@ -22,10 +22,10 @@ let activeCallout = null;
 const CALLOUT_PRIORITY = ['need-channels', 'no-matches', 'convergence', 'bridge'];
 
 const SIMILARITY_TIERS = [
-  { key: 'strong', label: '🔥 Strong match', desc: '85%+', min: 0.85 },
-  { key: 'good', label: '✨ Good match', desc: '70–85%', min: 0.70, max: 0.85 },
-  { key: 'partial', label: '🌀 Partial match', desc: '55–70%', min: 0.55, max: 0.70 },
-  { key: 'weak', label: '🌌 Weak match', desc: '<55%', max: 0.55 },
+  { key: 'strong', label: 'Strong match', desc: '85%+', min: 0.85 },
+  { key: 'good', label: 'Good match', desc: '70–85%', min: 0.70, max: 0.85 },
+  { key: 'partial', label: 'Partial match', desc: '55–70%', min: 0.55, max: 0.70 },
+  { key: 'weak', label: 'Weak match', desc: '<55%', max: 0.55 },
 ];
 
 export function render() {
@@ -172,8 +172,13 @@ async function loadConvergenceBanner(container) {
       containerEl.innerHTML = renderConvergenceBanner(event);
 
       containerEl.querySelector('#convergence-view')?.addEventListener('click', () => {
-        // Open Space View focused on convergence region
-        window.location.hash = '#/space';
+        window.location.hash = '#/now';
+        requestAnimationFrame(() => requestAnimationFrame(() =>
+          document.dispatchEvent(new CustomEvent('isc:channel-view-change', {
+            detail: { mode: 'space' },
+            bubbles: true,
+          }))
+        ));
       });
 
       containerEl.querySelector('#convergence-share')?.addEventListener('click', () => {
@@ -265,7 +270,7 @@ function renderNeedChannels() {
   return `
     <div class="info-banner warning mb-4" data-testid="need-channels-banner">
       ✏️ <strong>You need a channel before discovering peers.</strong> Your channel describes what you're thinking about — ISC finds others thinking similarly.
-      <a href="#/compose" class="btn btn-primary btn-sm" style="margin-left:8px">Create Channel</a>
+      <a href="#/compose" class="btn btn-primary btn-sm ml-2">Create Channel</a>
     </div>
   `;
 }
@@ -330,7 +335,7 @@ function renderMatches(matches) {
 
   return `
     <div class="match-stats" data-testid="match-list">
-      <span class="text-muted" style="font-size:12px">
+      <span class="text-muted text-xs">
         Found <strong>${sorted.length}</strong> peer${sorted.length !== 1 ? 's' : ''} in semantic proximity
       </span>
       <button class="btn btn-ghost btn-sm" id="discover-btn-refresh" aria-label="Refresh peer discovery">↻ Refresh</button>
@@ -476,6 +481,18 @@ export function bind(container) {
         chatBtn.disabled = false;
         chatBtn.textContent = '💬 Chat';
       }
+      return;
+    }
+
+    // H1: Show peer profile on card click
+    const matchCard = e.target.closest('.match-card');
+    if (matchCard && !e.target.closest('[data-chat-btn]')) {
+      const peerId = matchCard.dataset.peerId;
+      const matches = discoveryService.getMatches();
+      const peer = matches.find(m => (m.peerId ?? m.peer?.id) === peerId);
+      if (peer) {
+        modals.showPeerProfile(peer);
+      }
     }
   });
 
@@ -511,3 +528,14 @@ export function update(container) {
     container.querySelector('#discover-btn')?.click();
   });
 }
+
+export function destroy() {
+  bridgeCandidates = [];
+  convergenceEvent = null;
+  noMatchesBannerEl = null;
+  autoDiscovered = false;
+  activeCallout = null;
+  dismissNoMatchesBanner();
+}
+
+export default createScreen({ render, bind, update, destroy });

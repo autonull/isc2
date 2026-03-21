@@ -131,6 +131,19 @@ class NetworkServiceWrapper {
         }
       },
 
+      onDataReceived: (data) => {
+        this.log.debug('Data received', { type: data?.type });
+        if (data?.type === 'chat-message' && data?.data) {
+          // F2: Forward incoming chat messages to chatService
+          const { fromPeerId, data: messageData } = data;
+          if (fromPeerId && typeof messageData === 'object') {
+            import('./index.js').then(({ chatService }) => {
+              chatService.receiveMessage(fromPeerId, messageData);
+            });
+          }
+        }
+      },
+
       onError: (error) => {
         this.log.error('Network error', { error: error?.message ?? error });
       },
@@ -191,6 +204,12 @@ class NetworkServiceWrapper {
         this.service = null;
         this._initialized = false;
         await this.initialize();
+        
+        // K1: Trigger background sync on successful reconnect
+        if (this.sharedWorker?.isConnected()) {
+          this.sharedWorker.requestStateSync();
+          this.log.info('Background sync triggered after reconnect');
+        }
       } catch (err) {
         this.log.error('Reconnect failed', { error: (err as Error).message });
       }

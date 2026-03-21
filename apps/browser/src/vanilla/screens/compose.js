@@ -8,6 +8,7 @@ import { channelService } from '../../services/index.js';
 import { networkService } from '../../services/network.ts';
 import { escapeHtml } from '../../utils/dom.js';
 import { toasts } from '../../utils/toast.js';
+import { createScreen } from '../utils/screen.js';
 
 // Relational context tags — correspond to ISC's compositional embedding relations
 const CONTEXT_TAGS = [
@@ -295,3 +296,13 @@ function renderContextInputs(container, area) {
     </div>
   `;
 }
+
+export function update() {
+  // Compose screen doesn't need update
+}
+
+export function destroy() {
+  // Compose screen doesn't need cleanup
+}
+
+export default createScreen({ render, bind, update, destroy });

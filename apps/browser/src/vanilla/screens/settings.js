@@ -2,20 +2,13 @@
  * Settings Screen — Identity, discovery, preferences, danger zone
  */
 
-import { identityService, settingsService, channelService } from '../../services/index.js';
+import { identityService, settingsService, channelService, moderationService } from '../../services/index.js';
 import { networkService } from '../../services/network.ts';
 import { escapeHtml } from '../../utils/dom.js';
 import { toasts } from '../../utils/toast.js';
 import { modals } from '../components/modal.js';
-// Nostr Identity Bridge imports temporarily disabled due to build resolution issues
-// import {
-//   importNostrIdentity,
-//   isNostrLinked,
-//   unlinkNostrIdentity,
-//   validateNsec,
-//   exportNostrLinkedPubkey,
-//   formatNpub,
-// } from '../../identity/nostr.js';
+import { showEditModal } from '../components/mixerPanel.js';
+import { createScreen } from '../utils/screen.js';
 
 export function render() {
   const identity = identityService.getIdentity();
@@ -38,6 +31,9 @@ export function render() {
         ${renderIdentity(identity)}
         ${renderDiscovery(settings)}
         ${renderAppearance(settings)}
+        ${renderAdvanced(settings)}
+        ${renderModeration()}
+        ${renderShare()}
         ${renderChannels(channels)}
         ${renderDangerZone()}
         ${renderAbout()}
@@ -49,7 +45,7 @@ export function render() {
 function renderProfile(identity) {
   return `
     <section class="settings-section" data-testid="profile-section">
-      <div class="section-title">👤 Profile</div>
+      <div class="section-title">Profile</div>
       <form id="profile-form" data-testid="profile-form">
         <div class="form-group">
           <label class="form-label" for="settings-name">Display Name</label>
@@ -85,9 +81,10 @@ function renderIdentity(identity) {
   const fingerprint = identityId
     ? escapeHtml(identityId.slice(0, 8) + '…' + identityId.slice(-8))
     : 'N/A';
+  const isEphemeral = localStorage.getItem('isc-ephemeral-session') === 'true';
   return `
     <section class="settings-section" data-testid="identity-section">
-      <div class="section-title">🔐 Identity</div>
+      <div class="section-title">Identity</div>
       <div class="form-group">
         <label class="form-label">Fingerprint</label>
         <div class="form-static font-mono" data-testid="identity-fingerprint">${fingerprint}</div>
@@ -100,8 +97,20 @@ function renderIdentity(identity) {
           <input type="file" id="import-identity-file" accept=".json" class="hidden-input" data-testid="import-identity-input" />
         </label>
       </div>
-
-      <!-- Nostr Identity Bridge temporarily disabled due to build issues -->
+      <div class="divider mt-4 mb-4"></div>
+      <div class="toggle-row" data-testid="ephemeral-toggle-row">
+        <div>
+          <div class="toggle-label-text">Anonymous (ephemeral) session</div>
+          <div class="toggle-hint">
+            Identity exists only in this tab. Closing it permanently erases all data.
+          </div>
+        </div>
+        <label class="toggle">
+          <input type="checkbox" id="ephemeral-toggle" ${isEphemeral ? 'checked' : ''}
+                 data-testid="ephemeral-session-toggle" />
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
     </section>
   `;
 }
@@ -109,7 +118,7 @@ function renderIdentity(identity) {
 function renderDiscovery(settings) {
   return `
     <section class="settings-section" data-testid="discovery-section">
-      <div class="section-title">📡 Discovery</div>
+      <div class="section-title">Discovery</div>
 
       <div class="toggle-row">
         <div>
@@ -148,7 +157,7 @@ function renderDiscovery(settings) {
 function renderAppearance(settings) {
   return `
     <section class="settings-section" data-testid="appearance-section">
-      <div class="section-title">🎨 Appearance & Preferences</div>
+      <div class="section-title">Appearance & Preferences</div>
 
       <div class="form-group">
         <label class="form-label" for="theme-select">Theme</label>
@@ -191,9 +200,74 @@ function renderAppearance(settings) {
           <span class="toggle-slider"></span>
         </label>
       </div>
+    </section>
+  `;
+}
 
-      <div class="form-actions">
-        <button class="btn btn-primary" id="save-preferences" data-testid="save-preferences-btn">Save Preferences</button>
+function renderAdvanced(settings) {
+  // I1: Read chaos level from localStorage (set by cold start service)
+  const chaosLevel = parseInt(localStorage.getItem('isc:chaos-level') || '0', 10);
+  const demoModeActive = localStorage.getItem('isc:demo-mode') !== 'false';
+  // I2: Read ThoughtTwin preference
+  const disableThoughtTwin = localStorage.getItem('isc:disable-thoughttwin') === 'true';
+
+  return `
+    <section class="settings-section" data-testid="advanced-section">
+      <div class="section-title">Advanced</div>
+
+      <div class="toggle-row">
+        <div class="toggle-label-text">
+          Ephemeral session
+          <div class="text-xs text-muted">Clear all data when closing the tab</div>
+        </div>
+        <label class="toggle">
+          <input type="checkbox" id="ephemeral-toggle" ${settings.ephemeral ? 'checked' : ''}
+                 data-testid="ephemeral-toggle" />
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+
+      <div class="toggle-row">
+        <div class="toggle-label-text">
+          Demo mode (ghost peers)
+          <div class="text-xs text-muted">Show synthetic peers for testing</div>
+        </div>
+        <label class="toggle">
+          <input type="checkbox" id="demo-mode-toggle" ${demoModeActive ? 'checked' : ''}
+                 data-testid="demo-mode-toggle" />
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+
+      <div class="toggle-row">
+        <div class="toggle-label-text">
+          Serendipity mode
+          <div class="text-xs text-muted">Discover unexpected peers (chaos level: ${chaosLevel}%)</div>
+        </div>
+        <label class="toggle">
+          <input type="checkbox" id="chaos-toggle" ${chaosLevel > 0 ? 'checked' : ''}
+                 data-testid="chaos-toggle" />
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+
+      <div class="toggle-row">
+        <div class="toggle-label-text">
+          ThoughtTwin suggestions
+          <div class="text-xs text-muted">Show AI-powered peer suggestions</div>
+        </div>
+        <label class="toggle">
+          <input type="checkbox" id="thoughttwin-toggle" ${!disableThoughtTwin ? 'checked' : ''}
+                 data-testid="thoughttwin-toggle" />
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Chaos Level: <span id="chaos-value">${chaosLevel}%</span></label>
+        <input type="range" id="chaos-slider" class="form-range" min="0" max="100" step="10"
+               value="${chaosLevel}" data-testid="chaos-slider" />
+        <div class="form-hint">Higher values introduce more randomness in peer discovery</div>
       </div>
     </section>
   `;
@@ -202,7 +276,7 @@ function renderAppearance(settings) {
 function renderChannels(channels) {
   return `
     <section class="settings-section" data-testid="channels-section">
-      <div class="section-title">📢 My Channels (${channels.length})</div>
+      <div class="section-title">My Channels (${channels.length})</div>
       ${
         channels.length === 0
           ? '<div class="text-muted text-sm">No channels created yet.</div>'
@@ -231,7 +305,7 @@ function renderChannels(channels) {
 function renderDangerZone() {
   return `
     <section class="settings-section danger" data-testid="danger-zone">
-      <div class="section-title text-danger">⚠️ Danger Zone</div>
+      <div class="section-title text-danger">Danger Zone</div>
       <div class="section-description">These actions are irreversible and will delete your data.</div>
       <div class="form-actions">
         <button class="btn btn-danger" id="clear-data" data-testid="clear-data-btn">🗑️ Clear All Data</button>
@@ -241,10 +315,74 @@ function renderDangerZone() {
   `;
 }
 
+function renderModeration() {
+  // J1: Show blocked peers list
+  const blockedPeers = [...moderationService.getBlockedPeers()];
+
+  return `
+    <section class="settings-section" data-testid="moderation-section">
+      <div class="section-title">Blocked Peers</div>
+      ${blockedPeers.length === 0 ? `
+        <div class="text-muted text-sm">No blocked peers. Block peers from their profile to hide their content.</div>
+      ` : `
+        <div class="blocked-peers-list" data-testid="blocked-peers-list">
+          ${blockedPeers.map(peerId => `
+            <div class="blocked-peer-row" data-peer-id="${escapeHtml(peerId)}">
+              <code class="blocked-peer-id font-mono">${escapeHtml(peerId.slice(0, 16))}…</code>
+              <button class="btn btn-ghost btn-sm unblock-btn" data-peer-id="${escapeHtml(peerId)}"
+                      data-testid="unblock-${escapeHtml(peerId.slice(0, 8))}">
+                Unblock
+              </button>
+            </div>
+          `).join('')}
+        </div>
+      `}
+    </section>
+  `;
+}
+
+function renderShare() {
+  // I4: Generate invite link from current identity
+  const identity = identityService.getIdentity();
+  const peerId = identity?.peerId ?? identity?.pubkey;
+  const inviteUrl = peerId ? `${window.location.origin}/#/join?peer=${encodeURIComponent(peerId)}` : '';
+
+  return `
+    <section class="settings-section" data-testid="share-section">
+      <div class="section-title">Share & Invite</div>
+      <div class="form-group">
+        <label class="form-label">Your Invite Link</label>
+        <div class="invite-link-row">
+          <code class="invite-link font-mono" data-testid="invite-link">
+            ${inviteUrl ? escapeHtml(inviteUrl) : 'Generate after identity is created'}
+          </code>
+          <button class="btn btn-ghost btn-sm" id="copy-invite-btn" data-testid="copy-invite-btn"
+                  ${!inviteUrl ? 'disabled' : ''} title="Copy to clipboard">📋 Copy</button>
+        </div>
+        <div class="form-hint">Share this link with others to connect directly with you</div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Share via</label>
+        <div class="share-buttons" data-testid="share-buttons">
+          <button class="btn btn-ghost btn-sm share-btn" data-share="twitter" data-testid="share-twitter">
+            𝕏 Twitter
+          </button>
+          <button class="btn btn-ghost btn-sm share-btn" data-share="mastodon" data-testid="share-mastodon">
+            🐘 Mastodon
+          </button>
+          <button class="btn btn-ghost btn-sm share-btn" data-share="email" data-testid="share-email">
+            ✉️ Email
+          </button>
+        </div>
+      </div>
+    </section>
+  `;
+}
+
 function renderAbout() {
   return `
     <section class="settings-section card-blue" data-testid="about-section">
-      <div class="section-title text-brand">ℹ️ About ISC</div>
+      <div class="section-title text-brand">About ISC</div>
       <div class="about-text">
         <div><strong>ISC</strong> — Internet Semantic Chat</div>
         <div>Version 1.0.0 · Phase 1</div>
@@ -341,24 +479,43 @@ export function bind(container) {
     }
   });
 
-  // Nostr identity linking - temporarily disabled due to build issues
-  // async function updateNostrStatus() {
-  //   const statusEl = container.querySelector('#nostr-status');
-  //   const unlinkBtn = container.querySelector('#unlink-nostr-btn');
-  //   if (!statusEl) return;
-  //   const linked = await isNostrLinked();
-  //   if (linked) {
-  //     const npub = await exportNostrLinkedPubkey();
-  //     statusEl.innerHTML = `<span class="text-success">✓ Linked to Nostr</span><br><span class="text-muted font-mono" style="font-size:12px">${formatNpub(npub || '')}</span>`;
-  //     if (unlinkBtn) unlinkBtn.style.display = '';
-  //   } else {
-  //     statusEl.innerHTML = '';
-  //     if (unlinkBtn) unlinkBtn.style.display = 'none';
-  //   }
-  // }
-  // updateNostrStatus();
-  // container.querySelector('#link-nostr-btn')?.addEventListener('click', async () => { ... });
-  // container.querySelector('#unlink-nostr-btn')?.addEventListener('click', async () => { ... });
+  // Ephemeral session toggle
+  container.querySelector('#ephemeral-toggle')?.addEventListener('change', (e) => {
+    if (e.target.checked) {
+      localStorage.setItem('isc-ephemeral-session', 'true');
+    } else {
+      localStorage.removeItem('isc-ephemeral-session');
+    }
+    showInlineSaved(e.target.closest('.toggle-row'));
+  });
+
+  // I1: Advanced settings handlers
+  container.querySelector('#demo-mode-toggle')?.addEventListener('change', (e) => {
+    localStorage.setItem('isc:demo-mode', String(e.target.checked));
+    showInlineSaved(e.target.closest('.toggle-row'));
+    toasts.info(e.target.checked ? 'Demo mode enabled' : 'Demo mode disabled');
+  });
+
+  container.querySelector('#chaos-toggle')?.addEventListener('change', (e) => {
+    const level = e.target.checked ? 50 : 0;
+    localStorage.setItem('isc:chaos-level', String(level));
+    document.dispatchEvent(new CustomEvent('isc:toggle-chaos', { detail: { level } }));
+    showInlineSaved(e.target.closest('.toggle-row'));
+  });
+
+  // I2: ThoughtTwin preference toggle
+  container.querySelector('#thoughttwin-toggle')?.addEventListener('change', (e) => {
+    localStorage.setItem('isc:disable-thoughttwin', String(!e.target.checked));
+    showInlineSaved(e.target.closest('.toggle-row'));
+    toasts.info(e.target.checked ? 'ThoughtTwin suggestions enabled' : 'ThoughtTwin suggestions disabled');
+  });
+
+  container.querySelector('#chaos-slider')?.addEventListener('input', (e) => {
+    const valueEl = container.querySelector('#chaos-value');
+    if (valueEl) valueEl.textContent = `${e.target.value}%`;
+    localStorage.setItem('isc:chaos-level', e.target.value);
+    document.dispatchEvent(new CustomEvent('isc:toggle-chaos', { detail: { level: parseInt(e.target.value, 10) } }));
+  });
 
   // Discovery settings
   container.querySelector('#similarity-threshold')?.addEventListener('input', (e) => {
@@ -409,10 +566,6 @@ export function bind(container) {
     });
   });
 
-  container.querySelector('#save-preferences')?.addEventListener('click', () => {
-    toasts.success('Preferences saved!');
-  });
-
   // Request browser notification permission when the toggle is first enabled
   container.querySelector('#notifications-toggle')?.addEventListener('change', async (e) => {
     if (!e.target.checked || !('Notification' in window)) return;
@@ -450,18 +603,81 @@ export function bind(container) {
       return;
     }
 
-    // Edit channel - navigate to compose screen with edit param
+    // Edit channel - open modal
     const editBtn = e.target.closest('.edit-channel-btn');
     if (editBtn) {
-      window.location.hash = `#/compose?edit=${editBtn.dataset.channelId}`;
+      const channel = channelService.getById(editBtn.dataset.channelId);
+      if (channel) showEditModal(channel);
+    }
+  });
+
+  // I4: Share & Invite handlers
+  container.querySelector('#copy-invite-btn')?.addEventListener('click', async () => {
+    const inviteLink = container.querySelector('.invite-link')?.textContent.trim();
+    if (!inviteLink || inviteLink.includes('Generate')) {
+      toasts.error('No invite link available');
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(inviteLink);
+      toasts.success('Invite link copied!');
+    } catch {
+      toasts.error('Could not copy to clipboard');
+    }
+  });
+
+  container.querySelector('.share-buttons')?.addEventListener('click', (e) => {
+    const btn = e.target.closest('.share-btn');
+    if (!btn) return;
+
+    const identity = identityService.getIdentity();
+    const peerId = identity?.peerId ?? identity?.pubkey;
+    if (!peerId) {
+      toasts.error('Identity not ready');
+      return;
+    }
+
+    const inviteUrl = `${window.location.origin}/#/join?peer=${encodeURIComponent(peerId)}`;
+    const text = encodeURIComponent(`Join me on ISC! Connect directly: ${inviteUrl}`);
+
+    const shareUrls = {
+      twitter: `https://twitter.com/intent/tweet?text=${text}`,
+      mastodon: `https://mastodon.social/share?text=${text}`,
+      email: `mailto:?subject=Join%20me%20on%20ISC&body=${text}`,
+    };
+
+    const url = shareUrls[btn.dataset.share];
+    if (url) {
+      window.open(url, '_blank', 'noopener,noreferrer');
+    }
+  });
+
+  // J1: Unblock peer handler
+  container.querySelector('.blocked-peers-list')?.addEventListener('click', (e) => {
+    const unblockBtn = e.target.closest('.unblock-btn');
+    if (unblockBtn) {
+      const peerId = unblockBtn.dataset.peerId;
+      moderationService.unblock(peerId);
+      toasts.success('Peer unblocked');
+      // Re-render to update the list
+      setTimeout(() => {
+        const body = container.querySelector('[data-testid="settings-content"]');
+        if (body) body.innerHTML = render();
+        bind(container);
+      }, 100);
     }
   });
 
   // Clear all data
   container.querySelector('#clear-data')?.addEventListener('click', async () => {
     const ok = await modals.confirm(
-      'Delete ALL channels, posts, matches, settings, and identity? This cannot be undone.',
-      { title: '⚠️ Clear All Data', confirmText: 'Delete Everything', danger: true }
+      'This removes all your channels, posts, conversations, settings, and identity ' +
+      'from this browser. It cannot be undone. Consider exporting your identity first.',
+      {
+        title: 'Clear All Local Data',
+        confirmText: 'Clear Everything',
+        danger: true,
+      }
     );
     if (!ok) return;
     localStorage.clear();
@@ -476,11 +692,16 @@ export function bind(container) {
 
   // J3: Reset Identity
   container.querySelector('#reset-identity-btn')?.addEventListener('click', async () => {
-    const ok = await modals.confirm('Clear your identity? You will get a new one on next launch.', {
-      title: '🚪 Reset Identity',
-      confirmText: 'Reset',
-      danger: true,
-    });
+    const ok = await modals.confirm(
+      'This generates a brand-new cryptographic identity on next launch. ' +
+      'Your channels and conversations will be lost unless you export first.',
+      {
+        title: 'Reset Identity',
+        confirmText: 'Reset',
+        cancelText: 'Cancel',
+        danger: true,
+      }
+    );
     if (!ok) return;
     try {
       await identityService.clear();
@@ -507,3 +728,9 @@ export function update(container) {
   const newSection = tmp.firstElementChild;
   if (newSection) section.replaceWith(newSection);
 }
+
+export function destroy() {
+  // No cleanup needed for settings screen
+}
+
+export default createScreen({ render, bind, update, destroy });

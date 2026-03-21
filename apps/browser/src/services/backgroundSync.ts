@@ -191,6 +191,12 @@ export class BackgroundSyncManager {
     return this.connected;
   }
 
+  // K1: Request state sync from background worker
+  requestStateSync(): void {
+    if (!this.port || !this.connected) return;
+    this.port.postMessage({ type: 'REQUEST_STATE_SYNC', tabId: this.tabId });
+  }
+
   private emit(topic: string, data: unknown): void {
     this.listeners.get(topic)?.forEach((callback) => callback(data));
   }

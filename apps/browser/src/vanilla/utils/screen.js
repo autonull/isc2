@@ -105,14 +105,14 @@ export function renderLoading(message = 'Loading...') {
  * @returns {string}
  */
 export function renderError(message, { retryLabel = 'Retry', onRetry } = {}) {
-  const retryAttr = onRetry ? `onclick="${onRetry.toString()}"` : '';
   return `
     <div class="empty-state" data-testid="error-state">
       <div class="empty-state-icon">⚠️</div>
-      <div class="empty-state-title">Error</div>
+      <div class="empty-state-title">Something went wrong</div>
       <div class="empty-state-description">${escapeHtml(message)}</div>
       ${onRetry ? `
-        <button class="btn btn-primary mt-4" ${retryAttr}>${escapeHtml(retryLabel)}</button>
+        <button class="btn btn-primary mt-4" data-action="retry"
+                data-testid="retry-btn">${escapeHtml(retryLabel)}</button>
       ` : ''}
     </div>
   `;
