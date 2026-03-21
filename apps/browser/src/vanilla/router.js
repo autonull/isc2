@@ -42,15 +42,17 @@ export function createRouter(screens, defaultRoute, mainContent, sidebar) {
   }
 
   function parseRoute() {
-    const hash = window.location.hash.replace('#', '').trim();
-    if (hash && !screens[hash] && import.meta.env?.DEV !== false) {
-      console.warn(`[Router] Unknown route: ${hash}, falling back to ${defaultRoute}`);
+    const full = window.location.hash.replace('#', '').trim();
+    const [path, query] = full.split('?');
+    const params = query ? Object.fromEntries(new URLSearchParams(query)) : {};
+    if (path && !screens[path] && import.meta.env?.DEV !== false) {
+      console.warn(`[Router] Unknown route: ${path}, falling back to ${defaultRoute}`);
     }
-    return screens[hash] ? hash : defaultRoute;
+    return { route: screens[path] ? path : defaultRoute, params };
   }
 
   function handleHashChange() {
-    const route = parseRoute();
+    const { route } = parseRoute();
     if (route !== currentRoute) renderRoute(route);
   }
 
@@ -67,7 +69,8 @@ export function createRouter(screens, defaultRoute, mainContent, sidebar) {
     return currentRoute;
   }
 
-  function renderRoute(route) {
+  function renderRoute(routePath) {
+    const { route, params } = typeof routePath === 'object' ? routePath : { route: routePath, params: {} };
     if (!screens[route]) route = defaultRoute;
     currentRoute = route;
 
@@ -84,8 +87,8 @@ export function createRouter(screens, defaultRoute, mainContent, sidebar) {
     }
 
     try {
-      mainContent.innerHTML = screen.render();
-      screen.bind?.(mainContent);
+      mainContent.innerHTML = screen.render(params);
+      screen.bind?.(mainContent, params);
       currentScreen = screen;
     } catch (err) {
       logger.error(`[Router] Screen render error (${route}):`, err.message);
@@ -222,14 +225,19 @@ export function setupEventHandlers({ onNavigate, mainContent, services }) {
     if (!post) return;
 
     onNavigate('/now');
-    setTimeout(() => {
-      const input = mainContent?.querySelector('[data-testid="compose-input"]');
-      if (!input) return;
-      const snippet = (post.content || '').slice(0, 80);
-      input.value = `> ${snippet}${post.content?.length > 80 ? '…' : ''}\n\n`;
-      input.dispatchEvent(new Event('input'));
-      input.focus();
-    }, 100);
+    const snippet = (post.content || '').slice(0, 80);
+    const quoteText = `> ${snippet}${post.content?.length > 80 ? '…' : ''}\n\n`;
+
+    // Use rAF chain to ensure DOM is ready after navigation
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        const input = mainContent?.querySelector('[data-testid="compose-input"]');
+        if (!input) return;
+        input.value = quoteText;
+        input.dispatchEvent(new Event('input'));
+        input.focus();
+      });
+    });
   });
 
   document.addEventListener('isc:discover-peers', async () => {
@@ -293,11 +301,6 @@ export function setupKeyboardShortcuts({ onNavigate, onToggleDebug, mainContent,
         const href = focused.getAttribute('href');
         if (href) window.location.hash = href;
       }
-    }
-
-    if (e.key === 'n' && mod && !inInput) {
-      e.preventDefault();
-      onNavigate('/compose');
     }
 
     if (e.key === ' ' && mod && !inInput) {

@@ -18,16 +18,18 @@ const CONTEXT_TAGS = [
   { key: 'causal',    label: '⚡ Causal',     hint: 'A cause→effect relationship in your thoughts' },
 ];
 
-export function render() {
+export function render(params = {}) {
   const netStatus = networkService.getStatus();
   const connected = netStatus?.connected ?? false;
+  const editChannel = params?.edit ? channelService.getById(params.edit) : null;
+  const isEdit = !!editChannel;
 
   return `
     <div class="screen compose-screen" data-testid="compose-screen">
       <div class="screen-header" data-testid="compose-header">
         <button class="btn btn-ghost btn-sm" id="compose-cancel" data-testid="compose-cancel" aria-label="Cancel">← Cancel</button>
-        <h1 class="screen-title">✏️ New Channel</h1>
-        <button class="btn btn-primary btn-sm" id="compose-save" data-testid="compose-save" disabled aria-label="Save channel">Save</button>
+        <h1 class="screen-title">${isEdit ? 'Edit Channel' : 'New Channel'}</h1>
+        <div class="header-spacer"></div>
       </div>
 
       <div class="screen-body" data-testid="compose-body">
@@ -37,9 +39,9 @@ export function render() {
             : `○ ${escapeHtml(netStatus?.status ?? 'Offline')} — channel saved locally, will sync on reconnect`}
         </div>
 
-        <div id="compose-error" class="info-banner error mb-4" style="display:none" data-testid="compose-error" role="alert"></div>
-        <div id="compose-success" class="info-banner sync mb-4" style="display:none" data-testid="channel-created">
-          ✅ Channel created! Generating your semantic vector…
+        <div id="compose-error" class="info-banner error mb-4 hidden" data-testid="compose-error" role="alert"></div>
+        <div id="compose-success" class="info-banner sync mb-4 hidden" data-testid="channel-created">
+          ✅ ${isEdit ? 'Channel updated!' : 'Channel created!'} Generating your semantic vector…
         </div>
 
         <div class="card" data-testid="compose-name-card">
@@ -47,10 +49,11 @@ export function render() {
           <input type="text" id="compose-name" class="form-input"
                  placeholder="What are you thinking about?"
                  name="name" maxlength="50" autocomplete="off" spellcheck="true"
-                 data-testid="compose-name-input" aria-label="Channel name" aria-required="true" />
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px">
+                 data-testid="compose-name-input" aria-label="Channel name" aria-required="true"
+                 value="${escapeHtml(editChannel?.name ?? '')}" />
+          <div class="form-field-footer">
             <span class="form-hint">Give your thought a name (3–50 characters)</span>
-            <span class="form-count" id="name-count">0 / 50</span>
+            <span class="form-count" id="name-count">${(editChannel?.name?.length ?? 0)} / 50</span>
           </div>
         </div>
 
@@ -63,10 +66,10 @@ export function render() {
           <textarea id="compose-description" class="form-textarea"
                     placeholder="Describe what you're thinking about in detail — your perspective, questions, ideas. Use your own words."
                     name="description" maxlength="500" autocomplete="off" rows="5"
-                    data-testid="compose-description-input" aria-label="Channel description" aria-required="true"></textarea>
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px">
+                    data-testid="compose-description-input" aria-label="Channel description" aria-required="true">${escapeHtml(editChannel?.description ?? '')}</textarea>
+          <div class="form-field-footer">
             <span class="form-hint">Minimum 10 characters for meaningful matching</span>
-            <span class="form-count" id="desc-count">0 / 500</span>
+            <span class="form-count" id="desc-count">${(editChannel?.description?.length ?? 0)} / 500</span>
           </div>
         </div>
 
@@ -76,15 +79,15 @@ export function render() {
             How broad should your semantic neighborhood be?
           </div>
           <input type="range" id="compose-spread" class="form-range"
-                 min="0" max="100" value="30"
+                 min="0" max="100" value="${editChannel?.spread != null ? Math.round(editChannel.spread * 100) : 30}"
                  data-testid="compose-spread-slider" aria-label="Match specificity" />
           <div class="spread-labels">
             <div class="spread-label-row">
               <span>🎯 Precise</span>
-              <span class="spread-value" id="spread-value">30%</span>
+              <span class="spread-value" id="spread-value">${editChannel?.spread != null ? Math.round(editChannel.spread * 100) : 30}%</span>
               <span>🌊 Exploratory</span>
             </div>
-            <div class="spread-desc" id="spread-desc">Near-exact matches only — finds people with very similar language</div>
+            <div class="spread-desc" id="spread-desc">${editChannel?.spread != null ? spreadDesc(Math.round(editChannel.spread * 100)) : spreadDesc(30)}</div>
           </div>
         </div>
 
@@ -108,13 +111,20 @@ export function render() {
         </div>
 
         <div class="card card-blue">
-          <div class="card-title" style="color:var(--c-brand)">💡 Tips for Better Matching</div>
+          <div class="card-title text-brand">💡 Tips for Better Matching</div>
           <ul class="tips-list">
             <li>Write in complete sentences — LLMs understand grammar and nuance</li>
             <li>Include your perspective, not just the topic</li>
             <li>Specificity wins: "WebAssembly SIMD optimization" beats just "WebAssembly"</li>
             <li>Your words don't have to match other people's words — that's the point</li>
           </ul>
+        </div>
+
+        <div class="compose-submit-area">
+          <button class="btn btn-primary btn-full" id="compose-save-bottom"
+                  data-testid="compose-save-bottom" disabled aria-label="${isEdit ? 'Update channel' : 'Create channel'}">
+            ${isEdit ? 'Update Channel' : 'Create Channel'}
+          </button>
         </div>
       </div>
     </div>
@@ -133,11 +143,14 @@ function spreadDesc(v) {
   return SPREAD_DESCS.find(([lo, hi]) => v >= lo && v <= hi)?.[2] ?? '';
 }
 
-export function bind(container) {
+export function bind(container, params = {}) {
+  const editChannelId = params?.edit ?? null;
+  const isEdit = !!editChannelId;
+
   const nameInput  = container.querySelector('#compose-name');
   const descInput  = container.querySelector('#compose-description');
   const spreadInput = container.querySelector('#compose-spread');
-  const saveBtn    = container.querySelector('#compose-save');
+  const saveBtn    = container.querySelector('#compose-save-bottom');
   const cancelBtn  = container.querySelector('#compose-cancel');
   const nameCount  = container.querySelector('#name-count');
   const descCount  = container.querySelector('#desc-count');
@@ -167,8 +180,6 @@ export function bind(container) {
     if (spreadVal) spreadVal.textContent = `${v}%`;
     if (spreadDescEl) spreadDescEl.textContent = spreadDesc(v);
   });
-  // Set initial spread description
-  if (spreadDescEl) spreadDescEl.textContent = spreadDesc(parseInt(spreadInput?.value ?? '30', 10));
 
   // Context tag toggles with inline input
   const contextInputArea = container.querySelector('#context-input-area');
@@ -181,7 +192,14 @@ export function bind(container) {
     renderContextInputs(container, contextInputArea);
   });
 
-  cancelBtn?.addEventListener('click', () => { window.location.hash = '#/now'; });
+  // I2: Cancel uses history navigation
+  cancelBtn?.addEventListener('click', () => {
+    if (history.length > 1) {
+      history.back();
+    } else {
+      window.location.hash = '#/now';
+    }
+  });
 
   saveBtn?.addEventListener('click', async () => {
     const name   = nameInput?.value.trim();
@@ -202,16 +220,37 @@ export function bind(container) {
     saveBtn.textContent = '…';
 
     try {
-      await channelService.create(name, desc, spread, selectedTags);
-      toasts.success(`Channel "#${name}" created!`);
+      if (isEdit && editChannelId) {
+        // I4: Edit mode - update existing channel
+        await channelService.update(editChannelId, { name, description: desc, spread });
+        toasts.success(`Channel "#${name}" updated!`);
+      } else {
+        // I3: Post-save navigation waits for embedding
+        await channelService.create(name, desc, spread, selectedTags);
+        toasts.success(`Channel "#${name}" created!`);
+      }
       if (successDiv) successDiv.style.display = 'flex';
-      setTimeout(() => { window.location.hash = '#/now'; }, 1200);
+
+      // Poll for embedding readiness before navigating (max 8 seconds)
+      let embeddingPollInterval = null;
+      let pollAttempts = 0;
+      const navigate = () => { window.location.hash = '#/now'; };
+
+      embeddingPollInterval = setInterval(() => {
+        pollAttempts++;
+        const svc = networkService.service?.getEmbeddingService?.();
+        const ready = svc ? svc.isLoaded?.() ?? true : true;
+        if (ready || pollAttempts >= 32) {
+          clearInterval(embeddingPollInterval);
+          navigate();
+        }
+      }, 250);
     } catch (err) {
-      const msg = err.message || 'Failed to create channel';
+      const msg = err.message || 'Failed to save channel';
       if (errorDiv) { errorDiv.textContent = `⚠️ ${msg}`; errorDiv.style.display = 'flex'; }
       toasts.error(msg);
       saveBtn.disabled = false;
-      saveBtn.textContent = 'Save';
+      saveBtn.textContent = isEdit ? 'Update Channel' : 'Create Channel';
     }
   });
 

@@ -7,7 +7,8 @@
 import { channelSettingsService, getSpecificityLabel } from '../../services/channelSettings.js';
 import { channelService, networkService } from '../../services/index.js';
 import { toasts } from '../../utils/toast.js';
-import { escapeHtml } from '../../utils/dom.js';
+import { escapeHtml } from '../utils/dom.js';
+import { isMobile } from '../utils/dom.js';
 import { getMultilingualService } from '../../services/multilingual.ts';
 import { getState, actions } from '../../state.js';
 import { modals } from './modal.js';
@@ -63,7 +64,10 @@ export function renderMixerPanel(activeChannel) {
   const { specificity, viewMode, isMuted, panelsExpanded, filters, minSimilarity, sortOrder } =
     settings;
   const specificityLabel = getSpecificityLabel(specificity);
-  const isExpanded = panelsExpanded.mixerExpanded;
+  // Default to collapsed on mobile, expanded on desktop
+  const isExpanded = isMobile()
+    ? (panelsExpanded.mixerExpanded ?? false)
+    : (panelsExpanded.mixerExpanded ?? true);
   const isLurker = activeChannel.isLurker ?? false;
 
   return `

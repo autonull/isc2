@@ -9,19 +9,23 @@ import { networkService } from '../../services/network.ts';
 import { toasts } from '../../utils/toast.js';
 import { modals } from '../components/modal.js';
 import { escapeHtml } from '../utils/dom.js';
-import { renderEmpty, bindDelegate } from '../utils/screen.js';
+import { renderEmpty, bindDelegate, renderLoading } from '../utils/screen.js';
 import { getBridgeMomentCandidates, markPeerContacted } from '../../services/peerProximity.ts';
 import { convergenceService } from '../../services/convergence.ts';
 
 let bridgeCandidates = [];
 let convergenceEvent = null;
 let noMatchesBannerEl = null;
+let autoDiscovered = false;
+let activeCallout = null;
+
+const CALLOUT_PRIORITY = ['need-channels', 'no-matches', 'convergence', 'bridge'];
 
 const SIMILARITY_TIERS = [
-  { key: 'very-close', label: '🔥 Very Close', desc: '85%+', min: 0.85 },
-  { key: 'nearby', label: '✨ Nearby', desc: '70–85%', min: 0.7, max: 0.85 },
-  { key: 'orbiting', label: '🌀 Orbiting', desc: '55–70%', min: 0.55, max: 0.7 },
-  { key: 'distant', label: '🌌 Distant', desc: '<55%', max: 0.55 },
+  { key: 'strong', label: '🔥 Strong match', desc: '85%+', min: 0.85 },
+  { key: 'good', label: '✨ Good match', desc: '70–85%', min: 0.70, max: 0.85 },
+  { key: 'partial', label: '🌀 Partial match', desc: '55–70%', min: 0.55, max: 0.70 },
+  { key: 'weak', label: '🌌 Weak match', desc: '<55%', max: 0.55 },
 ];
 
 export function render() {
@@ -59,6 +63,26 @@ function showNoMatchesBanner(container) {
 function dismissNoMatchesBanner() {
   noMatchesBannerEl?.remove();
   noMatchesBannerEl = null;
+}
+
+function showCallout(container, type, content) {
+  const currentPrio = CALLOUT_PRIORITY.indexOf(activeCallout);
+  const newPrio = CALLOUT_PRIORITY.indexOf(type);
+  if (activeCallout && newPrio > currentPrio) return;
+
+  dismissCallout(container);
+  activeCallout = type;
+
+  const el = document.createElement('div');
+  el.className = 'discover-callout';
+  el.setAttribute('data-callout-type', type);
+  el.innerHTML = content;
+  container.querySelector('#discover-content')?.before(el);
+}
+
+function dismissCallout(container) {
+  container.querySelector('.discover-callout')?.remove();
+  activeCallout = null;
 }
 
 async function loadBridgeMomentBanner(container) {
@@ -240,7 +264,7 @@ function renderHeader(connected, statusLabel) {
 function renderNeedChannels() {
   return `
     <div class="info-banner warning mb-4" data-testid="need-channels-banner">
-      ✏️ <strong>Create a channel first</strong> — Discovery uses your channel descriptions to find similar peers.
+      ✏️ <strong>You need a channel before discovering peers.</strong> Your channel describes what you're thinking about — ISC finds others thinking similarly.
       <a href="#/compose" class="btn btn-primary btn-sm" style="margin-left:8px">Create Channel</a>
     </div>
   `;
@@ -250,7 +274,7 @@ function renderEmptyState(connected, channels) {
   const description = !connected
     ? 'Connect to the P2P network to start finding thought neighbors.'
     : !channels.length
-      ? 'Create a channel first — your channel description is your semantic fingerprint.'
+      ? 'You need a channel before discovering peers — your channel description is your semantic fingerprint.'
       : 'Click Discover to query the DHT for peers with similar embeddings.';
 
   const action =
@@ -266,15 +290,18 @@ function renderEmptyState(connected, channels) {
       actions: action,
     })}
 
-    <div class="card card-blue mt-4">
-      <div class="card-title">🎯 How Semantic Discovery Works</div>
-      <div class="discovery-explainer">
-        ${renderExplainerStep('🧠', 'Local embedding', 'Your browser runs a tiny LLM to convert your channel description into a 384-dimensional vector. Your text stays on your device.')}
-        ${renderExplainerStep('🗺️', 'LSH + DHT lookup', 'Locality-sensitive hashing maps your vector to DHT keys. Peers near you in semantic space have similar hashes.')}
-        ${renderExplainerStep('📐', 'Cosine similarity ranking', 'Candidates are ranked by cosine similarity to your vector. 85%+ = very close thinkers. 55-70% = adjacent ideas.')}
-        ${renderExplainerStep('🔒', 'Direct P2P connection', 'Click Connect to open an E2E encrypted WebRTC channel. No server sees your messages.')}
+    <details class="explainer-details mt-4">
+      <summary class="explainer-summary">How does semantic discovery work?</summary>
+      <div class="card card-blue mt-2">
+        <div class="card-title">🎯 How Semantic Discovery Works</div>
+        <div class="discovery-explainer">
+          ${renderExplainerStep('🧠', 'Local embedding', 'Your browser runs a tiny LLM to convert your channel description into a 384-dimensional vector. Your text stays on your device.')}
+          ${renderExplainerStep('🗺️', 'LSH + DHT lookup', 'Locality-sensitive hashing maps your vector to DHT keys. Peers near you in semantic space have similar hashes.')}
+          ${renderExplainerStep('📐', 'Cosine similarity ranking', 'Candidates are ranked by cosine similarity to your vector. 85%+ = very close thinkers. 55-70% = adjacent ideas.')}
+          ${renderExplainerStep('🔒', 'Direct P2P connection', 'Click Chat to open an E2E encrypted WebRTC channel. No server sees your messages.')}
+        </div>
       </div>
-    </div>
+    </details>
   `;
 }
 
@@ -364,13 +391,11 @@ function renderMatchCard(match) {
       }
 
       <div class="match-actions">
-        <button class="btn btn-success btn-sm" data-connect-btn data-peer-id="${escapeHtml(id)}" data-peer-name="${escapeHtml(name)}"
-                data-testid="connect-btn-${escapeHtml(id)}" aria-label="Connect with ${escapeHtml(name)}">
-          🔗 Connect
-        </button>
-        <button class="btn btn-secondary btn-sm" data-message-btn data-peer-id="${escapeHtml(id)}"
-                data-testid="message-btn-${escapeHtml(id)}" aria-label="Message ${escapeHtml(name)}">
-          💬 Message
+        <button class="btn btn-primary btn-sm" data-chat-btn
+                data-peer-id="${escapeHtml(id)}" data-peer-name="${escapeHtml(name)}"
+                data-testid="chat-btn-${escapeHtml(id)}"
+                aria-label="Chat with ${escapeHtml(name)}">
+          💬 Chat
         </button>
       </div>
     </div>
@@ -381,6 +406,18 @@ export function bind(container) {
   // Load and render Bridge Moment candidates
   loadBridgeMomentBanner(container);
   loadConvergenceBanner(container);
+
+  // G1: Auto-discover once per session if conditions are met
+  const { channels } = channelService.getAll();
+  const connected = networkService.getStatus()?.connected ?? false;
+  const matches = discoveryService.getMatches();
+
+  if (!autoDiscovered && connected && channels.length > 0 && matches.length === 0) {
+    autoDiscovered = true;
+    const content = container.querySelector('#discover-content');
+    if (content) content.innerHTML = renderLoading('Searching for thought neighbors…');
+    doDiscover();
+  }
 
   const doDiscover = async () => {
     const btns = container.querySelectorAll(
@@ -420,43 +457,25 @@ export function bind(container) {
   container.querySelector('#discover-btn-refresh')?.addEventListener('click', doDiscover);
 
   container.addEventListener('click', async (e) => {
-    const connectBtn = e.target.closest('[data-connect-btn]');
-    const messageBtn = e.target.closest('[data-message-btn]');
+    const chatBtn = e.target.closest('[data-chat-btn]');
 
-    if (connectBtn) {
-      const { peerId, peerName } = connectBtn.dataset;
-      const ok = await modals.confirm(`Connect with ${peerName || 'this peer'}?`, {
-        title: '🔗 Connect',
-        confirmText: 'Connect',
-      });
-      if (ok) {
-        connectBtn.disabled = true;
-        connectBtn.textContent = '⏳ Connecting…';
-        try {
-          await discoveryService.connect(peerId);
-          await Promise.all([
-            markPeerContacted(peerId).catch(() => {}),
-            Promise.resolve(convergenceService.markPeerContacted(peerId)),
-          ]);
-          toasts.success(`Connected with ${peerName || 'peer'}!`);
-          connectBtn.textContent = '✓ Connected';
-          connectBtn.className = 'btn btn-secondary btn-sm';
-        } catch (err) {
-          toasts.error(`Connection failed: ${err.message}`);
-          connectBtn.disabled = false;
-          connectBtn.textContent = '🔗 Connect';
-          connectBtn.className = 'btn btn-success btn-sm';
-        }
+    if (chatBtn) {
+      const { peerId, peerName } = chatBtn.dataset;
+      chatBtn.disabled = true;
+      chatBtn.textContent = 'Connecting…';
+
+      try {
+        await discoveryService.connect(peerId);
+        await markPeerContacted(peerId).catch(() => {});
+        window.location.hash = '#/chats';
+        setTimeout(() =>
+          document.dispatchEvent(new CustomEvent('isc:start-chat', { detail: { peerId } }))
+        , 100);
+      } catch (err) {
+        toasts.error(`Could not connect: ${err.message}`);
+        chatBtn.disabled = false;
+        chatBtn.textContent = '💬 Chat';
       }
-    }
-
-    if (messageBtn) {
-      window.location.hash = '#/chats';
-      setTimeout(() => {
-        document.dispatchEvent(
-          new CustomEvent('isc:start-chat', { detail: { peerId: messageBtn.dataset.peerId } })
-        );
-      }, 100);
     }
   });
 }

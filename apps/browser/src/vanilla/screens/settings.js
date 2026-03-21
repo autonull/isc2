@@ -95,9 +95,9 @@ function renderIdentity(identity) {
       </div>
       <div class="form-actions">
         <button class="btn btn-secondary" id="export-identity" data-testid="export-identity">📥 Export</button>
-        <label class="btn btn-secondary" style="cursor:pointer" data-testid="import-identity-label">
+        <label class="btn btn-secondary btn-import" data-testid="import-identity-label">
           📤 Import
-          <input type="file" id="import-identity-file" accept=".json" style="display:none" data-testid="import-identity-input" />
+          <input type="file" id="import-identity-file" accept=".json" class="hidden-input" data-testid="import-identity-input" />
         </label>
       </div>
 
@@ -141,8 +141,6 @@ function renderDiscovery(settings) {
                data-testid="similarity-threshold-slider" />
         <div class="form-hint">Minimum similarity to show as a match</div>
       </div>
-
-      <button class="btn btn-primary" id="save-discovery" data-testid="save-discovery-btn">Save Discovery Settings</button>
     </section>
   `;
 }
@@ -204,18 +202,22 @@ function renderAppearance(settings) {
 function renderChannels(channels) {
   return `
     <section class="settings-section" data-testid="channels-section">
-      <div class="section-title">📢 Your Channels (${channels.length})</div>
+      <div class="section-title">📢 My Channels (${channels.length})</div>
       ${
         channels.length === 0
-          ? '<div class="text-muted" style="font-size:13px">No channels created yet.</div>'
+          ? '<div class="text-muted text-sm">No channels created yet.</div>'
           : `<div data-testid="channels-list">
             ${channels
               .map(
                 (ch) => `
               <div class="toggle-row" data-channel-id="${escapeHtml(ch.id)}">
-                <span class="toggle-label-text" style="font-family:var(--font-mono)">#${escapeHtml(ch.name)}</span>
-                <button class="btn btn-danger btn-sm delete-channel-btn" data-channel-id="${escapeHtml(ch.id)}"
-                        data-testid="delete-channel-${escapeHtml(ch.id)}">Delete</button>
+                <span class="toggle-label-text font-mono">#${escapeHtml(ch.name)}</span>
+                <div class="flex-row gap-2">
+                  <button class="btn btn-secondary btn-sm edit-channel-btn" data-channel-id="${escapeHtml(ch.id)}"
+                          data-testid="edit-channel-${escapeHtml(ch.id)}">Edit</button>
+                  <button class="btn btn-danger btn-sm delete-channel-btn" data-channel-id="${escapeHtml(ch.id)}"
+                          data-testid="delete-channel-${escapeHtml(ch.id)}">Delete</button>
+                </div>
               </div>
             `
               )
@@ -233,7 +235,7 @@ function renderDangerZone() {
       <div class="section-description">These actions are irreversible and will delete your data.</div>
       <div class="form-actions">
         <button class="btn btn-danger" id="clear-data" data-testid="clear-data-btn">🗑️ Clear All Data</button>
-        <button class="btn btn-danger" id="logout-btn" data-testid="logout-btn">🚪 Logout</button>
+        <button class="btn btn-danger" id="reset-identity-btn" data-testid="reset-identity-btn">🚪 Reset Identity</button>
       </div>
     </section>
   `;
@@ -243,22 +245,28 @@ function renderAbout() {
   return `
     <section class="settings-section card-blue" data-testid="about-section">
       <div class="section-title text-brand">ℹ️ About ISC</div>
-      <div style="font-size:13px;color:var(--c-text-dim);line-height:2">
+      <div class="about-text">
         <div><strong>ISC</strong> — Internet Semantic Chat</div>
         <div>Version 1.0.0 · Phase 1</div>
-        <div style="margin-top:8px;font-size:12px;line-height:1.7;color:var(--c-text-muted)">
+        <div class="about-description">
           Fully decentralized P2P platform. No accounts. No central servers.<br>
           Your thoughts are embedded locally by a tiny LLM running in your browser.<br>
           Only vectors — never raw text — are announced to the P2P network.
         </div>
       </div>
       <div class="about-links mt-4">
-        <a href="https://github.com/isc2" target="_blank" rel="noopener" class="about-link">GitHub</a>
-        <span class="text-muted">·</span>
-        <span class="about-link" style="cursor:default" title="libp2p + Kademlia DHT + WebRTC">Stack: libp2p · kad-dht · WebRTC · Transformers.js</span>
+        <span class="about-link" title="libp2p + Kademlia DHT + WebRTC">Stack: libp2p · kad-dht · WebRTC · Transformers.js</span>
       </div>
     </section>
   `;
+}
+
+function showInlineSaved(nearEl) {
+  const msg = document.createElement('span');
+  msg.className = 'inline-saved-msg';
+  msg.textContent = '✓ Saved';
+  nearEl?.after(msg);
+  setTimeout(() => msg.remove(), 1500);
 }
 
 function applyTheme(theme) {
@@ -358,17 +366,21 @@ export function bind(container) {
     if (v) v.textContent = e.target.value;
   });
 
-  container.querySelector('#save-discovery')?.addEventListener('click', () => {
-    settingsService.set({
-      autoDiscover: container.querySelector('#auto-discover')?.checked ?? true,
-      discoverInterval: parseInt(
-        container.querySelector('#discover-interval')?.value ?? '30000',
-        10
-      ),
-      similarityThreshold:
-        parseInt(container.querySelector('#similarity-threshold')?.value ?? '30', 10) / 100,
-    });
-    toasts.success('Discovery settings saved!');
+  // J1: Live-save discovery settings
+  container.querySelector('#auto-discover')?.addEventListener('change', (e) => {
+    settingsService.set({ autoDiscover: e.target.checked });
+    showInlineSaved(e.target);
+  });
+
+  container.querySelector('#discover-interval')?.addEventListener('change', (e) => {
+    settingsService.set({ discoverInterval: parseInt(e.target.value, 10) });
+    showInlineSaved(e.target);
+  });
+
+  container.querySelector('#similarity-threshold')?.addEventListener('input', (e) => {
+    const v = container.querySelector('#sim-value');
+    if (v) v.textContent = e.target.value;
+    settingsService.set({ similarityThreshold: parseInt(e.target.value, 10) / 100 });
   });
 
   // Preference toggles (live-save)
@@ -392,6 +404,7 @@ export function bind(container) {
         const value = e.target.type === 'checkbox' ? e.target.checked : e.target.value;
         settingsService.set({ [key]: value });
         if (key === 'theme') applyTheme(value);
+        showInlineSaved(e.target);
       }
     });
   });
@@ -419,20 +432,28 @@ export function bind(container) {
   // Delete channel
   container.addEventListener('click', async (e) => {
     const deleteBtn = e.target.closest('.delete-channel-btn');
-    if (!deleteBtn) return;
-    const chId = deleteBtn.dataset.channelId;
-    const ok = await modals.confirm('Delete this channel? This cannot be undone.', {
-      title: '🗑️ Delete Channel',
-      confirmText: 'Delete',
-      danger: true,
-    });
-    if (!ok) return;
-    try {
-      await channelService.delete(chId);
-      toasts.success('Channel deleted');
-      deleteBtn.closest('[data-channel-id]')?.remove();
-    } catch (err) {
-      toasts.error(err.message);
+    if (deleteBtn) {
+      const chId = deleteBtn.dataset.channelId;
+      const ok = await modals.confirm('Delete this channel? This cannot be undone.', {
+        title: '🗑️ Delete Channel',
+        confirmText: 'Delete',
+        danger: true,
+      });
+      if (!ok) return;
+      try {
+        await channelService.delete(chId);
+        toasts.success('Channel deleted');
+        deleteBtn.closest('[data-channel-id]')?.remove();
+      } catch (err) {
+        toasts.error(err.message);
+      }
+      return;
+    }
+
+    // Edit channel - navigate to compose screen with edit param
+    const editBtn = e.target.closest('.edit-channel-btn');
+    if (editBtn) {
+      window.location.hash = `#/compose?edit=${editBtn.dataset.channelId}`;
     }
   });
 
@@ -453,17 +474,17 @@ export function bind(container) {
     setTimeout(() => location.reload(), 1500);
   });
 
-  // Logout
-  container.querySelector('#logout-btn')?.addEventListener('click', async () => {
+  // J3: Reset Identity
+  container.querySelector('#reset-identity-btn')?.addEventListener('click', async () => {
     const ok = await modals.confirm('Clear your identity? You will get a new one on next launch.', {
-      title: '🚪 Logout',
-      confirmText: 'Logout',
+      title: '🚪 Reset Identity',
+      confirmText: 'Reset',
       danger: true,
     });
     if (!ok) return;
     try {
       await identityService.clear();
-      toasts.success('Logged out. Reloading…');
+      toasts.success('Identity reset. Reloading…');
       setTimeout(() => location.reload(), 1500);
     } catch (err) {
       toasts.error(err.message);

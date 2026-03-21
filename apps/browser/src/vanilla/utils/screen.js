@@ -64,7 +64,7 @@ export function createScreen({ render: renderFn, bind, update, destroy }) {
 export function renderHeader({ title, subtitle, actions }) {
   return `
     <div class="screen-header">
-      <div style="display:flex;align-items:center;gap:12px;min-width:0">
+      <div class="flex-row gap-3 min-w-0">
         <h1 class="screen-title">${escapeHtml(title)}</h1>
         ${subtitle ? `<span class="screen-subtitle">${escapeHtml(subtitle)}</span>` : ''}
       </div>

@@ -6,6 +6,7 @@
 
 import { el, isMobile } from './utils/dom.js';
 import { createSidebar } from './components/sidebar.js';
+import { createChannelDrawer } from './components/channelDrawer.js';
 import { modals } from './components/modal.js';
 import { toasts } from '../utils/toast.js';
 
@@ -58,6 +59,8 @@ export function buildLayout(container, { onNavigate }) {
   layout.appendChild(tabBar);
   container.appendChild(layout);
 
+  const channelDrawer = createChannelDrawer(onNavigate);
+
   const toastContainer = el('div', { id: 'toast-container', className: 'toast-container' });
   container.appendChild(toastContainer);
   toasts.init();
@@ -90,6 +93,7 @@ export function buildLayout(container, { onNavigate }) {
 
   function destroy() {
     sidebar?.destroy?.();
+    channelDrawer?.destroy?.();
     container.innerHTML = '';
   }
 

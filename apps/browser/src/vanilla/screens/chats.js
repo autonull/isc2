@@ -12,6 +12,7 @@ import { formatTime, formatTimestamp } from '../../utils/time.js';
 import { renderEmpty } from '../utils/screen.js';
 import { getBridgeSuggestions } from '../../services/thoughtBridging.ts';
 import { markPeerContacted } from '../../services/peerProximity.ts';
+import { modals } from '../components/modal.js';
 
 let activePeerId = null;
 let boundContainer = null;
@@ -45,7 +46,11 @@ function renderHeader() {
   return `
     <div class="screen-header" data-testid="chats-header">
       <h1 class="screen-title">💬 Chats <span class="screen-subtitle">E2E encrypted</span></h1>
-      <a href="#/discover" class="btn btn-ghost btn-sm" aria-label="Find more peers">+ Find Peers</a>
+      <div class="header-actions">
+        <a href="#/discover" class="btn btn-ghost btn-sm">Find Peers</a>
+        <button class="btn btn-primary btn-sm" id="new-chat-btn"
+                data-testid="new-chat-btn" aria-label="New conversation">+</button>
+      </div>
     </div>
   `;
 }
@@ -207,8 +212,11 @@ function renderChatHeader(name, online, simPct) {
           </div>
         </div>
       </div>
-      <button class="btn btn-ghost btn-sm mobile-back-btn" data-close-chat title="Back to conversations" data-testid="close-chat-mobile" aria-label="Close chat">← Back</button>
-      <button class="btn btn-icon desktop-close-btn" data-close-chat data-testid="close-chat" title="Close conversation" aria-label="Close chat">×</button>
+      <div class="chat-header-actions">
+        <button class="btn btn-icon" data-video-call title="Start video call" aria-label="Video call" data-testid="video-call-btn">📹</button>
+        <button class="btn btn-ghost btn-sm mobile-back-btn" data-close-chat title="Back to conversations" data-testid="close-chat-mobile" aria-label="Close chat">← Back</button>
+        <button class="btn btn-icon desktop-close-btn" data-close-chat data-testid="close-chat" title="Close conversation" aria-label="Close chat">×</button>
+      </div>
     </div>
   `;
 }
@@ -411,6 +419,43 @@ export function bind(container) {
 
   bindChatInputHandlers(container);
   if (activePeerId) openChat(container, activePeerId);
+
+  // New conversation button
+  container.querySelector('#new-chat-btn')?.addEventListener('click', () => {
+    const html = `
+      <div class="modal-header">
+        <h2 class="modal-title">Start Conversation</h2>
+        <button class="modal-close" aria-label="Close">×</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label class="form-label" for="dial-peer-id-input">Peer ID</label>
+          <input type="text" id="dial-peer-id-input" class="form-input font-mono"
+                 placeholder="12D3KooW…" autocomplete="off"
+                 data-testid="dial-peer-input" />
+          <div class="form-hint">Paste a peer's ID to open a direct encrypted chat.</div>
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-ghost" data-action="cancel">Cancel</button>
+        <button class="btn btn-primary" data-action="confirm" id="dial-confirm-btn">
+          Open Chat
+        </button>
+      </div>
+    `;
+    const overlay = modals.open(html);
+    overlay.querySelector('[data-action="cancel"]')
+      ?.addEventListener('click', () => modals.close());
+    overlay.querySelector('[data-action="confirm"]')
+      ?.addEventListener('click', () => {
+        const peerId = overlay.querySelector('#dial-peer-id-input')?.value.trim();
+        if (!peerId) return;
+        modals.close();
+        activePeerId = peerId;
+        update(container);
+        openChat(container, peerId);
+      });
+  });
 }
 
 async function openChat(container, peerId) {
@@ -446,6 +491,18 @@ async function openChat(container, peerId) {
     currentBridgeSuggestion = null;
     const banner = container.querySelector('.bridge-suggestion');
     banner?.remove();
+  });
+
+  const videoCallBtn = container.querySelector('[data-video-call]');
+  videoCallBtn?.addEventListener('click', () => {
+    const chatView = container.querySelector('[data-testid="chat-view"]');
+    const peerId = chatView?.dataset.peerId;
+    if (peerId) {
+      import('../components/videoCallOverlay.js').then((m) => {
+        const conv = conversations.find((c) => c.peerId === peerId);
+        m.openVideoCall(peerId, conv?.name ?? 'Peer');
+      });
+    }
   });
 
   requestAnimationFrame(() => {

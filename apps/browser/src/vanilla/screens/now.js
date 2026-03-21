@@ -15,6 +15,11 @@ import { escapeHtml } from '../utils/dom.js';
 import { renderEmpty, renderList, bindDelegate, autoGrow, setupCtrlEnterSubmit } from '../utils/screen.js';
 import { renderMixerPanel, bindMixerPanel } from '../components/mixerPanel.js';
 import { modals } from '../components/modal.js';
+import {
+  shouldShowThoughtTwinNotification,
+  acknowledgeThoughtTwin,
+  dismissThoughtTwin,
+} from '../../services/thoughtTwin.ts';
 
 let refreshing = false;
 let viewModeUnsubscribe = null;
@@ -32,13 +37,13 @@ export function render() {
   return `
     <div class="screen now-screen" data-testid="now-screen">
       ${renderHeader(activeChannel, connected, connLabel)}
-      <div class="screen-body" data-testid="now-body">
+      <div class="screen-body now-body" data-testid="now-body">
         <div id="mixer-container">${activeChannel ? renderMixerPanel(activeChannel) : ''}</div>
-        ${renderComposeArea(channels, effectiveChannelId, activeChannel)}
         <div id="now-feed" class="feed-view-${viewMode}" data-testid="feed-container" data-component="feed" data-feed="for-you">
           ${posts.length === 0 ? renderEmptyState(channels, connected, connLabel) : renderPosts(posts, channels, viewMode)}
         </div>
       </div>
+      ${channels.length ? renderComposeArea(channels, effectiveChannelId, activeChannel) : ''}
     </div>
   `;
 }
@@ -46,10 +51,10 @@ export function render() {
 function renderHeader(activeChannel, connected, connLabel) {
   return `
     <div class="screen-header" data-testid="now-header">
-      <div style="display:flex;align-items:center;gap:12px;min-width:0">
+      <div class="screen-title-wrap">
         <h1 class="screen-title">🏠 Now</h1>
         ${activeChannel
-          ? `<span class="active-channel-badge" data-testid="active-channel-badge" title="Active channel">
+          ? `<span class="active-channel-badge" data-testid="active-channel-badge" title="Your active channel">
                <span style="opacity:.5">#</span>${escapeHtml(activeChannel.name)}
              </span>`
           : `<span class="screen-subtitle">For You</span>`}
@@ -74,7 +79,7 @@ function renderComposeArea(channels, activeChannelId, activeChannel) {
         ${channels.length > 1
           ? `
             <div class="compose-channel-select">
-              <select id="compose-channel-sel" class="form-select" style="margin-bottom:10px;font-size:13px">
+              <select id="compose-channel-sel" class="form-select form-select-sm">
                 ${channels.map(ch => `
                   <option value="${escapeHtml(ch.id)}" ${ch.id === activeChannelId ? 'selected' : ''}>
                     #${escapeHtml(ch.name)}
@@ -96,7 +101,7 @@ function renderComposeArea(channels, activeChannelId, activeChannel) {
           data-testid="compose-input"
         ></textarea>
         <div class="compose-footer">
-          <span class="compose-count" data-testid="compose-count">0 / 2000</span>
+          <span class="compose-count hidden" data-testid="compose-count">0 / 2000</span>
           <button type="submit" class="btn btn-primary btn-sm" data-testid="compose-submit" disabled>Post</button>
         </div>
       </form>
@@ -110,21 +115,24 @@ function renderEmptyState(channels, connected, connLabel) {
       ${renderEmpty({
         icon: '💭',
         title: 'What are you thinking about?',
-        description: 'Create a <strong>channel</strong> — a short description of your current thoughts. ISC will embed it locally and find peers thinking similar things.',
-        actions: [{ label: '✏️ Create Your First Channel', href: '#/compose', variant: 'primary' }],
+        description: "Create a channel — describe what's on your mind. ISC will find people on the same wavelength.",
+        actions: [{ label: 'Create Your First Channel', href: '#/compose', variant: 'primary' }],
       })}
 
-      <div class="card card-blue mt-4" data-testid="now-how-it-works">
-        <div class="card-title">🧠 How ISC Works</div>
-        <div class="how-it-works-steps">
-          ${renderHowStep(1, 'Describe your thought', 'Write a channel description — your words, your voice.')}
-          ${renderHowStep(2, 'Local AI creates your vector', 'A tiny LLM runs in your browser, turning your description into a 384-dimensional idea-fingerprint. Your text never leaves your device.')}
-          ${renderHowStep(3, 'Find your thought neighbors', 'Peers with similar mental models appear in Discover — ranked by how close your ideas are in semantic space.')}
-          ${renderHowStep(4, 'Connect directly', 'No servers, no algorithms. Pure peer-to-peer WebRTC. Your conversations are end-to-end encrypted.')}
+      <details class="explainer-details mt-4">
+        <summary class="explainer-summary">How does ISC work?</summary>
+        <div class="card card-blue mt-2">
+          <div class="card-title">🧠 How ISC Works</div>
+          <div class="how-it-works-steps">
+            ${renderHowStep(1, 'Describe your thought', 'Write a channel description — your words, your voice.')}
+            ${renderHowStep(2, 'Local AI creates your vector', 'A tiny LLM runs in your browser, turning your description into a 384-dimensional idea-fingerprint. Your text never leaves your device.')}
+            ${renderHowStep(3, 'Find your thought neighbors', 'Peers with similar mental models appear in Discover — ranked by how close your ideas are in semantic space.')}
+            ${renderHowStep(4, 'Connect directly', 'No servers, no algorithms. Pure peer-to-peer WebRTC. Your conversations are end-to-end encrypted.')}
+          </div>
         </div>
-      </div>
+      </details>
 
-      ${!connected ? `<div class="info-banner warning mt-4">○ Network is ${escapeHtml(connLabel)} — connect to find peers</div>` : ''}
+      ${!connected ? `<div class="info-banner warning mt-4">○ Network is ${escapeHtml(connLabel)} — you can still create channels offline</div>` : ''}
     `;
   }
 
@@ -152,7 +160,7 @@ function renderHowStep(num, title, desc) {
 
 function renderPosts(posts, channels, viewMode = 'list') {
   const countHtml = `
-    <div class="post-count text-muted mb-2" style="font-size:12px" data-testid="post-count">
+    <div class="post-count text-muted mb-2" data-testid="post-count">
       ${posts.length} post${posts.length !== 1 ? 's' : ''}
     </div>
   `;
@@ -203,15 +211,19 @@ function renderPostCard(post, channels, showActions = true) {
   const replies = post.replies?.length ?? 0;
   const score = post.score != null ? Math.round(post.score * 100) : null;
 
+  const myIdentity = networkService.getIdentity();
+  const myPeerId = myIdentity?.peerId ?? myIdentity?.pubkey;
+  const isOwn = post.identity?.peerId === myPeerId || post.identity?.pubkey === myPeerId;
+
   return `
     <div class="post-card" data-testid="post-card" data-component="post" data-post-id="${escapeHtml(post.id)}">
       <div class="post-header">
         <div class="post-avatar">${initials}</div>
-        <div style="flex:1;min-width:0">
+        <div class="post-meta">
           <span class="post-author">${author}</span>
           ${chanName ? `<span class="post-channel">#${chanName}</span>` : ''}
         </div>
-        <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
+        <div class="post-meta-actions">
           ${score != null ? `<span class="post-score" title="Semantic relevance">${score}%</span>` : ''}
           <span class="post-time">${time}</span>
         </div>
@@ -221,16 +233,22 @@ function renderPostCard(post, channels, showActions = true) {
       <div class="post-actions">
         <button class="post-action-btn" data-action="like" data-like-btn data-post-id="${escapeHtml(post.id)}"
                 data-liked="false" data-testid="like-btn-${escapeHtml(post.id)}">
-          ♡ <span class="like-count">${likes}</span>
+          <span aria-hidden="true">♡</span>
+          <span class="post-action-label">Like</span>
+          <span class="like-count">${likes}</span>
         </button>
         <button class="post-action-btn" data-action="reply" data-reply-btn data-post-id="${escapeHtml(post.id)}"
                 data-testid="reply-btn-${escapeHtml(post.id)}">
-          ↩ ${replies}
+          <span aria-hidden="true">↩</span>
+          <span class="post-action-label">Reply</span>
+          <span>${replies}</span>
         </button>
+        ${isOwn ? `
         <button class="post-action-btn" data-action="delete" data-delete-btn data-post-id="${escapeHtml(post.id)}"
-                data-testid="delete-btn-${escapeHtml(post.id)}" style="margin-left:auto">
-          🗑
+                data-testid="delete-btn-${escapeHtml(post.id)}" class="ml-auto">
+          <span class="post-action-label">Delete</span>
         </button>
+        ` : ''}
       </div>
       ` : ''}
     </div>
@@ -266,6 +284,32 @@ export function bind(container) {
 
   if (activeChannel) bindMixerPanel(container, activeChannel);
 
+  // Check for ThoughtTwin notification
+  shouldShowThoughtTwinNotification().then(notification => {
+    if (!notification) return;
+    const header = container.querySelector('[data-testid="now-header"]');
+    if (!header) return;
+
+    const banner = document.createElement('div');
+    banner.className = 'thought-twin-banner';
+    banner.innerHTML = `
+      <span class="twin-icon">✦</span>
+      <span>${escapeHtml(notification.message)}</span>
+      <button data-twin-ack class="btn btn-primary btn-sm">Connect</button>
+      <button data-twin-dismiss class="btn btn-ghost btn-sm">Later</button>
+    `;
+    header.after(banner);
+    banner.querySelector('[data-twin-ack]')?.addEventListener('click', () => {
+      acknowledgeThoughtTwin(notification.peerId);
+      banner.remove();
+      window.location.hash = '#/chats';
+    });
+    banner.querySelector('[data-twin-dismiss]')?.addEventListener('click', () => {
+      dismissThoughtTwin(notification.peerId);
+      banner.remove();
+    });
+  });
+
   container.querySelector('#now-refresh')?.addEventListener('click', () => doRefresh(container));
   container.querySelector('#go-compose')?.addEventListener('click', () => { window.location.hash = '#/compose'; });
   container.querySelector('#compose-channel-sel')?.addEventListener('change', e => {
@@ -279,7 +323,27 @@ export function bind(container) {
     const feed = container.querySelector('#now-feed');
     if (!feed) return;
     feed.className = `feed-view-${mode}`;
-    update(container);
+
+    if (mode === 'space') {
+      feed.innerHTML = `<canvas id="space-canvas" class="space-canvas" data-testid="space-canvas"></canvas>`;
+      import('../utils/spaceCanvas.js').then(m => {
+        const canvas = feed.querySelector('#space-canvas');
+        const { matches } = getState();
+        m.initSpaceCanvas(canvas, {
+          peers: matches,
+          selfPosition: { x: 0.5, y: 0.5 },
+          onPeerClick: peerId => {
+            window.location.hash = '#/chats';
+            setTimeout(() =>
+              document.dispatchEvent(new CustomEvent('isc:start-chat', { detail: { peerId } }))
+            , 100);
+          },
+        });
+      });
+    } else {
+      import('../utils/spaceCanvas.js').then(m => m.destroySpaceCanvas());
+      update(container);
+    }
   };
   document.addEventListener('isc:channel-view-change', handleViewChange);
 
@@ -290,7 +354,10 @@ export function bind(container) {
 
   composeInput?.addEventListener('input', () => {
     const len = composeInput.value.length;
-    if (composeCount) composeCount.textContent = `${len} / 2000`;
+    if (composeCount) {
+      composeCount.textContent = `${len} / 2000`;
+      composeCount.classList.toggle('hidden', len === 0);
+    }
     if (submitBtn) submitBtn.disabled = len === 0;
     autoGrow(composeInput);
   });
@@ -341,11 +408,23 @@ export function bind(container) {
 }
 
 function handleLike(e, target) {
-  const liked = target.dataset.liked === 'true';
-  target.dataset.liked = liked ? 'false' : 'true';
-  target.classList.toggle('liked', !liked);
+  const wasLiked = target.dataset.liked === 'true';
   const counter = target.querySelector('.like-count');
-  if (counter) counter.textContent = String(parseInt(counter.textContent || '0') + (liked ? -1 : 1));
+  const delta = wasLiked ? -1 : 1;
+
+  // Optimistic update
+  target.dataset.liked = String(!wasLiked);
+  target.classList.toggle('liked', !wasLiked);
+  if (counter) counter.textContent = String(parseInt(counter.textContent || '0') + delta);
+
+  // Persist with rollback on failure
+  postService.like(target.dataset.postId).catch(() => {
+    target.dataset.liked = String(wasLiked);
+    target.classList.toggle('liked', wasLiked);
+    if (counter) counter.textContent = String(parseInt(counter.textContent || '0') - delta);
+    toasts.warning('Could not save like');
+  });
+
   document.dispatchEvent(new CustomEvent('isc:like-post', { detail: { postId: target.dataset.postId } }));
 }
 
@@ -401,4 +480,9 @@ async function doRefresh(container) {
     refreshing = false;
     if (btn) { btn.classList.remove('spinning'); btn.disabled = false; }
   }
+}
+
+export function destroy() {
+  import('../utils/spaceCanvas.js').then(m => m.destroySpaceCanvas());
+  refreshing = false;
 }

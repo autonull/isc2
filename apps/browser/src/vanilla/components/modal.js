@@ -43,7 +43,26 @@ export const modals = {
 
     overlay.appendChild(modal);
     document.body.appendChild(overlay);
-    activeModal = { overlay, onClose };
+
+    // L1: Focus trap
+    const focusableSelectors =
+      'button:not([disabled]), input:not([disabled]), textarea:not([disabled]), ' +
+      'select:not([disabled]), a[href], [tabindex]:not([tabindex="-1"])';
+    const handleTabTrap = e => {
+      if (e.key !== 'Tab' || !activeModal) return;
+      const focusable = [...modal.querySelectorAll(focusableSelectors)];
+      if (!focusable.length) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (e.shiftKey) {
+        if (document.activeElement === first) { e.preventDefault(); last.focus(); }
+      } else {
+        if (document.activeElement === last) { e.preventDefault(); first.focus(); }
+      }
+    };
+    document.addEventListener('keydown', handleTabTrap);
+
+    activeModal = { overlay, onClose, handleTabTrap };
 
     overlay.addEventListener('click', e => {
       if (e.target === overlay) this.close();
@@ -68,10 +87,15 @@ export const modals = {
   close() {
     if (!activeModal) return;
 
-    const { overlay, onClose } = activeModal;
+    const { overlay, onClose, handleTabTrap } = activeModal;
     overlay.style.opacity = '0';
     overlay.style.transition = 'opacity 0.15s';
     setTimeout(() => overlay.remove(), 150);
+
+    // L1: Remove focus trap listener
+    if (handleTabTrap) {
+      document.removeEventListener('keydown', handleTabTrap);
+    }
 
     activeModal = null;
     onClose?.();
@@ -127,12 +151,14 @@ export const modals = {
   showHelp() {
     const shortcuts = [
       { key: '?', desc: 'Show this help' },
-      { key: 'Ctrl+K', desc: 'New Channel' },
+      { key: 'Ctrl+K', desc: 'New channel' },
       { key: 'Ctrl+,', desc: 'Settings' },
       { key: 'Ctrl+D', desc: 'Toggle debug panel' },
-      { key: 'Ctrl+Enter', desc: 'Send message / Submit' },
-      { key: '/', desc: 'Focus input (when no input focused)' },
+      { key: 'Ctrl+Enter', desc: 'Send message / Submit form' },
+      { key: '/', desc: 'Focus search / input' },
+      { key: 'Ctrl+Space', desc: 'Toggle serendipity mode' },
       { key: 'Esc', desc: 'Close modal / dialog' },
+      { key: '↑ ↓', desc: 'Navigate conversation list' },
     ];
 
     const html = `

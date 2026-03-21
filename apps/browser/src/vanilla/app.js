@@ -216,36 +216,21 @@ export function createApp(container) {
   <h2 class="modal-title">👋 Welcome to ISC</h2>
 </div>
 <div class="modal-body" data-testid="onboarding-content">
-  <p style="margin-bottom:16px">ISC is a decentralized P2P chat platform that uses semantic matching to connect people with similar ideas.</p>
-  <ol style="padding-left:20px;line-height:2.2;font-size:13px">
-    <li>Go to <strong>Settings</strong> to set your name and bio</li>
-    <li>Create a <strong>Channel</strong> describing your current thoughts</li>
-    <li>Use <strong>Discover</strong> to find semantically similar peers</li>
-    <li>Start <strong>Chats</strong> with your top matches</li>
-  </ol>
-  <div style="margin-top:20px;padding:16px;background:rgba(255,193,7,0.1);border:1px solid rgba(255,193,7,0.3);border-radius:8px">
-    <label style="display:flex;align-items:flex-start;gap:12px;cursor:pointer">
-      <input type="checkbox" id="ephemeral-mode" style="margin-top:3px">
-      <div>
-        <strong style="color:var(--c-warning)">Start anonymous session</strong>
-        <p style="margin:4px 0 0;font-size:12px;color:var(--c-text-muted)">Your identity exists only in this tab. Closing the tab permanently erases it. No data is saved anywhere.</p>
-      </div>
-    </label>
-  </div>
-  <p style="margin-top:16px;font-size:12px;color:var(--c-text-muted)">Press <kbd style="font-size:11px;padding:1px 6px;border:1px solid rgba(255,255,255,0.15);border-radius:3px">?</kbd> anytime for keyboard shortcuts.</p>
+  <p style="margin-bottom:16px">ISC connects you with people thinking about the same things — not by social graph, but by the meaning of your words.</p>
+  <p style="margin-bottom:16px">Your first step is creating a <strong>channel</strong> — a short description of what's on your mind. A tiny AI runs in your browser to turn it into a semantic fingerprint. No text ever leaves your device.</p>
+  <p style="font-size:12px;color:var(--c-text-muted);margin-top:12px">
+    Press <kbd style="font-size:11px;padding:1px 6px;border:1px solid rgba(255,255,255,0.15);border-radius:3px">?</kbd> anytime for keyboard shortcuts.
+  </p>
 </div>
 <div class="modal-actions">
-  <button class="btn btn-primary" id="onboarding-done" data-testid="onboarding-complete">Get Started</button>
+  <button class="btn btn-primary" id="onboarding-done" data-testid="onboarding-complete">Create my first channel →</button>
 </div>
 `;
     const overlay = modals.open(html);
     overlay.querySelector('#onboarding-done')?.addEventListener('click', () => {
-      const isEphemeral = overlay.querySelector('#ephemeral-mode')?.checked ?? false;
       localStorage.setItem('isc-onboarding-completed', 'true');
-      if (isEphemeral) {
-        localStorage.setItem('isc-ephemeral-session', 'true');
-      }
       modals.close();
+      navigate('/compose');
     });
   }
 
@@ -273,16 +258,19 @@ export function createApp(container) {
 
       if (hasInstalled || installCount >= 2) return;
 
-      setTimeout(
-        () => {
-          const installBanner = document.createElement('div');
-          installBanner.id = 'pwa-install-banner';
-          installBanner.innerHTML = `
+      // K4: Trigger on meaningful engagement, not a timer
+      const showPrompt = () => {
+        document.removeEventListener('isc:channel-created', showPrompt);
+        document.removeEventListener('isc:peers-found', showPrompt);
+
+        const installBanner = document.createElement('div');
+        installBanner.id = 'pwa-install-banner';
+        installBanner.innerHTML = `
         <span>Install ISC for the best experience</span>
         <button id="pwa-install-btn">Install</button>
         <button id="pwa-dismiss-btn">Later</button>
       `;
-          installBanner.style.cssText = `
+        installBanner.style.cssText = `
         position: fixed;
         bottom: 60px;
         left: 50%;
@@ -297,27 +285,28 @@ export function createApp(container) {
         z-index: 1000;
         box-shadow: 0 4px 12px rgba(0,0,0,0.3);
       `;
-          document.body.appendChild(installBanner);
+        document.body.appendChild(installBanner);
 
-          installBanner.querySelector('#pwa-install-btn')?.addEventListener('click', async () => {
-            if (deferredInstallPrompt) {
-              deferredInstallPrompt.prompt();
-              const { outcome } = await deferredInstallPrompt.userChoice;
-              if (outcome === 'accepted') {
-                localStorage.setItem('isc-pwa-installed', 'true');
-              }
-              deferredInstallPrompt = null;
+        installBanner.querySelector('#pwa-install-btn')?.addEventListener('click', async () => {
+          if (deferredInstallPrompt) {
+            deferredInstallPrompt.prompt();
+            const { outcome } = await deferredInstallPrompt.userChoice;
+            if (outcome === 'accepted') {
+              localStorage.setItem('isc-pwa-installed', 'true');
             }
-            installBanner.remove();
-          });
+            deferredInstallPrompt = null;
+          }
+          installBanner.remove();
+        });
 
-          installBanner.querySelector('#pwa-dismiss-btn')?.addEventListener('click', () => {
-            localStorage.setItem('isc-install-prompt-count', String(installCount + 1));
-            installBanner.remove();
-          });
-        },
-        2 * 60 * 1000
-      );
+        installBanner.querySelector('#pwa-dismiss-btn')?.addEventListener('click', () => {
+          localStorage.setItem('isc-install-prompt-count', String(installCount + 1));
+          installBanner.remove();
+        });
+      };
+
+      document.addEventListener('isc:channel-created', showPrompt, { once: true });
+      document.addEventListener('isc:peers-found', showPrompt, { once: true });
     });
   }
 
