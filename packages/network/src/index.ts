@@ -34,9 +34,13 @@ export { VirtualPeer, createPeer, type PeerConfig, type PeerStats } from './peer
 // Storage - from @isc/adapters
 export { createStorage, BrowserStorage, MemoryStorage, type StorageAdapter } from '@isc/adapters';
 
-// Identity - from @isc/adapters (new API) + backwards compatibility
-export { createIdentity, type Keypair, type IdentityData } from '@isc/adapters';
-export { createIdentityService, IdentityService, type IdentityStorage } from './identity.js';
+// Identity - from @isc/adapters
+export {
+  createIdentity,
+  type Keypair,
+  type IdentityData,
+  type IdentityAdapter,
+} from '@isc/adapters';
 
 // Browser Network Service
 export {

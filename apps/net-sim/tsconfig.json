@@ -4,8 +4,6 @@
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
     "lib": ["ES2022", "DOM"],
-    "outDir": "./dist",
-    "rootDir": "./src",
     "strict": false,
     "esModuleInterop": true,
     "skipLibCheck": true,
@@ -14,10 +12,11 @@
     "declaration": false,
     "allowSyntheticDefaultImports": true,
     "noEmitOnError": false,
+    "noEmit": true,
     "baseUrl": ".",
     "paths": {
-      "@isc/core": ["../../packages/core/dist/index.js"],
-      "@isc/core/*": ["../../packages/core/dist/*"]
+      "@isc/core": ["../../packages/core/src/index.ts"],
+      "@isc/core/*": ["../../packages/core/src/*"]
     }
   },
   "include": ["src/**/*.ts"],

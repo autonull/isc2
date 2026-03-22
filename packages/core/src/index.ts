@@ -84,5 +84,11 @@ export * from './channels/index.js';
 // Peer-aware rate limiting (from isc1)
 export * from './peerRateLimiter.js';
 
+// Storage interface
+export * from './storage.js';
+
+// Network interface
+export * from './network.js';
+
 // Security tier infrastructure (Phase P)
 export * from './tier/index.js';

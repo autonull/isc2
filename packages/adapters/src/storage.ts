@@ -4,13 +4,9 @@
  * Universal storage interface with browser (IndexedDB) and node (file-based) implementations.
  */
 
-export interface StorageAdapter {
-  get<T>(key: string): Promise<T | null>;
-  set<T>(key: string, value: T): Promise<void>;
-  delete(key: string): Promise<void>;
-  list(prefix: string): Promise<string[]>;
-  clear(): Promise<void>;
-}
+import type { StorageAdapter as CoreStorageAdapter } from '@isc/core';
+
+export type StorageAdapter = CoreStorageAdapter;
 
 /**
  * Browser Storage - IndexedDB implementation

@@ -1,11 +1,12 @@
 /**
  * ISC Network - In-Memory DHT Implementation
- * 
+ *
  * Simple in-memory DHT for peer announcements with TTL-based cleanup.
  * Used for testing and as a reference for production DHT implementations.
  */
 
 import type { DHT, PeerInfo, PeerMatch } from './types.js';
+import { cosineSimilarity } from '@isc/core';
 
 /**
  * DHT entry with expiration
@@ -55,7 +56,7 @@ export class InMemoryDHT implements DHT {
       if (entry.peer.id === myVector.toString()) continue;
 
       // Compute similarity
-      const similarity = this.cosineSimilarity(myVector, entry.peer.vector);
+      const similarity = cosineSimilarity(myVector, entry.peer.vector);
 
       if (similarity >= threshold) {
         // Find matched topics
@@ -82,8 +83,8 @@ export class InMemoryDHT implements DHT {
   getAll(): PeerInfo[] {
     const now = Date.now();
     return Array.from(this.entries.values())
-      .filter(e => e.expiresAt > now)
-      .map(e => e.peer);
+      .filter((e) => e.expiresAt > now)
+      .map((e) => e.peer);
   }
 
   /**
@@ -125,32 +126,6 @@ export class InMemoryDHT implements DHT {
     this.entries.clear();
   }
 
-  /**
-   * Compute cosine similarity between two vectors
-   */
-  private cosineSimilarity(a: number[], b: number[]): number {
-    if (a.length !== b.length) {
-      throw new Error(`Vector dimension mismatch: ${a.length} vs ${b.length}`);
-    }
-
-    let dotProduct = 0;
-    let normA = 0;
-    let normB = 0;
-
-    for (let i = 0; i < a.length; i++) {
-      dotProduct += a[i] * b[i];
-      normA += a[i] * a[i];
-      normB += b[i] * b[i];
-    }
-
-    if (normA === 0 || normB === 0) return 0;
-
-    return dotProduct / (Math.sqrt(normA) * Math.sqrt(normB));
-  }
-
-  /**
-   * Find matched topics between peers
-   */
   private findMatchedTopics(topics: string[], _myVector: number[]): string[] {
     // Simplified - in real impl would compare topic vectors
     return topics.slice(0, 3);

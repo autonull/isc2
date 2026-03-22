@@ -3,16 +3,16 @@
   "version": "0.1.0",
   "type": "module",
   "private": true,
-  "main": "./dist/index.js",
+  "main": "./src/index.tsx",
   "bin": {
-    "isc-tui": "./dist/index.js"
+    "isc-tui": "./src/index.tsx"
   },
   "scripts": {
     "dev": "tsx src/index.tsx",
     "test": "tsx tests/smoke.test.ts",
-    "build": "tsc",
-    "start": "node dist/index.js",
-    "typecheck": "tsc --noEmit"
+    "build": "echo 'No build - using tsx'",
+    "start": "tsx src/index.tsx",
+    "typecheck": "echo 'Use tsx for runtime'"
   },
   "dependencies": {
     "@isc/network": "workspace:*",

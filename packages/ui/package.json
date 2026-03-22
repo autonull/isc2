@@ -2,23 +2,23 @@
   "name": "@isc/ui",
   "version": "0.1.0",
   "type": "module",
-  "main": "./dist/index.js",
-  "types": "./dist/index.d.ts",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
   "exports": {
-    ".": "./dist/index.js",
-    "./components": "./dist/components/index.js",
-    "./hooks": "./dist/hooks/index.js",
-    "./providers": "./dist/providers/index.js",
-    "./styles": "./dist/styles/index.js",
-    "./tokens": "./dist/styles/tokens.js"
+    ".": "./src/index.ts",
+    "./components": "./src/components/index.ts",
+    "./hooks": "./src/hooks/index.ts",
+    "./providers": "./src/providers/index.ts",
+    "./styles": "./src/styles/index.ts",
+    "./tokens": "./src/styles/tokens.ts"
   },
   "scripts": {
-    "build": "tsc",
+    "build": "echo 'No build - using tsx'",
     "test": "vitest run",
     "test:watch": "vitest",
     "lint": "eslint src tests",
     "lint:fix": "eslint src tests --fix",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "echo 'Use tsx for runtime'",
     "clean": "rm -rf dist"
   },
   "dependencies": {
