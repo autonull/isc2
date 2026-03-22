@@ -31,23 +31,12 @@ export {
 // Peer
 export { VirtualPeer, createPeer, type PeerConfig, type PeerStats } from './peer.js';
 
-// Storage
-export {
-  createStorage,
-  BrowserStorage,
-  LocalStorage,
-  MemoryStorage,
-  type Storage,
-} from './storage.js';
+// Storage - from @isc/adapters
+export { createStorage, BrowserStorage, MemoryStorage, type StorageAdapter } from '@isc/adapters';
 
-// Identity
-export {
-  IdentityService,
-  createIdentityService,
-  type Keypair,
-  type IdentityData,
-  type IdentityStorage,
-} from './identity.js';
+// Identity - from @isc/adapters (new API) + backwards compatibility
+export { createIdentity, type Keypair, type IdentityData } from '@isc/adapters';
+export { createIdentityService, IdentityService, type IdentityStorage } from './identity.js';
 
 // Browser Network Service
 export {
