@@ -13,10 +13,10 @@ import { join } from 'path';
 import { tmpdir } from 'os';
 
 // Direct source imports — bypasses barrel index.ts and browser.ts (libp2p/WebRTC)
-import { MemoryStorage, createStorage } from '../../../packages/network/src/storage.js';
-import { IdentityService } from '../../../packages/network/src/identity.js';
-import { InMemoryDHT } from '../../../packages/network/src/dht.js';
-import { TransformerEmbeddingService } from '../../../packages/network/src/embedding.js';
+import { MemoryStorage, createStorage } from '../../../packages/adapters/src/index.ts';
+import { IdentityService } from '../../../packages/network/src/identity.ts';
+import { InMemoryDHT } from '../../../packages/network/src/dht.ts';
+import { TransformerEmbeddingService } from '../../../packages/network/src/embedding.ts';
 
 // ─── Harness ──────────────────────────────────────────────────────────────────
 
@@ -121,8 +121,9 @@ section('createStorage (Node → MemoryStorage)');
 assert('has get fn', typeof createStorage().get === 'function');
 
 section('IdentityService');
-const ids = new IdentityService(new MemoryStorage());
+const ids = IdentityService(new MemoryStorage());
 await ids.initialize();
+await ids.create('Test User', 'Test bio');
 const id = ids.getIdentity();
 assert('identity created', id !== null);
 assert('peerId is string', typeof id?.peerId === 'string' && id.peerId.length > 0);

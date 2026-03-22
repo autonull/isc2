@@ -132,6 +132,9 @@ importers:
       '@isc/protocol':
         specifier: workspace:*
         version: link:../../packages/protocol
+      '@isc/social':
+        specifier: workspace:*
+        version: link:../../packages/social
       '@isc/state':
         specifier: workspace:*
         version: link:../../packages/state
@@ -454,6 +457,9 @@ importers:
       '@types/node':
         specifier: ^20.10.0
         version: 20.19.37
+      tsx:
+        specifier: ^4.7.0
+        version: 4.21.0
       typescript:
         specifier: ^5.3.3
         version: 5.9.3
@@ -472,6 +478,25 @@ importers:
       happy-dom:
         specifier: ^12.10.3
         version: 12.10.3
+      typescript:
+        specifier: ^5.3.3
+        version: 5.9.3
+      vitest:
+        specifier: ^1.1.0
+        version: 1.6.1(@types/node@20.19.37)(happy-dom@12.10.3)(jsdom@28.1.0)
+
+  packages/delegation:
+    dependencies:
+      '@isc/core':
+        specifier: ^0.1.0
+        version: link:../core
+      '@isc/protocol':
+        specifier: ^0.1.0
+        version: link:../protocol
+    devDependencies:
+      '@types/node':
+        specifier: ^20.10.0
+        version: 20.19.37
       typescript:
         specifier: ^5.3.3
         version: 5.9.3
@@ -553,6 +578,9 @@ importers:
       '@types/node':
         specifier: ^22.13.10
         version: 22.19.15
+      tsx:
+        specifier: ^4.7.0
+        version: 4.21.0
       typescript:
         specifier: ^5.7.3
         version: 5.9.3
