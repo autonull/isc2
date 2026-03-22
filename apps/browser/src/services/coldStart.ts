@@ -1,19 +1,16 @@
 /**
  * Cold Start Perception Service
  *
- * Unified service coordinating all cold-start perception features.
+ * Coordinates initialization and management of awareness features:
+ * sleeping state (away status), invite links, and chaos mode (serendipity).
  */
 
-import { getDemoModeService, type DemoModeConfig } from './demoMode.js';
-import { getGhostPeersService, type GhostPeerConfig } from './ghostPeers.js';
 import { getSleepingStateService, type SleepingStateConfig } from './sleepingState.js';
 import { getInviteLinksService, type InviteConfig } from './inviteLinks.js';
 import { getChaosModeService, type ChaosModeConfig } from './chaosMode.js';
 import type { PeerMatch } from '../services/network.js';
 
 export interface ColdStartConfig {
-  demoMode: Partial<DemoModeConfig>;
-  ghostPeers: Partial<GhostPeerConfig>;
   sleepingState: Partial<SleepingStateConfig>;
   inviteLinks: Partial<InviteConfig>;
   chaosMode: Partial<ChaosModeConfig>;
@@ -26,8 +23,6 @@ export interface ColdStartStatus {
 }
 
 const DEFAULT_CONFIG: ColdStartConfig = {
-  demoMode: { enabled: false, minRealPeers: 3, maxSyntheticPeers: 10 },
-  ghostPeers: { enabled: false, gracePeriodMs: 4 * 60 * 60 * 1000 },
   sleepingState: { enabled: true, autoAwayMs: 10 * 60 * 1000 },
   inviteLinks: { enabled: true },
   chaosMode: { enabled: false, chaosLevel: 0 },
@@ -35,12 +30,9 @@ const DEFAULT_CONFIG: ColdStartConfig = {
 
 export class ColdStartService {
   private config: ColdStartConfig;
-  private demoMode = getDemoModeService();
-  private ghostPeers = getGhostPeersService();
   private sleepingState = getSleepingStateService();
   private inviteLinks = getInviteLinksService();
   private chaosMode = getChaosModeService();
-  private realPeerCount = 0;
 
   constructor(config: Partial<ColdStartConfig> = {}) {
     this.config = { ...DEFAULT_CONFIG, ...config };
@@ -69,16 +61,9 @@ export class ColdStartService {
     this.sleepingState.stop();
   }
 
-  setRealPeerCount(count: number): void {
-    this.realPeerCount = count;
-  }
-
   getPeers(realPeers: PeerMatch[], userTopics?: string[]): PeerMatch[] {
-    let peers = [...realPeers];
-    peers = this.chaosMode.applyChaos(peers, userTopics);
-    return peers;
+    return this.chaosMode.applyChaos(realPeers, userTopics);
   }
-
 
   recordActivity(): void {
     this.sleepingState.recordActivity();
@@ -122,8 +107,6 @@ export class ColdStartService {
 
   getServices() {
     return {
-      demoMode: this.demoMode,
-      ghostPeers: this.ghostPeers,
       sleepingState: this.sleepingState,
       inviteLinks: this.inviteLinks,
       chaosMode: this.chaosMode,
@@ -132,8 +115,6 @@ export class ColdStartService {
 
   configure(config: Partial<ColdStartConfig>): void {
     this.config = { ...this.config, ...config };
-    if (config.demoMode) this.demoMode.configure(config.demoMode);
-    if (config.ghostPeers) this.ghostPeers.configure(config.ghostPeers);
     if (config.sleepingState) this.sleepingState.configure(config.sleepingState);
     if (config.inviteLinks) this.inviteLinks.configure(config.inviteLinks);
     if (config.chaosMode) this.chaosMode.configure(config.chaosMode);
