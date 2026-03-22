@@ -22,11 +22,6 @@ import {
 } from '../utils/screen.js';
 import { renderMixerPanel, bindMixerPanel } from '../components/mixerPanel.js';
 import { modals } from '../components/modal.js';
-import {
-  shouldShowThoughtTwinNotification,
-  acknowledgeThoughtTwin,
-  dismissThoughtTwin,
-} from '../../services/thoughtTwin.ts';
 
 let refreshing = false;
 let _replyTo = null;
@@ -536,31 +531,6 @@ export function bind(container) {
       }
     });
   }
-
-  shouldShowThoughtTwinNotification().then((notification) => {
-    if (!notification) return;
-    const header = container.querySelector('[data-testid="now-header"]');
-    if (!header) return;
-
-    const banner = document.createElement('div');
-    banner.className = 'thought-twin-banner';
-    banner.innerHTML = `
-      <span class="twin-icon">✦</span>
-      <span>${escapeHtml(notification.message)}</span>
-      <button data-twin-ack class="btn btn-primary btn-sm">Connect</button>
-      <button data-twin-dismiss class="btn btn-ghost btn-sm">Later</button>
-    `;
-    header.after(banner);
-    banner.querySelector('[data-twin-ack]')?.addEventListener('click', () => {
-      acknowledgeThoughtTwin(notification.peerId);
-      banner.remove();
-      window.location.hash = '#/chats';
-    });
-    banner.querySelector('[data-twin-dismiss]')?.addEventListener('click', () => {
-      dismissThoughtTwin(notification.peerId);
-      banner.remove();
-    });
-  });
 
   container.querySelector('#now-refresh')?.addEventListener('click', () => doRefresh(container));
   container.querySelector('#go-compose')?.addEventListener('click', () => {
