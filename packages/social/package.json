@@ -11,7 +11,7 @@
     "./chat": "./src/chat.ts",
     "./discovery": "./src/discovery.ts",
     "./channels": "./src/channels.ts",
-    "./moderation": "./src/moderation.ts",
+    "./moderation": "./src/moderation/index.ts",
     "./types": "./src/types.ts",
     "./adapters": "./src/adapters/index.ts"
   },

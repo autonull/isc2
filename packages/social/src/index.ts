@@ -47,11 +47,8 @@ export {
   type CreateChannelInput,
 } from './channels.js';
 
-// Moderation
-export {
-  createModerationService,
-  type ModerationService,
-} from './moderation.js';
+// Moderation (block list + courts)
+export * from './moderation/index.js';
 
 // Version
 export const SOCIAL_VERSION = '1.0.0';

@@ -1,17 +1,14 @@
 /**
- * Community Courts - Decentralized Moderation Appeals
+ * Community Courts — re-exports
  *
- * Facade module re-exporting court system functionality.
- * See submodules for implementation details.
- *
- * References: NEXT_STEPS.md#62-community-courts
+ * All business logic lives in @isc/social/moderation.
+ * Types are re-exported from the package; functions come from the thin
+ * browser adapter wrappers in ./services/.
  */
 
 export { COURT_CONFIG } from './config/courtConfig.js';
 
-export type { AppealCase, Verdict } from './models/appeal.js';
-export type { Jury, JuryVote } from './models/jury.js';
-export type { CourtSession, JurorStats } from './models/session.js';
+export type { AppealCase, Verdict, Jury, JuryVote, CourtSession, JurorStats } from '@isc/social';
 
 export {
   createAppeal,
@@ -31,6 +28,8 @@ export {
 } from './services/JuryService.js';
 
 export {
+  checkVerdictReadiness,
+  enforceVerdict,
   getVerdict,
   getAllVerdicts,
 } from './services/VerdictService.js';

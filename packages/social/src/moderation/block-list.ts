@@ -4,8 +4,8 @@
  * Block list management for peer moderation.
  */
 
-import type { PeerProfile, ModerationAction } from '../types';
-import type { SocialStorage } from '../adapters/interfaces';
+import type { PeerProfile, ModerationAction } from '../../types.js';
+import type { SocialStorage } from '../../adapters/interfaces.js';
 
 export interface ModerationService {
   getBlockedPeers(): Promise<Set<string>>;
