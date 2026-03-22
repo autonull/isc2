@@ -47,7 +47,6 @@ export function render() {
     <div class="screen now-screen" data-testid="now-screen">
       ${channels.length ? renderComposeBar(channels, effectiveChannelId, activeChannel) : ''}
       ${renderHeader(activeChannel, connected, connLabel)}
-      ${activeChannel ? renderFloatingToolbar(activeChannel) : ''}
       <div class="screen-body now-body" data-testid="now-body">
         <div id="now-feed" class="feed-view-${viewMode}" data-testid="feed-container" data-component="feed" data-feed="for-you">
           ${posts.length === 0 ? renderEmptyState(channels, connected, connLabel) : renderPosts(posts, channels, viewMode)}
@@ -61,45 +60,37 @@ function renderComposeBar(channels, activeChannelId, activeChannel) {
   if (!channels?.length) return '';
 
   return `
-    <div class="compose-bar sticky-top smart-hide" data-testid="compose-bar">
-      <form id="compose-form" class="compose-bar-form" data-testid="compose-form">
-        <div class="compose-bar-inline">
+    <div class="compose-bar" data-testid="compose-bar">
+      <form id="compose-form" class="compose-form-simple" data-testid="compose-form">
+        <div class="compose-header">
+          <span class="compose-label">Posting to:</span>
           ${
             channels.length > 1
-              ? `
-              <select id="compose-channel-sel" class="compose-channel-picker form-select form-select-sm" data-testid="compose-channel-sel">
-                ${channels
-                  .map(
-                    (ch) => `
-                  <option value="${escapeHtml(ch.id)}" ${ch.id === activeChannelId ? 'selected' : ''}>
-                    #${escapeHtml(ch.name)}
-                  </option>
-                `
-                  )
-                  .join('')}
-              </select>
-            `
-              : activeChannel
-                ? `<div class="compose-channel-label"><span class="channel-pill">#${escapeHtml(activeChannel.name)}</span></div>`
-                : ''
+              ? `<select id="compose-channel-sel" class="compose-channel-select" data-testid="compose-channel-sel">
+                   ${channels
+                     .map(
+                       (ch) => `<option value="${escapeHtml(ch.id)}" ${ch.id === activeChannelId ? 'selected' : ''}>#${escapeHtml(ch.name)}</option>`
+                     )
+                     .join('')}
+                 </select>`
+              : `<span class="channel-name">#${escapeHtml(activeChannel?.name || 'default')}</span>`
           }
-          <textarea
-            class="compose-input"
-            id="compose-input"
-            placeholder="Share a thought…"
-            name="content"
-            rows="1"
-            maxlength="2000"
-            data-testid="compose-input"
-          ></textarea>
-          <button type="submit" class="btn btn-primary btn-sm" data-testid="compose-submit" disabled title="Post">Post</button>
         </div>
-        <div class="compose-footer">
-          <span class="compose-count hidden" data-testid="compose-count">0 / 2000</span>
+        <textarea
+          id="compose-input"
+          class="compose-input-simple"
+          placeholder="Share your thoughts…"
+          maxlength="2000"
+          data-testid="compose-input"
+        ></textarea>
+        <div class="compose-actions">
+          <span class="char-count" data-testid="compose-count">0 / 2000</span>
+          <button type="submit" class="btn btn-primary" data-testid="compose-submit" disabled>Post</button>
         </div>
       </form>
       <div class="compose-reply-context" hidden data-testid="compose-reply-context">
-        Replying to <strong class="reply-author"></strong> <button type="button" class="btn-clear-reply" title="Cancel reply">×</button>
+        Replying to: <strong class="reply-author"></strong>
+        <button type="button" class="btn-clear-reply" title="Cancel">✕</button>
       </div>
     </div>
   `;
@@ -480,12 +471,6 @@ function renderSpacePost(post, channels, index) {
 export function bind(container) {
   const { channels, activeChannelId } = getState();
   const activeChannel = channels?.find((c) => c.id === activeChannelId);
-
-  // Bind floating toolbar controls (replaces old mixer panel)
-  if (activeChannel) bindFloatingToolbar(container, activeChannel);
-
-  // Setup smart-hide for compose bar
-  setupComposeBarSmartHide(container);
 
   if ('IntersectionObserver' in window) {
     _lazyObserver = new IntersectionObserver(
