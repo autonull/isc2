@@ -14,7 +14,7 @@ import {
   type PeerInfo,
   type EmbeddingService,
 } from './index.js';
-import { createStorage, type Storage } from './storage.js';
+import { createStorage, type StorageAdapter } from '@isc/adapters';
 import { BrowserNetworkAdapter } from '@isc/adapters/browser';
 import { Libp2pDHT } from './libp2p-dht.js';
 import type { DHT } from './types.js';
@@ -99,7 +99,7 @@ export interface Identity {
 export class BrowserNetworkService {
   private config: NetworkServiceConfig;
   private events: NetworkEvents = {};
-  private storage: Storage;
+  private storage: StorageAdapter;
   private embedding: EmbeddingService | null = null;
   // Use in-memory fallback unless network is started
   private dht: DHT = createDHT();

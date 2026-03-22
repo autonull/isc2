@@ -9,8 +9,7 @@
     "./peer": "./src/peer.ts",
     "./embedding": "./src/embedding.ts",
     "./browser": "./src/browser.ts",
-    "./identity": "./src/identity.ts",
-    "./storage": "./src/storage.ts"
+    "./identity": "./src/identity.ts"
   },
   "scripts": {
     "build": "echo 'No build - using tsx for dynamic TypeScript execution'",
