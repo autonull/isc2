@@ -5,7 +5,7 @@
  */
 
 import { lshHash } from '@isc/core';
-import { DelegationClient } from '../../../delegation/fallback.js';
+import { DelegationClient } from '@isc/delegation';
 import { getPeerID } from '../../../identity/index.js';
 import { CommunityRepository } from './CommunityRepository.js';
 import { CommunitySigningService } from './CommunitySigningService.js';

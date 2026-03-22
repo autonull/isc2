@@ -14,7 +14,7 @@ import type {
   ModerationReputation,
   CouncilProvider,
 } from '@isc/social';
-import { DelegationClient } from '../delegation/fallback.js';
+import { DelegationClient } from '@isc/delegation';
 import { dbGet, dbPut, dbFilter, dbGetAll } from '../db/helpers.js';
 import { getPeerID, getKeypair } from '../identity/index.js';
 import { computeReputationCached } from '../reputation/decay.js';

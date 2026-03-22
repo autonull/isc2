@@ -27,6 +27,50 @@ export {
   type TrendingPost,
 } from './feeds.js';
 
+// Trending
+export {
+  calculateTrendingScore,
+  scorePost,
+  filterAndRankPosts,
+  diversifyByChannel,
+  applyChaosFactor,
+  extractTrendingTopics,
+  filterRecentPosts,
+  type RankedPost,
+  type TrendingTopic,
+  type TrendingConfig,
+  DEFAULT_TRENDING_CONFIG,
+} from './trending.js';
+
+// Graph
+export {
+  createGraphService,
+  type GraphService,
+  type ReputationResult,
+  type TrustScore,
+  type FollowSuggestion,
+  type BridgeProfile,
+} from './graph.js';
+
+// Interactions
+export {
+  createInteractionService,
+  type InteractionService,
+  type LikeEvent,
+  type RepostEvent,
+  type ReplyEvent,
+  type QuoteEvent,
+  type InteractionCounts,
+} from './interactions.js';
+
+// Communities
+export {
+  createCommunityService,
+  type CommunityService,
+  COMMUNITY_CONFIG,
+  COMMUNITY_DHT_PREFIXES,
+} from './communities.js';
+
 // Chat
 export {
   createChatService,

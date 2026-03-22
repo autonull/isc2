@@ -117,3 +117,58 @@ export interface ModerationAction {
   reason?: string;
   timestamp: number;
 }
+
+/**
+ * Interaction record for reputation calculation
+ */
+export interface Interaction {
+  id: string;
+  peerID: string;
+  type: string;
+  timestamp: number;
+  weight: number;
+}
+
+/**
+ * Follow subscription
+ */
+export interface FollowSubscription {
+  followee: string;
+  since: number;
+}
+
+/**
+ * Peer profile summary with follow counts
+ */
+export interface ProfileSummary {
+  peerID: string;
+  channelCount: number;
+  followerCount: number;
+  followingCount: number;
+  updatedAt: number;
+}
+
+/**
+ * Community with members and co-editors
+ */
+export interface Community {
+  channelID: string;
+  name: string;
+  description: string;
+  members: string[];
+  coEditors: string[];
+  embedding: number[];
+  createdAt: number;
+  updatedAt: number;
+  signature: Uint8Array;
+}
+
+/**
+ * Membership record
+ */
+export interface Membership {
+  peerID: string;
+  communityID: string;
+  role: 'member' | 'coEditor' | 'creator';
+  joinedAt: number;
+}

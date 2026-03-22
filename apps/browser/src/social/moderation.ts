@@ -1,7 +1,7 @@
 import { sign, encode, type Signature } from '@isc/core';
 import type { SignedPost, CommunityReport, CommunityCouncil } from './types.js';
 import { getPeerID, getKeypair } from '../identity/index.js';
-import { DelegationClient } from '../delegation/fallback.js';
+import { DelegationClient } from '@isc/delegation';
 import { computeReputation } from './graph.js';
 import { getDB, dbGet, dbGetAll, dbPut, dbDelete } from '../db/factory.js';
 

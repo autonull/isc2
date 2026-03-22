@@ -8,7 +8,7 @@ import type {
   VideoCallStats,
 } from './types.js';
 import { DEFAULT_VIDEO_SETTINGS, VIDEO_QUALITY_CONSTRAINTS } from './types.js';
-import { DelegationClient } from '../delegation/fallback.js';
+import { DelegationClient } from '@isc/delegation';
 import { getPeerID, getKeypair } from '../identity/index.js';
 
 const VIDEO_CALL_PROTOCOL = '/isc/video/1.0.0';

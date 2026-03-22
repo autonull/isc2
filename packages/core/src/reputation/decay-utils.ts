@@ -1,10 +1,24 @@
 /**
- * Decay Calculator Service
+ * Decay Utilities for Reputation System
  *
  * Handles exponential decay calculations for reputation scores.
  */
 
-import type { DecayInteraction, DecayCurvePoint } from '../types/reputation.js';
+export interface DecayInteraction {
+  id: string;
+  peerID: string;
+  type: string;
+  timestamp: number;
+  baseWeight: number;
+  decayedWeight: number;
+  ageInDays: number;
+}
+
+export interface DecayCurvePoint {
+  day: number;
+  score: number;
+  rawScore: number;
+}
 
 export class DecayCalculator {
   /**

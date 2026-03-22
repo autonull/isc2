@@ -1,73 +1,56 @@
-import type { SignedPost } from './types.js';
+// Re-export trending utilities from @isc/social for backward compatibility
+export {
+  calculateTrendingScore,
+  scorePost,
+  filterAndRankPosts,
+  diversifyByChannel,
+  applyChaosFactor,
+  extractTrendingTopics,
+  filterRecentPosts,
+  type RankedPost,
+  type TrendingTopic,
+  type TrendingConfig,
+  DEFAULT_TRENDING_CONFIG,
+} from '@isc/social/trending';
+
+import type { RankedPost } from '@isc/social/trending';
 import { getInteractionCounts } from './interactions.js';
 import { getAllPosts, getPostsByChannel } from './posts.js';
-import { Config } from '@isc/core';
 
-export interface RankedPost extends SignedPost {
-  trendingScore: number;
-  engagementCount: number;
-}
-
-export interface TrendingTopic {
-  preview: string;
-  postCount: number;
-  totalEngagement: number;
-  postID: string;
-  channelID: string;
-}
-
-function calculateEngagement(interactions: {
-  likes: number;
-  reposts: number;
-  replies: number;
-  quotes: number;
-}): number {
-  const { weights } = Config.social.trending;
-  return (
-    interactions.likes * weights.likes +
-    interactions.reposts * weights.reposts +
-    interactions.replies * weights.replies +
-    interactions.quotes * weights.quotes
-  );
-}
-
-export function calculateTrendingScore(
-  post: SignedPost,
-  interactions: { likes: number; reposts: number; replies: number; quotes: number }
-): number {
-  const ageHours = (Date.now() - post.timestamp) / (1000 * 60 * 60);
-  const engagement = calculateEngagement(interactions);
-
-  if (engagement < Config.social.trending.minEngagement) return 0;
-  return engagement / Math.pow(ageHours + 2, 1.5);
-}
-
-async function scorePost(post: SignedPost): Promise<RankedPost> {
-  const interactions = await getInteractionCounts(post.id);
-  const score = calculateTrendingScore(post, interactions);
-  const engagementCount = interactions.likes + interactions.reposts + interactions.replies + interactions.quotes;
-
-  return { ...post, trendingScore: score, engagementCount };
+async function scorePost(postID: string): Promise<RankedPost | null> {
+  const interactions = await getInteractionCounts(postID);
+  // Note: scorePost in @isc/social requires the full post object, not just ID
+  // This wrapper is for the app's specific usage pattern
+  return null;
 }
 
 export async function getTrendingPosts(limit: number = 20): Promise<RankedPost[]> {
   const allPosts = await getAllPosts();
-  const scored = await Promise.all(allPosts.map(scorePost));
+  // Score posts with local interactions data
+  const scored = await Promise.all(
+    allPosts.map(async (post) => {
+      const interactions = await getInteractionCounts(post.id);
+      const { scorePost } = await import('@isc/social/trending');
+      return scorePost(post, interactions);
+    })
+  );
 
-  return scored
-    .filter((p) => p.trendingScore > 0)
-    .sort((a, b) => b.trendingScore - a.trendingScore)
-    .slice(0, limit);
+  const { filterAndRankPosts } = await import('@isc/social/trending');
+  return filterAndRankPosts(scored, limit);
 }
 
 export async function getTrendingPostsForChannel(channelID: string, limit: number = 20): Promise<RankedPost[]> {
   const channelPosts = await getPostsByChannel(channelID);
-  const scored = await Promise.all(channelPosts.map(scorePost));
+  const scored = await Promise.all(
+    channelPosts.map(async (post) => {
+      const interactions = await getInteractionCounts(post.id);
+      const { scorePost } = await import('@isc/social/trending');
+      return scorePost(post, interactions);
+    })
+  );
 
-  return scored
-    .filter((p) => p.trendingScore > 0)
-    .sort((a, b) => b.trendingScore - a.trendingScore)
-    .slice(0, limit);
+  const { filterAndRankPosts } = await import('@isc/social/trending');
+  return filterAndRankPosts(scored, limit);
 }
 
 export async function getHotPosts(limit: number = 20): Promise<RankedPost[]> {
@@ -77,83 +60,31 @@ export async function getHotPosts(limit: number = 20): Promise<RankedPost[]> {
 
   const scored = await Promise.all(
     recentPosts.map(async (post) => {
-      const ranked = await scorePost(post);
+      const interactions = await getInteractionCounts(post.id);
+      const { scorePost } = await import('@isc/social/trending');
+      const ranked = scorePost(post, interactions);
       return { ...ranked, trendingScore: ranked.trendingScore * 2 };
     })
   );
 
-  return scored
-    .filter((p) => p.trendingScore > 0)
-    .sort((a, b) => b.trendingScore - a.trendingScore)
-    .slice(0, limit);
+  const { filterAndRankPosts } = await import('@isc/social/trending');
+  return filterAndRankPosts(scored, limit);
 }
 
 export async function getExploreFeed(chaosLevel: number = 0.2, limit: number = 30): Promise<RankedPost[]> {
   const trending = await getTrendingPosts(limit * 2);
   if (chaosLevel <= 0) return trending.slice(0, limit);
 
-  const channelCounts = new Map<string, number>();
-  const diverse: RankedPost[] = [];
-  const maxPerChannel = Math.ceil(limit / 3);
-
-  for (const post of trending) {
-    const count = channelCounts.get(post.channelID) ?? 0;
-    if (count < maxPerChannel) {
-      diverse.push(post);
-      channelCounts.set(post.channelID, count + 1);
-    }
-  }
-
-  if (chaosLevel > 0 && diverse.length > 5) {
-    const chaosCount = Math.floor(diverse.length * chaosLevel);
-    const startIndex = Math.floor(Math.random() * (diverse.length - chaosCount));
-    const toShuffle = diverse.slice(startIndex, startIndex + chaosCount);
-
-    for (let i = toShuffle.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [toShuffle[i], toShuffle[j]] = [toShuffle[j], toShuffle[i]];
-    }
-
-    for (let i = 0; i < chaosCount; i++) {
-      diverse[startIndex + i] = toShuffle[i];
-    }
-  }
-
+  const { diversifyByChannel, applyChaosFactor } = await import('@isc/social/trending');
+  let diverse = diversifyByChannel(trending, limit);
+  diverse = applyChaosFactor(diverse, chaosLevel);
   return diverse.slice(0, limit);
 }
 
 export async function getTrendingTopics(limit: number = 10): Promise<TrendingTopic[]> {
   const trending = await getTrendingPosts(limit * 3);
-  const topicMap = new Map<string, { posts: RankedPost[]; totalEngagement: number; preview: string }>();
-
-  for (const post of trending) {
-    const topicKey = post.content.slice(0, 50).toLowerCase().trim();
-    if (topicKey.length < 10) continue;
-
-    const existing = topicMap.get(topicKey);
-    if (existing) {
-      existing.posts.push(post);
-      existing.totalEngagement += post.engagementCount;
-    } else {
-      topicMap.set(topicKey, {
-        posts: [post],
-        totalEngagement: post.engagementCount,
-        preview: post.content.slice(0, 100),
-      });
-    }
-  }
-
-  return Array.from(topicMap.values())
-    .filter((t) => t.posts.length >= 1)
-    .sort((a, b) => b.totalEngagement - a.totalEngagement)
-    .slice(0, limit)
-    .map((t) => ({
-      preview: t.preview + (t.posts.length > 1 ? '...' : ''),
-      postCount: t.posts.length,
-      totalEngagement: t.totalEngagement,
-      postID: t.posts[0].id,
-      channelID: t.posts[0].channelID,
-    }));
+  const { extractTrendingTopics } = await import('@isc/social/trending');
+  return extractTrendingTopics(trending, limit);
 }
 
 export async function getFollowingFeed(limit: number = 50): Promise<RankedPost[]> {
@@ -164,10 +95,14 @@ export async function getFollowingFeed(limit: number = 50): Promise<RankedPost[]
 
   const allPosts = await getAllPosts();
   const followingPosts = allPosts.filter((p) => followees.includes(p.author));
-  const scored = await Promise.all(followingPosts.map(scorePost));
+  const scored = await Promise.all(
+    followingPosts.map(async (post) => {
+      const interactions = await getInteractionCounts(post.id);
+      const { scorePost } = await import('@isc/social/trending');
+      return scorePost(post, interactions);
+    })
+  );
 
-  return scored
-    .filter((p) => p.trendingScore > 0)
-    .sort((a, b) => b.trendingScore - a.trendingScore)
-    .slice(0, limit);
+  const { filterAndRankPosts } = await import('@isc/social/trending');
+  return filterAndRankPosts(scored, limit);
 }

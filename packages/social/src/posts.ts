@@ -23,6 +23,8 @@ export interface PostService {
   delete(id: string): Promise<void>;
   like(postId: string): Promise<void>;
   reply(postId: string, content: string): Promise<SignedPost>;
+  discover(channelId: string, limit?: number): Promise<SignedPost[]>;
+  getSemanticFeed(channelId: string, queryEmbedding: number[], limit?: number): Promise<Array<SignedPost & { similarity: number }>>;
 }
 
 export function createPostService(
@@ -119,7 +121,60 @@ export function createPostService(
 
       return reply;
     },
+
+    async discover(channelId: string, limit: number = 50): Promise<SignedPost[]> {
+      // Query network for posts from DHT, then save locally
+      if (!network) {
+        return this.getByChannel(channelId);
+      }
+
+      const posts = await network.requestPosts(channelId);
+      for (const post of posts) {
+        await storage.savePost(post);
+      }
+
+      return posts.slice(0, limit);
+    },
+
+    async getSemanticFeed(channelId: string, queryEmbedding: number[], limit: number = 20): Promise<Array<SignedPost & { similarity: number }>> {
+      const posts = await this.discover(channelId, limit * 2);
+
+      // Calculate similarity for each post using cosine similarity
+      const postsWithSimilarity = posts.map((post) => {
+        const postEmbedding = post.embedding ?? [];
+        const similarity = cosineSimilarity(postEmbedding, queryEmbedding);
+        return { ...post, similarity };
+      });
+
+      // Rank by similarity and return top N
+      return postsWithSimilarity
+        .sort((a, b) => b.similarity - a.similarity)
+        .slice(0, limit);
+    },
   };
+}
+
+/**
+ * Calculate cosine similarity between two vectors
+ */
+function cosineSimilarity(a: number[], b: number[]): number {
+  if (a.length === 0 || b.length === 0) return 0;
+
+  let dotProduct = 0;
+  let normA = 0;
+  let normB = 0;
+
+  for (let i = 0; i < Math.min(a.length, b.length); i++) {
+    dotProduct += a[i] * b[i];
+    normA += a[i] * a[i];
+    normB += b[i] * b[i];
+  }
+
+  normA = Math.sqrt(normA);
+  normB = Math.sqrt(normB);
+
+  if (normA === 0 || normB === 0) return 0;
+  return dotProduct / (normA * normB);
 }
 
 /**

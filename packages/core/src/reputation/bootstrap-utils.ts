@@ -1,10 +1,16 @@
 /**
- * Bootstrap Service
+ * Bootstrap Service for Reputation System
  *
  * Manages bootstrap bonus for new users to help them establish presence.
  */
 
-import { REPUTATION_CONSTANTS } from '../config/reputationConfig.js';
+export const BOOTSTRAP_CONSTANTS = {
+  MAX_BOOTSTRAP_BONUS: 0.2,
+} as const;
+
+export interface BootstrapConfig {
+  maxBootstrapBonus: number;
+}
 
 export class BootstrapService {
   /**
@@ -27,7 +33,8 @@ export class BootstrapService {
    */
   static calculateBootstrapBonus(
     firstInteractionTimestamp: number,
-    bootstrapPeriodDays: number
+    bootstrapPeriodDays: number,
+    maxBonus: number = BOOTSTRAP_CONSTANTS.MAX_BOOTSTRAP_BONUS
   ): number {
     const now = Date.now();
     const bootstrapPeriodMs = bootstrapPeriodDays * 24 * 60 * 60 * 1000;
@@ -37,8 +44,8 @@ export class BootstrapService {
       return 0;
     }
 
-    // Linear decay from MAX_BOOTSTRAP_BONUS to 0 over bootstrap period
+    // Linear decay from maxBonus to 0 over bootstrap period
     const remainingRatio = 1 - age / bootstrapPeriodMs;
-    return REPUTATION_CONSTANTS.MAX_BOOTSTRAP_BONUS * remainingRatio;
+    return maxBonus * remainingRatio;
   }
 }

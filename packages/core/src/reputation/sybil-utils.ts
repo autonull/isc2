@@ -1,11 +1,20 @@
 /**
- * Sybil Resistance Service
+ * Sybil Resistance Service for Reputation System
  *
  * Applies Sybil resistance caps to prevent reputation manipulation.
  */
 
-import type { DecayConfig } from '../types/reputation.js';
-import { REPUTATION_CONFIG, REPUTATION_CONSTANTS } from '../config/reputationConfig.js';
+export const SYBIL_CONSTANTS = {
+  SYBIL_CAP: 0.3,
+  MUTUAL_FOLLOW_CAP: 0.4,
+  MUTUAL_FOLLOW_BONUS_PER: 0.05,
+} as const;
+
+export interface SybilConfig {
+  sybilCap: number;
+  mutualFollowCap: number;
+  mutualFollowBonusPerFollow: number;
+}
 
 export class SybilResistanceService {
   /**
@@ -17,12 +26,12 @@ export class SybilResistanceService {
   static applySybilResistance(
     rawScore: number,
     mutualFollowCount: number,
-    config: DecayConfig = REPUTATION_CONFIG
+    config: SybilConfig = SYBIL_CONSTANTS
   ): number {
     // Cap mutual follow contribution
     const mutualFollowBonus = Math.min(
-      mutualFollowCount * REPUTATION_CONSTANTS.MUTUAL_FOLLOW_BONUS_PER,
-      REPUTATION_CONSTANTS.MUTUAL_FOLLOW_CAP
+      mutualFollowCount * config.mutualFollowBonusPerFollow,
+      config.mutualFollowCap
     );
 
     // Apply Sybil cap to prevent runaway reputation
@@ -37,10 +46,13 @@ export class SybilResistanceService {
   /**
    * Calculate mutual follow bonus
    */
-  static calculateMutualFollowBonus(mutualFollowCount: number): number {
+  static calculateMutualFollowBonus(
+    mutualFollowCount: number,
+    config: SybilConfig = SYBIL_CONSTANTS
+  ): number {
     return Math.min(
-      mutualFollowCount * REPUTATION_CONSTANTS.MUTUAL_FOLLOW_BONUS_PER,
-      REPUTATION_CONSTANTS.MUTUAL_FOLLOW_CAP
+      mutualFollowCount * config.mutualFollowBonusPerFollow,
+      config.mutualFollowCap
     );
   }
 }

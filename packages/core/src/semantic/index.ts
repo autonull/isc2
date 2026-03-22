@@ -1,15 +1,17 @@
+/**
+ * Semantic Analysis Module
+ *
+ * Pure mathematical algorithms for semantic processing:
+ * - Vector math operations
+ * - Similarity calculations
+ * - Clustering algorithms
+ * - Layout algorithms
+ */
+
 export {
-  relationalMatch,
-  distributionSimilarity,
-  rankCandidates,
-  type MatchConfig,
-} from './matching.js';
-export {
-  haversineDistance,
-  locationOverlap,
-  timeOverlap,
-  spatiotemporalSimilarity,
-  type Location,
-  type TimeWindow,
-} from './spatiotemporal.js';
-export { computeRelationalDistributions, type EmbeddingModel } from './distributions.js';
+  VectorMath,
+  Similarity,
+  Clustering,
+  Layout,
+  type Point2D,
+} from './algorithms.js';

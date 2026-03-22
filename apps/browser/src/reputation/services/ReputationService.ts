@@ -7,9 +7,9 @@
 import { getInteractionHistory } from '../../social/graph.js';
 import type { DecayReputation, DecayConfig, DecayCurvePoint } from '../types/reputation.js';
 import { REPUTATION_CONFIG } from '../config/reputationConfig.js';
-import { DecayCalculator } from './DecayCalculator.js';
-import { BootstrapService } from './BootstrapService.js';
-import { SybilResistanceService } from './SybilResistanceService.js';
+import { DecayCalculator } from '@isc/core';
+import { BootstrapService } from '@isc/core';
+import { SybilResistanceService } from '@isc/core';
 import { ReputationCache } from './ReputationCache.js';
 
 export class ReputationService {

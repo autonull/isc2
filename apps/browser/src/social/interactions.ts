@@ -1,168 +1,90 @@
-import { sign, encode, type Signature } from '@isc/core';
-import type { LikeEvent, RepostEvent, ReplyEvent, QuoteEvent } from './types.js';
-import { getPeerID, getKeypair } from '../identity/index.js';
-import { DelegationClient } from '../delegation/fallback.js';
-import { dbGet, dbGetAll, dbPut, dbDelete, dbFilter } from '../db/helpers.js';
-import { signContent, announceToDHT } from './signing.js';
-import { loggers } from '../utils/logger.js';
+/**
+ * Interactions Module - Backward compatibility wrapper
+ *
+ * Re-exports from @isc/social/interactions with browser-specific wrappers.
+ */
 
-const logger = loggers.social;
+export {
+  type InteractionService,
+  type LikeEvent,
+  type RepostEvent,
+  type ReplyEvent,
+  type QuoteEvent,
+  type InteractionCounts,
+} from '@isc/social';
 
-const LIKES_STORE = 'likes';
-const REPOSTS_STORE = 'reposts';
-const REPLIES_STORE = 'replies';
-const QUOTES_STORE = 'quotes';
-const DEFAULT_TTL = 86400 * 30;
+import { createInteractionService } from '@isc/social';
+import { browserStorageAdapter } from './adapters/storage.js';
+import { browserIdentityAdapter } from './adapters/identity.js';
+import { browserNetworkAdapter } from './adapters/network.js';
 
-async function createAndAnnounceEvent<T extends { id: string; signature: Signature }>(
-  payload: Omit<T, 'signature'>,
-  store: string,
-  dhtKey: string
-): Promise<T> {
-  const keypair = getKeypair();
-  if (!keypair) throw new Error('Identity not initialized');
+// Lazy-loaded interaction service singleton
+let interactionService: any = null;
 
-  const signature = await sign(encode(payload), keypair.privateKey);
-  const event = { ...payload, signature } as T;
-
-  await dbPut(store, event);
-
-  try {
-    await announceToDHT(dhtKey, event);
-  } catch (error) {
-    logger.warn('Failed to announce event to DHT', { error: (error as Error).message, dhtKey });
+async function getInteractionService() {
+  if (!interactionService) {
+    interactionService = createInteractionService(browserStorageAdapter, browserIdentityAdapter, browserNetworkAdapter);
   }
-
-  return event;
+  return interactionService;
 }
 
-export async function likePost(postID: string): Promise<LikeEvent> {
-  const liker = await getPeerID();
-
-  return createAndAnnounceEvent<LikeEvent>(
-    {
-      id: `like_${crypto.randomUUID()}`,
-      liker,
-      postID,
-      timestamp: Date.now(),
-    },
-    LIKES_STORE,
-    `/isc/like/${postID}/${liker}`
-  );
+// Backward-compatible function exports
+export async function likePost(postID: string): Promise<any> {
+  const svc = await getInteractionService();
+  return svc.likePost(postID);
 }
 
 export async function unlikePost(postID: string): Promise<void> {
-  const liker = await getPeerID();
-  const likes = await dbFilter<LikeEvent>(LIKES_STORE, (like) =>
-    like.postID === postID && like.liker === liker
-  );
-
-  for (const like of likes) {
-    await dbDelete(LIKES_STORE, like.id);
-  }
+  const svc = await getInteractionService();
+  return svc.unlikePost(postID);
 }
 
 export async function getLikeCount(postID: string): Promise<number> {
-  const likes = await dbFilter<LikeEvent>(LIKES_STORE, (like) => like.postID === postID);
-  return likes.length;
+  const svc = await getInteractionService();
+  return svc.getLikeCount(postID);
 }
 
 export async function hasLiked(postID: string): Promise<boolean> {
-  const liker = await getPeerID();
-  const likes = await dbFilter<LikeEvent>(LIKES_STORE, (like) =>
-    like.postID === postID && like.liker === liker
-  );
-  return likes.length > 0;
+  const svc = await getInteractionService();
+  return svc.hasLiked(postID);
 }
 
-export async function repostPost(postID: string): Promise<RepostEvent> {
-  const reposter = await getPeerID();
-
-  return createAndAnnounceEvent<RepostEvent>(
-    {
-      id: `repost_${crypto.randomUUID()}`,
-      reposter,
-      postID,
-      timestamp: Date.now(),
-    },
-    REPOSTS_STORE,
-    `/isc/repost/${postID}/${reposter}`
-  );
+export async function repostPost(postID: string): Promise<any> {
+  const svc = await getInteractionService();
+  return svc.repostPost(postID);
 }
 
-export async function replyToPost(
-  parentID: string,
-  content: string,
-  channelID: string
-): Promise<ReplyEvent> {
-  const author = await getPeerID();
-
-  return createAndAnnounceEvent<ReplyEvent>(
-    {
-      id: `reply_${crypto.randomUUID()}`,
-      parentID,
-      author,
-      content,
-      channelID,
-      timestamp: Date.now(),
-    },
-    REPLIES_STORE,
-    `/isc/reply/${parentID}/${author}`
-  );
+export async function getRepostCount(postID: string): Promise<number> {
+  const svc = await getInteractionService();
+  return svc.getRepostCount(postID);
 }
 
-export async function getReplies(parentID: string): Promise<ReplyEvent[]> {
-  return dbFilter<ReplyEvent>(REPLIES_STORE, (reply) => reply.parentID === parentID);
+export async function replyToPost(parentID: string, content: string, channelID: string): Promise<any> {
+  const svc = await getInteractionService();
+  return svc.replyToPost(parentID, content, channelID);
 }
 
-export async function quotePost(
-  postID: string,
-  content: string,
-  channelID: string
-): Promise<QuoteEvent> {
-  const quoter = await getPeerID();
-
-  return createAndAnnounceEvent<QuoteEvent>(
-    {
-      id: `quote_${crypto.randomUUID()}`,
-      quoter,
-      postID,
-      content,
-      channelID,
-      timestamp: Date.now(),
-    },
-    QUOTES_STORE,
-    `/isc/quote/${postID}/${quoter}`
-  );
+export async function getReplies(parentID: string): Promise<any[]> {
+  const svc = await getInteractionService();
+  return svc.getReplies(parentID);
 }
 
-export async function getInteractionCounts(postID: string): Promise<{
-  likes: number;
-  reposts: number;
-  replies: number;
-  quotes: number;
-}> {
-  const [likes, reposts, replies, quotes] = await Promise.all([
-    getLikeCount(postID),
-    getRepostCount(postID),
-    getReplyCount(postID),
-    getQuoteCount(postID),
-  ]);
-
-  return { likes, reposts, replies, quotes };
+export async function getReplyCount(parentID: string): Promise<number> {
+  const svc = await getInteractionService();
+  return svc.getReplyCount(parentID);
 }
 
-async function getRepostCount(postID: string): Promise<number> {
-  const reposts = await dbFilter<RepostEvent>(REPOSTS_STORE, (repost) => repost.postID === postID);
-  return reposts.length;
+export async function quotePost(postID: string, content: string, channelID: string): Promise<any> {
+  const svc = await getInteractionService();
+  return svc.quotePost(postID, content, channelID);
 }
 
-async function getReplyCount(parentID: string): Promise<number> {
-  const replies = await dbFilter<ReplyEvent>(REPLIES_STORE, (reply) => reply.parentID === parentID);
-  return replies.length;
+export async function getQuoteCount(postID: string): Promise<number> {
+  const svc = await getInteractionService();
+  return svc.getQuoteCount(postID);
 }
 
-async function getQuoteCount(postID: string): Promise<number> {
-  const quotes = await dbFilter<QuoteEvent>(QUOTES_STORE, (quote) => quote.postID === postID);
-  return quotes.length;
+export async function getInteractionCounts(postID: string): Promise<any> {
+  const svc = await getInteractionService();
+  return svc.getInteractionCounts(postID);
 }

@@ -8,7 +8,7 @@ import { AudioSpaceModel } from '../models/AudioSpace.js';
 import { AUDIO_CONFIG } from '../config/audioConfig.js';
 import { getPeerID } from '../../../identity/index.js';
 import { getChannel } from '../../../channels/manager.js';
-import { DelegationClient } from '../../../delegation/fallback.js';
+import { DelegationClient } from '@isc/delegation';
 import type { AudioSpace } from '../types/audioSpace.js';
 
 export class AudioSpaceService {

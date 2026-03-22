@@ -5,7 +5,7 @@
  * Business logic depends on these abstractions, not implementations.
  */
 
-import type { SignedPost, Message, Channel, PeerProfile } from '../types';
+import type { SignedPost, Message, Channel, PeerProfile, Interaction, FollowSubscription, ProfileSummary, Community, Membership } from '../types';
 
 /**
  * Storage adapter for social data
@@ -35,6 +35,22 @@ export interface SocialStorage {
   // Preferences
   getFollowing(): Promise<Set<string>>;
   saveFollowing(peerIds: Set<string>): Promise<void>;
+
+  // Interactions
+  getInteractions(peerID: string): Promise<Interaction[]>;
+  getAllInteractions(): Promise<Interaction[]>;
+  saveInteraction(interaction: Interaction): Promise<void>;
+  deleteInteraction(interactionId: string): Promise<void>;
+
+  // Profiles
+  getProfile(peerID: string): Promise<ProfileSummary | null>;
+  saveProfile(profile: ProfileSummary): Promise<void>;
+
+  // Communities
+  getCommunity(channelID: string): Promise<Community | null>;
+  getCommunities(): Promise<Community[]>;
+  saveCommunity(community: Community): Promise<void>;
+  deleteCommunity(channelID: string): Promise<void>;
 
   // Settings
   getSettings<T>(): Promise<T>;
@@ -74,6 +90,10 @@ export interface SocialNetwork {
   createChannel(name: string, description: string): Promise<Channel>;
   joinChannel(channelId: string): Promise<void>;
   leaveChannel(channelId: string): Promise<void>;
+
+  // Follow operations
+  announceFollow(follower: string, followee: string, timestamp: number): Promise<void>;
+  queryFollows(peerID: string): Promise<FollowSubscription[]>;
 }
 
 /**

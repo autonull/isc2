@@ -7,7 +7,7 @@
 
 import { sign, encode, verify, decode, type Signature } from '@isc/core';
 import { getPeerID, getKeypair, getPeerPublicKey } from '../identity/index.js';
-import { DelegationClient } from '../delegation/fallback.js';
+import { DelegationClient } from '@isc/delegation';
 import { loggers } from '../utils/logger.js';
 
 const logger = loggers.social;

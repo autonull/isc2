@@ -9,7 +9,7 @@ import { WebRTCAudioService } from './WebRTCAudioService.js';
 import { AudioSpaceService } from './AudioSpaceService.js';
 import { AUDIO_CONFIG } from '../config/audioConfig.js';
 import { getPeerID } from '../../../identity/index.js';
-import { DelegationClient } from '../../../delegation/fallback.js';
+import { DelegationClient } from '@isc/delegation';
 import type { AudioMessage, AudioSpace } from '../types/audioSpace.js';
 
 export class AudioParticipantService {

@@ -5,7 +5,7 @@
  */
 
 import { encode } from '@isc/core';
-import { DelegationClient } from '../../../delegation/fallback.js';
+import { DelegationClient } from '@isc/delegation';
 import type { DirectMessage, GroupDM, GroupDMEvent, GroupEventType } from '../types/dm.js';
 import { DM_CONFIG, DM_DHT_PREFIXES } from '../config/dmConfig.js';
 
