@@ -33,7 +33,7 @@ export default defineConfig({
   webServer: [
     {
       command: 'pnpm --filter @isc/apps/node dev',
-      port: 9090, // Wait for TCP 9090 port instead of HTTP URL to avoid 404/ECONNRESET fails
+      port: 9091, // Wait for the admin/health port (relay listens on 9000 for libp2p, 9091 for admin)
       reuseExistingServer: !process.env.CI,
       timeout: 180000,
       stdout: 'pipe',

@@ -18,6 +18,14 @@ import { createStorage, type StorageAdapter } from '@isc/adapters';
 import { BrowserNetworkAdapter } from '@isc/adapters/browser';
 import { Libp2pDHT } from './libp2p-dht.js';
 import type { DHT } from './types.js';
+import { lshHash } from '@isc/core';
+
+const POST_TTL = 24 * 60 * 60 * 1000;
+const CANDIDATE_CAP = 20;
+const LSH_SEED = 'allminilm';
+const LSH_NUM_HASHES = 20;
+const LSH_HASH_LEN = 32;
+const LSH_BUCKET_LIMIT = 5;
 
 /**
  * Network service configuration
@@ -164,7 +172,9 @@ export class BrowserNetworkService {
         this.networkAdapter = null;
       }
 
-      this.setupPubSub();
+      for (const channel of this.channels) {
+        this.subscribeChannelBuckets(channel);
+      }
 
       // Announce to DHT
       await this.announceToDHT();
@@ -396,9 +406,34 @@ export class BrowserNetworkService {
     // Announce channel to DHT
     await this.announceChannel(channel);
 
+    this.subscribeChannelBuckets(channel);
+
     this.events.onChannelCreated?.(channel);
     console.log(`[Network] Created channel: ${channel.name}`);
 
+    return channel;
+  }
+
+  async updateChannel(channelId: string, updates: { name?: string; description?: string }): Promise<ChannelData> {
+    if (!this.embedding) throw new Error('Embedding service not loaded');
+    const channel = this.channels.find((c) => c.id === channelId);
+    if (!channel) throw new Error(`Channel ${channelId} not found`);
+
+    this.unsubscribeChannelBuckets(channel);
+
+    if (updates.name) channel.name = updates.name;
+    if (updates.description) {
+      channel.description = updates.description;
+      // Recompute embedding for new description
+      channel.embedding = await this.embedding.compute(updates.description);
+    }
+
+    if (this.shouldPersist()) {
+      await this.storage.set('isc-channels', this.channels);
+    }
+
+    await this.announceChannel(channel);
+    this.subscribeChannelBuckets(channel);
     return channel;
   }
 
@@ -439,34 +474,51 @@ export class BrowserNetworkService {
     return this.embedding;
   }
 
-  /**
-   * Subscribe to network events for new posts
-   */
-  private setupPubSub(): void {
-    if (!this.networkAdapter || !this.networkAdapter.subscribe) return;
+  private bucketHashes(embedding: number[]): string[] {
+    return lshHash(embedding, LSH_SEED, LSH_NUM_HASHES, LSH_HASH_LEN).slice(0, LSH_BUCKET_LIMIT);
+  }
 
-    const topic = 'isc:posts:global';
+  private subscribeChannelBuckets(channel: ChannelData): void {
+    if (!this.networkAdapter?.subscribe || !channel.embedding) return;
+    for (const hash of this.bucketHashes(channel.embedding)) {
+      this.networkAdapter.subscribe(
+        `/isc/gossip/${LSH_SEED}/${hash}`,
+        (data: Uint8Array) => this.receiveChannelMessage(data)
+      );
+    }
+  }
 
-    this.networkAdapter.subscribe(topic, async (data: Uint8Array) => {
+  private unsubscribeChannelBuckets(channel: ChannelData): void {
+    if (!this.networkAdapter?.unsubscribe || !channel.embedding) return;
+    for (const hash of this.bucketHashes(channel.embedding)) {
       try {
-        const post: PostData = JSON.parse(new TextDecoder().decode(data));
+        this.networkAdapter.unsubscribe?.(`/isc/gossip/${LSH_SEED}/${hash}`);
+      } catch { /* best-effort */ }
+    }
+  }
 
-        // Ensure we don't process our own posts twice
-        if (this.posts.some((p) => p.id === post.id)) return;
+  private async publishToChannelBuckets(channel: ChannelData, post: PostData): Promise<void> {
+    if (!this.networkAdapter?.publish || !channel.embedding) return;
+    const payload = new TextEncoder().encode(JSON.stringify(post));
+    await Promise.all(
+      this.bucketHashes(channel.embedding).map(hash =>
+        this.networkAdapter!.publish(`/isc/gossip/${LSH_SEED}/${hash}`, payload).catch(err =>
+          console.warn('[Network] gossip publish failed:', err)
+        )
+      )
+    );
+  }
 
-        this.posts.unshift(post);
-        if (this.shouldPersist()) {
-          await this.storage.set('isc-posts', this.posts);
-        }
-
-        this.events.onPostCreated?.(post);
-        console.log(`[Network] Received post in ${post.channelName} via Gossipsub`);
-      } catch (err) {
-        console.warn('[Network] Failed to parse incoming post:', err);
+  private receiveChannelMessage(data: Uint8Array): void {
+    try {
+      const post = JSON.parse(new TextDecoder().decode(data)) as PostData;
+      if (this.posts.some((p) => p.id === post.id)) return;
+      this.posts.unshift(post);
+      if (this.shouldPersist()) {
+        this.storage.set('isc-posts', this.posts).catch(() => {});
       }
-    });
-
-    console.log(`[Network] Subscribed to topic: ${topic}`);
+      this.events.onPostCreated?.(post);
+    } catch { /* skip malformed */ }
   }
 
   /**
@@ -494,32 +546,52 @@ export class BrowserNetworkService {
     }
 
     this.events.onPostCreated?.(post);
-    console.log(`[Network] Created post in ${channel.name}`);
 
-    // Compute embedding and broadcast asynchronously so the post appears immediately
-    if (this.embedding || (this.networkAdapter && this.networkAdapter.publish)) {
+    if (channel.embedding) {
       (async () => {
         try {
-          if (this.embedding) {
-            post.embedding = await this.embedding.compute(content);
-          }
-          // Broadcast via pubsub if network is available
-          if (this.networkAdapter && this.networkAdapter.publish) {
-            const data = new TextEncoder().encode(JSON.stringify(post));
-            await this.networkAdapter.publish('isc:posts:global', data);
-            console.log(`[Network] Broadcasted post via Gossipsub`);
-          }
-          // Persist with embedding
-          if (post.embedding && this.shouldPersist()) {
-            await this.storage.set('isc-posts', this.posts);
-          }
+          const payload = new TextEncoder().encode(JSON.stringify(post));
+          await Promise.all(
+            this.bucketHashes(channel.embedding!).map(hash =>
+              this.dht.put(`/isc/post/${LSH_SEED}/${hash}`, payload, POST_TTL)
+            )
+          );
+          await this.publishToChannelBuckets(channel, post);
         } catch (err) {
-          console.warn('[Network] Post background processing failed:', err);
+          console.warn('[Network] Post routing failed:', err);
         }
       })();
     }
 
     return post;
+  }
+
+  async fetchMessagesForChannel(channel: ChannelData): Promise<PostData[]> {
+    if (!channel.embedding) {
+      return this.posts.filter((p) => p.channelId === channel.id);
+    }
+
+    const seen = new Map<string, PostData>();
+    const allResults = await Promise.all(
+      this.bucketHashes(channel.embedding).map(hash =>
+        this.dht.get(`/isc/post/${LSH_SEED}/${hash}`, CANDIDATE_CAP)
+      )
+    );
+
+    for (const results of allResults) {
+      for (const bytes of results) {
+        try {
+          const post = JSON.parse(new TextDecoder().decode(bytes)) as PostData;
+          if (!seen.has(post.id)) seen.set(post.id, post);
+        } catch { /* skip malformed */ }
+      }
+    }
+
+    for (const p of this.posts.filter((p) => p.channelId === channel.id)) {
+      seen.set(p.id, p);
+    }
+
+    return [...seen.values()].sort((a, b) => b.createdAt - a.createdAt);
   }
 
   /**

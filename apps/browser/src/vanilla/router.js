@@ -191,17 +191,32 @@ export function setupEventHandlers({ onNavigate, mainContent, services }) {
   document.addEventListener('isc:toast', (e) =>
     toasts.show(e.detail?.message, e.detail?.type, e.detail?.duration)
   );
-  document.addEventListener('isc:new-channel', () => onNavigate('/compose'));
+  document.addEventListener('isc:new-channel', () => {
+    // Open ChannelEdit modal instead of navigating to /compose
+    import('./components/channelEdit.js')
+      .then((m) => m.openChannelEdit?.())
+      .catch(() => {
+        // Fallback: navigate to /now which prompts channel creation
+        onNavigate('/now');
+      });
+  });
   document.addEventListener('isc:need-channel', () => {
     toasts.warning('Please select or create a channel first');
-    onNavigate('/compose');
+    import('./components/channelEdit.js')
+      .then((m) => m.openChannelEdit?.())
+      .catch(() => {
+        onNavigate('/now');
+      });
   });
 
   document.addEventListener('isc:refresh-feed', (e) => {
-    if (window.location.hash === '#/now') {
-      import('./screens/now.js').then((m) =>
+    if (window.location.hash === '#/channel') {
+      import('./screens/channel.js').then((m) =>
         m.update?.(mainContent, { scrollToTop: e.detail?.scrollToTop ?? false })
       );
+    }
+    if (window.location.hash === '#/now') {
+      import('./screens/now.js').then((m) => m.update?.(mainContent));
     }
   });
 
@@ -224,7 +239,7 @@ export function setupEventHandlers({ onNavigate, mainContent, services }) {
 
     try {
       await postService.delete(postId);
-      import('./screens/now.js').then((m) => m.update?.(mainContent));
+      import('./screens/channel.js').then((m) => m.update?.(mainContent));
       toasts.success('Post deleted');
     } catch (err) {
       toasts.error(err.message);
@@ -238,7 +253,7 @@ export function setupEventHandlers({ onNavigate, mainContent, services }) {
     const post = postService.getById?.(postId);
     if (!post) return;
 
-    onNavigate('/now');
+    onNavigate('/channel');
     const snippet = (post.content || '').slice(0, 80);
     const quoteText = `> ${snippet}${post.content?.length > 80 ? '…' : ''}\n\n`;
 
@@ -252,20 +267,6 @@ export function setupEventHandlers({ onNavigate, mainContent, services }) {
         input.focus();
       });
     });
-  });
-
-  document.addEventListener('isc:discover-peers', async () => {
-    if (!networkService) return;
-    try {
-      toasts.info('Discovering peers…');
-      await networkService.discoverPeers();
-      actions.setMatches(networkService.getMatches());
-      if (window.location.hash === '#/discover') {
-        import('./screens/discover.js').then((m) => m.update?.(mainContent));
-      }
-    } catch (err) {
-      toasts.error(err.message);
-    }
   });
 }
 
@@ -288,7 +289,7 @@ export function setupKeyboardShortcuts({ onNavigate, onToggleDebug, mainContent,
     }
     if (e.key === 'k' && mod) {
       e.preventDefault();
-      onNavigate('/compose');
+      document.dispatchEvent(new CustomEvent('isc:new-channel'));
     }
     if (e.key === ',' && mod) {
       e.preventDefault();

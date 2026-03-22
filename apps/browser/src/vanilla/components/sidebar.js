@@ -48,10 +48,10 @@ function render(el, state) {
   const statusInfo = STATUS_MAP[status] ?? { class: 'offline', label: 'Offline' };
 
   el.innerHTML = `
-    <!-- Navigation strip (replaces .irc-brand) -->
+    <!-- Navigation strip -->
     <div class="sidebar-nav-strip" role="toolbar" aria-label="Main navigation" data-testid="sidebar-nav-strip">
-      <button class="snav-btn" data-route="/now" title="Now — your feed (Home)" aria-label="Now" data-testid="snav-now">⌂</button>
-      <button class="snav-btn" data-route="/discover" title="Discover peers" aria-label="Discover" data-testid="snav-discover">◎</button>
+      <button class="snav-btn" data-route="/now" title="Now — home dashboard" aria-label="Now" data-testid="snav-now">⌂</button>
+      <button class="snav-btn" data-route="/channel" title="Channel — message stream" aria-label="Channel" data-testid="snav-channel">#</button>
       <button class="snav-btn" data-route="/chats" title="Chats" aria-label="Chats" data-testid="snav-chats">◷</button>
       <button class="snav-btn" data-route="/settings" title="Settings (Ctrl+,)" aria-label="Settings" data-testid="snav-settings">⚙</button>
     </div>
@@ -134,10 +134,18 @@ function bind(el, { onNavigate, onNewChannel }) {
     const addBtn = e.target.closest('[data-testid="new-channel-btn"]');
     const debugBtn = e.target.closest('[data-testid="debug-toggle"]');
 
-    if (snavBtn) onNavigate(snavBtn.dataset.route);
+    if (snavBtn) {
+      const route = snavBtn.dataset.route;
+      // If navigating to /channel but no channel is active, open ChannelEdit modal
+      if (route === '/channel' && !getState().activeChannelId) {
+        onNewChannel?.();
+      } else {
+        onNavigate(route);
+      }
+    }
     if (channelItem) {
       actions.setActiveChannel(channelItem.dataset.channelId);
-      onNavigate('/now');
+      onNavigate('/channel');
     }
     if (addBtn) onNewChannel?.();
     if (debugBtn) el.dispatchEvent(new CustomEvent('isc:toggle-debug', { bubbles: true }));

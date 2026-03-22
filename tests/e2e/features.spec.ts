@@ -92,13 +92,8 @@ test.describe('Video Screen', () => {
     await expect(page.locator('[data-testid="call-btn-peer-beta"]')).toBeVisible();
   });
 
-  test('clicking discover link navigates to discover screen', async ({ page }) => {
-    await goToVideo(page);
-
-    // Click the "Find Peers" link in the header
-    await page.click('[aria-label="Find peers to call"]');
-    await page.waitForSelector('[data-testid="discover-screen"]', { timeout: 5000 });
-  });
+  // Discover screen removed (Phase 3.3). Peers are found via channel neighborhood.
+  // test('clicking discover link navigates to discover screen', async ({ page }) => { ... });
 
   test('dialing a peer navigates to the chats screen', async ({ page }) => {
     await goToVideo(page);

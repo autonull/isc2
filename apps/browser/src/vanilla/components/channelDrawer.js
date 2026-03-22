@@ -50,11 +50,14 @@ export function createChannelDrawer(onNavigate) {
     drawer.querySelector('.channel-drawer-close')
       ?.addEventListener('click', close);
     drawer.querySelector('.channel-drawer-new')
-      ?.addEventListener('click', () => { close(); onNavigate('/compose'); });
+      ?.addEventListener('click', () => {
+        close();
+        document.dispatchEvent(new CustomEvent('isc:new-channel'));
+      });
     drawer.querySelectorAll('.drawer-channel-item').forEach(item => {
       item.addEventListener('click', () => {
         actions.setActiveChannel(item.dataset.channelId);
-        onNavigate('/now');
+        onNavigate('/channel');
         close();
       });
       item.addEventListener('keydown', (e) => {

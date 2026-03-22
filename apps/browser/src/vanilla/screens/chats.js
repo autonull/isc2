@@ -49,7 +49,7 @@ function renderHeader() {
     <div class="screen-header" data-testid="chats-header">
       <h1 class="screen-title">💬 Chats <span class="screen-subtitle">E2E encrypted</span></h1>
       <div class="header-actions">
-        <a href="#/discover" class="btn btn-ghost btn-sm">Find Peers</a>
+        <a href="#/channel" class="btn btn-ghost btn-sm">Open Channel</a>
         <button class="btn btn-primary btn-sm" id="new-chat-btn"
                 data-testid="new-chat-btn" aria-label="New conversation">+</button>
       </div>
@@ -87,8 +87,8 @@ function renderEmptyConv() {
   return renderEmpty({
     icon: '🔭',
     title: 'No conversations yet',
-    description: 'Discover peers with similar interests and connect with them.',
-    actions: [{ label: '📡 Discover Peers', href: '#/discover', variant: 'primary' }],
+    description: 'Create a channel to find peers with similar interests.',
+    actions: [{ label: '# Open Channel', href: '#/channel', variant: 'primary' }],
   });
 }
 
@@ -461,7 +461,6 @@ export function bind(container) {
   };
   window.addEventListener('offline', onOffline);
 
-  bindChatInputHandlers(container);
   if (activePeerId) openChat(container, activePeerId);
 
   container.addEventListener('click', (e) => {
@@ -590,6 +589,8 @@ async function openChat(container, peerId) {
   await loadBridgeSuggestion(peerId, similarity);
 
   chatPanel.innerHTML = renderChatView(peerId, conversations);
+
+  bindChatInputHandlers(container);
 
   const dismissBtn = container.querySelector('#bridge-dismiss');
   dismissBtn?.addEventListener('click', () => {

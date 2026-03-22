@@ -107,6 +107,37 @@ export class Libp2pDHT implements DHT {
     return matches.sort((a, b) => b.similarity - a.similarity);
   }
 
+  /**
+   * Store arbitrary bytes under a key in the DHT
+   */
+  async put(key: string, value: Uint8Array, ttl: number): Promise<void> {
+    if (this.networkAdapter.isRunning && !this.networkAdapter.isRunning()) {
+      console.warn('[Libp2pDHT] Cannot put, network not running.');
+      return;
+    }
+    try {
+      await this.networkAdapter.announce(key, value, ttl);
+    } catch (err) {
+      console.warn(`[Libp2pDHT] put failed for key ${key}:`, err);
+    }
+  }
+
+  /**
+   * Retrieve bytes stored under a key from the DHT
+   */
+  async get(key: string, count: number): Promise<Uint8Array[]> {
+    if (this.networkAdapter.isRunning && !this.networkAdapter.isRunning()) {
+      console.warn('[Libp2pDHT] Cannot get, network not running.');
+      return [];
+    }
+    try {
+      return await this.networkAdapter.query(key, count);
+    } catch (err) {
+      console.warn(`[Libp2pDHT] get failed for key ${key}:`, err);
+      return [];
+    }
+  }
+
   getAll(): PeerInfo[] {
     const now = Date.now();
     return Array.from(this.cache.values())

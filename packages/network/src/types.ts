@@ -28,7 +28,7 @@ export interface PeerMatch {
 }
 
 /**
- * DHT interface for peer announcements
+ * DHT interface for peer announcements and generic key-value storage
  */
 export interface DHT {
   announce(peer: PeerInfo, ttl: number): Promise<void>;
@@ -36,6 +36,8 @@ export interface DHT {
   getAll(): PeerInfo[];
   getCount(): number;
   cleanup(currentTime: number): number;
+  put(key: string, value: Uint8Array, ttl: number): Promise<void>;
+  get(key: string, count: number): Promise<Uint8Array[]>;
 }
 
 /**

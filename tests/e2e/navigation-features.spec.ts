@@ -13,10 +13,6 @@ test.describe('Navigation Helper', () => {
     await nav.assertRoute('/now');
     await expect(page.locator('[data-testid="now-screen"]')).toBeVisible();
 
-    await nav.goTo('/discover');
-    await nav.assertRoute('/discover');
-    await expect(page.locator('[data-testid="discover-screen"]')).toBeVisible();
-
     await nav.goTo('/chats');
     await nav.assertRoute('/chats');
     await expect(page.locator('[data-testid="chats-screen"]')).toBeVisible();
@@ -32,10 +28,6 @@ test.describe('Navigation Helper', () => {
     await nav.navigateViaSidebar('/now');
     await nav.assertRoute('/now');
     await nav.waitForNavActive('/now');
-
-    await nav.navigateViaSidebar('/discover');
-    await nav.assertRoute('/discover');
-    await nav.waitForNavActive('/discover');
   });
 
   test('should track active navigation state', async ({ page }) => {
@@ -43,7 +35,6 @@ test.describe('Navigation Helper', () => {
 
     await nav.goTo('/now');
     expect(await nav.isNavActive('/now')).toBe(true);
-    expect(await nav.isNavActive('/discover')).toBe(false);
   });
 });
 
@@ -124,23 +115,8 @@ test.describe('Accessibility Features', () => {
   });
 });
 
-test.describe('Peer Profile Modal', () => {
-  test('should be accessible from discover screen', async ({ page }) => {
-    await page.goto('#/discover');
-    await expect(page.locator('[data-testid="discover-content"]')).toBeVisible();
-
-    const matchCards = page.locator('[data-component="match-card"]');
-    const count = await matchCards.count();
-
-    if (count > 0) {
-      await matchCards.first().click();
-      await expect(page.locator('[data-testid="peer-profile-modal"]')).toBeVisible();
-      await expect(page.locator('[data-action="block"]')).toBeVisible();
-      await page.locator('[data-testid="modal-close"]').click();
-      await expect(page.locator('[data-testid="peer-profile-modal"]')).not.toBeVisible();
-    }
-  });
-});
+// Peer profile modal is now accessible via message sender taps in the Channel screen.
+// No separate Discover screen — test removed per Phase 3.3.
 
 test.describe('Chat More Menu', () => {
   test('should show file transfer options', async ({ page }) => {

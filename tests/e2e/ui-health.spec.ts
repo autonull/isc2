@@ -44,7 +44,7 @@ test.describe('UI Health Checks', () => {
       return;
     }
 
-    const tabs = ['now', 'chats', 'settings', 'compose'];
+    const tabs = ['now', 'channel', 'chats', 'settings'];
     
     for (const tab of tabs) {
       const tabElement = page.locator(`[data-testid="nav-tab-${tab}"], [data-tab="${tab}"]`).first();

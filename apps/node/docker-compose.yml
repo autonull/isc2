@@ -1,18 +1,16 @@
 version: '3.8'
 
 services:
-  isc-relay:
-    build:
-      context: ..
-      dockerfile: apps/node/Dockerfile
+  relay:
+    build: ./apps/node
     container_name: isc-relay
     ports:
-      - '9090:9090'
-      - '9091:9091'
+      - '9000:9000'  # libp2p
+      - '9091:9091'  # admin
     environment:
       - ISC_ADMIN_TOKEN=${ISC_ADMIN_TOKEN:-admin-token-change-me}
       - ISC_ADMIN_PORT=9091
-      - ISC_PORT=9090
+      - ISC_PORT=9000
       - ISC_SIMULATOR=${ISC_SIMULATOR:-false}
       - ISC_BOT_COUNT=${ISC_BOT_COUNT:-5}
       - ISC_ANNOUNCE=${ISC_ANNOUNCE:-false}

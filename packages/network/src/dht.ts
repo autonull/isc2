@@ -17,10 +17,19 @@ interface DHTEntry {
 }
 
 /**
+ * Generic key-value entry with expiration
+ */
+interface KVEntry {
+  value: Uint8Array;
+  expiresAt: number;
+}
+
+/**
  * In-memory DHT implementation
  */
 export class InMemoryDHT implements DHT {
   private entries: Map<string, DHTEntry> = new Map();
+  private kvStore: Map<string, KVEntry[]> = new Map();
   private announceCount = 0;
   private discoverCount = 0;
 
@@ -94,9 +103,6 @@ export class InMemoryDHT implements DHT {
     return this.getAll().length;
   }
 
-  /**
-   * Clean up expired entries
-   */
   cleanup(currentTime: number): number {
     let removed = 0;
     for (const [id, entry] of this.entries.entries()) {
@@ -105,7 +111,31 @@ export class InMemoryDHT implements DHT {
         removed++;
       }
     }
+    for (const [key, list] of this.kvStore.entries()) {
+      const pruned = list.filter(e => e.expiresAt >= currentTime);
+      if (pruned.length !== list.length) {
+        removed += list.length - pruned.length;
+        pruned.length === 0 ? this.kvStore.delete(key) : this.kvStore.set(key, pruned);
+      }
+    }
     return removed;
+  }
+
+  /**
+   * Store a value under a key with TTL
+   */
+  async put(key: string, value: Uint8Array, ttl: number): Promise<void> {
+    const list = this.kvStore.get(key) ?? [];
+    list.push({ value, expiresAt: Date.now() + ttl });
+    this.kvStore.set(key, list);
+  }
+
+  async get(key: string, count: number): Promise<Uint8Array[]> {
+    const now = Date.now();
+    return (this.kvStore.get(key) ?? [])
+      .filter(e => e.expiresAt > now)
+      .slice(0, count)
+      .map(e => e.value);
   }
 
   /**
@@ -124,6 +154,7 @@ export class InMemoryDHT implements DHT {
    */
   clear(): void {
     this.entries.clear();
+    this.kvStore.clear();
   }
 
   private findMatchedTopics(topics: string[], _myVector: number[]): string[] {

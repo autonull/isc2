@@ -57,13 +57,31 @@ cd apps/tui && pnpm start
 
 Three-pane layout: channels on the left, conversations in the center, nearby peers on the right. Navigate with arrow keys or `j`/`k`. Same semantic matching as the browser app, no browser required.
 
-### Community Relay Node
+### Relay Node (required for cross-browser messaging)
 
-Relay nodes make the network resilient and independent. Running one is contributing public intellectual infrastructure — the role universities, libraries, and open-source communities have always played.
+**Single-browser use:** Works standalone — no relay required.
+
+**Cross-browser messaging:** At least one relay node must be reachable so browsers can find each other on the network.
+
+#### Local development
+
+Run the local relay alongside the browser app:
+
+```bash
+# Terminal 1 — browser dev server
+pnpm dev:browser
+
+# Terminal 2 — local relay (libp2p on :9000, admin on :9091)
+pnpm dev:relay
+```
+
+The browser app automatically bootstraps from `localhost:9000` in development mode.
+
+#### Production / Community Relay
 
 ```bash
 # With Docker (recommended)
-docker run ghcr.io/isc2/node --name "My Relay"
+docker compose -f apps/node/docker-compose.yml up
 
 # Or run directly
 cd apps/node && pnpm start
@@ -71,7 +89,7 @@ cd apps/node && pnpm start
 
 Admin dashboard at `http://localhost:9091`. Health check: `GET /health`. Prometheus metrics: `GET /metrics`.
 
-The network sustains itself through community-run relays. The more institutions and individuals run them, the more resilient and decentralized the semantic web becomes.
+Public relay addresses belong in production configuration. The more institutions and individuals run relay nodes, the more resilient and decentralized the semantic web becomes.
 
 ### Try the Demo First
 

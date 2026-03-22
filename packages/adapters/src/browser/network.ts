@@ -18,10 +18,23 @@ export interface BrowserNetworkConfig {
 }
 
 /**
+ * Local relay for development — seeded when NODE_ENV=development (Phase 7.3)
+ * Run `pnpm dev:relay` to start the local relay on port 9000.
+ */
+const LOCAL_DEV_RELAY_NODES: string[] = [
+  // Local relay node — started by `pnpm dev:relay`
+  '/ip4/127.0.0.1/tcp/9000/ws',
+];
+
+/**
  * Default bootstrap nodes for ISC network
  * These are community-run relay nodes that help new peers discover the network
  */
 const DEFAULT_BOOTSTRAP_NODES = [
+  // In development, seed with the local relay first
+  ...(typeof process !== 'undefined' && process.env?.NODE_ENV === 'development'
+    ? LOCAL_DEV_RELAY_NODES
+    : []),
   // ISC community relay nodes (to be deployed)
   // '/dns4/relay0.isc.network/tcp/443/wss/p2p/QmISCRelayNode0PeerID',
   // '/dns4/relay1.isc.network/tcp/443/wss/p2p/QmISCRelayNode1PeerID',

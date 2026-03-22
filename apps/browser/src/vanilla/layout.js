@@ -12,9 +12,8 @@ import { toasts } from '../utils/toast.js';
 
 const TABS = [
   { id: 'now', icon: '⌂', label: 'Now', route: '/now' },
-  { id: 'discover', icon: '◎', label: 'Discover', route: '/discover' },
+  { id: 'channel', icon: '#', label: 'Channel', route: '/channel' },
   { id: 'chats', icon: '◷', label: 'Chats', route: '/chats' },
-  { id: 'channels', icon: '≡', label: 'Channels', action: 'open-channel-drawer' },
   { id: 'settings', icon: '⚙', label: 'Settings', route: '/settings' },
 ];
 
@@ -41,7 +40,7 @@ export function buildLayout(container, { onNavigate }) {
   const sidebarEl = el('div');
   const sidebar = createSidebar(sidebarEl, {
     onNavigate,
-    onNewChannel: () => onNavigate('/compose'),
+    onNewChannel: () => document.dispatchEvent(new CustomEvent('isc:new-channel')),
   });
 
   const main = el('main', { className: 'irc-main', 'data-testid': 'irc-main' });

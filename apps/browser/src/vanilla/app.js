@@ -17,17 +17,15 @@ import { modals } from './components/modal.js';
 import { postService, networkService, feedService } from '../services/index.js';
 
 import * as NowScreen from './screens/now.js';
-import * as DiscoverScreen from './screens/discover.js';
+import * as ChannelScreen from './screens/channel.js';
 import * as ChatsScreen from './screens/chats.js';
 import * as SettingsScreen from './screens/settings.js';
-import * as ComposeScreen from './screens/compose.js';
 
 const SCREENS = {
   '/now': NowScreen,
-  '/discover': DiscoverScreen,
+  '/channel': ChannelScreen,
   '/chats': ChatsScreen,
   '/settings': SettingsScreen,
-  '/compose': ComposeScreen,
 };
 
 const DEFAULT_ROUTE = '/now';
@@ -177,12 +175,15 @@ export function createApp(container) {
       }
 
       if (matchesChanged) {
-        if (router?.getCurrentRoute() === '/discover') DiscoverScreen.update(layout.main);
         if (router?.getCurrentRoute() === '/chats') ChatsScreen.update(layout.main);
       }
 
       if (router?.getCurrentRoute() === '/now' && (channelsChanged || activeChannelChanged)) {
         NowScreen.update(layout.main);
+      }
+
+      if (router?.getCurrentRoute() === '/channel' && (channelsChanged || activeChannelChanged)) {
+        ChannelScreen.update(layout.main);
       }
     });
   }
@@ -243,7 +244,7 @@ export function createApp(container) {
     overlay.querySelector('#onboarding-done')?.addEventListener('click', () => {
       localStorage.setItem('isc-onboarding-completed', 'true');
       modals.close();
-      navigate('/compose');
+      document.dispatchEvent(new CustomEvent('isc:new-channel'));
     });
   }
 

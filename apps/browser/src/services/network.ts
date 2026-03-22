@@ -284,6 +284,21 @@ class NetworkServiceWrapper {
     }
   }
 
+  async updateChannel(channelId: string, updates: { name?: string; description?: string }) {
+    try {
+      const channel = await this.service!.updateChannel(channelId, updates);
+      this.log.info('Channel updated', { channelId, updates: Object.keys(updates) });
+      this.syncState();
+      return channel;
+    } catch (err) {
+      this.log.error('Channel update failed', { error: (err as Error).message });
+      throw new ChannelError('Failed to update channel', {
+        originalError: (err as Error).message,
+        channelId,
+      });
+    }
+  }
+
   async deleteChannel(channelId: string): Promise<void> {
     try {
       await this.service?.deleteChannel?.(channelId);
@@ -314,6 +329,13 @@ class NetworkServiceWrapper {
 
   getPosts(channelId?: string) {
     return this.service?.getPosts(channelId) ?? [];
+  }
+
+  async fetchMessagesForChannel(channel: { id: string; embedding?: number[]; [key: string]: any }) {
+    if (!this.service?.fetchMessagesForChannel) {
+      return this.getPosts(channel.id);
+    }
+    return this.service.fetchMessagesForChannel(channel as any);
   }
 
   async createPost(channelId: string, content: string) {

@@ -25,6 +25,7 @@
     "typecheck": "turbo run typecheck",
     "dev": "turbo run dev",
     "dev:browser": "turbo run dev --filter=@isc/apps/browser",
+    "dev:relay": "pnpm --filter @isc/apps/node dev",
     "dev:tui": "turbo run dev --filter=@isc/apps/tui",
     "dev:cli": "turbo run dev --filter=@isc/apps/cli",
     "clean": "turbo run clean && rm -rf node_modules .turbo",
