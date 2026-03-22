@@ -37,7 +37,9 @@ let _lazyObserver = null;
 
 export function render() {
   const { channels, activeChannelId } = getState();
-  const posts = feedService.getForYou(50);
+  const posts = activeChannelId
+    ? feedService.getByChannel(activeChannelId, 50)
+    : feedService.getForYou(50);
   const { connected = false, status = 'disconnected' } = networkService.getStatus() ?? {};
   const connLabel = connected ? 'connected' : status;
   const effectiveChannelId = activeChannelId ?? channels?.[0]?.id ?? null;
@@ -584,7 +586,10 @@ export function bind(container) {
       _lastPostCount = count;
       const feed = container.querySelector('#now-feed');
       if (feed) {
-        const posts = feedService.getForYou(_postsPage * PAGE_SIZE);
+        const { activeChannelId } = getState();
+        const posts = activeChannelId
+          ? feedService.getByChannel(activeChannelId, _postsPage * PAGE_SIZE)
+          : feedService.getForYou(_postsPage * PAGE_SIZE);
         const { channels } = getState();
         const activeChannel = channels?.find((c) => c.id === activeChannelId);
         const viewMode = activeChannel
@@ -619,7 +624,11 @@ export function bind(container) {
     const replyBtn = e.target.closest('[data-reply-btn]');
     if (replyBtn) {
       const postId = replyBtn.dataset.postId;
-      const post = feedService.getForYou(200).find((p) => p.id === postId);
+      const { activeChannelId } = getState();
+      const posts = activeChannelId
+        ? feedService.getByChannel(activeChannelId, 200)
+        : feedService.getForYou(200);
+      const post = posts.find((p) => p.id === postId);
       if (post) {
         _replyTo = {
           id: postId,
@@ -720,8 +729,10 @@ export function update(container, { scrollToTop = false } = {}) {
 
   const { connected = false, status = 'disconnected' } = networkService.getStatus() ?? {};
   const connLabel = connected ? 'connected' : status;
-  const { channels } = getState();
-  const posts = feedService.getForYou(50);
+  const { channels, activeChannelId } = getState();
+  const posts = activeChannelId
+    ? feedService.getByChannel(activeChannelId, 50)
+    : feedService.getForYou(50);
 
   feed.innerHTML =
     posts.length === 0

@@ -14,7 +14,7 @@ import { buildLayout, setupLoggerInterceptor } from './layout.js';
 import { createRouter, setupEventHandlers, setupKeyboardShortcuts } from './router.js';
 import { createSplash } from './components/splash.js';
 import { modals } from './components/modal.js';
-import { postService, networkService } from '../services/index.js';
+import { postService, networkService, feedService } from '../services/index.js';
 
 import * as NowScreen from './screens/now.js';
 import * as DiscoverScreen from './screens/discover.js';
@@ -316,12 +316,14 @@ export function createApp(container) {
       getState,
       actions,
       networkService,
+      feedService,
+      postService,
       toasts,
       modals,
       reload: () => location.reload(),
       help: () =>
         console.log(
-          '[ISC Debug API]\n  ISC.navigate(route)\n  ISC.getState()\n  ISC.actions.setMatches(matches)\n  ISC.toasts.info(msg)\n  ISC.modals.showHelp()'
+          '[ISC Debug API]\n  ISC.navigate(route)\n  ISC.getState()\n  ISC.actions.setMatches(matches)\n  ISC.feedService.getByChannel(channelId, limit)\n  ISC.feedService.getForYou(limit)\n  ISC.toasts.info(msg)\n  ISC.modals.showHelp()'
         ),
     };
     console.log('[ISC] Debug API available: type ISC.help() for commands');
