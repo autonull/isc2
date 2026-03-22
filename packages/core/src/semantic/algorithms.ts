@@ -4,145 +4,91 @@
  * Pure mathematical functions for clustering, layout, similarity, and vector operations.
  */
 
-/**
- * 2D Vector/Point type
- */
 export interface Point2D {
   x: number;
   y: number;
   data?: any;
 }
 
-/**
- * Vector math utilities
- */
 export namespace VectorMath {
-  /**
-   * Compute vector magnitude
-   */
   export function magnitude(vec: Point2D): number {
     return Math.sqrt(vec.x * vec.x + vec.y * vec.y);
   }
 
-  /**
-   * Normalize vector to unit length
-   */
   export function normalize(vec: Point2D): Point2D {
     const mag = magnitude(vec);
     if (mag === 0) return { x: 0, y: 0 };
     return { x: vec.x / mag, y: vec.y / mag };
   }
 
-  /**
-   * Compute distance between two points
-   */
   export function distance(a: Point2D, b: Point2D): number {
     const dx = b.x - a.x;
     const dy = b.y - a.y;
     return Math.sqrt(dx * dx + dy * dy);
   }
 
-  /**
-   * Compute squared distance (faster, no sqrt)
-   */
   export function squaredDistance(a: Point2D, b: Point2D): number {
     const dx = b.x - a.x;
     const dy = b.y - a.y;
     return dx * dx + dy * dy;
   }
 
-  /**
-   * Scale vector by factor
-   */
   export function scale(vec: Point2D, factor: number): Point2D {
     return { x: vec.x * factor, y: vec.y * factor };
   }
 
-  /**
-   * Add two vectors
-   */
   export function add(a: Point2D, b: Point2D): Point2D {
     return { x: a.x + b.x, y: a.y + b.y };
   }
 
-  /**
-   * Subtract two vectors
-   */
   export function subtract(a: Point2D, b: Point2D): Point2D {
     return { x: a.x - b.x, y: a.y - b.y };
   }
 
-  /**
-   * Compute dot product
-   */
   export function dot(a: Point2D, b: Point2D): number {
     return a.x * b.x + a.y * b.y;
   }
 
-  /**
-   * Compute centroid of points
-   */
   export function centroid(points: Point2D[]): Point2D {
     if (points.length === 0) return { x: 0, y: 0 };
-
-    const sum = points.reduce(
-      (acc, p) => ({ x: acc.x + p.x, y: acc.y + p.y }),
-      { x: 0, y: 0 }
-    );
-
-    return {
-      x: sum.x / points.length,
-      y: sum.y / points.length,
-    };
+    const sum = points.reduce((acc, p) => add(acc, p), { x: 0, y: 0 });
+    return { x: sum.x / points.length, y: sum.y / points.length };
   }
 }
 
-/**
- * Similarity algorithms
- */
 export namespace Similarity {
-  /**
-   * Check if similarity meets threshold
-   */
   export function meetsSimilarityThreshold(similarity: number, threshold: number): boolean {
     return similarity >= threshold;
   }
 
-  /**
-   * Find similar items above threshold
-   */
   export function findSimilar<T extends { embedding: number[] }>(
     items: T[],
     targetEmbedding: number[],
     threshold: number,
     similarityFn?: (a: number[], b: number[]) => number
   ): Array<{ item: T; similarity: number }> {
-    const cosineSim = similarityFn || defaultCosineSimilarity;
-
-    return items
+    const sim = similarityFn || defaultCosineSimilarity;
+    const ranked = items
       .map((item) => ({
         item,
-        similarity: cosineSim(targetEmbedding, item.embedding),
+        similarity: sim(targetEmbedding, item.embedding),
       }))
-      .filter(({ similarity }) => similarity >= threshold)
       .sort((a, b) => b.similarity - a.similarity);
+
+    return ranked.filter(({ similarity }) => similarity >= threshold);
   }
 
-  /**
-   * Rank items by similarity to target
-   */
   export function rankBySimilarity<T extends { embedding: number[] }>(
     items: T[],
     targetEmbedding: number[],
     limit?: number,
     similarityFn?: (a: number[], b: number[]) => number
   ): Array<{ item: T; similarity: number }> {
-    const cosineSim = similarityFn || defaultCosineSimilarity;
-
+    const sim = similarityFn || defaultCosineSimilarity;
     const ranked = items
       .map((item) => ({
         item,
-        similarity: cosineSim(targetEmbedding, item.embedding),
+        similarity: sim(targetEmbedding, item.embedding),
       }))
       .sort((a, b) => b.similarity - a.similarity);
 

@@ -2,9 +2,9 @@
  * Community Service
  *
  * Manages community lifecycle and operations.
- * Storage and network are injected via adapters.
  */
 
+import { cosineSimilarity } from '@isc/core';
 import type { SocialStorage, SocialIdentity, SocialNetwork } from './adapters/interfaces';
 import type { Community } from './types';
 
@@ -39,14 +39,13 @@ export const COMMUNITY_DHT_PREFIXES = {
   BUCKET: '/isc/community/bucket',
 } as const;
 
+const EMBEDDING_DIMENSION = 384;
+
 export function createCommunityService(
   storage: SocialStorage,
   identity: SocialIdentity,
   network?: SocialNetwork
 ): CommunityService {
-  /**
-   * Sign a community payload
-   */
   async function signCommunity(community: Omit<Community, 'signature'>): Promise<Uint8Array> {
     const payload = new TextEncoder().encode(JSON.stringify({
       channelID: community.channelID,
@@ -61,60 +60,21 @@ export function createCommunityService(
     return identity.sign(payload);
   }
 
-  /**
-   * Compute embedding from text
-   * Falls back to simple hash-based embedding if model is unavailable
-   */
   async function computeEmbedding(text: string): Promise<number[]> {
-    try {
-      // Try to use real embedding service if available
-      const words = text.toLowerCase().match(/\w+/g) || [];
-      // For now, return a simple hash-based embedding (384 dimensions)
-      const embedding = new Array(384).fill(0);
+    const words = text.toLowerCase().match(/\w+/g) || [];
+    const embedding = new Array(EMBEDDING_DIMENSION).fill(0);
 
-      for (let i = 0; i < Math.min(words.length, 384); i++) {
-        const word = words[i];
-        let hash = 0;
-        for (let j = 0; j < word.length; j++) {
-          hash = ((hash << 5) - hash) + word.charCodeAt(j);
-          hash = hash & hash;
-        }
-        embedding[i] += Math.abs(hash) / 1000000;
+    for (let i = 0; i < Math.min(words.length, EMBEDDING_DIMENSION); i++) {
+      let hash = 0;
+      for (const char of words[i]) {
+        hash = ((hash << 5) - hash) + char.charCodeAt(0);
+        hash &= hash;
       }
-
-      // Normalize
-      const norm = Math.sqrt(embedding.reduce((s, v) => s + v * v, 0));
-      if (norm > 0) {
-        return embedding.map((v) => v / norm);
-      }
-      return embedding;
-    } catch {
-      return new Array(384).fill(0);
-    }
-  }
-
-  /**
-   * Cosine similarity between two vectors
-   */
-  function cosineSimilarity(a: number[], b: number[]): number {
-    if (a.length === 0 || b.length === 0) return 0;
-
-    let dotProduct = 0;
-    let normA = 0;
-    let normB = 0;
-
-    const len = Math.min(a.length, b.length);
-    for (let i = 0; i < len; i++) {
-      dotProduct += a[i] * b[i];
-      normA += a[i] * a[i];
-      normB += b[i] * b[i];
+      embedding[i] += Math.abs(hash) / 1000000;
     }
 
-    normA = Math.sqrt(normA);
-    normB = Math.sqrt(normB);
-
-    if (normA === 0 || normB === 0) return 0;
-    return dotProduct / (normA * normB);
+    const norm = Math.sqrt(embedding.reduce((s, v) => s + v * v, 0));
+    return norm > 0 ? embedding.map((v) => v / norm) : embedding;
   }
 
   return {

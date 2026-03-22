@@ -2,13 +2,11 @@
  * Graph Service for Social Relationships
  *
  * Manages follow relationships, trust scoring, reputation, and peer suggestions.
- * Storage and network are injected via adapters.
  */
 
+import { computeDecayedScore, DECAY_HALF_LIFE_DAYS, SybilResistanceService } from '@isc/core/reputation';
 import type { SocialStorage, SocialIdentity, SocialNetwork } from './adapters/interfaces';
-import type { Interaction, FollowSubscription, ProfileSummary } from './types';
-import { computeDecayedScore, DECAY_HALF_LIFE_DAYS } from '@isc/core/reputation';
-import { SybilResistanceService } from '@isc/core/reputation';
+import type { Interaction, ProfileSummary } from './types';
 
 export interface ReputationResult {
   peerID: string;
@@ -39,6 +37,23 @@ export interface BridgeProfile {
   bridgeScore: number;
   communities: string[];
 }
+
+const INTERACTION_WEIGHTS = {
+  follow: 1,
+  like: 0.5,
+  reply: 1.5,
+  repost: 1,
+} as const;
+
+const TRUST_CONSTANTS = {
+  directTrust: 0.5,
+  mutualFollowBonus: 0.2,
+  indirectMultiplier: 0.03,
+  indirectCap: 0.3,
+  suggestionScoreMultiplier: 0.3,
+  mutualFollowWeight: 0.05,
+  mutualFollowCap: 0.4,
+} as const;
 
 export interface GraphService {
   followUser(followee: string): Promise<void>;
@@ -72,21 +87,15 @@ export function createGraphService(
       const follower = await identity.getPeerId();
       const timestamp = Date.now();
 
-      const subscription: FollowSubscription = { followee, since: timestamp };
       await storage.saveFollowing(new Set([followee]));
-
-      // Record as interaction
-      const interactionWeights: Record<string, number> = { follow: 1 };
-      const weight = interactionWeights.follow ?? 1;
       await storage.saveInteraction({
         id: `interaction_${crypto.randomUUID()}`,
         peerID: followee,
         type: 'follow',
         timestamp,
-        weight,
+        weight: INTERACTION_WEIGHTS.follow,
       });
 
-      // Announce to network
       if (network) {
         await network.announceFollow(follower, followee, timestamp);
       }
@@ -129,19 +138,12 @@ export function createGraphService(
     },
 
     async recordInteraction(peerID: string, type: string, weight?: number): Promise<void> {
-      const interactionWeights: Record<string, number> = {
-        follow: 1,
-        like: 0.5,
-        reply: 1.5,
-        repost: 1,
-      };
-
       await storage.saveInteraction({
         id: `interaction_${crypto.randomUUID()}`,
         peerID,
         type,
         timestamp: Date.now(),
-        weight: weight ?? interactionWeights[type] ?? 1,
+        weight: weight ?? INTERACTION_WEIGHTS[type as keyof typeof INTERACTION_WEIGHTS] ?? 1,
       });
     },
 
@@ -151,35 +153,39 @@ export function createGraphService(
 
     async computeReputation(peerID: string, halfLifeDays: number = DECAY_HALF_LIFE_DAYS): Promise<ReputationResult> {
       const interactions = await storage.getInteractions(peerID);
-      const decayedInteractions = interactions.map((i) => ({
-        ...i,
-        decayedWeight: computeDecayedScore(i, halfLifeDays),
-      }));
+      const decayedScore = interactions.reduce(
+        (sum, i) => sum + computeDecayedScore(i, halfLifeDays),
+        0
+      );
 
-      const baseScore = decayedInteractions.reduce((sum, i) => sum + i.decayedWeight, 0);
       const followees = await this.getFollowees();
       const mutualFollows = (await Promise.all(followees.map((f) => this.isFollowing(f)))).filter(Boolean).length;
-
-      const mutualFollowBonus = Math.min(mutualFollows * 0.05, 0.4);
+      const mutualFollowBonus = Math.min(
+        mutualFollows * TRUST_CONSTANTS.mutualFollowWeight,
+        TRUST_CONSTANTS.mutualFollowCap
+      );
 
       return {
         peerID,
-        score: Math.min(Math.log2(baseScore + 1) / 10 + mutualFollowBonus, 1.0),
+        score: Math.min(Math.log2(decayedScore + 1) / 10 + mutualFollowBonus, 1.0),
         halfLifeDays,
         mutualFollows,
         interactionHistory: interactions,
-        decayedScore: baseScore,
+        decayedScore,
       };
     },
 
     async computeTrustScore(targetPeer: string): Promise<TrustScore> {
       const following = await this.isFollowing(targetPeer);
-      const directTrust = following ? 0.5 : 0;
+      const directTrust = following ? TRUST_CONSTANTS.directTrust : 0;
+      const mutualFollowBonus = following ? TRUST_CONSTANTS.mutualFollowBonus : 0;
 
       const followees = await this.getFollowees();
       const indirectCount = followees.filter((f) => f !== targetPeer).length;
-      const indirectTrust = Math.min(indirectCount * 0.03, 0.3);
-      const mutualFollowBonus = following ? 0.2 : 0;
+      const indirectTrust = Math.min(
+        indirectCount * TRUST_CONSTANTS.indirectMultiplier,
+        TRUST_CONSTANTS.indirectCap
+      );
 
       const sybilCapped = SybilResistanceService.applySybilResistance(
         directTrust + indirectTrust,
@@ -218,90 +224,70 @@ export function createGraphService(
 
     async getSuggestedFollows(limit: number = 10): Promise<FollowSuggestion[]> {
       const myFollowees = await this.getFollowees();
-      const suggestions = new Map<string, { count: number; peerID: string }>();
+      const suggestions = new Map<string, number>();
 
-      // Find people followed by people I follow
       for (const followee of myFollowees) {
         const theirFollowees = await this.getFolloweesOf(followee);
-        for (const theirFollowee of theirFollowees) {
-          // Skip if already following or self
-          if (theirFollowee === followee || (await this.isFollowing(theirFollowee))) {
-            continue;
-          }
-
-          const existing = suggestions.get(theirFollowee) || { count: 0, peerID: theirFollowee };
-          suggestions.set(theirFollowee, {
-            count: existing.count + 1,
-            peerID: theirFollowee,
-          });
+        for (const candidate of theirFollowees) {
+          if (candidate === followee || await this.isFollowing(candidate)) continue;
+          suggestions.set(candidate, (suggestions.get(candidate) ?? 0) + 1);
         }
       }
 
-      // Convert to suggestions and sort by mutual count
-      return Array.from(suggestions.values())
-        .map(({ count, peerID }) => ({
+      return Array.from(suggestions.entries())
+        .map(([peerID, count]) => ({
           peerID,
-          score: count * 0.3, // Each mutual connection adds 0.3 to score
+          score: count * TRUST_CONSTANTS.suggestionScoreMultiplier,
           mutualFollows: count,
-          reason:
-            count === 1
-              ? 'Followed by someone you follow'
-              : `Followed by ${count} people you follow`,
+          reason: count === 1
+            ? 'Followed by someone you follow'
+            : `Followed by ${count} people you follow`,
         }))
         .sort((a, b) => b.mutualFollows - a.mutualFollows)
         .slice(0, limit);
     },
 
     async getFolloweesOf(peerID: string): Promise<string[]> {
-      // Query DHT or network for this peer's follow announcements
-      if (network) {
-        const subscriptions = await network.queryFollows(peerID);
-        return subscriptions.map((s) => s.followee);
-      }
-      // Fallback to local storage if network available
-      return [];
+      if (!network) return [];
+      const subscriptions = await network.queryFollows(peerID);
+      return subscriptions.map((s) => s.followee);
     },
 
     async getInteractionBasedSuggestions(limit: number = 5): Promise<FollowSuggestion[]> {
       const allInteractions = await storage.getAllInteractions();
-
-      // Group by peer and count interactions
       const peerCounts = new Map<string, number>();
-      for (const interaction of allInteractions) {
-        const count = peerCounts.get(interaction.peerID) || 0;
-        peerCounts.set(interaction.peerID, count + 1);
+
+      for (const { peerID } of allInteractions) {
+        peerCounts.set(peerID, (peerCounts.get(peerID) ?? 0) + 1);
       }
 
-      // Filter out already following and self
       const myFollowees = await this.getFollowees();
       const mySelf = await identity.getPeerId();
-      const suggestions = Array.from(peerCounts.entries())
-        .filter(([peerID]) => !myFollowees.includes(peerID) && peerID !== mySelf)
+      const followSet = new Set([...myFollowees, mySelf]);
+
+      return Array.from(peerCounts.entries())
+        .filter(([peerID]) => !followSet.has(peerID))
         .map(([peerID, count]) => ({
           peerID,
-          score: Math.log(count + 1) * 0.2, // Log scale to prevent spam
+          score: Math.log(count + 1) * 0.2,
           mutualFollows: 0,
           reason: `You've interacted ${count} times`,
         }))
         .sort((a, b) => b.score - a.score)
         .slice(0, limit);
-
-      return suggestions;
     },
 
     async getAllFollowSuggestions(limit: number = 20): Promise<FollowSuggestion[]> {
-      const [mutualSuggestions, interactionSuggestions] = await Promise.all([
+      const [mutual, interaction] = await Promise.all([
         this.getSuggestedFollows(Math.floor(limit * 0.6)),
         this.getInteractionBasedSuggestions(Math.floor(limit * 0.4)),
       ]);
 
-      // Combine and deduplicate
       const combined = new Map<string, FollowSuggestion>();
 
-      for (const suggestion of [...mutualSuggestions, ...interactionSuggestions]) {
+      for (const suggestion of [...mutual, ...interaction]) {
         const existing = combined.get(suggestion.peerID);
         if (existing) {
-          // Merge scores
           existing.score += suggestion.score;
           existing.reason = `${existing.reason}; ${suggestion.reason}`;
         } else {
