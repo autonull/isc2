@@ -6,7 +6,6 @@
  */
 
 import { networkService } from '../../services/network.ts';
-import { getDemoModeService } from '../../services/demoMode.ts';
 import { toasts } from '../../utils/toast.js';
 import { escapeHtml } from '../../utils/dom.js';
 
@@ -20,7 +19,6 @@ let projectedPeers = [];
 let isInitialized = false;
 let embeddingCache = new Map();
 let embeddingDebounceTimer = null;
-let demoModeService = null;
 
 const PEER_COLORS = {
   self: '#3b82f6',
@@ -40,7 +38,6 @@ export function initSpaceCanvas(canvasEl, { peers, selfPosition: initialSelfPos,
 
   canvas = canvasEl;
   ctx = canvas.getContext('2d');
-  demoModeService = getDemoModeService();
 
   if (initialSelfPos) selfPosition = initialSelfPos;
 
@@ -91,35 +88,11 @@ async function initCanvas(peers) {
 }
 
 async function updatePeers(peers) {
-  const demoStatus = demoModeService?.getStatus?.();
-  let allPeers = [...peers];
-
-  if (demoStatus?.isActive && demoStatus?.syntheticPeerCount > 0) {
-    const syntheticPeers = generateSyntheticPeerData(demoStatus.syntheticPeerCount);
-    allPeers = [...allPeers, ...syntheticPeers];
-  }
-
-  if (allPeers.length > 0 && UMAP) {
-    await projectPeers(allPeers);
+  if (peers.length > 0 && UMAP) {
+    await projectPeers(peers);
   }
 }
 
-function generateSyntheticPeerData(count) {
-  const peers = [];
-  for (let i = 0; i < count; i++) {
-    const angle = (Math.PI * 2 * i) / count + Math.random() * 0.5;
-    const dist = 0.2 + Math.random() * 0.3;
-    peers.push({
-      peerId: `synthetic_${i}`,
-      identity: { name: `Demo Peer ${i + 1}`, bio: 'Demo mode peer' },
-      similarity: 0.3 + Math.random() * 0.5,
-      matchedTopics: ['demo'],
-      online: true,
-      isSynthetic: true,
-    });
-  }
-  return peers;
-}
 
 async function projectPeers(peers) {
   if (!UMAP || peers.length < 2) {

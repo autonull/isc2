@@ -233,7 +233,6 @@ function renderAppearance(settings) {
 
 function renderAdvanced(settings) {
   const chaosLevel = parseInt(localStorage.getItem('isc:chaos-level') || '0', 10);
-  const demoModeActive = localStorage.getItem('isc:demo-mode') !== 'false';
   const disableThoughtTwin = localStorage.getItem('isc:disable-thoughttwin') === 'true';
 
   return `
@@ -248,18 +247,6 @@ function renderAdvanced(settings) {
         <label class="toggle">
           <input type="checkbox" id="ephemeral-toggle" ${settings.ephemeral ? 'checked' : ''}
                  data-testid="ephemeral-toggle" />
-          <span class="toggle-slider"></span>
-        </label>
-      </div>
-
-      <div class="toggle-row">
-        <div class="toggle-label-text">
-          Demo mode (ghost peers)
-          <div class="text-xs text-muted">Show synthetic peers for testing</div>
-        </div>
-        <label class="toggle">
-          <input type="checkbox" id="demo-mode-toggle" ${demoModeActive ? 'checked' : ''}
-                 data-testid="demo-mode-toggle" />
           <span class="toggle-slider"></span>
         </label>
       </div>
@@ -586,12 +573,6 @@ export function bind(container) {
       localStorage.removeItem('isc-ephemeral-session');
     }
     showInlineSaved(e.target.closest('.toggle-row'));
-  });
-
-  container.querySelector('#demo-mode-toggle')?.addEventListener('change', (e) => {
-    localStorage.setItem('isc:demo-mode', String(e.target.checked));
-    showInlineSaved(e.target.closest('.toggle-row'));
-    toasts.info(e.target.checked ? 'Demo mode enabled' : 'Demo mode disabled');
   });
 
   container.querySelector('#chaos-toggle')?.addEventListener('change', (e) => {
