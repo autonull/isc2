@@ -7,12 +7,19 @@
 
 import { feedService, postService, channelService } from '../../services/index.js';
 import { networkService } from '../../services/network.ts';
-import { getState, actions } from '../../state.js';
+import { getState, actions, subscribe } from '../../state.js';
 import { channelSettingsService } from '../../services/channelSettings.js';
 import { toasts } from '../../utils/toast.js';
 import { formatTime } from '../../utils/time.js';
 import { escapeHtml } from '../utils/dom.js';
-import { renderEmpty, renderList, bindDelegate, autoGrow, setupCtrlEnterSubmit, createScreen } from '../utils/screen.js';
+import {
+  renderEmpty,
+  renderList,
+  bindDelegate,
+  autoGrow,
+  setupCtrlEnterSubmit,
+  createScreen,
+} from '../utils/screen.js';
 import { renderMixerPanel, bindMixerPanel } from '../components/mixerPanel.js';
 import { modals } from '../components/modal.js';
 import {
@@ -36,8 +43,10 @@ export function render() {
   const connected = netStatus?.connected ?? false;
   const connLabel = connected ? 'connected' : (netStatus?.status ?? 'disconnected');
   const effectiveChannelId = activeChannelId ?? channels?.[0]?.id ?? null;
-  const activeChannel = channels?.find(c => c.id === effectiveChannelId);
-  const viewMode = activeChannel ? channelSettingsService.getSettings(activeChannel.id).viewMode : 'list';
+  const activeChannel = channels?.find((c) => c.id === effectiveChannelId);
+  const viewMode = activeChannel
+    ? channelSettingsService.getSettings(activeChannel.id).viewMode
+    : 'list';
 
   return `
     <div class="screen now-screen" data-testid="now-screen">
@@ -58,11 +67,13 @@ function renderHeader(activeChannel, connected, connLabel) {
     <div class="screen-header" data-testid="now-header">
       <div class="screen-title-wrap">
         <h1 class="screen-title">🏠 Now</h1>
-        ${activeChannel
-          ? `<span class="active-channel-badge" data-testid="active-channel-badge" title="Your active channel">
+        ${
+          activeChannel
+            ? `<span class="active-channel-badge" data-testid="active-channel-badge" title="Your active channel">
                <span class="channel-prefix">#</span>${escapeHtml(activeChannel.name)}
              </span>`
-          : `<span class="screen-subtitle">For You</span>`}
+            : `<span class="screen-subtitle">For You</span>`
+        }
       </div>
       <div class="header-actions">
         <span class="status-badge ${connected ? 'online' : 'offline'}" data-testid="network-status-badge">
@@ -81,21 +92,27 @@ function renderComposeArea(channels, activeChannelId, activeChannel) {
   return `
     <div class="compose-area" data-testid="compose-container">
       <form id="compose-form" data-testid="compose-form">
-        ${channels.length > 1
-          ? `
+        ${
+          channels.length > 1
+            ? `
             <div class="compose-channel-select">
               <select id="compose-channel-sel" class="form-select form-select-sm">
-                ${channels.map(ch => `
+                ${channels
+                  .map(
+                    (ch) => `
                   <option value="${escapeHtml(ch.id)}" ${ch.id === activeChannelId ? 'selected' : ''}>
                     #${escapeHtml(ch.name)}
                   </option>
-                `).join('')}
+                `
+                  )
+                  .join('')}
               </select>
             </div>
           `
-          : activeChannel
-            ? `<div class="compose-channel-label"><span class="channel-pill">#${escapeHtml(activeChannel.name)}</span></div>`
-            : ''}
+            : activeChannel
+              ? `<div class="compose-channel-label"><span class="channel-pill">#${escapeHtml(activeChannel.name)}</span></div>`
+              : ''
+        }
         <textarea
           class="compose-input"
           id="compose-input"
@@ -120,7 +137,8 @@ function renderEmptyState(channels, connected, connLabel) {
       ${renderEmpty({
         icon: '💭',
         title: 'What are you thinking about?',
-        description: "Create a channel — describe what's on your mind. ISC will find people on the same wavelength.",
+        description:
+          "Create a channel — describe what's on your mind. ISC will find people on the same wavelength.",
         actions: [{ label: 'Create Your First Channel', href: '#/compose', variant: 'primary' }],
       })}
 
@@ -145,7 +163,7 @@ function renderEmptyState(channels, connected, connLabel) {
     icon: '📭',
     title: 'No posts yet',
     description: connected
-      ? 'Post something to your channel, or discover peers and see what they\'re sharing.'
+      ? "Post something to your channel, or discover peers and see what they're sharing."
       : 'Connect to the network to find peers with similar interests.',
     actions: [{ label: '📡 Discover Peers', href: '#/discover', variant: 'primary' }],
   });
@@ -189,43 +207,61 @@ function renderPosts(posts, channels, viewMode = 'list') {
   return `
     ${countHtml}
     ${content}
-    ${hasMore ? `
+    ${
+      hasMore
+        ? `
       <div class="load-more-row">
         <button class="btn btn-ghost btn-sm" id="load-more-btn"
                 data-testid="load-more-posts">
           Load earlier posts (${posts.length - visible.length} more)
         </button>
       </div>
-    ` : ''}
+    `
+        : ''
+    }
   `;
 }
 
 function renderListPosts(posts, channels) {
-  const postMap = new Map(posts.map(p => [p.id, p]));
-  const topLevel = posts.filter(p => !p.replyTo);
+  const postMap = new Map(posts.map((p) => [p.id, p]));
+  const topLevel = posts.filter((p) => !p.replyTo);
 
-  return `<div class="feed-list">${topLevel.map(post => {
-    const replies = posts.filter(r => r.replyTo === post.id);
-    return `
+  return `<div class="feed-list">${topLevel
+    .map((post) => {
+      const replies = posts.filter((r) => r.replyTo === post.id);
+      return `
       ${renderPostCard(post, channels)}
-      ${replies.length ? `
+      ${
+        replies.length
+          ? `
         <div class="post-thread" data-parent-id="${escapeHtml(post.id)}">
-          ${replies.slice(0, 3).map(r => renderReplyPost(r, post, channels)).join('')}
-          ${replies.length > 3 ? `
+          ${replies
+            .slice(0, 3)
+            .map((r) => renderReplyPost(r, post, channels))
+            .join('')}
+          ${
+            replies.length > 3
+              ? `
             <button class="thread-expand-btn"
                     data-thread="${escapeHtml(post.id)}"
                     data-testid="expand-thread-${escapeHtml(post.id)}">
               Show all ${replies.length} replies
             </button>
-          ` : ''}
+          `
+              : ''
+          }
         </div>
-      ` : ''}
+      `
+          : ''
+      }
     `;
-  }).join('')}</div>`;
+    })
+    .join('')}</div>`;
 }
 
 function renderReplyPost(post, parentPost, channels) {
-  const parentSnippet = escapeHtml((parentPost.content || '').slice(0, 60)) +
+  const parentSnippet =
+    escapeHtml((parentPost.content || '').slice(0, 60)) +
     (parentPost.content?.length > 60 ? '…' : '');
   return `
     <div class="post-card post-card-reply" data-post-id="${escapeHtml(post.id)}"
@@ -244,8 +280,12 @@ function renderPostCardBody(post, channels) {
   const initials = (post.author || post.identity?.name || 'A')[0].toUpperCase();
   const content = escapeHtml(post.content || '');
   const time = post.timestamp ? formatTime(post.timestamp) : '';
-  const channel = channels?.find(c => c.id === post.channelId);
-  const chanName = channel ? escapeHtml(channel.name) : (post.channelId ? escapeHtml(post.channelId.slice(0, 12)) : '');
+  const channel = channels?.find((c) => c.id === post.channelId);
+  const chanName = channel
+    ? escapeHtml(channel.name)
+    : post.channelId
+      ? escapeHtml(post.channelId.slice(0, 12))
+      : '';
   const likes = post.likes?.length ?? 0;
   const score = post.score != null ? Math.round(post.score * 100) : null;
 
@@ -274,12 +314,16 @@ function renderPostCardBody(post, channels) {
         <span class="post-action-label">Like</span>
         <span class="like-count">${likes}</span>
       </button>
-      ${isOwn ? `
+      ${
+        isOwn
+          ? `
       <button class="post-action-btn" data-action="delete" data-delete-btn data-post-id="${escapeHtml(post.id)}"
               data-testid="delete-btn-${escapeHtml(post.id)}">
         <span class="post-action-label">Delete</span>
       </button>
-      ` : ''}
+      `
+          : ''
+      }
     </div>
   `;
 }
@@ -287,7 +331,7 @@ function renderPostCardBody(post, channels) {
 function renderGridPosts(posts, channels) {
   return `
     <div class="feed-grid">
-      ${posts.map(p => renderPostCard(p, channels)).join('')}
+      ${posts.map((p) => renderPostCard(p, channels)).join('')}
     </div>
   `;
 }
@@ -309,8 +353,12 @@ function renderPostCard(post, channels, showActions = true) {
   const initials = (post.author || post.identity?.name || 'A')[0].toUpperCase();
   const content = escapeHtml(post.content || '');
   const time = post.timestamp ? formatTime(post.timestamp) : '';
-  const channel = channels?.find(c => c.id === post.channelId);
-  const chanName = channel ? escapeHtml(channel.name) : (post.channelId ? escapeHtml(post.channelId.slice(0, 12)) : '');
+  const channel = channels?.find((c) => c.id === post.channelId);
+  const chanName = channel
+    ? escapeHtml(channel.name)
+    : post.channelId
+      ? escapeHtml(post.channelId.slice(0, 12))
+      : '';
   const replies = post.replies?.length ?? 0;
 
   const myIdentity = networkService.getIdentity();
@@ -321,7 +369,7 @@ function renderPostCard(post, channels, showActions = true) {
   // M1: Lazy render - use data attribute for deferred content
   return `
     <div class="post-card" data-testid="post-card" data-component="post" data-post-id="${escapeHtml(post.id)}"
-         tabindex="0" role="article" aria-label="${escapeHtml(author)}: ${escapeHtml((content).slice(0,80))}"
+         tabindex="0" role="article" aria-label="${escapeHtml(author)}: ${escapeHtml(content.slice(0, 80))}"
          data-lazy="true">
       <div class="post-header">
         <div class="post-avatar">${initials}</div>
@@ -334,7 +382,9 @@ function renderPostCard(post, channels, showActions = true) {
         </div>
       </div>
       <div class="post-content" data-testid="post-content">${content}</div>
-      ${showActions ? `
+      ${
+        showActions
+          ? `
       <div class="post-actions">
         <button class="post-action-btn${liked ? ' liked' : ''}" data-action="like" data-like-btn data-post-id="${escapeHtml(post.id)}"
                 data-liked="${liked}" data-testid="like-btn-${escapeHtml(post.id)}">
@@ -348,14 +398,20 @@ function renderPostCard(post, channels, showActions = true) {
           <span class="post-action-label">Reply</span>
           <span>${replies}</span>
         </button>
-        ${isOwn ? `
+        ${
+          isOwn
+            ? `
         <button class="post-action-btn" data-action="delete" data-delete-btn data-post-id="${escapeHtml(post.id)}"
                 data-testid="delete-btn-${escapeHtml(post.id)}">
           <span class="post-action-label">Delete</span>
         </button>
-        ` : ''}
+        `
+            : ''
+        }
       </div>
-      ` : ''}
+      `
+          : ''
+      }
     </div>
   `;
 }
@@ -364,13 +420,13 @@ function renderSpacePost(post, channels, index) {
   const author = escapeHtml(post.author || post.identity?.name || 'Anonymous');
   const content = escapeHtml(post.content || '');
   const score = post.score != null ? Math.round(post.score * 100) : null;
-  
+
   // Pseudo-random positioning based on post ID for deterministic layout
   const seed = post.id.charCodeAt(0) + (post.id.charCodeAt(post.id.length - 1) || 0) + index;
   const left = 10 + (seed % 60);
   const top = 10 + ((seed * 7) % 80);
   const scale = 0.8 + ((seed * 13) % 40) / 100;
-  
+
   return `
     <div class="space-post" data-testid="post-card" data-post-id="${escapeHtml(post.id)}"
          style="left:${left}%;top:${top}%;transform:scale(${scale})">
@@ -385,26 +441,29 @@ function renderSpacePost(post, channels, index) {
 
 export function bind(container) {
   const { channels, activeChannelId } = getState();
-  const activeChannel = channels?.find(c => c.id === activeChannelId);
+  const activeChannel = channels?.find((c) => c.id === activeChannelId);
 
   if (activeChannel) bindMixerPanel(container, activeChannel);
 
   // M1: Lazy-render off-screen posts with Intersection Observer
   if ('IntersectionObserver' in window) {
-    _lazyObserver = new IntersectionObserver((entries) => {
-      entries.forEach(entry => {
-        if (entry.isIntersecting) {
-          const card = entry.target;
-          if (card.dataset.lazy === 'true') {
-            card.dataset.lazy = 'false';
-            card.classList.add('loaded');
+    _lazyObserver = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            const card = entry.target;
+            if (card.dataset.lazy === 'true') {
+              card.dataset.lazy = 'false';
+              card.classList.add('loaded');
+            }
+            _lazyObserver.unobserve(card);
           }
-          _lazyObserver.unobserve(card);
-        }
-      });
-    }, { rootMargin: '200px' });
+        });
+      },
+      { rootMargin: '200px' }
+    );
 
-    container.querySelectorAll('.post-card[data-lazy="true"]').forEach(card => {
+    container.querySelectorAll('.post-card[data-lazy="true"]').forEach((card) => {
       _lazyObserver.observe(card);
     });
   }
@@ -415,10 +474,10 @@ export function bind(container) {
     feed.addEventListener('keydown', (e) => {
       const posts = [...feed.querySelectorAll('.post-card[tabindex="0"]')];
       if (!posts.length) return;
-      
+
       const current = document.activeElement;
       const idx = posts.indexOf(current);
-      
+
       if (e.key === 'ArrowDown' || e.key === 'j') {
         e.preventDefault();
         const next = posts[Math.min(idx + 1, posts.length - 1)];
@@ -436,7 +495,7 @@ export function bind(container) {
   }
 
   // Check for ThoughtTwin notification
-  shouldShowThoughtTwinNotification().then(notification => {
+  shouldShowThoughtTwinNotification().then((notification) => {
     if (!notification) return;
     const header = container.querySelector('[data-testid="now-header"]');
     if (!header) return;
@@ -462,13 +521,15 @@ export function bind(container) {
   });
 
   container.querySelector('#now-refresh')?.addEventListener('click', () => doRefresh(container));
-  container.querySelector('#go-compose')?.addEventListener('click', () => { window.location.hash = '#/compose'; });
-  container.querySelector('#compose-channel-sel')?.addEventListener('change', e => {
+  container.querySelector('#go-compose')?.addEventListener('click', () => {
+    window.location.hash = '#/compose';
+  });
+  container.querySelector('#compose-channel-sel')?.addEventListener('change', (e) => {
     actions.setActiveChannel(e.target.value);
   });
 
   // Listen for view mode changes
-  const handleViewChange = e => {
+  const handleViewChange = (e) => {
     const { mode } = e.detail || {};
     if (!mode) return;
     const feed = container.querySelector('#now-feed');
@@ -477,22 +538,24 @@ export function bind(container) {
 
     if (mode === 'space') {
       feed.innerHTML = `<canvas id="space-canvas" class="space-canvas" data-testid="space-canvas"></canvas>`;
-      import('../utils/spaceCanvas.js').then(m => {
+      import('../utils/spaceCanvas.js').then((m) => {
         const canvas = feed.querySelector('#space-canvas');
         const { matches } = getState();
         m.initSpaceCanvas(canvas, {
           peers: matches,
           selfPosition: { x: 0.5, y: 0.5 },
-          onPeerClick: peerId => {
+          onPeerClick: (peerId) => {
             window.location.hash = '#/chats';
-            setTimeout(() =>
-              document.dispatchEvent(new CustomEvent('isc:start-chat', { detail: { peerId } }))
-            , 100);
+            setTimeout(
+              () =>
+                document.dispatchEvent(new CustomEvent('isc:start-chat', { detail: { peerId } })),
+              100
+            );
           },
         });
       });
     } else {
-      import('../utils/spaceCanvas.js').then(m => m.destroySpaceCanvas());
+      import('../utils/spaceCanvas.js').then((m) => m.destroySpaceCanvas());
       update(container);
     }
   };
@@ -513,7 +576,7 @@ export function bind(container) {
     autoGrow(composeInput);
   });
 
-  composeForm?.addEventListener('submit', async e => {
+  composeForm?.addEventListener('submit', async (e) => {
     e.preventDefault();
     const content = composeInput?.value.trim();
     if (!content) return;
@@ -529,8 +592,11 @@ export function bind(container) {
 
     try {
       composeInput.disabled = true;
-      if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = '…'; }
-      
+      if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.textContent = '…';
+      }
+
       // E2: Reply flow - use reply() if replying to a post
       if (_replyTo) {
         await postService.reply(_replyTo.id, content);
@@ -539,17 +605,22 @@ export function bind(container) {
       } else {
         await postService.create(targetChannelId, content);
       }
-      
+
       composeInput.value = '';
       composeInput.style.height = '';
       if (composeCount) composeCount.textContent = '0 / 2000';
-      document.dispatchEvent(new CustomEvent('isc:refresh-feed', { detail: { scrollToTop: true } }));
+      document.dispatchEvent(
+        new CustomEvent('isc:refresh-feed', { detail: { scrollToTop: true } })
+      );
       toasts.success('Posted!');
     } catch (err) {
       toasts.error(err.message);
     } finally {
       composeInput.disabled = false;
-      if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = 'Post'; }
+      if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Post';
+      }
       composeInput.focus();
     }
   });
@@ -557,8 +628,7 @@ export function bind(container) {
   setupCtrlEnterSubmit(composeInput, composeForm);
 
   // E3: Live refresh when new posts arrive
-  const { subscribe } = await import('../../state.js');
-  const unsubPosts = subscribe(state => {
+  const unsubPosts = subscribe((state) => {
     const count = state.posts?.length ?? 0;
     if (count !== _lastPostCount && !refreshing) {
       _lastPostCount = count;
@@ -566,11 +636,14 @@ export function bind(container) {
       if (feed) {
         const posts = feedService.getForYou(_postsPage * PAGE_SIZE);
         const { channels } = getState();
-        const activeChannel = channels?.find(c => c.id === activeChannelId);
-        const viewMode = activeChannel ? channelSettingsService.getSettings(activeChannel.id).viewMode : 'list';
-        feed.innerHTML = posts.length === 0
-          ? renderEmptyState(channels, true, 'connected')
-          : renderPosts(posts, channels, viewMode);
+        const activeChannel = channels?.find((c) => c.id === activeChannelId);
+        const viewMode = activeChannel
+          ? channelSettingsService.getSettings(activeChannel.id).viewMode
+          : 'list';
+        feed.innerHTML =
+          posts.length === 0
+            ? renderEmptyState(channels, true, 'connected')
+            : renderPosts(posts, channels, viewMode);
       }
     }
   });
@@ -581,7 +654,7 @@ export function bind(container) {
   const unbindDelete = bindDelegate(container, '[data-delete-btn]', 'click', handleDelete);
 
   // E1: Thread expand handler
-  container.addEventListener('click', e => {
+  container.addEventListener('click', (e) => {
     const expandBtn = e.target.closest('.thread-expand-btn');
     if (expandBtn) {
       expandBtn.closest('.post-thread')?.classList.add('thread-expanded');
@@ -601,19 +674,27 @@ export function bind(container) {
     if (replyBtn) {
       const postId = replyBtn.dataset.postId;
       const allPosts = feedService.getForYou(200);
-      const post = allPosts.find(p => p.id === postId);
+      const post = allPosts.find((p) => p.id === postId);
       if (post) {
-        _replyTo = { id: postId, content: post.content, author: post.author ?? post.identity?.name };
+        _replyTo = {
+          id: postId,
+          content: post.content,
+          author: post.author ?? post.identity?.name,
+        };
         setReplyContext(container, _replyTo);
       }
     }
   });
 
   return [
-    unbindLike, unbindReply, unbindDelete,
+    unbindLike,
+    unbindReply,
+    unbindDelete,
     () => document.removeEventListener('isc:channel-view-change', handleViewChange),
     unsubPosts,
-    () => { _lastPostCount = 0; },
+    () => {
+      _lastPostCount = 0;
+    },
   ];
 }
 
@@ -659,15 +740,23 @@ function handleLike(e, target) {
     toasts.warning('Could not save like');
   });
 
-  document.dispatchEvent(new CustomEvent('isc:like-post', { detail: { postId: target.dataset.postId } }));
+  document.dispatchEvent(
+    new CustomEvent('isc:like-post', { detail: { postId: target.dataset.postId } })
+  );
 }
 
 function handleReply(e, target) {
-  document.dispatchEvent(new CustomEvent('isc:reply-post', { detail: { postId: target.dataset.postId } }));
+  document.dispatchEvent(
+    new CustomEvent('isc:reply-post', { detail: { postId: target.dataset.postId } })
+  );
 }
 
 async function handleDelete(e, target) {
-  const ok = await modals.confirm('Delete this post?', { title: 'Delete Post', confirmText: 'Delete', danger: true });
+  const ok = await modals.confirm('Delete this post?', {
+    title: 'Delete Post',
+    confirmText: 'Delete',
+    danger: true,
+  });
   if (!ok) return;
 
   try {
@@ -690,9 +779,10 @@ export function update(container, { scrollToTop = false } = {}) {
   const connected = netStatus?.connected ?? false;
   const connLabel = connected ? 'connected' : (netStatus?.status ?? 'disconnected');
 
-  feed.innerHTML = posts.length === 0
-    ? renderEmptyState(channels, connected, connLabel)
-    : renderPosts(posts, channels);
+  feed.innerHTML =
+    posts.length === 0
+      ? renderEmptyState(channels, connected, connLabel)
+      : renderPosts(posts, channels);
 
   if (scrollToTop) {
     const body = container.querySelector('[data-testid="now-body"]');
@@ -705,19 +795,25 @@ async function doRefresh(container) {
   refreshing = true;
 
   const btn = container.querySelector('#now-refresh');
-  if (btn) { btn.classList.add('spinning'); btn.disabled = true; }
+  if (btn) {
+    btn.classList.add('spinning');
+    btn.disabled = true;
+  }
 
   try {
     await networkService.discoverPeers?.().catch(() => {});
     update(container);
   } finally {
     refreshing = false;
-    if (btn) { btn.classList.remove('spinning'); btn.disabled = false; }
+    if (btn) {
+      btn.classList.remove('spinning');
+      btn.disabled = false;
+    }
   }
 }
 
 export function destroy() {
-  import('../utils/spaceCanvas.js').then(m => m.destroySpaceCanvas());
+  import('../utils/spaceCanvas.js').then((m) => m.destroySpaceCanvas());
   refreshing = false;
   _replyTo = null;
   _lastPostCount = 0;

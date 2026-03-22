@@ -19,9 +19,9 @@ export class NavigationHelper {
    */
   async goTo(route: string, options: NavigationOptions = {}): Promise<void> {
     const { waitForLoad = true, timeout = 5000 } = options;
-    
+
     await this.page.goto(`#${route}`);
-    
+
     if (waitForLoad) {
       await this.waitForScreenLoad(route, timeout);
     }
@@ -83,11 +83,9 @@ export class NavigationHelper {
    * Wait for URL hash change
    */
   async waitForHashChange(expectedHash: string, timeout = 5000): Promise<void> {
-    await this.page.waitForFunction(
-      (hash) => window.location.hash === `#${hash}`,
-      expectedHash,
-      { timeout }
-    );
+    await this.page.waitForFunction((hash) => window.location.hash === `#${hash}`, expectedHash, {
+      timeout,
+    });
   }
 
   /**

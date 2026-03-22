@@ -56,10 +56,10 @@ self.addEventListener('activate', (event: any) => {
 // M2: Fetch event - serve from cache with network fallback (stale-while-revalidate)
 self.addEventListener('fetch', (event: any) => {
   const { request } = event;
-  
+
   // Skip non-GET requests
   if (request.method !== 'GET') return;
-  
+
   // Skip chrome-extension and other non-http(s) requests
   if (!request.url.startsWith('http')) return;
 
@@ -69,7 +69,7 @@ self.addEventListener('fetch', (event: any) => {
       if (cached) {
         // Clone and return cached response
         const responseClone = cached.clone();
-        
+
         // Update cache in background (stale-while-revalidate)
         fetch(request)
           .then((response: Response) => {
@@ -83,21 +83,21 @@ self.addEventListener('fetch', (event: any) => {
           .catch(() => {
             // Network failed, cached response already returned
           });
-        
+
         return responseClone;
       }
-      
+
       // Not cached, fetch from network
       return fetch(request)
         .then((response: Response) => {
           // Don't cache non-successful responses
           if (!response || response.status !== 200) return response;
-          
+
           const responseClone = response.clone();
           caches.open(APP_SHELL_CACHE).then((cache: Cache) => {
             cache.put(request, responseClone);
           });
-          
+
           return response;
         })
         .catch(() => {
