@@ -2,7 +2,12 @@
  * Settings Screen — Identity, discovery, preferences, danger zone
  */
 
-import { identityService, settingsService, channelService, moderationService } from '../../services/index.js';
+import {
+  identityService,
+  settingsService,
+  channelService,
+  moderationService,
+} from '../../services/index.js';
 import { networkService } from '../../services/network.ts';
 import { escapeHtml } from '../../utils/dom.js';
 import { toasts } from '../../utils/toast.js';
@@ -205,10 +210,8 @@ function renderAppearance(settings) {
 }
 
 function renderAdvanced(settings) {
-  // I1: Read chaos level from localStorage (set by cold start service)
   const chaosLevel = parseInt(localStorage.getItem('isc:chaos-level') || '0', 10);
   const demoModeActive = localStorage.getItem('isc:demo-mode') !== 'false';
-  // I2: Read ThoughtTwin preference
   const disableThoughtTwin = localStorage.getItem('isc:disable-thoughttwin') === 'true';
 
   return `
@@ -316,17 +319,21 @@ function renderDangerZone() {
 }
 
 function renderModeration() {
-  // J1: Show blocked peers list
   const blockedPeers = [...moderationService.getBlockedPeers()];
 
   return `
     <section class="settings-section" data-testid="moderation-section">
       <div class="section-title">Blocked Peers</div>
-      ${blockedPeers.length === 0 ? `
+      ${
+        blockedPeers.length === 0
+          ? `
         <div class="text-muted text-sm">No blocked peers. Block peers from their profile to hide their content.</div>
-      ` : `
+      `
+          : `
         <div class="blocked-peers-list" data-testid="blocked-peers-list">
-          ${blockedPeers.map(peerId => `
+          ${blockedPeers
+            .map(
+              (peerId) => `
             <div class="blocked-peer-row" data-peer-id="${escapeHtml(peerId)}">
               <code class="blocked-peer-id font-mono">${escapeHtml(peerId.slice(0, 16))}…</code>
               <button class="btn btn-ghost btn-sm unblock-btn" data-peer-id="${escapeHtml(peerId)}"
@@ -334,18 +341,22 @@ function renderModeration() {
                 Unblock
               </button>
             </div>
-          `).join('')}
+          `
+            )
+            .join('')}
         </div>
-      `}
+      `
+      }
     </section>
   `;
 }
 
 function renderShare() {
-  // I4: Generate invite link from current identity
   const identity = identityService.getIdentity();
   const peerId = identity?.peerId ?? identity?.pubkey;
-  const inviteUrl = peerId ? `${window.location.origin}/#/join?peer=${encodeURIComponent(peerId)}` : '';
+  const inviteUrl = peerId
+    ? `${window.location.origin}/#/join?peer=${encodeURIComponent(peerId)}`
+    : '';
 
   return `
     <section class="settings-section" data-testid="share-section">
@@ -489,7 +500,6 @@ export function bind(container) {
     showInlineSaved(e.target.closest('.toggle-row'));
   });
 
-  // I1: Advanced settings handlers
   container.querySelector('#demo-mode-toggle')?.addEventListener('change', (e) => {
     localStorage.setItem('isc:demo-mode', String(e.target.checked));
     showInlineSaved(e.target.closest('.toggle-row'));
@@ -503,18 +513,21 @@ export function bind(container) {
     showInlineSaved(e.target.closest('.toggle-row'));
   });
 
-  // I2: ThoughtTwin preference toggle
   container.querySelector('#thoughttwin-toggle')?.addEventListener('change', (e) => {
     localStorage.setItem('isc:disable-thoughttwin', String(!e.target.checked));
     showInlineSaved(e.target.closest('.toggle-row'));
-    toasts.info(e.target.checked ? 'ThoughtTwin suggestions enabled' : 'ThoughtTwin suggestions disabled');
+    toasts.info(
+      e.target.checked ? 'ThoughtTwin suggestions enabled' : 'ThoughtTwin suggestions disabled'
+    );
   });
 
   container.querySelector('#chaos-slider')?.addEventListener('input', (e) => {
     const valueEl = container.querySelector('#chaos-value');
     if (valueEl) valueEl.textContent = `${e.target.value}%`;
     localStorage.setItem('isc:chaos-level', e.target.value);
-    document.dispatchEvent(new CustomEvent('isc:toggle-chaos', { detail: { level: parseInt(e.target.value, 10) } }));
+    document.dispatchEvent(
+      new CustomEvent('isc:toggle-chaos', { detail: { level: parseInt(e.target.value, 10) } })
+    );
   });
 
   // Discovery settings
@@ -523,7 +536,6 @@ export function bind(container) {
     if (v) v.textContent = e.target.value;
   });
 
-  // J1: Live-save discovery settings
   container.querySelector('#auto-discover')?.addEventListener('change', (e) => {
     settingsService.set({ autoDiscover: e.target.checked });
     showInlineSaved(e.target);
@@ -611,7 +623,6 @@ export function bind(container) {
     }
   });
 
-  // I4: Share & Invite handlers
   container.querySelector('#copy-invite-btn')?.addEventListener('click', async () => {
     const inviteLink = container.querySelector('.invite-link')?.textContent.trim();
     if (!inviteLink || inviteLink.includes('Generate')) {
@@ -652,14 +663,12 @@ export function bind(container) {
     }
   });
 
-  // J1: Unblock peer handler
   container.querySelector('.blocked-peers-list')?.addEventListener('click', (e) => {
     const unblockBtn = e.target.closest('.unblock-btn');
     if (unblockBtn) {
       const peerId = unblockBtn.dataset.peerId;
       moderationService.unblock(peerId);
       toasts.success('Peer unblocked');
-      // Re-render to update the list
       setTimeout(() => {
         const body = container.querySelector('[data-testid="settings-content"]');
         if (body) body.innerHTML = render();
@@ -672,7 +681,7 @@ export function bind(container) {
   container.querySelector('#clear-data')?.addEventListener('click', async () => {
     const ok = await modals.confirm(
       'This removes all your channels, posts, conversations, settings, and identity ' +
-      'from this browser. It cannot be undone. Consider exporting your identity first.',
+        'from this browser. It cannot be undone. Consider exporting your identity first.',
       {
         title: 'Clear All Local Data',
         confirmText: 'Clear Everything',
@@ -690,11 +699,10 @@ export function bind(container) {
     setTimeout(() => location.reload(), 1500);
   });
 
-  // J3: Reset Identity
   container.querySelector('#reset-identity-btn')?.addEventListener('click', async () => {
     const ok = await modals.confirm(
       'This generates a brand-new cryptographic identity on next launch. ' +
-      'Your channels and conversations will be lost unless you export first.',
+        'Your channels and conversations will be lost unless you export first.',
       {
         title: 'Reset Identity',
         confirmText: 'Reset',
@@ -716,13 +724,9 @@ export function bind(container) {
 }
 
 export function update(container) {
-  // Re-render only the channels section to reflect additions/deletions.
-  // Use innerHTML on the section itself (not outerHTML) to avoid losing the element
-  // reference and breaking the parent container's delegated event listeners.
   const section = container.querySelector('[data-testid="channels-section"]');
   if (!section) return;
   const channels = channelService.getAll();
-  // Parse the new section HTML and replace contents
   const tmp = document.createElement('div');
   tmp.innerHTML = renderChannels(channels);
   const newSection = tmp.firstElementChild;

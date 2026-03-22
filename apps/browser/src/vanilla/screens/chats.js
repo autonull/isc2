@@ -324,10 +324,8 @@ export function bind(container) {
   boundContainer = container;
   const list = container.querySelector('#conversation-list');
 
-  // F2: Listen for incoming messages from network layer
   chatService.setIncomingHandler(({ peerId, message }) => {
     if (peerId === activePeerId) {
-      // Active chat — append message
       const msgs = container.querySelector('#chat-messages');
       if (msgs) {
         msgs.querySelector('.chat-start-state')?.remove();
@@ -335,12 +333,10 @@ export function bind(container) {
         msgs.scrollTop = msgs.scrollHeight;
       }
     }
-    // Always refresh conversation list to show unread badge (F4)
     update(container);
   });
 
-  // F3: Show toast for new messages
-  handleNewMessage = e => {
+  handleNewMessage = (e) => {
     const { peerId, peerName, content } = e.detail || {};
     if (peerId !== activePeerId) {
       toasts.info(`💬 ${peerName}: ${content.slice(0, 50)}${content.length > 50 ? '…' : ''}`);
@@ -348,7 +344,6 @@ export function bind(container) {
   };
   document.addEventListener('isc:new-chat-message', handleNewMessage);
 
-  // F5: Listen for typing indicators from other peers
   const checkTyping = () => {
     if (!activePeerId) return;
     const identity = networkService.getIdentity();
@@ -365,7 +360,7 @@ export function bind(container) {
         clearTimeout(typingTimeout);
         typingTimeout = setTimeout(() => indicator.classList.add('hidden'), TYPING_TTL);
       }
-    } catch { /* ignore */ }
+    } catch {}
   };
   typingInterval = setInterval(checkTyping, 500);
 
@@ -452,8 +447,7 @@ export function bind(container) {
   };
   window.addEventListener('storage', onStorageTyping);
 
-  const onOnline = () =>
-    container.querySelector('[data-testid="offline-indicator"]')?.remove();
+  const onOnline = () => container.querySelector('[data-testid="offline-indicator"]')?.remove();
   window.addEventListener('online', onOnline);
 
   const onOffline = () => {
@@ -470,7 +464,6 @@ export function bind(container) {
   bindChatInputHandlers(container);
   if (activePeerId) openChat(container, activePeerId);
 
-  // I3: More menu for file transfers
   container.addEventListener('click', (e) => {
     const moreBtn = e.target.closest('[data-chat-more]');
     if (moreBtn) {
@@ -500,14 +493,18 @@ export function bind(container) {
         </div>
       `;
       const overlay = modals.open(html);
-      overlay.querySelector('[data-action="cancel"]')?.addEventListener('click', () => modals.close());
+      overlay
+        .querySelector('[data-action="cancel"]')
+        ?.addEventListener('click', () => modals.close());
       overlay.querySelector('[data-action="send-file"]')?.addEventListener('click', () => {
         modals.close();
         document.dispatchEvent(new CustomEvent('isc:send-file', { detail: { peerId } }));
       });
       overlay.querySelector('[data-action="send-photo"]')?.addEventListener('click', () => {
         modals.close();
-        document.dispatchEvent(new CustomEvent('isc:send-file', { detail: { peerId, accept: 'image/*' } }));
+        document.dispatchEvent(
+          new CustomEvent('isc:send-file', { detail: { peerId, accept: 'image/*' } })
+        );
       });
     }
   });
@@ -536,17 +533,17 @@ export function bind(container) {
       </div>
     `;
     const overlay = modals.open(html);
-    overlay.querySelector('[data-action="cancel"]')
+    overlay
+      .querySelector('[data-action="cancel"]')
       ?.addEventListener('click', () => modals.close());
-    overlay.querySelector('[data-action="confirm"]')
-      ?.addEventListener('click', () => {
-        const peerId = overlay.querySelector('#dial-peer-id-input')?.value.trim();
-        if (!peerId) return;
-        modals.close();
-        activePeerId = peerId;
-        update(container);
-        openChat(container, peerId);
-      });
+    overlay.querySelector('[data-action="confirm"]')?.addEventListener('click', () => {
+      const peerId = overlay.querySelector('#dial-peer-id-input')?.value.trim();
+      if (!peerId) return;
+      modals.close();
+      activePeerId = peerId;
+      update(container);
+      openChat(container, peerId);
+    });
   });
 
   return [

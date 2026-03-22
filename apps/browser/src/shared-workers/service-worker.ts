@@ -13,7 +13,6 @@ declare const self: any;
 const CACHE_NAME = 'isc-v1';
 const APP_SHELL_CACHE = 'isc-app-shell-v1';
 
-// Assets to cache for offline app shell
 const APP_SHELL_ASSETS = [
   '/',
   '/index.html',
@@ -22,7 +21,6 @@ const APP_SHELL_ASSETS = [
   '/icons/icon-512x512.png',
 ];
 
-// Install event - cache app shell assets
 self.addEventListener('install', (event: any) => {
   console.log('[ServiceWorker] Install');
   event.waitUntil(
@@ -38,7 +36,6 @@ self.addEventListener('install', (event: any) => {
   self.skipWaiting();
 });
 
-// Activate event - cleanup old caches
 self.addEventListener('activate', (event: any) => {
   console.log('[ServiceWorker] Activate');
   event.waitUntil(
@@ -53,59 +50,44 @@ self.addEventListener('activate', (event: any) => {
   self.clients.claim();
 });
 
-// M2: Fetch event - serve from cache with network fallback (stale-while-revalidate)
 self.addEventListener('fetch', (event: any) => {
   const { request } = event;
 
-  // Skip non-GET requests
   if (request.method !== 'GET') return;
-
-  // Skip chrome-extension and other non-http(s) requests
   if (!request.url.startsWith('http')) return;
 
   event.respondWith(
     caches.match(request).then((cached: Response | undefined) => {
-      // Return cached response if available
       if (cached) {
-        // Clone and return cached response
         const responseClone = cached.clone();
 
-        // Update cache in background (stale-while-revalidate)
         fetch(request)
           .then((response: Response) => {
             if (response && response.status === 200) {
-              const responseToCache = response.clone();
               caches.open(APP_SHELL_CACHE).then((cache: Cache) => {
-                cache.put(request, responseToCache);
+                cache.put(request, response.clone());
               });
             }
           })
-          .catch(() => {
-            // Network failed, cached response already returned
-          });
+          .catch(() => {});
 
         return responseClone;
       }
 
-      // Not cached, fetch from network
       return fetch(request)
         .then((response: Response) => {
-          // Don't cache non-successful responses
           if (!response || response.status !== 200) return response;
 
-          const responseClone = response.clone();
           caches.open(APP_SHELL_CACHE).then((cache: Cache) => {
-            cache.put(request, responseClone);
+            cache.put(request, response.clone());
           });
 
           return response;
         })
         .catch(() => {
-          // Offline - return app shell for navigation requests
           if (request.mode === 'navigate') {
             return caches.match('/index.html');
           }
-          // Return offline fallback for other requests
           return new Response('Offline', { status: 503, statusText: 'Service Unavailable' });
         });
     })

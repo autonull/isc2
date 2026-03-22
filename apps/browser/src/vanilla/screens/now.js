@@ -29,7 +29,6 @@ import {
 } from '../../services/thoughtTwin.ts';
 
 let refreshing = false;
-let viewModeUnsubscribe = null;
 let _replyTo = null;
 let _lastPostCount = 0;
 let _postsPage = 1;
@@ -39,9 +38,8 @@ let _lazyObserver = null;
 export function render() {
   const { channels, activeChannelId } = getState();
   const posts = feedService.getForYou(50);
-  const netStatus = networkService.getStatus();
-  const connected = netStatus?.connected ?? false;
-  const connLabel = connected ? 'connected' : (netStatus?.status ?? 'disconnected');
+  const { connected = false, status = 'disconnected' } = networkService.getStatus() ?? {};
+  const connLabel = connected ? 'connected' : status;
   const effectiveChannelId = activeChannelId ?? channels?.[0]?.id ?? null;
   const activeChannel = channels?.find((c) => c.id === effectiveChannelId);
   const viewMode = activeChannel
@@ -270,12 +268,12 @@ function renderReplyPost(post, parentPost, channels) {
         <span class="reply-indicator" aria-hidden="true">↩</span>
         <span class="reply-parent-snippet">${parentSnippet}</span>
       </div>
-      ${renderPostCardBody(post, channels)}
+      ${renderPostBody(post, channels, false)}
     </div>
   `;
 }
 
-function renderPostCardBody(post, channels) {
+function renderPostBody(post, channels, showActions = true) {
   const author = escapeHtml(post.author || post.identity?.name || 'Anonymous');
   const initials = (post.author || post.identity?.name || 'A')[0].toUpperCase();
   const content = escapeHtml(post.content || '');
@@ -288,10 +286,8 @@ function renderPostCardBody(post, channels) {
       : '';
   const likes = post.likes?.length ?? 0;
   const score = post.score != null ? Math.round(post.score * 100) : null;
-
-  const myIdentity = networkService.getIdentity();
-  const myPeerId = myIdentity?.peerId ?? myIdentity?.pubkey;
-  const isOwn = post.identity?.peerId === myPeerId || post.identity?.pubkey === myPeerId;
+  const { peerId, pubkey } = networkService.getIdentity() ?? {};
+  const isOwn = post.identity?.peerId === peerId || post.identity?.pubkey === pubkey;
   const liked = postService.getLikedPosts().has(post.id);
 
   return `
@@ -307,9 +303,15 @@ function renderPostCardBody(post, channels) {
       </div>
     </div>
     <div class="post-content" data-testid="post-content">${content}</div>
+    ${showActions ? renderPostActions(post.id, isOwn, liked, likes) : ''}
+  `;
+}
+
+function renderPostActions(postId, isOwn, liked, likes) {
+  return `
     <div class="post-actions">
-      <button class="post-action-btn${liked ? ' liked' : ''}" data-action="like" data-like-btn data-post-id="${escapeHtml(post.id)}"
-              data-liked="${liked}" data-testid="like-btn-${escapeHtml(post.id)}">
+      <button class="post-action-btn${liked ? ' liked' : ''}" data-action="like" data-like-btn data-post-id="${escapeHtml(postId)}"
+              data-liked="${liked}" data-testid="like-btn-${escapeHtml(postId)}">
         <span aria-hidden="true">${liked ? '♥' : '♡'}</span>
         <span class="post-action-label">Like</span>
         <span class="like-count">${likes}</span>
@@ -317,8 +319,8 @@ function renderPostCardBody(post, channels) {
       ${
         isOwn
           ? `
-      <button class="post-action-btn" data-action="delete" data-delete-btn data-post-id="${escapeHtml(post.id)}"
-              data-testid="delete-btn-${escapeHtml(post.id)}">
+      <button class="post-action-btn" data-action="delete" data-delete-btn data-post-id="${escapeHtml(postId)}"
+              data-testid="delete-btn-${escapeHtml(postId)}">
         <span class="post-action-label">Delete</span>
       </button>
       `
@@ -344,70 +346,26 @@ function renderSpacePosts(posts, channels) {
   `;
 }
 
-function renderPost(post, channels) {
-  return renderPostCard(post, channels, true);
-}
-
 function renderPostCard(post, channels, showActions = true) {
   const author = escapeHtml(post.author || post.identity?.name || 'Anonymous');
-  const initials = (post.author || post.identity?.name || 'A')[0].toUpperCase();
   const content = escapeHtml(post.content || '');
-  const time = post.timestamp ? formatTime(post.timestamp) : '';
-  const channel = channels?.find((c) => c.id === post.channelId);
-  const chanName = channel
-    ? escapeHtml(channel.name)
-    : post.channelId
-      ? escapeHtml(post.channelId.slice(0, 12))
-      : '';
   const replies = post.replies?.length ?? 0;
 
-  const myIdentity = networkService.getIdentity();
-  const myPeerId = myIdentity?.peerId ?? myIdentity?.pubkey;
-  const isOwn = post.identity?.peerId === myPeerId || post.identity?.pubkey === myPeerId;
-  const liked = postService.getLikedPosts().has(post.id);
-
-  // M1: Lazy render - use data attribute for deferred content
   return `
     <div class="post-card" data-testid="post-card" data-component="post" data-post-id="${escapeHtml(post.id)}"
          tabindex="0" role="article" aria-label="${escapeHtml(author)}: ${escapeHtml(content.slice(0, 80))}"
          data-lazy="true">
-      <div class="post-header">
-        <div class="post-avatar">${initials}</div>
-        <div class="post-meta">
-          <span class="post-author">${author}</span>
-          ${chanName ? `<span class="post-channel">#${chanName}</span>` : ''}
-        </div>
-        <div class="post-meta-actions">
-          <span class="post-time">${time}</span>
-        </div>
-      </div>
-      <div class="post-content" data-testid="post-content">${content}</div>
+      ${renderPostBody(post, channels, showActions)}
       ${
         showActions
           ? `
       <div class="post-actions">
-        <button class="post-action-btn${liked ? ' liked' : ''}" data-action="like" data-like-btn data-post-id="${escapeHtml(post.id)}"
-                data-liked="${liked}" data-testid="like-btn-${escapeHtml(post.id)}">
-          <span aria-hidden="true">${liked ? '♥' : '♡'}</span>
-          <span class="post-action-label">Like</span>
-          <span class="like-count">${post.likes?.length ?? 0}</span>
-        </button>
         <button class="post-action-btn" data-action="reply" data-reply-btn data-post-id="${escapeHtml(post.id)}"
                 data-testid="reply-btn-${escapeHtml(post.id)}">
           <span aria-hidden="true">↩</span>
           <span class="post-action-label">Reply</span>
           <span>${replies}</span>
         </button>
-        ${
-          isOwn
-            ? `
-        <button class="post-action-btn" data-action="delete" data-delete-btn data-post-id="${escapeHtml(post.id)}"
-                data-testid="delete-btn-${escapeHtml(post.id)}">
-          <span class="post-action-label">Delete</span>
-        </button>
-        `
-            : ''
-        }
       </div>
       `
           : ''
@@ -445,7 +403,6 @@ export function bind(container) {
 
   if (activeChannel) bindMixerPanel(container, activeChannel);
 
-  // M1: Lazy-render off-screen posts with Intersection Observer
   if ('IntersectionObserver' in window) {
     _lazyObserver = new IntersectionObserver(
       (entries) => {
@@ -468,7 +425,6 @@ export function bind(container) {
     });
   }
 
-  // L3: Feed keyboard navigation (arrow keys)
   const feed = container.querySelector('#now-feed');
   if (feed) {
     feed.addEventListener('keydown', (e) => {
@@ -487,14 +443,11 @@ export function bind(container) {
         const prev = posts[Math.max(idx - 1, 0)];
         prev?.focus();
       } else if (e.key === 'Enter' && current) {
-        // Activate focused post's first action button
-        const likeBtn = current.querySelector('[data-action="like"]');
-        likeBtn?.click();
+        current.querySelector('[data-action="like"]')?.click();
       }
     });
   }
 
-  // Check for ThoughtTwin notification
   shouldShowThoughtTwinNotification().then((notification) => {
     if (!notification) return;
     const header = container.querySelector('[data-testid="now-header"]');
@@ -528,7 +481,6 @@ export function bind(container) {
     actions.setActiveChannel(e.target.value);
   });
 
-  // Listen for view mode changes
   const handleViewChange = (e) => {
     const { mode } = e.detail || {};
     if (!mode) return;
@@ -597,7 +549,6 @@ export function bind(container) {
         submitBtn.textContent = '…';
       }
 
-      // E2: Reply flow - use reply() if replying to a post
       if (_replyTo) {
         await postService.reply(_replyTo.id, content);
         _replyTo = null;
@@ -627,7 +578,6 @@ export function bind(container) {
 
   setupCtrlEnterSubmit(composeInput, composeForm);
 
-  // E3: Live refresh when new posts arrive
   const unsubPosts = subscribe((state) => {
     const count = state.posts?.length ?? 0;
     if (count !== _lastPostCount && !refreshing) {
@@ -648,12 +598,10 @@ export function bind(container) {
     }
   });
 
-  // Delegated post actions
   const unbindLike = bindDelegate(container, '[data-like-btn]', 'click', handleLike);
   const unbindReply = bindDelegate(container, '[data-reply-btn]', 'click', handleReply);
   const unbindDelete = bindDelegate(container, '[data-delete-btn]', 'click', handleDelete);
 
-  // E1: Thread expand handler
   container.addEventListener('click', (e) => {
     const expandBtn = e.target.closest('.thread-expand-btn');
     if (expandBtn) {
@@ -662,19 +610,16 @@ export function bind(container) {
       return;
     }
 
-    // E4: Load more handler
     if (e.target.closest('#load-more-btn')) {
       _postsPage++;
       update(container);
       return;
     }
 
-    // E2: Reply flow - set reply context
     const replyBtn = e.target.closest('[data-reply-btn]');
     if (replyBtn) {
       const postId = replyBtn.dataset.postId;
-      const allPosts = feedService.getForYou(200);
-      const post = allPosts.find((p) => p.id === postId);
+      const post = feedService.getForYou(200).find((p) => p.id === postId);
       if (post) {
         _replyTo = {
           id: postId,
@@ -773,11 +718,10 @@ export function update(container, { scrollToTop = false } = {}) {
   const feed = container.querySelector('#now-feed');
   if (!feed) return;
 
+  const { connected = false, status = 'disconnected' } = networkService.getStatus() ?? {};
+  const connLabel = connected ? 'connected' : status;
   const { channels } = getState();
   const posts = feedService.getForYou(50);
-  const netStatus = networkService.getStatus();
-  const connected = netStatus?.connected ?? false;
-  const connLabel = connected ? 'connected' : (netStatus?.status ?? 'disconnected');
 
   feed.innerHTML =
     posts.length === 0
@@ -785,8 +729,7 @@ export function update(container, { scrollToTop = false } = {}) {
       : renderPosts(posts, channels);
 
   if (scrollToTop) {
-    const body = container.querySelector('[data-testid="now-body"]');
-    if (body) body.scrollTop = 0;
+    container.querySelector('[data-testid="now-body"]')?.scrollTo({ top: 0 });
   }
 }
 
@@ -818,7 +761,6 @@ export function destroy() {
   _replyTo = null;
   _lastPostCount = 0;
   _postsPage = 1;
-  // M1: Cleanup lazy observer
   if (_lazyObserver) {
     _lazyObserver.disconnect();
     _lazyObserver = null;
