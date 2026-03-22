@@ -24,6 +24,7 @@ export {
 export {
   createFeedService,
   type FeedService,
+  type TrendingPost,
 } from './feeds.js';
 
 // Chat

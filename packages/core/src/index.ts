@@ -66,9 +66,6 @@ export * from './reputation/index.js';
 // Stake signaling (Phase 2.2)
 export * from './stake/index.js';
 
-// Moderation courts (Phase 2.3)
-export * from './moderation/index.js';
-
 // Hierarchical DHT (Phase 2.4)
 export * from './dht/index.js';
 

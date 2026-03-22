@@ -20,6 +20,7 @@
     "@chainsafe/libp2p-yamux": "^8.0.1",
     "@isc/adapters": "workspace:*",
     "@isc/core": "workspace:*",
+    "@isc/social": "workspace:*",
     "@isc/forms": "workspace:*",
     "@isc/navigation": "workspace:*",
     "@isc/network": "workspace:*",

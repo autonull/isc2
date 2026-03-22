@@ -1,20 +1,15 @@
-import { sign, encode, Config, Validators, type Signature } from '@isc/core';
+import { sign, encode, Config, Validators, type Signature, applyDecay, type Interaction } from '@isc/core';
 import type { FollowSubscription, ProfileSummary } from './types.js';
 import { getPeerID, getKeypair } from '../identity/index.js';
 import { DelegationClient } from '../delegation/fallback.js';
 import { dbGet, dbGetAll, dbPut, dbDelete, dbFilter } from '../db/helpers.js';
 
+export type { Interaction };
+
 const FOLLOWS_STORE = 'follows';
 const INTERACTIONS_STORE = 'interactions';
 const PROFILES_STORE = 'profiles';
 const DEFAULT_TTL = 86400 * 30;
-
-export interface Interaction {
-  type: string;
-  peerID: string;
-  timestamp: number;
-  weight: number;
-}
 
 export interface ReputationResult {
   peerID: string;
@@ -120,11 +115,6 @@ export async function recordInteraction(
 
 export async function getInteractionHistory(peerID: string): Promise<Interaction[]> {
   return dbFilter<Interaction>(INTERACTIONS_STORE, (i) => i.peerID === peerID);
-}
-
-export function applyDecay(interaction: Interaction, halfLifeDays: number): number {
-  const ageDays = (Date.now() - interaction.timestamp) / (1000 * 60 * 60 * 24);
-  return interaction.weight * 0.5 ** (ageDays / halfLifeDays);
 }
 
 export async function computeReputation(

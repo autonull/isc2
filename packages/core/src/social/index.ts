@@ -50,6 +50,7 @@ export {
   getInteractionBasedSuggestions,
   getAllFollowSuggestions,
   GraphService,
+  type Interaction,
   type GraphStorage,
   type GraphIdentity,
   type GraphNetwork,

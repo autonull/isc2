@@ -17,6 +17,8 @@ export interface SignedPost {
   likes?: string[];
   replies?: string[];
   replyTo?: string;
+  /** Semantic embedding vector for similarity scoring */
+  embedding?: number[];
 }
 
 /**
