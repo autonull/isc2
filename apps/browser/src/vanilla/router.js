@@ -70,7 +70,7 @@ export function createRouter(screens, defaultRoute, mainContent, sidebar) {
   }
 
   function renderRoute(routePath) {
-    const { route, params } = typeof routePath === 'object' ? routePath : { route: routePath, params: {} };
+    let { route, params } = typeof routePath === 'object' ? routePath : { route: routePath, params: {} };
     if (!screens[route]) route = defaultRoute;
     currentRoute = route;
 
