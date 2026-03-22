@@ -39,15 +39,16 @@ export function render() {
   const connLabel = connected ? 'connected' : status;
   const effectiveChannelId = activeChannelId ?? channels?.[0]?.id ?? null;
   const activeChannel = channels?.find((c) => c.id === effectiveChannelId);
-  const viewMode = activeChannel
-    ? channelSettingsService.getSettings(activeChannel.id).viewMode
-    : 'list';
+  const settings = activeChannel ? channelSettingsService.getSettings(activeChannel.id) : {};
+  const viewMode = settings.viewMode || 'list';
+  const specificity = settings.specificity ?? 50;
+  const sortOrder = settings.sortOrder || 'recency';
 
   return `
     <div class="screen now-screen" data-testid="now-screen">
       ${channels.length ? renderComposeBar(channels, effectiveChannelId, activeChannel) : ''}
       ${renderHeader(activeChannel, connected, connLabel)}
-      ${activeChannel ? renderFeedControls(activeChannel, viewMode) : ''}
+      ${activeChannel ? renderFeedControls(activeChannel, viewMode, specificity, sortOrder) : ''}
       <div class="screen-body now-body" data-testid="now-body">
         <div id="now-feed" class="feed-view-${viewMode}" data-testid="feed-container" data-component="feed" data-feed="for-you">
           ${posts.length === 0 ? renderEmptyState(channels, connected, connLabel) : renderPosts(posts, channels, viewMode)}
@@ -97,8 +98,10 @@ function renderComposeBar(channels, activeChannelId, activeChannel) {
   `;
 }
 
-function renderFeedControls(activeChannel, viewMode) {
+function renderFeedControls(activeChannel, viewMode, specificity, sortOrder) {
   if (!activeChannel) return '';
+
+  const precisionLabel = specificity === 25 ? 'Strict' : specificity === 75 ? 'Broad' : 'Balanced';
 
   return `
     <div class="feed-controls" data-testid="feed-controls">
@@ -108,6 +111,22 @@ function renderFeedControls(activeChannel, viewMode) {
         <option value="grid" ${viewMode === 'grid' ? 'selected' : ''}>▦ Grid</option>
         <option value="space" ${viewMode === 'space' ? 'selected' : ''}>🌌 Space</option>
       </select>
+
+      <label class="precision-label" style="margin-left: 20px;">Precision:</label>
+      <select id="precision-select" class="precision-select" data-testid="precision-select">
+        <option value="25" ${specificity === 25 ? 'selected' : ''}>Strict</option>
+        <option value="50" ${specificity === 50 ? 'selected' : ''}>Balanced</option>
+        <option value="75" ${specificity === 75 ? 'selected' : ''}>Broad</option>
+      </select>
+
+      <label class="sort-label" style="margin-left: 20px;">Sort:</label>
+      <select id="sort-order-select" class="sort-select" data-testid="sort-order-select">
+        <option value="recency" ${sortOrder === 'recency' ? 'selected' : ''}>Recent</option>
+        <option value="relevance" ${sortOrder === 'relevance' ? 'selected' : ''}>Relevance</option>
+        <option value="activity" ${sortOrder === 'activity' ? 'selected' : ''}>Activity</option>
+      </select>
+
+      <button type="button" id="more-options-btn" class="btn btn-small" style="margin-left: 20px;" title="Advanced options" data-testid="more-options-btn">⚙️</button>
     </div>
   `;
 }
@@ -480,6 +499,48 @@ export function bind(container) {
         });
       }
       document.dispatchEvent(new CustomEvent('isc:channel-view-change', { detail: { mode: viewMode } }));
+    });
+  }
+
+  // Bind precision selector
+  const precisionSelect = container.querySelector('#precision-select');
+  if (precisionSelect) {
+    precisionSelect.addEventListener('change', (e) => {
+      const specificity = parseInt(e.target.value, 10);
+      if (activeChannel) {
+        const settings = channelSettingsService.getSettings(activeChannel.id);
+        channelSettingsService.updateSettings(activeChannel.id, {
+          ...settings,
+          specificity,
+        });
+        update(container);
+      }
+    });
+  }
+
+  // Bind sort order selector
+  const sortSelect = container.querySelector('#sort-order-select');
+  if (sortSelect) {
+    sortSelect.addEventListener('change', (e) => {
+      const sortOrder = e.target.value;
+      if (activeChannel) {
+        const settings = channelSettingsService.getSettings(activeChannel.id);
+        channelSettingsService.updateSettings(activeChannel.id, {
+          ...settings,
+          sortOrder,
+        });
+        update(container);
+      }
+    });
+  }
+
+  // Bind more options button
+  const moreOptionsBtn = container.querySelector('#more-options-btn');
+  if (moreOptionsBtn) {
+    moreOptionsBtn.addEventListener('click', () => {
+      if (activeChannel) {
+        showAdvancedOptions(container, activeChannel);
+      }
     });
   }
 
