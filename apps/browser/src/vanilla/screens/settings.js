@@ -13,7 +13,6 @@ import { escapeHtml } from '../../utils/dom.js';
 import { toasts } from '../../utils/toast.js';
 import { modals } from '../components/modal.js';
 import { showEditModal } from '../components/mixerPanel.js';
-import { createScreen } from '../utils/screen.js';
 import { getBridgeMomentCandidates, getTopSimilarPeers } from '../../services/peerProximity.ts';
 
 export function render() {
@@ -38,7 +37,7 @@ export function render() {
         ${renderThoughtConnections()}
         ${renderDiscovery(settings)}
         ${renderAppearance(settings)}
-        ${renderAdvanced(settings)}
+        ${renderAdvanced()}
         ${renderModeration()}
         ${renderShare()}
         ${renderChannels(channels)}
@@ -231,25 +230,13 @@ function renderAppearance(settings) {
   `;
 }
 
-function renderAdvanced(settings) {
+function renderAdvanced() {
   const chaosLevel = parseInt(localStorage.getItem('isc:chaos-level') || '0', 10);
   const disableThoughtTwin = localStorage.getItem('isc:disable-thoughttwin') === 'true';
 
   return `
     <section class="settings-section" data-testid="advanced-section">
       <div class="section-title">Advanced</div>
-
-      <div class="toggle-row">
-        <div class="toggle-label-text">
-          Ephemeral session
-          <div class="text-xs text-muted">Clear all data when closing the tab</div>
-        </div>
-        <label class="toggle">
-          <input type="checkbox" id="ephemeral-toggle" ${settings.ephemeral ? 'checked' : ''}
-                 data-testid="ephemeral-toggle" />
-          <span class="toggle-slider"></span>
-        </label>
-      </div>
 
       <div class="toggle-row">
         <div class="toggle-label-text">
@@ -824,7 +811,6 @@ export function bind(container) {
   return [];
 }
 
-let currentContainer = null;
 const listeners = [];
 
 function trackListener(target, event, handler) {
@@ -847,7 +833,4 @@ export function destroy() {
     target.removeEventListener(event, handler);
   });
   listeners.length = 0;
-  currentContainer = null;
 }
-
-export default createScreen({ render, bind, update, destroy });

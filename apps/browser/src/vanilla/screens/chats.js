@@ -9,7 +9,7 @@ import { networkService } from '../../services/network.ts';
 import { toasts } from '../../utils/toast.js';
 import { escapeHtml } from '../utils/dom.js';
 import { formatTime, formatTimestamp } from '../../utils/time.js';
-import { renderEmpty, createScreen } from '../utils/screen.js';
+import { renderEmpty } from '../utils/screen.js';
 import { getBridgeSuggestions } from '../../services/thoughtBridging.ts';
 import { markPeerContacted } from '../../services/peerProximity.ts';
 import { modals } from '../components/modal.js';
@@ -22,12 +22,6 @@ let typingInterval = null;
 const TYPING_TTL = 3000;
 let currentBridgeSuggestion = null;
 let handleNewMessage = null;
-
-const SIM_CLASS = {
-  0.85: 'very-high',
-  0.7: 'high',
-  0.55: 'medium',
-};
 
 export function render() {
   const conversations = chatService.getConversations();
@@ -101,7 +95,6 @@ function renderConvItem(conv, active) {
   const similarity = conv.similarity != null ? conv.similarity : null;
   const unread = conv.unreadCount > 0;
 
-  // Phase 4.3: Apply tier styling
   const tier = similarity != null ? getProximityTier(similarity) : null;
   const tierClass = tier ? tier.cssClass : '';
   const tierLabel = similarity != null ? formatProximity(similarity) : '';
@@ -125,14 +118,6 @@ function renderConvItem(conv, active) {
       </div>
     </div>
   `;
-}
-
-function getSimClass(similarity) {
-  if (similarity == null) return '';
-  if (similarity >= 0.85) return SIM_CLASS[0.85];
-  if (similarity >= 0.7) return SIM_CLASS[0.7];
-  if (similarity >= 0.55) return SIM_CLASS[0.55];
-  return '';
 }
 
 function renderBridgeSuggestion(suggestion) {
@@ -742,5 +727,3 @@ export function destroy() {
   document.removeEventListener('isc:new-chat-message', handleNewMessage);
   clearInterval(typingInterval);
 }
-
-export default createScreen({ render, bind, update, destroy });

@@ -149,7 +149,6 @@ export async function isLowPowerMode() {
   }
 }
 
-// L1: Announce message to ARIA live region for screen readers
 export function announce(message) {
   if (!message || typeof document === 'undefined') return;
   const region = document.getElementById('aria-live-region');

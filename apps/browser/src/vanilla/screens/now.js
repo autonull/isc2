@@ -11,7 +11,7 @@ import { networkService } from '../../services/network.ts';
 import { getState, actions } from '../../state.js';
 import { escapeHtml } from '../utils/dom.js';
 import { formatTime } from '../../utils/time.js';
-import { renderEmpty, createScreen } from '../utils/screen.js';
+import { renderEmpty } from '../utils/screen.js';
 
 export function render() {
   const { channels, activeChannelId } = getState();
@@ -71,9 +71,8 @@ function renderChannelRow(channel, activeChannelId) {
   const unreadCount = posts.filter(p => !p.read).length;
   const isActive = channel.id === activeChannelId;
 
-  // Phase 6.2: Show neighbor count for this channel
   const matches = discoveryService.getMatches();
-  const neighborCount = matches.length > 0 ? matches.length : 0;
+  const neighborCount = matches.length;
   const neighborLabel = neighborCount > 0 ? `${neighborCount} ${neighborCount === 1 ? 'neighbor' : 'neighbors'}` : '';
 
   const preview = latestPost

@@ -20,7 +20,6 @@ import {
   bindDelegate,
   autoGrow,
   setupCtrlEnterSubmit,
-  createScreen,
 } from '../utils/screen.js';
 import { renderMixerPanel, bindMixerPanel } from '../components/mixerPanel.js';
 import { modals } from '../components/modal.js';
@@ -66,7 +65,6 @@ export function render() {
 function renderComposeBar(channels, activeChannelId, activeChannel) {
   if (!channels?.length) return '';
 
-  // Phase 6.1: Compose placeholder names the channel
   const channelName = activeChannel?.name || channels?.[0]?.name || 'default';
   const placeholder = `What's on your mind? Your post reaches the #${channelName} neighborhood.`;
 
@@ -110,10 +108,6 @@ function renderComposeBar(channels, activeChannelId, activeChannel) {
 function renderFeedControls(activeChannel, viewMode, specificity, sortOrder) {
   if (!activeChannel) return '';
 
-  // Precision/Relevance removed from channel view (Phase 4.2, 4.3):
-  // - Relevance sort is removed: messages are in the neighborhood or they are not.
-  // - Precision belongs in channel editing, not the message view.
-
   return `
     <div class="feed-controls" data-testid="feed-controls">
       <label class="view-label">View:</label>
@@ -145,13 +139,13 @@ function renderHeader(activeChannel, connected, connLabel) {
        </div>`
     : '';
 
-  // Phase 5.1: Breadth badge
   const breadthLabel = activeChannel?.breadth ?
     (activeChannel.breadth.charAt(0).toUpperCase() + activeChannel.breadth.slice(1)) : 'Balanced';
-  const breadthBadge = activeChannel ?
-    `<button class="breadth-badge" id="breadth-badge-btn" data-testid="breadth-badge" title="Click to edit channel breadth">
+  const breadthBadge = activeChannel
+    ? `<button class="breadth-badge" id="breadth-badge-btn" data-testid="breadth-badge" title="Click to edit channel breadth">
        ${breadthLabel}
-     </button>` : '';
+     </button>`
+    : '';
 
   return `
     <div class="screen-header channel-header" data-testid="channel-header">
@@ -190,51 +184,6 @@ function getRelationEmoji(tag) {
     'boosted_by': '⬆️',
   };
   return emojis[tag] || '🏷️';
-}
-
-function renderComposeArea(channels, activeChannelId, activeChannel) {
-  if (!channels?.length) return '';
-
-  return `
-    <div class="compose-area" data-testid="compose-container">
-      <form id="compose-form" data-testid="compose-form">
-        ${
-          channels.length > 1
-            ? `
-            <div class="compose-channel-select">
-              <select id="compose-channel-sel" class="form-select form-select-sm">
-                ${channels
-                  .map(
-                    (ch) => `
-                  <option value="${escapeHtml(ch.id)}" ${ch.id === activeChannelId ? 'selected' : ''}>
-                    #${escapeHtml(ch.name)}
-                  </option>
-                `
-                  )
-                  .join('')}
-              </select>
-            </div>
-          `
-            : activeChannel
-              ? `<div class="compose-channel-label"><span class="channel-pill">#${escapeHtml(activeChannel.name)}</span></div>`
-              : ''
-        }
-        <textarea
-          class="compose-input"
-          id="compose-input"
-          placeholder="Share a thought…"
-          name="content"
-          rows="3"
-          maxlength="2000"
-          data-testid="compose-input"
-        ></textarea>
-        <div class="compose-footer">
-          <span class="compose-count hidden" data-testid="compose-count">0 / 2000</span>
-          <button type="submit" class="btn btn-primary btn-sm" data-testid="compose-submit" disabled>Post</button>
-        </div>
-      </form>
-    </div>
-  `;
 }
 
 function renderEmptyState(channels, connected, connLabel) {
@@ -304,7 +253,6 @@ function renderNeighborItem(match) {
   const peerId = escapeHtml(match.peerId || match.peer?.id || '');
   const initial = (name[0] || 'A').toUpperCase();
 
-  // Phase 4: Apply tier styling
   const tier = similarity != null ? getProximityTier(similarity) : null;
   const tierClass = tier ? tier.cssClass : '';
   const tierLabel = similarity != null ? formatProximity(similarity) : '';
@@ -580,13 +528,11 @@ export function bind(container) {
   const { channels, activeChannelId } = getState();
   const activeChannel = channels?.find((c) => c.id === activeChannelId);
 
-  // Phase 1: Compute and display similarity scores for posts
   if (activeChannel && activeChannelId) {
     feedService.computeChannelPostScores(activeChannelId).then((scores) => {
       Object.entries(scores).forEach(([postId, { similarityScore, matchedChannelName }]) => {
         const postCard = container.querySelector(`[data-post-id="${postId}"]`);
         if (postCard && similarityScore != null) {
-          const similarity = Math.round(similarityScore * 100);
           const badge = document.createElement('div');
           badge.className = 'post-sim-badge';
           badge.textContent = `${(similarityScore).toFixed(2)} · #${matchedChannelName}`;
@@ -603,18 +549,7 @@ export function bind(container) {
     });
   }
 
-  // Phase 3: Apply PCA-based positioning in space view
   const settings = activeChannel ? channelSettingsService.getSettings(activeChannel.id) : {};
-  if (settings.viewMode === 'space' && activeChannel?.embedding) {
-    requestAnimationFrame(() => {
-      const spacePost = container.querySelectorAll('.space-post');
-      if (spacePost.length > 0) {
-        // Collect embeddings from posts (stub - would need post.embedding in DOM)
-        // For now, use pseudo-random positioning from renderSpacePost
-        // Full implementation requires post embeddings passed to render layer
-      }
-    });
-  }
 
   if ('IntersectionObserver' in window) {
     _lazyObserver = new IntersectionObserver(
@@ -725,7 +660,6 @@ export function bind(container) {
     document.dispatchEvent(new CustomEvent('isc:new-channel'));
   });
 
-  // Phase 5.1: Breadth badge click to edit
   const breadthBtn = container.querySelector('#breadth-badge-btn');
   if (breadthBtn && activeChannel) {
     breadthBtn.addEventListener('click', (e) => {
@@ -736,7 +670,6 @@ export function bind(container) {
     });
   }
 
-  // Neighbor panel: DM button (Phase 3.8)
   container.addEventListener('click', (e) => {
     const dmBtn = e.target.closest('[data-action="start-chat"]');
     if (dmBtn) {
@@ -747,7 +680,6 @@ export function bind(container) {
       }
     }
 
-    // Post author click → popover with DM action (Phase 3.9)
     const postAuthor = e.target.closest('.post-author');
     if (postAuthor) {
       const postCard = postAuthor.closest('.post-card');
@@ -758,7 +690,6 @@ export function bind(container) {
       }
     }
 
-    // Relation pill click → open channel edit (Phase 2.4)
     const relationPill = e.target.closest('.relation-pill');
     if (relationPill && activeChannel) {
       import('../components/channelEdit.js').then(({ openChannelEdit }) => {
@@ -976,7 +907,7 @@ function showAuthorPopover(postCard, peerId, authorName) {
 }
 
 function setReplyContext(container, replyTo) {
-  const composeArea = container.querySelector('[data-testid="compose-container"]');
+  const composeArea = container.querySelector('[data-testid="compose-bar"]');
   if (!composeArea) return;
 
   let ctx = composeArea.querySelector('.compose-reply-context');
@@ -985,6 +916,7 @@ function setReplyContext(container, replyTo) {
     ctx.className = 'compose-reply-context';
     composeArea.prepend(ctx);
   }
+  ctx.removeAttribute('hidden');
   ctx.innerHTML = `
     <span class="reply-label">↩ Replying to ${escapeHtml(replyTo.author ?? 'post')}</span>
     <span class="reply-snippet">
@@ -1055,11 +987,10 @@ export function update(container, { scrollToTop = false } = {}) {
   const { channels, activeChannelId } = getState();
   const activeChannel = channels?.find(c => c.id === activeChannelId);
 
-  // Show loading indicator immediately, then fetch from DHT (Phase 4.4)
   if (activeChannel && networkService.fetchMessagesForChannel) {
     feed.innerHTML = '<div class="feed-loading" data-testid="feed-loading">Loading messages…</div>';
     networkService.fetchMessagesForChannel(activeChannel).then(posts => {
-      if (!container.isConnected) return; // Guard: container may have been unmounted
+      if (!container.isConnected) return;
       feed.innerHTML = posts.length === 0
         ? renderEmptyState(channels, connected, connLabel)
         : renderPosts(posts, channels);
@@ -1360,5 +1291,3 @@ export function destroy() {
     _lazyObserver = null;
   }
 }
-
-export default createScreen({ render, bind, update, destroy });

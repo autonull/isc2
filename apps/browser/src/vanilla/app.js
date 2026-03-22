@@ -8,7 +8,7 @@ import { subscribe, getState, actions } from '../state.js';
 import { getColdStartService } from '../services/coldStart.ts';
 import { toasts } from '../utils/toast.js';
 import { logger } from '../logger.js';
-import { isMobile } from './utils/dom.js';
+import { escapeHtml } from './utils/dom.js';
 
 import { buildLayout, setupLoggerInterceptor } from './layout.js';
 import { createRouter, setupEventHandlers, setupKeyboardShortcuts } from './router.js';
@@ -51,18 +51,14 @@ export function createApp(container) {
         logger.warn('[App] Network init failed, continuing offline:', err.message);
       });
 
-      // G1: Track real model load progress
       const embeddingService = networkService.service?.getEmbeddingService?.();
       if (embeddingService) {
         splash.update('Loading AI model… (first load may take ~30s)', 60);
-        
-        // Poll for load progress
         const pollInterval = setInterval(() => {
           if (embeddingService.isLoaded()) {
             splash.update('AI model ready', 75);
             clearInterval(pollInterval);
           } else if (embeddingService.getError()) {
-            // G3: Embedding fallback - continue without AI features
             logger.warn('[App] Embedding failed, using fallback mode');
             splash.update('AI unavailable — using text matching', 75);
             clearInterval(pollInterval);
@@ -78,12 +74,11 @@ export function createApp(container) {
       actions.setStatus(netStatus?.connected ? 'connected' : (netStatus?.status ?? 'disconnected'));
 
       splash.update('Ready', 100);
-      await delay(300);
+      await new Promise((r) => setTimeout(r, 300));
       splash.hide();
 
       initLayout();
       setupSubscriptions();
-      setupNetworkListeners();
       setupKeyboardShortcuts({
         onNavigate: navigate,
         onToggleDebug: toggleDebugPanel,
@@ -195,10 +190,6 @@ export function createApp(container) {
     });
   }
 
-  function setupNetworkListeners() {
-    // Network events are handled in network.js via actions
-  }
-
   let networkBannerEl = null;
 
   function showNetworkBanner(type, message) {
@@ -248,16 +239,6 @@ export function createApp(container) {
     });
   }
 
-  function escapeHtml(str) {
-    if (typeof str !== 'string') return String(str ?? '');
-    const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
-    return str.replace(/[&<>"']/g, (m) => map[m]);
-  }
-
-  function delay(ms) {
-    return new Promise((r) => setTimeout(r, ms));
-  }
-
   let deferredInstallPrompt = null;
 
   function setupPWAInstallPrompt() {
@@ -272,7 +253,6 @@ export function createApp(container) {
 
       if (hasInstalled || installCount >= 2) return;
 
-      // K4: Trigger on meaningful engagement, not a timer
       const showPrompt = () => {
         document.removeEventListener('isc:channel-created', showPrompt);
         document.removeEventListener('isc:peers-found', showPrompt);

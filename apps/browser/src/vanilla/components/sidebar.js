@@ -48,7 +48,6 @@ function render(el, state) {
   const statusInfo = STATUS_MAP[status] ?? { class: 'offline', label: 'Offline' };
 
   el.innerHTML = `
-    <!-- Navigation strip -->
     <div class="sidebar-nav-strip" role="toolbar" aria-label="Main navigation" data-testid="sidebar-nav-strip">
       <button class="snav-btn" data-route="/now" title="Now — home dashboard" aria-label="Now" data-testid="snav-now">⌂</button>
       <button class="snav-btn" data-route="/channel" title="Channel — message stream" aria-label="Channel" data-testid="snav-channel">#</button>
@@ -56,7 +55,6 @@ function render(el, state) {
       <button class="snav-btn" data-route="/settings" title="Settings (Ctrl+,)" aria-label="Settings" data-testid="snav-settings">⚙</button>
     </div>
 
-    <!-- Channel list (fills remaining space) -->
     <div class="irc-sidebar-scroll">
       <div class="irc-channels-section">
         <div class="irc-channels-header" data-testid="sidebar-channels-header" title="Your channels describe your current thinking. ISC finds peers on the same wavelength.">
@@ -69,7 +67,6 @@ function render(el, state) {
       </div>
     </div>
 
-    <!-- Status footer -->
     <div class="sidebar-status-strip" data-testid="sidebar-status" role="status" aria-live="polite">
       <span class="sidebar-status-dot status-${statusInfo.class}" data-field="status-dot">●</span>
       <span class="sidebar-status-text" data-field="status-text">${statusInfo.label}</span>

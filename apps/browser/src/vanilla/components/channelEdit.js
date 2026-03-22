@@ -57,10 +57,10 @@ export function openChannelEdit(channel = null) {
   <div class="form-group">
     <label class="form-label">Neighborhood breadth</label>
     <div class="breadth-control" data-testid="breadth-control">
-      <button type="button" class="breadth-btn${!channel?.breadth || channel?.breadth === 'narrow' ? ' active' : ''}" data-breadth="narrow">
+      <button type="button" class="breadth-btn${channel?.breadth === 'narrow' ? ' active' : ''}" data-breadth="narrow">
         Narrow
       </button>
-      <button type="button" class="breadth-btn${channel?.breadth === 'balanced' ? ' active' : ' active'}" data-breadth="balanced">
+      <button type="button" class="breadth-btn${!channel?.breadth || channel?.breadth === 'balanced' ? ' active' : ''}" data-breadth="balanced">
         Balanced
       </button>
       <button type="button" class="breadth-btn${channel?.breadth === 'broad' ? ' active' : ''}" data-breadth="broad">
@@ -238,7 +238,6 @@ export function openChannelEdit(channel = null) {
     try {
       let savedChannel;
       if (isEdit) {
-        // updateChannel handles unsubscribe old → recompute → subscribe new (Phase 2.4)
         savedChannel = await networkService.updateChannel(channel.id, { name, description, relations: validRelations });
         actions.setChannels(networkService.getChannels());
         toasts.success('Channel updated');

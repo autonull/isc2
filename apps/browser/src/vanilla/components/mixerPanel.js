@@ -7,8 +7,7 @@
 import { channelSettingsService, getSpecificityLabel } from '../../services/channelSettings.js';
 import { channelService, networkService } from '../../services/index.js';
 import { toasts } from '../../utils/toast.js';
-import { escapeHtml } from '../utils/dom.js';
-import { isMobile } from '../utils/dom.js';
+import { escapeHtml, isMobile } from '../utils/dom.js';
 import { getMultilingualService } from '../../services/multilingual.ts';
 import { getState, actions } from '../../state.js';
 import { modals } from './modal.js';

@@ -101,12 +101,9 @@ export function createRouter(screens, defaultRoute, mainContent, sidebar) {
     sidebar?.update?.(route);
     updateChatsBadge();
 
-    // L2: Focus management on screen transition
-    // Move focus to main content for screen readers
     mainContent.setAttribute('tabindex', '-1');
     mainContent.focus({ preventScroll: false });
-    
-    // Announce screen change
+
     import('./utils/dom.js').then(({ announce }) => {
       const screenTitle = route.slice(1).charAt(0).toUpperCase() + route.slice(2);
       announce(`Navigated to ${screenTitle} screen`);

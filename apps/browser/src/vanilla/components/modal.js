@@ -45,7 +45,6 @@ export const modals = {
     overlay.appendChild(modal);
     document.body.appendChild(overlay);
 
-    // L1: Focus trap
     const focusableSelectors =
       'button:not([disabled]), input:not([disabled]), textarea:not([disabled]), ' +
       'select:not([disabled]), a[href], [tabindex]:not([tabindex="-1"])';
@@ -93,7 +92,6 @@ export const modals = {
     overlay.style.transition = 'opacity 0.15s';
     setTimeout(() => overlay.remove(), 150);
 
-    // L1: Remove focus trap listener
     if (handleTabTrap) {
       document.removeEventListener('keydown', handleTabTrap);
     }
@@ -276,7 +274,6 @@ export const modals = {
         }, 100);
         return;
       }
-      // J1: Block peer
       if (e.target.closest('[data-action="block"]')) {
         moderationService.block(peerId, 'User blocked via profile');
         this.close();
@@ -284,7 +281,6 @@ export const modals = {
         setTimeout(() => this.showPeerProfile(peer), 100);
         return;
       }
-      // J1: Unblock peer
       if (e.target.closest('[data-action="unblock"]')) {
         moderationService.unblock(peerId);
         this.close();
