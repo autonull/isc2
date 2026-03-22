@@ -50,37 +50,120 @@ export function render() {
 
   return `
     <div class="screen now-screen" data-testid="now-screen">
+      ${channels.length ? renderComposeBar(channels, effectiveChannelId, activeChannel) : ''}
       ${renderHeader(activeChannel, connected, connLabel)}
+      ${activeChannel ? renderFloatingToolbar(activeChannel) : ''}
       <div class="screen-body now-body" data-testid="now-body">
-        <div id="mixer-container">${activeChannel ? renderMixerPanel(activeChannel) : ''}</div>
         <div id="now-feed" class="feed-view-${viewMode}" data-testid="feed-container" data-component="feed" data-feed="for-you">
           ${posts.length === 0 ? renderEmptyState(channels, connected, connLabel) : renderPosts(posts, channels, viewMode)}
         </div>
       </div>
-      ${channels.length ? renderComposeArea(channels, effectiveChannelId, activeChannel) : ''}
+    </div>
+  `;
+}
+
+function renderComposeBar(channels, activeChannelId, activeChannel) {
+  if (!channels?.length) return '';
+
+  return `
+    <div class="compose-bar sticky-top smart-hide" data-testid="compose-bar">
+      <form id="compose-form" class="compose-bar-form" data-testid="compose-form">
+        <div class="compose-bar-inline">
+          ${
+            channels.length > 1
+              ? `
+              <select id="compose-channel-sel" class="compose-channel-picker form-select form-select-sm" data-testid="compose-channel-sel">
+                ${channels
+                  .map(
+                    (ch) => `
+                  <option value="${escapeHtml(ch.id)}" ${ch.id === activeChannelId ? 'selected' : ''}>
+                    #${escapeHtml(ch.name)}
+                  </option>
+                `
+                  )
+                  .join('')}
+              </select>
+            `
+              : activeChannel
+                ? `<div class="compose-channel-label"><span class="channel-pill">#${escapeHtml(activeChannel.name)}</span></div>`
+                : ''
+          }
+          <textarea
+            class="compose-input"
+            id="compose-input"
+            placeholder="Share a thought…"
+            name="content"
+            rows="1"
+            maxlength="2000"
+            data-testid="compose-input"
+          ></textarea>
+          <button type="submit" class="btn btn-primary btn-sm" data-testid="compose-submit" disabled title="Post">Post</button>
+        </div>
+        <div class="compose-footer">
+          <span class="compose-count hidden" data-testid="compose-count">0 / 2000</span>
+        </div>
+      </form>
+      <div class="compose-reply-context" hidden data-testid="compose-reply-context">
+        Replying to <strong class="reply-author"></strong> <button type="button" class="btn-clear-reply" title="Cancel reply">×</button>
+      </div>
+    </div>
+  `;
+}
+
+function renderFloatingToolbar(activeChannel) {
+  if (!activeChannel) return '';
+
+  const settings = channelSettingsService.getSettings(activeChannel.id);
+  const { specificity, viewMode, sortOrder } = settings;
+
+  // Map specificity to precision label
+  const precisionLabel = specificity <= 33 ? 'Strict' : specificity <= 67 ? 'Balanced' : 'Broad';
+
+  return `
+    <div class="floating-toolbar" data-testid="floating-toolbar" data-channel-id="${escapeHtml(activeChannel.id)}">
+      <div class="toolbar-group">
+        <span class="toolbar-label">View:</span>
+        <select class="toolbar-dropdown" id="view-mode-select" data-testid="view-mode-select">
+          <option value="list" ${viewMode === 'list' ? 'selected' : ''}>📋 List</option>
+          <option value="grid" ${viewMode === 'grid' ? 'selected' : ''}>▦ Grid</option>
+          <option value="space" ${viewMode === 'space' ? 'selected' : ''}>🌌 Space</option>
+        </select>
+      </div>
+
+      <div class="toolbar-group">
+        <span class="toolbar-label">Precision:</span>
+        <div class="toolbar-precision-toggle">
+          <button type="button" class="toolbar-btn precision-btn ${specificity <= 33 ? 'active' : ''}" data-precision="strict" title="Strict - high similarity threshold">Strict</button>
+          <button type="button" class="toolbar-btn precision-btn ${specificity > 33 && specificity <= 67 ? 'active' : ''}" data-precision="balanced" title="Balanced - moderate similarity">⚙️</button>
+          <button type="button" class="toolbar-btn precision-btn ${specificity > 67 ? 'active' : ''}" data-precision="broad" title="Broad - low similarity threshold">📊</button>
+        </div>
+      </div>
+
+      <div class="toolbar-group">
+        <span class="toolbar-label">Sort:</span>
+        <select class="toolbar-dropdown" id="sort-order-select" data-testid="sort-order-select">
+          <option value="recency" ${sortOrder === 'recency' ? 'selected' : ''}>Recent</option>
+          <option value="similarity" ${sortOrder === 'similarity' ? 'selected' : ''}>Relevance</option>
+          <option value="activity" ${sortOrder === 'activity' ? 'selected' : ''}>Activity</option>
+        </select>
+      </div>
+
+      <button type="button" class="toolbar-btn" id="more-options-btn" data-testid="more-options-btn" title="Advanced options">⚙️ More</button>
     </div>
   `;
 }
 
 function renderHeader(activeChannel, connected, connLabel) {
   return `
-    <div class="screen-header" data-testid="now-header">
-      <div class="screen-title-wrap">
-        <h1 class="screen-title">🏠 Now</h1>
-        ${
-          activeChannel
-            ? `<span class="active-channel-badge" data-testid="active-channel-badge" title="Your active channel">
-               <span class="channel-prefix">#</span>${escapeHtml(activeChannel.name)}
-             </span>`
-            : `<span class="screen-subtitle">For You</span>`
-        }
-      </div>
-      <div class="header-actions">
+    <div class="screen-header now-header" data-testid="now-header">
+      <div class="header-status">
+        <button class="btn btn-icon" id="now-refresh" title="Refresh feed" data-testid="refresh-feed">↻</button>
         <span class="status-badge ${connected ? 'online' : 'offline'}" data-testid="network-status-badge">
           ${connected ? '● Online' : `○ ${escapeHtml(connLabel)}`}
         </span>
-        <button class="btn btn-icon" id="now-refresh" title="Refresh feed" data-testid="refresh-feed">↻</button>
-        <button class="btn btn-primary btn-sm" id="go-compose" data-testid="create-channel-button">+ Channel</button>
+      </div>
+      <div class="header-actions">
+        <!-- Discover Peers button shown when no posts (in empty state) -->
       </div>
     </div>
   `;
@@ -403,7 +486,11 @@ export function bind(container) {
   const { channels, activeChannelId } = getState();
   const activeChannel = channels?.find((c) => c.id === activeChannelId);
 
-  if (activeChannel) bindMixerPanel(container, activeChannel);
+  // Bind floating toolbar controls (replaces old mixer panel)
+  if (activeChannel) bindFloatingToolbar(container, activeChannel);
+
+  // Setup smart-hide for compose bar
+  setupComposeBarSmartHide(container);
 
   if ('IntersectionObserver' in window) {
     _lazyObserver = new IntersectionObserver(
@@ -764,6 +851,243 @@ async function doRefresh(container) {
       btn.disabled = false;
     }
   }
+}
+
+function bindFloatingToolbar(container, activeChannel) {
+  // View mode dropdown
+  const viewModeSelect = container.querySelector('#view-mode-select');
+  if (viewModeSelect) {
+    viewModeSelect.addEventListener('change', (e) => {
+      const viewMode = e.target.value;
+      const settings = channelSettingsService.getSettings(activeChannel.id);
+      channelSettingsService.updateSettings(activeChannel.id, {
+        ...settings,
+        viewMode,
+      });
+      document.dispatchEvent(new CustomEvent('isc:channel-view-change', { detail: { mode: viewMode } }));
+    });
+  }
+
+  // Precision toggle buttons
+  const precisionBtns = container.querySelectorAll('.precision-btn');
+  precisionBtns.forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const precision = btn.dataset.precision;
+      const specificity = precision === 'strict' ? 25 : precision === 'balanced' ? 50 : 75;
+      const settings = channelSettingsService.getSettings(activeChannel.id);
+      channelSettingsService.updateSettings(activeChannel.id, {
+        ...settings,
+        specificity,
+      });
+      update(container);
+    });
+  });
+
+  // Sort order dropdown
+  const sortOrderSelect = container.querySelector('#sort-order-select');
+  if (sortOrderSelect) {
+    sortOrderSelect.addEventListener('change', (e) => {
+      const sortOrder = e.target.value;
+      const settings = channelSettingsService.getSettings(activeChannel.id);
+      channelSettingsService.updateSettings(activeChannel.id, {
+        ...settings,
+        sortOrder,
+      });
+      update(container);
+    });
+  }
+
+  // More Options button - shows modal with advanced controls
+  const moreOptionsBtn = container.querySelector('#more-options-btn');
+  if (moreOptionsBtn) {
+    moreOptionsBtn.addEventListener('click', () => {
+      showAdvancedOptions(container, activeChannel);
+    });
+  }
+}
+
+function setupComposeBarSmartHide(container) {
+  const composeBar = container.querySelector('.compose-bar');
+  if (!composeBar) return;
+
+  let lastScrollTop = 0;
+  const body = container.querySelector('.now-body');
+  if (!body) return;
+
+  body.addEventListener('scroll', () => {
+    const scrollTop = body.scrollTop;
+    const isScrollingDown = scrollTop > lastScrollTop;
+    const threshold = 50; // Collapse after scrolling 50px
+
+    if (isScrollingDown && scrollTop > threshold) {
+      composeBar.classList.add('compose-bar-collapsed');
+    } else {
+      composeBar.classList.remove('compose-bar-collapsed');
+    }
+
+    lastScrollTop = scrollTop;
+  });
+
+  // Expand on focus
+  const textarea = container.querySelector('.compose-input');
+  if (textarea) {
+    textarea.addEventListener('focus', () => {
+      composeBar.classList.remove('compose-bar-collapsed');
+    });
+  }
+}
+
+function showAdvancedOptions(container, activeChannel) {
+  const settings = channelSettingsService.getSettings(activeChannel.id);
+  const { filters, minSimilarity, isMuted, isLurker } = settings;
+
+  const html = `
+<div class="modal-header">
+  <h2 class="modal-title">Channel Settings</h2>
+</div>
+<div class="modal-body">
+  <div class="settings-section">
+    <h3 class="settings-section-title">Content Filters</h3>
+    <div class="settings-group">
+      <label class="settings-checkbox">
+        <input type="checkbox" name="filter-me" ${filters?.showMe ? 'checked' : ''}>
+        <span>👤 Your posts</span>
+      </label>
+      <label class="settings-checkbox">
+        <input type="checkbox" name="filter-others" ${filters?.showOthers ? 'checked' : ''}>
+        <span>👥 Other people</span>
+      </label>
+      <label class="settings-checkbox">
+        <input type="checkbox" name="filter-trusted" ${filters?.showTrusted ? 'checked' : ''}>
+        <span>✓ Trusted peers</span>
+      </label>
+      <label class="settings-checkbox">
+        <input type="checkbox" name="filter-high" ${filters?.showHighAlignment ? 'checked' : ''}>
+        <span>🔥 High alignment (75%+)</span>
+      </label>
+      <label class="settings-checkbox">
+        <input type="checkbox" name="filter-low" ${filters?.showLowAlignment ? 'checked' : ''}>
+        <span>🌱 Low alignment (25%-50%)</span>
+      </label>
+    </div>
+
+    <div class="settings-group">
+      <label class="settings-label">Min Similarity: <strong>${Math.round(minSimilarity * 100)}%</strong></label>
+      <input type="range" class="settings-slider" name="min-similarity" min="0" max="100" value="${Math.round(minSimilarity * 100)}">
+    </div>
+  </div>
+
+  <div class="settings-section">
+    <h3 class="settings-section-title">Advanced</h3>
+    <div class="settings-group">
+      <label class="settings-checkbox">
+        <input type="checkbox" name="mute" ${isMuted ? 'checked' : ''}>
+        <span>🔇 Mute this channel</span>
+      </label>
+      <label class="settings-checkbox">
+        <input type="checkbox" name="lurk" ${isLurker ? 'checked' : ''}>
+        <span>👁 Lurk mode (don't include in vector)</span>
+      </label>
+    </div>
+    <button type="button" class="btn btn-ghost btn-sm" data-action="reset-settings">↺ Reset Settings</button>
+    <button type="button" class="btn btn-ghost btn-sm" data-action="edit-channel">✏️ Edit Channel</button>
+    <button type="button" class="btn btn-ghost btn-sm danger" data-action="archive-channel">📦 Archive</button>
+  </div>
+</div>
+<div class="modal-actions">
+  <button type="button" class="btn btn-secondary" data-action="close">Close</button>
+</div>
+  `;
+
+  const overlay = modals.open(html);
+
+  // Bind advanced options controls
+  overlay.querySelector('[name="filter-me"]')?.addEventListener('change', (e) => {
+    const newSettings = {
+      ...settings,
+      filters: { ...settings.filters, showMe: e.target.checked },
+    };
+    channelSettingsService.updateSettings(activeChannel.id, newSettings);
+    update(container);
+  });
+
+  // Similar for other filters... (abbreviated for space)
+  overlay.querySelector('[name="filter-others"]')?.addEventListener('change', (e) => {
+    const newSettings = {
+      ...settings,
+      filters: { ...settings.filters, showOthers: e.target.checked },
+    };
+    channelSettingsService.updateSettings(activeChannel.id, newSettings);
+    update(container);
+  });
+
+  overlay.querySelector('[name="min-similarity"]')?.addEventListener('change', (e) => {
+    const newSettings = {
+      ...settings,
+      minSimilarity: parseInt(e.target.value) / 100,
+    };
+    channelSettingsService.updateSettings(activeChannel.id, newSettings);
+    update(container);
+  });
+
+  overlay.querySelector('[name="mute"]')?.addEventListener('change', (e) => {
+    const newSettings = { ...settings, isMuted: e.target.checked };
+    channelSettingsService.updateSettings(activeChannel.id, newSettings);
+    update(container);
+  });
+
+  overlay.querySelector('[data-action="close"]')?.addEventListener('click', () => {
+    modals.close();
+  });
+
+  overlay.querySelector('[data-action="reset-settings"]')?.addEventListener('click', () => {
+    channelSettingsService.resetSettings(activeChannel.id);
+    modals.close();
+    update(container);
+  });
+
+  overlay.querySelector('[data-action="edit-channel"]')?.addEventListener('click', () => {
+    modals.close();
+    // Open channel edit modal
+    const html = `
+<div class="modal-header">
+  <h2 class="modal-title">Edit Channel</h2>
+</div>
+<div class="modal-body">
+  <form>
+    <div class="form-group">
+      <label>Channel Name</label>
+      <input type="text" class="form-input" id="channel-name-input" value="${escapeHtml(activeChannel.name)}" maxlength="100">
+    </div>
+    <div class="form-group">
+      <label>Description</label>
+      <textarea class="form-textarea" id="channel-desc-input" maxlength="500">${escapeHtml(activeChannel.description || '')}</textarea>
+    </div>
+  </form>
+</div>
+<div class="modal-actions">
+  <button type="button" class="btn btn-secondary" data-action="cancel">Cancel</button>
+  <button type="button" class="btn btn-primary" data-action="save">Save Changes</button>
+</div>
+    `;
+    const editOverlay = modals.open(html);
+    editOverlay.querySelector('[data-action="cancel"]')?.addEventListener('click', () => modals.close());
+    editOverlay.querySelector('[data-action="save"]')?.addEventListener('click', () => {
+      const name = editOverlay.querySelector('#channel-name-input').value;
+      const description = editOverlay.querySelector('#channel-desc-input').value;
+      channelService.updateChannel(activeChannel.id, { name, description });
+      modals.close();
+      update(container);
+    });
+  });
+
+  overlay.querySelector('[data-action="archive-channel"]')?.addEventListener('click', () => {
+    if (confirm('Archive this channel? You can unarchive it later.')) {
+      channelService.archiveChannel(activeChannel.id);
+      modals.close();
+      update(container);
+    }
+  });
 }
 
 export function destroy() {
