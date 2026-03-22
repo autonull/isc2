@@ -1803,78 +1803,40 @@ body {
 }
 
 /* Floating Toolbar */
-.floating-toolbar {
+/* Simple Feed Controls */
+.feed-controls {
   background: var(--c-bg-card);
   border-bottom: 1px solid rgba(255, 255, 255, 0.07);
-  padding: 12px 16px;
+  padding: 12px 20px;
   display: flex;
-  flex-wrap: wrap;
-  gap: 16px;
   align-items: center;
+  gap: 12px;
   flex-shrink: 0;
 }
 
-.now-header {
-  flex-shrink: 0;
-}
-
-.toolbar-group {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.toolbar-label {
+.view-label {
   font-size: 13px;
   color: var(--c-text-muted);
-  flex-shrink: 0;
+  font-weight: 500;
 }
 
-.toolbar-dropdown {
+.view-select {
   padding: 6px 10px;
   background: var(--c-bg-input);
   border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: var(--r-md);
+  border-radius: 6px;
   color: var(--c-text);
   font-size: 13px;
   cursor: pointer;
 }
 
-.toolbar-dropdown:focus {
+.view-select:focus {
   outline: none;
   border-color: var(--c-brand);
 }
 
-.toolbar-btn {
-  padding: 6px 12px;
-  background: var(--c-bg-input);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: var(--r-md);
-  color: var(--c-text);
-  font-size: 13px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.toolbar-btn:hover {
-  border-color: var(--c-brand);
-  color: var(--c-brand);
-}
-
-.toolbar-btn.active {
-  background: rgba(74, 144, 217, 0.2);
-  border-color: #4a90d9;
-  color: #4a90d9;
-}
-
-.toolbar-precision-toggle {
-  display: flex;
-  gap: 4px;
-}
-
-.toolbar-precision-toggle .precision-btn {
-  padding: 6px 12px;
-  font-size: 13px;
+.now-header {
+  flex-shrink: 0;
 }
 
 .post-card {

@@ -47,6 +47,7 @@ export function render() {
     <div class="screen now-screen" data-testid="now-screen">
       ${channels.length ? renderComposeBar(channels, effectiveChannelId, activeChannel) : ''}
       ${renderHeader(activeChannel, connected, connLabel)}
+      ${activeChannel ? renderFeedControls(activeChannel, viewMode) : ''}
       <div class="screen-body now-body" data-testid="now-body">
         <div id="now-feed" class="feed-view-${viewMode}" data-testid="feed-container" data-component="feed" data-feed="for-you">
           ${posts.length === 0 ? renderEmptyState(channels, connected, connLabel) : renderPosts(posts, channels, viewMode)}
@@ -96,45 +97,17 @@ function renderComposeBar(channels, activeChannelId, activeChannel) {
   `;
 }
 
-function renderFloatingToolbar(activeChannel) {
+function renderFeedControls(activeChannel, viewMode) {
   if (!activeChannel) return '';
 
-  const settings = channelSettingsService.getSettings(activeChannel.id);
-  const { specificity, viewMode, sortOrder } = settings;
-
-  // Map specificity to precision label
-  const precisionLabel = specificity <= 33 ? 'Strict' : specificity <= 67 ? 'Balanced' : 'Broad';
-
   return `
-    <div class="floating-toolbar" data-testid="floating-toolbar" data-channel-id="${escapeHtml(activeChannel.id)}">
-      <div class="toolbar-group">
-        <span class="toolbar-label">View:</span>
-        <select class="toolbar-dropdown" id="view-mode-select" data-testid="view-mode-select">
-          <option value="list" ${viewMode === 'list' ? 'selected' : ''}>📋 List</option>
-          <option value="grid" ${viewMode === 'grid' ? 'selected' : ''}>▦ Grid</option>
-          <option value="space" ${viewMode === 'space' ? 'selected' : ''}>🌌 Space</option>
-        </select>
-      </div>
-
-      <div class="toolbar-group">
-        <span class="toolbar-label">Precision:</span>
-        <div class="toolbar-precision-toggle">
-          <button type="button" class="toolbar-btn precision-btn ${specificity <= 33 ? 'active' : ''}" data-precision="strict" title="Strict - high similarity threshold">Strict</button>
-          <button type="button" class="toolbar-btn precision-btn ${specificity > 33 && specificity <= 67 ? 'active' : ''}" data-precision="balanced" title="Balanced - moderate similarity">⚙️</button>
-          <button type="button" class="toolbar-btn precision-btn ${specificity > 67 ? 'active' : ''}" data-precision="broad" title="Broad - low similarity threshold">📊</button>
-        </div>
-      </div>
-
-      <div class="toolbar-group">
-        <span class="toolbar-label">Sort:</span>
-        <select class="toolbar-dropdown" id="sort-order-select" data-testid="sort-order-select">
-          <option value="recency" ${sortOrder === 'recency' ? 'selected' : ''}>Recent</option>
-          <option value="similarity" ${sortOrder === 'similarity' ? 'selected' : ''}>Relevance</option>
-          <option value="activity" ${sortOrder === 'activity' ? 'selected' : ''}>Activity</option>
-        </select>
-      </div>
-
-      <button type="button" class="toolbar-btn" id="more-options-btn" data-testid="more-options-btn" title="Advanced options">⚙️ More</button>
+    <div class="feed-controls" data-testid="feed-controls">
+      <label class="view-label">View:</label>
+      <select id="view-mode-select" class="view-select" data-testid="view-mode-select">
+        <option value="list" ${viewMode === 'list' ? 'selected' : ''}>📋 List</option>
+        <option value="grid" ${viewMode === 'grid' ? 'selected' : ''}>▦ Grid</option>
+        <option value="space" ${viewMode === 'space' ? 'selected' : ''}>🌌 Space</option>
+      </select>
     </div>
   `;
 }
@@ -491,6 +464,22 @@ export function bind(container) {
 
     container.querySelectorAll('.post-card[data-lazy="true"]').forEach((card) => {
       _lazyObserver.observe(card);
+    });
+  }
+
+  // Bind view mode selector
+  const viewModeSelect = container.querySelector('#view-mode-select');
+  if (viewModeSelect) {
+    viewModeSelect.addEventListener('change', (e) => {
+      const viewMode = e.target.value;
+      if (activeChannel) {
+        const settings = channelSettingsService.getSettings(activeChannel.id);
+        channelSettingsService.updateSettings(activeChannel.id, {
+          ...settings,
+          viewMode,
+        });
+      }
+      document.dispatchEvent(new CustomEvent('isc:channel-view-change', { detail: { mode: viewMode } }));
     });
   }
 
