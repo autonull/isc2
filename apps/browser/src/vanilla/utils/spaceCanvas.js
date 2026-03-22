@@ -33,6 +33,9 @@ const SIMILARITY_TIERS = [
   { min: 0, color: '#6b7280', label: 'Distant' },
 ];
 
+let clickHandler = null;
+let mouseleaveHandler = null;
+
 export function initSpaceCanvas(canvasEl, { peers, selfPosition: initialSelfPos, onPeerClick }) {
   if (!canvasEl) return;
 
@@ -45,12 +48,17 @@ export function initSpaceCanvas(canvasEl, { peers, selfPosition: initialSelfPos,
   window.addEventListener('resize', resizeCanvas);
 
   canvas.addEventListener('mousemove', handleMouseMove);
-  canvas.addEventListener('click', () => {
+
+  clickHandler = () => {
     if (hoveredPeer && onPeerClick) {
       onPeerClick(hoveredPeer.peerId);
     }
-  });
-  canvas.addEventListener('mouseleave', () => hideTooltip());
+  };
+  canvas.addEventListener('click', clickHandler);
+
+  mouseleaveHandler = () => hideTooltip();
+  canvas.addEventListener('mouseleave', mouseleaveHandler);
+
   canvas.setAttribute('tabindex', '0');
 
   initCanvas(peers);
@@ -340,10 +348,20 @@ export function destroySpaceCanvas() {
     cancelAnimationFrame(animationId);
     animationId = null;
   }
+  if (embeddingDebounceTimer) {
+    clearTimeout(embeddingDebounceTimer);
+    embeddingDebounceTimer = null;
+  }
   if (canvas) {
     canvas.removeEventListener('mousemove', handleMouseMove);
-    canvas.removeEventListener('click', handleMouseMove);
-    canvas.removeEventListener('mouseleave', hideTooltip);
+    if (clickHandler) {
+      canvas.removeEventListener('click', clickHandler);
+      clickHandler = null;
+    }
+    if (mouseleaveHandler) {
+      canvas.removeEventListener('mouseleave', mouseleaveHandler);
+      mouseleaveHandler = null;
+    }
   }
   window.removeEventListener('resize', resizeCanvas);
   embeddingCache.clear();

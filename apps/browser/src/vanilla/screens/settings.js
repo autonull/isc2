@@ -437,6 +437,8 @@ function applyTheme(theme) {
 }
 
 export function bind(container) {
+  // Clean up previous listeners before adding new ones
+  destroy();
   // Apply current theme
   applyTheme(settingsService.get().theme ?? 'dark');
 
@@ -507,7 +509,8 @@ export function bind(container) {
   }
 
   // Profile form
-  container.querySelector('#profile-form')?.addEventListener('submit', async (e) => {
+  const profileForm = container.querySelector('#profile-form');
+  const profileHandler = async (e) => {
     e.preventDefault();
     const name = container.querySelector('#settings-name')?.value.trim();
     const bio = container.querySelector('#settings-bio')?.value.trim();
@@ -517,20 +520,27 @@ export function bind(container) {
     } catch (err) {
       toasts.error(`Failed to save: ${err.message}`);
     }
-  });
+  };
+  if (profileForm) trackListener(profileForm, 'submit', profileHandler);
 
   // Character counters
-  container.querySelector('#settings-name')?.addEventListener('input', (e) => {
+  const nameInput = container.querySelector('#settings-name');
+  const nameHandler = (e) => {
     const n = container.querySelector('#name-count');
     if (n) n.textContent = `${e.target.value.length} / 50`;
-  });
-  container.querySelector('#settings-bio')?.addEventListener('input', (e) => {
+  };
+  if (nameInput) trackListener(nameInput, 'input', nameHandler);
+
+  const bioInput = container.querySelector('#settings-bio');
+  const bioHandler = (e) => {
     const n = container.querySelector('#bio-count');
     if (n) n.textContent = `${e.target.value.length} / 200`;
-  });
+  };
+  if (bioInput) trackListener(bioInput, 'input', bioHandler);
 
   // Export identity
-  container.querySelector('#export-identity')?.addEventListener('click', () => {
+  const exportBtn = container.querySelector('#export-identity');
+  const exportHandler = () => {
     const data = identityService.export();
     if (!data) {
       toasts.error('No identity to export');
@@ -544,10 +554,12 @@ export function bind(container) {
     a.click();
     URL.revokeObjectURL(url);
     toasts.success('Identity exported!');
-  });
+  };
+  if (exportBtn) trackListener(exportBtn, 'click', exportHandler);
 
   // Import identity
-  container.querySelector('#import-identity-file')?.addEventListener('change', async (e) => {
+  const importInput = container.querySelector('#import-identity-file');
+  const importHandler = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
     const ok = await modals.confirm(
@@ -563,92 +575,100 @@ export function bind(container) {
     } catch (err) {
       toasts.error(`Import failed: ${err.message}`);
     }
-  });
+  };
+  if (importInput) trackListener(importInput, 'change', importHandler);
 
   // Ephemeral session toggle
-  container.querySelector('#ephemeral-toggle')?.addEventListener('change', (e) => {
+  const ephemeralToggle = container.querySelector('#ephemeral-toggle');
+  const ephemeralHandler = (e) => {
     if (e.target.checked) {
       localStorage.setItem('isc-ephemeral-session', 'true');
     } else {
       localStorage.removeItem('isc-ephemeral-session');
     }
     showInlineSaved(e.target.closest('.toggle-row'));
-  });
+  };
+  if (ephemeralToggle) trackListener(ephemeralToggle, 'change', ephemeralHandler);
 
-  container.querySelector('#chaos-toggle')?.addEventListener('change', (e) => {
+  const chaosToggle = container.querySelector('#chaos-toggle');
+  const chaosToggleHandler = (e) => {
     const level = e.target.checked ? 50 : 0;
     localStorage.setItem('isc:chaos-level', String(level));
     document.dispatchEvent(new CustomEvent('isc:toggle-chaos', { detail: { level } }));
     showInlineSaved(e.target.closest('.toggle-row'));
-  });
+  };
+  if (chaosToggle) trackListener(chaosToggle, 'change', chaosToggleHandler);
 
-  container.querySelector('#thoughttwin-toggle')?.addEventListener('change', (e) => {
+  const thoughttwinToggle = container.querySelector('#thoughttwin-toggle');
+  const thoughttwinHandler = (e) => {
     localStorage.setItem('isc:disable-thoughttwin', String(!e.target.checked));
     showInlineSaved(e.target.closest('.toggle-row'));
     toasts.info(
       e.target.checked ? 'ThoughtTwin suggestions enabled' : 'ThoughtTwin suggestions disabled'
     );
-  });
+  };
+  if (thoughttwinToggle) trackListener(thoughttwinToggle, 'change', thoughttwinHandler);
 
-  container.querySelector('#chaos-slider')?.addEventListener('input', (e) => {
+  const chaosSlider = container.querySelector('#chaos-slider');
+  const chaosSliderHandler = (e) => {
     const valueEl = container.querySelector('#chaos-value');
     if (valueEl) valueEl.textContent = `${e.target.value}%`;
     localStorage.setItem('isc:chaos-level', e.target.value);
     document.dispatchEvent(
       new CustomEvent('isc:toggle-chaos', { detail: { level: parseInt(e.target.value, 10) } })
     );
-  });
+  };
+  if (chaosSlider) trackListener(chaosSlider, 'input', chaosSliderHandler);
 
   // Discovery settings
-  container.querySelector('#similarity-threshold')?.addEventListener('input', (e) => {
-    const v = container.querySelector('#sim-value');
-    if (v) v.textContent = e.target.value;
-  });
-
-  container.querySelector('#auto-discover')?.addEventListener('change', (e) => {
+  const autoDiscover = container.querySelector('#auto-discover');
+  const autoDiscoverHandler = (e) => {
     settingsService.set({ autoDiscover: e.target.checked });
     showInlineSaved(e.target);
-  });
+  };
+  if (autoDiscover) trackListener(autoDiscover, 'change', autoDiscoverHandler);
 
-  container.querySelector('#discover-interval')?.addEventListener('change', (e) => {
+  const discoverInterval = container.querySelector('#discover-interval');
+  const discoverIntervalHandler = (e) => {
     settingsService.set({ discoverInterval: parseInt(e.target.value, 10) });
     showInlineSaved(e.target);
-  });
+  };
+  if (discoverInterval) trackListener(discoverInterval, 'change', discoverIntervalHandler);
 
-  container.querySelector('#similarity-threshold')?.addEventListener('input', (e) => {
+  const similarityThreshold = container.querySelector('#similarity-threshold');
+  const similarityHandler = (e) => {
     const v = container.querySelector('#sim-value');
     if (v) v.textContent = e.target.value;
     settingsService.set({ similarityThreshold: parseInt(e.target.value, 10) / 100 });
-  });
+  };
+  if (similarityThreshold) trackListener(similarityThreshold, 'input', similarityHandler);
 
   // Preference toggles (live-save)
-  const liveSettings = [
-    'theme-select',
-    'notifications-toggle',
-    'sound-toggle',
-    'show-online-toggle',
-    'allow-dms-toggle',
-  ];
-  liveSettings.forEach((id) => {
-    container.querySelector(`#${id}`)?.addEventListener('change', (e) => {
-      const key = {
-        'theme-select': 'theme',
-        'notifications-toggle': 'notifications',
-        'sound-toggle': 'soundEnabled',
-        'show-online-toggle': 'showOnline',
-        'allow-dms-toggle': 'allowDMs',
-      }[id];
+  const liveSettingsMap = {
+    'theme-select': 'theme',
+    'notifications-toggle': 'notifications',
+    'sound-toggle': 'soundEnabled',
+    'show-online-toggle': 'showOnline',
+    'allow-dms-toggle': 'allowDMs',
+  };
+
+  Object.keys(liveSettingsMap).forEach((id) => {
+    const el = container.querySelector(`#${id}`);
+    const key = liveSettingsMap[id];
+    const handler = (e) => {
       if (key) {
         const value = e.target.type === 'checkbox' ? e.target.checked : e.target.value;
         settingsService.set({ [key]: value });
         if (key === 'theme') applyTheme(value);
         showInlineSaved(e.target);
       }
-    });
+    };
+    if (el) trackListener(el, 'change', handler);
   });
 
   // Request browser notification permission when the toggle is first enabled
-  container.querySelector('#notifications-toggle')?.addEventListener('change', async (e) => {
+  const notificationsToggle = container.querySelector('#notifications-toggle');
+  const notificationsHandler = async (e) => {
     if (!e.target.checked || !('Notification' in window)) return;
     if (Notification.permission === 'granted') return; // already have permission
     const perm = await Notification.requestPermission();
@@ -661,10 +681,11 @@ export function bind(container) {
     } else {
       toasts.success("Notifications enabled! You'll be alerted when messages arrive.");
     }
-  });
+  };
+  if (notificationsToggle) trackListener(notificationsToggle, 'change', notificationsHandler);
 
-  // Delete channel
-  container.addEventListener('click', async (e) => {
+  // Delete channel / Edit channel
+  const channelHandler = async (e) => {
     const deleteBtn = e.target.closest('.delete-channel-btn');
     if (deleteBtn) {
       const chId = deleteBtn.dataset.channelId;
@@ -690,9 +711,11 @@ export function bind(container) {
       const channel = channelService.getById(editBtn.dataset.channelId);
       if (channel) showEditModal(channel);
     }
-  });
+  };
+  trackListener(container, 'click', channelHandler);
 
-  container.querySelector('#copy-invite-btn')?.addEventListener('click', async () => {
+  const copyBtn = container.querySelector('#copy-invite-btn');
+  const copyHandler = async () => {
     const inviteLink = container.querySelector('.invite-link')?.textContent.trim();
     if (!inviteLink || inviteLink.includes('Generate')) {
       toasts.error('No invite link available');
@@ -704,9 +727,11 @@ export function bind(container) {
     } catch {
       toasts.error('Could not copy to clipboard');
     }
-  });
+  };
+  if (copyBtn) trackListener(copyBtn, 'click', copyHandler);
 
-  container.querySelector('.share-buttons')?.addEventListener('click', (e) => {
+  const shareButtons = container.querySelector('.share-buttons');
+  const shareHandler = (e) => {
     const btn = e.target.closest('.share-btn');
     if (!btn) return;
 
@@ -730,9 +755,11 @@ export function bind(container) {
     if (url) {
       window.open(url, '_blank', 'noopener,noreferrer');
     }
-  });
+  };
+  if (shareButtons) trackListener(shareButtons, 'click', shareHandler);
 
-  container.querySelector('.blocked-peers-list')?.addEventListener('click', (e) => {
+  const blockedList = container.querySelector('.blocked-peers-list');
+  const unblockHandler = (e) => {
     const unblockBtn = e.target.closest('.unblock-btn');
     if (unblockBtn) {
       const peerId = unblockBtn.dataset.peerId;
@@ -744,10 +771,12 @@ export function bind(container) {
         bind(container);
       }, 100);
     }
-  });
+  };
+  if (blockedList) trackListener(blockedList, 'click', unblockHandler);
 
   // Clear all data
-  container.querySelector('#clear-data')?.addEventListener('click', async () => {
+  const clearDataBtn = container.querySelector('#clear-data');
+  const clearDataHandler = async () => {
     const ok = await modals.confirm(
       'This removes all your channels, posts, conversations, settings, and identity ' +
         'from this browser. It cannot be undone. Consider exporting your identity first.',
@@ -766,9 +795,11 @@ export function bind(container) {
     });
     toasts.success('All data cleared. Reloading…');
     setTimeout(() => location.reload(), 1500);
-  });
+  };
+  if (clearDataBtn) trackListener(clearDataBtn, 'click', clearDataHandler);
 
-  container.querySelector('#reset-identity-btn')?.addEventListener('click', async () => {
+  const resetBtn = container.querySelector('#reset-identity-btn');
+  const resetHandler = async () => {
     const ok = await modals.confirm(
       'This generates a brand-new cryptographic identity on next launch. ' +
         'Your channels and conversations will be lost unless you export first.',
@@ -787,9 +818,18 @@ export function bind(container) {
     } catch (err) {
       toasts.error(err.message);
     }
-  });
+  };
+  if (resetBtn) trackListener(resetBtn, 'click', resetHandler);
 
   return [];
+}
+
+let currentContainer = null;
+const listeners = [];
+
+function trackListener(target, event, handler) {
+  listeners.push({ target, event, handler });
+  target.addEventListener(event, handler);
 }
 
 export function update(container) {
@@ -803,7 +843,11 @@ export function update(container) {
 }
 
 export function destroy() {
-  // No cleanup needed for settings screen
+  listeners.forEach(({ target, event, handler }) => {
+    target.removeEventListener(event, handler);
+  });
+  listeners.length = 0;
+  currentContainer = null;
 }
 
 export default createScreen({ render, bind, update, destroy });
