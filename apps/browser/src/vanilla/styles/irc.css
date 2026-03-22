@@ -1753,10 +1753,10 @@ body {
 
 .compose-bar .compose-input {
   flex: 1;
-  min-height: auto;
+  min-height: 40px;
   max-height: 100px;
-  rows: 1;
   overflow-y: auto;
+  padding: 10px 12px;
 }
 
 .compose-bar-collapsed .compose-input {
@@ -1788,8 +1788,9 @@ body {
   align-items: center;
 }
 
+.compose-reply-context[hidden],
 .compose-reply-context.hidden {
-  display: none;
+  display: none !important;
 }
 
 /* Floating Toolbar */
