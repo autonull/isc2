@@ -71,6 +71,8 @@ export interface ChannelData {
   members: string[];
   embedding?: number[];
   isLurker?: boolean;
+  relations?: Array<{ tag: string; object: string; weight?: number }>;
+  breadth?: string;
 }
 
 /**
@@ -381,7 +383,7 @@ export class BrowserNetworkService {
   /**
    * Create a new channel
    */
-  async createChannel(name: string, description: string): Promise<ChannelData> {
+  async createChannel(name: string, description: string, options: any = {}): Promise<ChannelData> {
     if (!this.embedding) {
       throw new Error('Embedding service not loaded');
     }
@@ -396,6 +398,8 @@ export class BrowserNetworkService {
       createdAt: Date.now(),
       members: [this.identity?.peerId || 'unknown'],
       embedding,
+      relations: options.relations || [],
+      breadth: options.spread || 'balanced',
     };
 
     this.channels.push(channel);
@@ -414,7 +418,7 @@ export class BrowserNetworkService {
     return channel;
   }
 
-  async updateChannel(channelId: string, updates: { name?: string; description?: string }): Promise<ChannelData> {
+  async updateChannel(channelId: string, updates: { name?: string; description?: string; relations?: any[] }): Promise<ChannelData> {
     if (!this.embedding) throw new Error('Embedding service not loaded');
     const channel = this.channels.find((c) => c.id === channelId);
     if (!channel) throw new Error(`Channel ${channelId} not found`);
@@ -426,6 +430,9 @@ export class BrowserNetworkService {
       channel.description = updates.description;
       // Recompute embedding for new description
       channel.embedding = await this.embedding.compute(updates.description);
+    }
+    if (updates.relations !== undefined) {
+      channel.relations = updates.relations;
     }
 
     if (this.shouldPersist()) {

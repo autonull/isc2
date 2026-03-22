@@ -12,6 +12,8 @@ import { channelSettingsService } from '../../services/channelSettings.js';
 import { toasts } from '../../utils/toast.js';
 import { formatTime } from '../../utils/time.js';
 import { escapeHtml } from '../utils/dom.js';
+import { projectToPCA } from '../../utils/pca.js';
+import { getProximityTier, formatProximity } from '../../utils/proximity.js';
 import {
   renderEmpty,
   renderList,
@@ -64,6 +66,10 @@ export function render() {
 function renderComposeBar(channels, activeChannelId, activeChannel) {
   if (!channels?.length) return '';
 
+  // Phase 6.1: Compose placeholder names the channel
+  const channelName = activeChannel?.name || channels?.[0]?.name || 'default';
+  const placeholder = `What's on your mind? Your post reaches the #${channelName} neighborhood.`;
+
   return `
     <div class="compose-bar" data-testid="compose-bar">
       <form id="compose-form" class="compose-form-simple" data-testid="compose-form">
@@ -84,7 +90,7 @@ function renderComposeBar(channels, activeChannelId, activeChannel) {
         <textarea
           id="compose-input"
           class="compose-input-simple"
-          placeholder="Share your thoughts…"
+          placeholder="${escapeHtml(placeholder)}"
           maxlength="2000"
           data-testid="compose-input"
         ></textarea>
@@ -129,12 +135,34 @@ function renderFeedControls(activeChannel, viewMode, specificity, sortOrder) {
 }
 
 function renderHeader(activeChannel, connected, connLabel) {
+  const relationPills = activeChannel?.relations?.length
+    ? `<div class="relation-pills-container">
+         ${activeChannel.relations.map((rel, idx) => `
+           <div class="relation-pill" data-relation-idx="${idx}" data-testid="relation-pill-${idx}" title="Edit relations">
+             ${getRelationEmoji(rel.tag)} ${escapeHtml(rel.object.slice(0, 20))}${rel.object.length > 20 ? '…' : ''}
+           </div>
+         `).join('')}
+       </div>`
+    : '';
+
+  // Phase 5.1: Breadth badge
+  const breadthLabel = activeChannel?.breadth ?
+    (activeChannel.breadth.charAt(0).toUpperCase() + activeChannel.breadth.slice(1)) : 'Balanced';
+  const breadthBadge = activeChannel ?
+    `<button class="breadth-badge" id="breadth-badge-btn" data-testid="breadth-badge" title="Click to edit channel breadth">
+       ${breadthLabel}
+     </button>` : '';
+
   return `
     <div class="screen-header channel-header" data-testid="channel-header">
       <div class="header-channel-identity">
         ${activeChannel
-          ? `<h1 class="channel-screen-title" data-testid="channel-title">#${escapeHtml(activeChannel.name)}</h1>
-             <p class="channel-screen-desc" data-testid="channel-description">${escapeHtml(activeChannel.description || '')}</p>`
+          ? `<div class="channel-title-row">
+               <h1 class="channel-screen-title" data-testid="channel-title">#${escapeHtml(activeChannel.name)}</h1>
+               ${breadthBadge}
+             </div>
+             <p class="channel-screen-desc" data-testid="channel-description">${escapeHtml(activeChannel.description || '')}</p>
+             ${relationPills}`
           : '<h1 class="channel-screen-title">Channel</h1>'
         }
       </div>
@@ -146,6 +174,22 @@ function renderHeader(activeChannel, connected, connLabel) {
       </div>
     </div>
   `;
+}
+
+function getRelationEmoji(tag) {
+  const emojis = {
+    'in_location': '📍',
+    'during_time': '📅',
+    'with_mood': '😊',
+    'under_domain': '🎯',
+    'causes_effect': '⚡',
+    'part_of': '🧩',
+    'similar_to': '🔄',
+    'opposed_to': '↔️',
+    'requires': '🔗',
+    'boosted_by': '⬆️',
+  };
+  return emojis[tag] || '🏷️';
 }
 
 function renderComposeArea(channels, activeChannelId, activeChannel) {
@@ -256,17 +300,22 @@ function renderNeighborPanel(activeChannel) {
 function renderNeighborItem(match) {
   const name = escapeHtml(match.identity?.name || match.peer?.name || 'Anonymous');
   const desc = escapeHtml((match.identity?.bio || match.peer?.description || '').slice(0, 60));
-  const simPct = match.similarity != null ? Math.round(match.similarity * 100) : null;
+  const similarity = match.similarity != null ? match.similarity : null;
   const peerId = escapeHtml(match.peerId || match.peer?.id || '');
   const initial = (name[0] || 'A').toUpperCase();
 
+  // Phase 4: Apply tier styling
+  const tier = similarity != null ? getProximityTier(similarity) : null;
+  const tierClass = tier ? tier.cssClass : '';
+  const tierLabel = similarity != null ? formatProximity(similarity) : '';
+
   return `
-    <div class="neighbor-item" data-testid="neighbor-${peerId}" data-peer-id="${peerId}">
+    <div class="neighbor-item ${tierClass}" data-testid="neighbor-${peerId}" data-peer-id="${peerId}">
       <div class="neighbor-avatar">${initial}</div>
       <div class="neighbor-info">
         <span class="neighbor-name">${name}</span>
         ${desc ? `<span class="neighbor-desc">${desc}</span>` : ''}
-        ${simPct != null ? `<span class="neighbor-sim">${simPct}% match</span>` : ''}
+        ${tierLabel ? `<span class="neighbor-tier">${tierLabel}</span>` : ''}
       </div>
       <button class="neighbor-dm-btn btn btn-xs btn-ghost"
               data-action="start-chat" data-peer-id="${peerId}"
@@ -448,9 +497,29 @@ function renderGridPosts(posts, channels) {
 }
 
 function renderSpacePosts(posts, channels) {
+  const { channels: allChannels, activeChannelId } = getState();
+  const activeChannel = allChannels?.find(c => c.id === activeChannelId);
+  const userMarker = activeChannel ? renderUserMarker(activeChannel) : '';
+
   return `
     <div class="feed-space">
+      ${userMarker}
       ${posts.map((p, i) => renderSpacePost(p, channels, i)).join('')}
+    </div>
+  `;
+}
+
+function renderUserMarker(activeChannel) {
+  // Render user's position marker (simplified - uses center position)
+  // Full implementation would project channel.embedding to PCA space
+  const spread = activeChannel.breadth === 'broad' ? 0.25 : (activeChannel.breadth === 'narrow' ? 0.08 : 0.15);
+  const radiusPct = Math.round(spread * 100);
+
+  return `
+    <div class="user-marker" data-testid="user-marker" style="left: 50%; top: 50%; transform: translate(-50%, -50%);">
+      <div class="user-position-dot"></div>
+      <div class="user-spread-circle" style="width: ${radiusPct * 2}%; height: ${radiusPct * 2}%;"></div>
+      <div class="user-marker-label">#${escapeHtml(activeChannel.name)}</div>
     </div>
   `;
 }
@@ -510,6 +579,42 @@ function renderSpacePost(post, channels, index) {
 export function bind(container) {
   const { channels, activeChannelId } = getState();
   const activeChannel = channels?.find((c) => c.id === activeChannelId);
+
+  // Phase 1: Compute and display similarity scores for posts
+  if (activeChannel && activeChannelId) {
+    feedService.computeChannelPostScores(activeChannelId).then((scores) => {
+      Object.entries(scores).forEach(([postId, { similarityScore, matchedChannelName }]) => {
+        const postCard = container.querySelector(`[data-post-id="${postId}"]`);
+        if (postCard && similarityScore != null) {
+          const similarity = Math.round(similarityScore * 100);
+          const badge = document.createElement('div');
+          badge.className = 'post-sim-badge';
+          badge.textContent = `${(similarityScore).toFixed(2)} · #${matchedChannelName}`;
+          badge.setAttribute('title', 'Contexts overlap');
+
+          const postContent = postCard.querySelector('.post-content');
+          if (postContent) {
+            postContent.parentNode.insertBefore(badge, postContent.nextSibling);
+          }
+        }
+      });
+    }).catch((err) => {
+      console.warn('Failed to compute similarity scores:', err.message);
+    });
+  }
+
+  // Phase 3: Apply PCA-based positioning in space view
+  const settings = activeChannel ? channelSettingsService.getSettings(activeChannel.id) : {};
+  if (settings.viewMode === 'space' && activeChannel?.embedding) {
+    requestAnimationFrame(() => {
+      const spacePost = container.querySelectorAll('.space-post');
+      if (spacePost.length > 0) {
+        // Collect embeddings from posts (stub - would need post.embedding in DOM)
+        // For now, use pseudo-random positioning from renderSpacePost
+        // Full implementation requires post embeddings passed to render layer
+      }
+    });
+  }
 
   if ('IntersectionObserver' in window) {
     _lazyObserver = new IntersectionObserver(
@@ -620,6 +725,17 @@ export function bind(container) {
     document.dispatchEvent(new CustomEvent('isc:new-channel'));
   });
 
+  // Phase 5.1: Breadth badge click to edit
+  const breadthBtn = container.querySelector('#breadth-badge-btn');
+  if (breadthBtn && activeChannel) {
+    breadthBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      import('../components/channelEdit.js').then(({ openChannelEdit }) => {
+        openChannelEdit(activeChannel);
+      });
+    });
+  }
+
   // Neighbor panel: DM button (Phase 3.8)
   container.addEventListener('click', (e) => {
     const dmBtn = e.target.closest('[data-action="start-chat"]');
@@ -640,6 +756,14 @@ export function bind(container) {
       if (authorId && authorId !== networkService.getIdentity()?.peerId) {
         showAuthorPopover(postCard, authorId, authorName);
       }
+    }
+
+    // Relation pill click → open channel edit (Phase 2.4)
+    const relationPill = e.target.closest('.relation-pill');
+    if (relationPill && activeChannel) {
+      import('../components/channelEdit.js').then(({ openChannelEdit }) => {
+        openChannelEdit(activeChannel);
+      });
     }
   });
   container.querySelector('#compose-channel-sel')?.addEventListener('change', (e) => {

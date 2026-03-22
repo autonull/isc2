@@ -267,9 +267,9 @@ class NetworkServiceWrapper {
     return this.service?.getChannels() ?? [];
   }
 
-  async createChannel(name: string, description: string) {
+  async createChannel(name: string, description: string, options: any = {}) {
     try {
-      const channel = await this.service!.createChannel(name, description);
+      const channel = await this.service!.createChannel(name, description, options);
       this.log.info('Channel created', { id: channel.id, name: channel.name });
 
       saveChannelSnapshot(channel.id, description).catch(() => {});
@@ -284,7 +284,7 @@ class NetworkServiceWrapper {
     }
   }
 
-  async updateChannel(channelId: string, updates: { name?: string; description?: string }) {
+  async updateChannel(channelId: string, updates: { name?: string; description?: string; relations?: any[] }) {
     try {
       const channel = await this.service!.updateChannel(channelId, updates);
       this.log.info('Channel updated', { channelId, updates: Object.keys(updates) });

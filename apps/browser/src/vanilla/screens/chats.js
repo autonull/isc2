@@ -13,6 +13,7 @@ import { renderEmpty, createScreen } from '../utils/screen.js';
 import { getBridgeSuggestions } from '../../services/thoughtBridging.ts';
 import { markPeerContacted } from '../../services/peerProximity.ts';
 import { modals } from '../components/modal.js';
+import { getProximityTier, formatProximity } from '../../utils/proximity.js';
 
 let activePeerId = null;
 let boundContainer = null;
@@ -97,13 +98,16 @@ function renderConvItem(conv, active) {
   const preview = conv.lastMessage?.content?.slice(0, 50) ?? 'No messages yet…';
   const time = conv.lastMessage ? formatTime(conv.lastMessage.timestamp) : '';
   const initial = (conv.name?.[0] ?? 'C').toUpperCase();
-  const simPct = conv.similarity != null ? Math.round(conv.similarity * 100) : null;
-  const simClass = getSimClass(conv.similarity);
+  const similarity = conv.similarity != null ? conv.similarity : null;
   const unread = conv.unreadCount > 0;
-  const simIcon = simPct >= 85 ? '🔥' : simPct >= 70 ? '✨' : '~';
+
+  // Phase 4.3: Apply tier styling
+  const tier = similarity != null ? getProximityTier(similarity) : null;
+  const tierClass = tier ? tier.cssClass : '';
+  const tierLabel = similarity != null ? formatProximity(similarity) : '';
 
   return `
-    <div class="conversation-item${isActive ? ' active' : ''}${unread ? ' has-unread' : ''}"
+    <div class="conversation-item${isActive ? ' active' : ''}${unread ? ' has-unread' : ''} ${tierClass}"
          data-peer-id="${escapeHtml(conv.peerId)}"
          data-testid="conversation-${escapeHtml(conv.peerId)}"
          tabindex="0" role="option" aria-selected="${isActive}">
@@ -117,7 +121,7 @@ function renderConvItem(conv, active) {
           <span class="conv-preview">${escapeHtml(preview)}</span>
           ${unread ? `<span class="unread-badge" aria-label="${conv.unreadCount} unread">${conv.unreadCount}</span>` : ''}
         </div>
-        ${simPct != null ? `<div class="conv-match ${simClass}">${simIcon} ${simPct}% match</div>` : ''}
+        ${tierLabel ? `<div class="conv-tier">${tierLabel}</div>` : ''}
       </div>
     </div>
   `;

@@ -6,7 +6,7 @@
  * Read-only: composing happens in the Channel screen.
  */
 
-import { feedService, channelService } from '../../services/index.js';
+import { feedService, channelService, discoveryService } from '../../services/index.js';
 import { networkService } from '../../services/network.ts';
 import { getState, actions } from '../../state.js';
 import { escapeHtml } from '../utils/dom.js';
@@ -71,6 +71,11 @@ function renderChannelRow(channel, activeChannelId) {
   const unreadCount = posts.filter(p => !p.read).length;
   const isActive = channel.id === activeChannelId;
 
+  // Phase 6.2: Show neighbor count for this channel
+  const matches = discoveryService.getMatches();
+  const neighborCount = matches.length > 0 ? matches.length : 0;
+  const neighborLabel = neighborCount > 0 ? `${neighborCount} ${neighborCount === 1 ? 'neighbor' : 'neighbors'}` : '';
+
   const preview = latestPost
     ? escapeHtml((latestPost.content || '').slice(0, 80)) + (latestPost.content?.length > 80 ? '…' : '')
     : '<span class="now-row-empty">No messages yet</span>';
@@ -83,7 +88,7 @@ function renderChannelRow(channel, activeChannelId) {
          data-channel-id="${escapeHtml(channel.id)}"
          tabindex="0"
          role="button"
-         aria-label="Channel ${escapeHtml(channel.name)}${unreadCount > 0 ? `, ${unreadCount} unread` : ''}">
+         aria-label="Channel ${escapeHtml(channel.name)}${unreadCount > 0 ? `, ${unreadCount} unread` : ''}${neighborLabel ? `, ${neighborLabel}` : ''}">
       <div class="now-row-icon">#</div>
       <div class="now-row-content">
         <div class="now-row-header">
@@ -91,7 +96,10 @@ function renderChannelRow(channel, activeChannelId) {
           <span class="now-row-time">${time}</span>
         </div>
         <div class="now-row-preview">${preview}</div>
-        ${channel.description ? `<div class="now-row-desc">${escapeHtml(channel.description.slice(0, 60))}${channel.description.length > 60 ? '…' : ''}</div>` : ''}
+        <div class="now-row-meta">
+          ${channel.description ? `<span class="now-row-desc">${escapeHtml(channel.description.slice(0, 40))}${channel.description.length > 40 ? '…' : ''}</span>` : ''}
+          ${neighborLabel ? `<span class="now-row-neighbors">${neighborLabel}</span>` : ''}
+        </div>
       </div>
       ${unreadCount > 0 ? `<span class="now-row-unread" aria-label="${unreadCount} unread">${unreadCount > 99 ? '99+' : unreadCount}</span>` : ''}
     </div>

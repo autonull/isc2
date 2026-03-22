@@ -16,6 +16,17 @@ export interface Post extends CorePost {
   repostedFrom?: string;
   replyTo?: string;
   _score?: number;
+  similarityScore?: number;
+  matchedChannelName?: string;
+}
+
+/**
+ * Relation tag for semantic position
+ */
+export interface Relation {
+  tag: string;
+  object: string;
+  weight?: number;
 }
 
 /**
@@ -24,6 +35,8 @@ export interface Post extends CorePost {
 export interface Channel extends CoreChannel {
   postCount?: number;
   followerCount?: number;
+  relations?: Relation[];
+  breadth?: string;
 }
 
 /**
