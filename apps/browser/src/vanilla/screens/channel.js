@@ -250,25 +250,17 @@ function renderEmptyState(channels, connected, connLabel) {
 }
 
 function renderNeighborPanel(activeChannel) {
-  const matches = discoveryService.getMatches();
   const settings = channelSettingsService.getSettings(activeChannel.id) ?? {};
-  const specificity = settings.specificity ?? 50;
-  const threshold = specificity / 100;
-  const neighbors = matches.filter((m) => (m.similarity ?? 0) >= threshold).slice(0, 10);
+  const threshold = (settings.specificity ?? 50) / 100;
+  const neighbors = discoveryService
+    .getMatches()
+    .filter((m) => (m.similarity ?? 0) >= threshold)
+    .slice(0, 10);
 
   return `
     <aside class="neighbor-panel" data-testid="neighbor-panel" aria-label="Channel neighbors">
-      <div class="neighbor-panel-header">
-        <span class="neighbor-panel-title">Neighbors</span>
-        <span class="neighbor-panel-count" data-testid="neighbor-count">${neighbors.length}</span>
-      </div>
-      <div class="neighbor-list" data-testid="neighbor-list">
-        ${
-          neighbors.length === 0
-            ? '<div class="neighbor-empty">No peers in neighborhood yet</div>'
-            : neighbors.map((m) => renderNeighborItem(m)).join('')
-        }
-      </div>
+      <div class="neighbor-panel-header"><span class="neighbor-panel-title">Neighbors</span><span class="neighbor-panel-count" data-testid="neighbor-count">${neighbors.length}</span></div>
+      <div class="neighbor-list" data-testid="neighbor-list">${neighbors.length === 0 ? '<div class="neighbor-empty">No peers in neighborhood yet</div>' : neighbors.map((m) => renderNeighborItem(m)).join('')}</div>
     </aside>
   `;
 }
@@ -276,40 +268,24 @@ function renderNeighborPanel(activeChannel) {
 function renderNeighborItem(match) {
   const name = escapeHtml(match.identity?.name || match.peer?.name || 'Anonymous');
   const desc = escapeHtml((match.identity?.bio || match.peer?.description || '').slice(0, 60));
-  const similarity = match.similarity != null ? match.similarity : null;
   const peerId = escapeHtml(match.peerId || match.peer?.id || '');
-  const initial = (name[0] || 'A').toUpperCase();
-
-  const tier = similarity != null ? getProximityTier(similarity) : null;
-  const tierClass = tier ? tier.cssClass : '';
-  const tierLabel = similarity != null ? formatProximity(similarity) : '';
+  const tier = match.similarity != null ? getProximityTier(match.similarity) : null;
 
   return `
-    <div class="neighbor-item ${tierClass}" data-testid="neighbor-${peerId}" data-peer-id="${peerId}">
-      <div class="neighbor-avatar">${initial}</div>
+    <div class="neighbor-item ${tier?.cssClass ?? ''}" data-testid="neighbor-${peerId}" data-peer-id="${peerId}">
+      <div class="neighbor-avatar">${(name[0] || 'A').toUpperCase()}</div>
       <div class="neighbor-info">
         <span class="neighbor-name">${name}</span>
         ${desc ? `<span class="neighbor-desc">${desc}</span>` : ''}
-        ${tierLabel ? `<span class="neighbor-tier">${tierLabel}</span>` : ''}
+        ${tier ? `<span class="neighbor-tier">${formatProximity(match.similarity)}</span>` : ''}
       </div>
-      <button class="neighbor-dm-btn btn btn-xs btn-ghost"
-              data-action="start-chat" data-peer-id="${peerId}"
-              data-testid="neighbor-dm-${peerId}"
-              title="Message ${name}">✉</button>
+      <button class="neighbor-dm-btn btn btn-xs btn-ghost" data-action="start-chat" data-peer-id="${peerId}" data-testid="neighbor-dm-${peerId}" title="Message ${name}">✉</button>
     </div>
   `;
 }
 
 function renderHowStep(num, title, desc) {
-  return `
-    <div class="how-step">
-      <span class="how-step-num">${num}</span>
-      <div>
-        <strong>${escapeHtml(title)}</strong>
-        <p>${escapeHtml(desc)}</p>
-      </div>
-    </div>
-  `;
+  return `<div class="how-step"><span class="how-step-num">${num}</span><div><strong>${escapeHtml(title)}</strong><p>${escapeHtml(desc)}</p></div></div>`;
 }
 
 function renderPosts(posts, channels, viewMode = 'list') {

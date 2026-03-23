@@ -433,57 +433,45 @@ function applyTheme(theme) {
 }
 
 export function bind(container) {
-  // Clean up previous listeners before adding new ones
   destroy();
-  // Apply current theme
   applyTheme(settingsService.get().theme ?? 'dark');
 
-  // Settings tab switching
-  const tabButtons = container.querySelectorAll('.settings-tab');
-  tabButtons.forEach((btn) => {
+  container.querySelectorAll('.settings-tab').forEach((btn) => {
     btn.addEventListener('click', () => {
       const tabName = btn.dataset.tab;
       localStorage.setItem('isc:settings-tab', tabName);
-
       container.querySelectorAll('.settings-tab').forEach((b) => b.classList.remove('active'));
       btn.classList.add('active');
-
-      container.querySelectorAll('[data-settings-tab]').forEach((section) => {
-        section.style.display = section.dataset.settingsTab === tabName ? 'block' : 'none';
-      });
+      container
+        .querySelectorAll('[data-settings-tab]')
+        .forEach((s) => (s.style.display = s.dataset.settingsTab === tabName ? 'block' : 'none'));
     });
   });
 
-  // Load Thought Twin asynchronously (most consistently co-present peer, 7+ days)
   const thoughtTwinContainer = container.querySelector('#thought-twin-container');
   if (thoughtTwinContainer) {
     getTopSimilarPeers(10)
       .then((peers) => {
         const twin = peers.find((p) => p.days >= 7);
-        if (!twin) {
-          thoughtTwinContainer.innerHTML =
-            '<div class="settings-hint">No thought twin yet — spend 7+ days in channels to find yours.</div>';
-          return;
-        }
-        thoughtTwinContainer.innerHTML = `
+        thoughtTwinContainer.innerHTML = twin
+          ? `
         <div class="thought-twin-card" data-testid="thought-twin-card">
           <div class="thought-twin-label">Your Thought Twin</div>
           <div class="thought-twin-info">
             <span class="thought-twin-peer font-mono">${escapeHtml(twin.peerId.slice(0, 12))}…</span>
-            <span class="thought-twin-duration">${twin.days} day${twin.days !== 1 ? 's' : ''} of co-presence</span>
+            <span class="thought-twin-duration">${twin.days} day${twin.days === 1 ? '' : 's'} of co-presence</span>
           </div>
-          <button class="btn btn-sm btn-ghost" data-dm-peer="${escapeHtml(twin.peerId)}" data-testid="thought-twin-dm">
-            Say hello →
-          </button>
-        </div>
-      `;
+          <button class="btn btn-sm btn-ghost" data-dm-peer="${escapeHtml(twin.peerId)}" data-testid="thought-twin-dm">Say hello →</button>
+        </div>`
+          : '<div class="settings-hint">No thought twin yet — spend 7+ days in channels to find yours.</div>';
         thoughtTwinContainer.addEventListener('click', (e) => {
           const btn = e.target.closest('[data-dm-peer]');
-          if (!btn) return;
-          document.dispatchEvent(
-            new CustomEvent('isc:start-chat', { detail: { peerId: btn.dataset.dmPeer } })
-          );
-          window.location.hash = '#/chats';
+          if (btn) {
+            document.dispatchEvent(
+              new CustomEvent('isc:start-chat', { detail: { peerId: btn.dataset.dmPeer } })
+            );
+            window.location.hash = '#/chats';
+          }
         });
       })
       .catch(() => {
@@ -492,12 +480,11 @@ export function bind(container) {
       });
   }
 
-  // Load Bridge Moment / Thought Connections section asynchronously
   const bridgeList = container.querySelector('#bridge-moment-list');
   if (bridgeList) {
     getBridgeMomentCandidates()
       .then((candidates) => {
-        if (!candidates || candidates.length === 0) {
+        if (!candidates?.length) {
           bridgeList.innerHTML =
             '<div class="settings-hint">No thought connections yet — spend more time in channels to build proximity history.</div>';
           return;
@@ -509,21 +496,18 @@ export function bind(container) {
           <div class="bridge-moment-info">
             <span class="bridge-moment-name">${escapeHtml(c.name || 'Anonymous')}</span>
             <span class="bridge-moment-desc">${escapeHtml((c.description || '').slice(0, 80))}</span>
-            <span class="bridge-moment-duration">Near you for ${c.days != null ? `${c.days} day${c.days !== 1 ? 's' : ''}` : 'a while'}</span>
+            <span class="bridge-moment-duration">Near you for ${c.days != null ? `${c.days} day${c.days === 1 ? '' : 's'}` : 'a while'}</span>
           </div>
-          <button class="btn btn-sm btn-ghost" data-dm-peer="${escapeHtml(c.peerId)}" data-testid="bridge-dm-${escapeHtml(c.peerId)}">
-            Say hello →
-          </button>
-        </div>
-      `
+          <button class="btn btn-sm btn-ghost" data-dm-peer="${escapeHtml(c.peerId)}" data-testid="bridge-dm-${escapeHtml(c.peerId)}">Say hello →</button>
+        </div>`
           )
           .join('');
-
         bridgeList.addEventListener('click', (e) => {
           const btn = e.target.closest('[data-dm-peer]');
           if (btn) {
-            const peerId = btn.dataset.dmPeer;
-            document.dispatchEvent(new CustomEvent('isc:start-chat', { detail: { peerId } }));
+            document.dispatchEvent(
+              new CustomEvent('isc:start-chat', { detail: { peerId: btn.dataset.dmPeer } })
+            );
             window.location.hash = '#/chats';
           }
         });

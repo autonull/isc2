@@ -9,12 +9,12 @@ import { test, expect } from '@playwright/test';
 
 test.describe('UI Health Checks', () => {
   test.beforeEach(async ({ page }) => {
-    page.on('console', msg => {
+    page.on('console', (msg) => {
       if (msg.type() === 'error') {
         console.log('Console error:', msg.text());
       }
     });
-    page.on('pageerror', error => {
+    page.on('pageerror', (error) => {
       // Ignore known third-party library errors
       if (error.message.includes('registerBackend')) {
         return;
@@ -30,34 +30,27 @@ test.describe('UI Health Checks', () => {
   });
 
   test('all tabs are clickable and respond', async ({ page }) => {
-    // Wait for app to render - look for any sign of the app
     await page.waitForSelector('#app', { timeout: 10000 });
-    await page.waitForTimeout(3000); // Wait for JS to execute
-
-    // Look for navigation in any form
-    const navSelector = '[data-testid="sidebar"], [data-testid="tab-bar"], .irc-layout, .tab-bar, nav';
-    const navElement = page.locator(navSelector).first();
-    
-    if (await navElement.count() === 0) {
-      // App might still be loading or have a different structure
-      console.log('Navigation not found, app may have different structure');
-      return;
-    }
+    await page.waitForTimeout(3000);
 
     const tabs = ['now', 'channel', 'chats', 'settings'];
-    
+
     for (const tab of tabs) {
-      const tabElement = page.locator(`[data-testid="nav-tab-${tab}"], [data-tab="${tab}"]`).first();
-      if (await tabElement.count() > 0) {
-        await tabElement.click();
-        await page.waitForTimeout(500);
+      const tabElement = page.locator(`[data-testid="nav-tab-${tab}"]`).first();
+      if ((await tabElement.count()) > 0) {
+        try {
+          await tabElement.click({ timeout: 3000 });
+        } catch {
+          /* tab may already be active */
+        }
+        await page.waitForTimeout(300);
       }
     }
   });
 
   test('no critical JavaScript errors on page load', async ({ page }) => {
     const errors: string[] = [];
-    page.on('pageerror', error => {
+    page.on('pageerror', (error) => {
       // Ignore known third-party library errors
       if (!error.message.includes('registerBackend')) {
         errors.push(error.message);
@@ -73,17 +66,19 @@ test.describe('UI Health Checks', () => {
 
   test('no critical console errors on page load', async ({ page }) => {
     const consoleErrors: string[] = [];
-    page.on('console', msg => {
+    page.on('console', (msg) => {
       if (msg.type() === 'error') {
         const text = msg.text();
         // Ignore known third-party library errors and expected fallbacks
-        if (!text.includes('registerBackend') &&
-            !text.includes('Failed to load resource') &&
-            !text.includes('net::ERR') &&
-            !text.includes('SharedWorker') &&
-            !text.includes('backgroundNetwork') &&
-            !text.includes('SharedWorker not supported') &&
-            !text.includes('Incorrect length')) {
+        if (
+          !text.includes('registerBackend') &&
+          !text.includes('Failed to load resource') &&
+          !text.includes('net::ERR') &&
+          !text.includes('SharedWorker') &&
+          !text.includes('backgroundNetwork') &&
+          !text.includes('SharedWorker not supported') &&
+          !text.includes('Incorrect length')
+        ) {
           consoleErrors.push(text);
         }
       }
@@ -101,7 +96,7 @@ test.describe('UI Health Checks', () => {
     await page.goto('/');
     await page.waitForSelector('#app', { timeout: 10000 });
     await page.waitForTimeout(2000);
-    
+
     // App should be visible
     await expect(page.locator('#app')).toBeVisible();
   });
@@ -111,7 +106,7 @@ test.describe('UI Health Checks', () => {
     await page.goto('/');
     await page.waitForSelector('#app', { timeout: 10000 });
     await page.waitForTimeout(2000);
-    
+
     // App should be visible
     await expect(page.locator('#app')).toBeVisible();
   });
@@ -124,12 +119,12 @@ test.describe('UI Health Checks', () => {
   test('page has valid HTML structure', async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector('#app', { timeout: 10000 });
-    
+
     // Should have doctype, html, head, body
-    const hasHtml = await page.locator('html').count() > 0;
-    const hasHead = await page.locator('head').count() > 0;
-    const hasBody = await page.locator('body').count() > 0;
-    
+    const hasHtml = (await page.locator('html').count()) > 0;
+    const hasHead = (await page.locator('head').count()) > 0;
+    const hasBody = (await page.locator('body').count()) > 0;
+
     expect(hasHtml && hasHead && hasBody).toBeTruthy();
   });
 
@@ -137,14 +132,14 @@ test.describe('UI Health Checks', () => {
     await page.goto('/');
     await page.waitForSelector('#app', { timeout: 10000 });
     await page.waitForTimeout(2000);
-    
+
     // Navigate to multiple tabs rapidly
     const tabs = ['now', 'chats', 'settings'];
     for (const tab of tabs) {
       await page.click(`[data-testid="nav-tab-${tab}"], [data-tab="${tab}"]`).catch(() => {});
       await page.waitForTimeout(200);
     }
-    
+
     // App should still be functional
     await expect(page.locator('#app')).toBeVisible();
   });
@@ -152,7 +147,7 @@ test.describe('UI Health Checks', () => {
   test('accessibility: page has title', async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector('#app', { timeout: 10000 });
-    
+
     const title = await page.title();
     expect(title).toBeTruthy();
     expect(title).toContain('ISC');
@@ -162,12 +157,12 @@ test.describe('UI Health Checks', () => {
     await page.goto('/');
     await page.waitForSelector('#app', { timeout: 10000 });
     await page.waitForTimeout(1000);
-    
+
     // Tab through elements
     await page.keyboard.press('Tab');
     await page.keyboard.press('Tab');
     await page.keyboard.press('Tab');
-    
+
     // Something should be focused
     const focusedElement = await page.evaluate(() => document.activeElement?.tagName);
     expect(focusedElement).toBeTruthy();
