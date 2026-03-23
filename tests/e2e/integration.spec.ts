@@ -20,7 +20,7 @@ import {
 // ── Setup ─────────────────────────────────────────────────────────────────────
 
 test.beforeEach(async ({ page }) => {
-  page.on('pageerror', err => console.error('Uncaught error:', err.message));
+  page.on('pageerror', (err) => console.error('Uncaught error:', err.message));
   await page.goto('/');
   await skipOnboarding(page);
   await waitForAppReady(page);
@@ -68,9 +68,7 @@ test.describe('Sidebar Component', () => {
   });
 
   test('sidebar updates when channels are injected', async ({ page }) => {
-    await injectChannels(page, [
-      { id: 'test-ch', name: 'Integration Test', description: 'Test' },
-    ]);
+    await injectChannels(page, [{ id: 'test-ch', name: 'Integration Test', description: 'Test' }]);
     await page.waitForTimeout(500);
 
     await expect(page.locator('[data-testid="sidebar-channel-test-ch"]')).toBeVisible();
@@ -81,7 +79,7 @@ test.describe('Sidebar Component', () => {
 
 test.describe('Status Bar Component', () => {
   test('status bar is visible', async ({ page }) => {
-    await waitForVisible(page, '[data-testid="status-bar"]');
+    await waitForVisible(page, '[data-testid="sidebar-status"]');
   });
 
   test('status bar shows connection status', async ({ page }) => {
@@ -139,7 +137,7 @@ test.describe('Modal Component', () => {
       if (!modals) return null;
 
       const promise = modals.confirm('Test?', { confirmText: 'Yes', cancelText: 'No' });
-      await new Promise(r => setTimeout(r, 50));
+      await new Promise((r) => setTimeout(r, 50));
       (document.querySelector('[data-action="cancel"]') as HTMLElement)?.click();
       return promise;
     });
@@ -153,7 +151,7 @@ test.describe('Modal Component', () => {
       if (!modals) return null;
 
       const promise = modals.confirm('Test?', { confirmText: 'Yes' });
-      await new Promise(r => setTimeout(r, 50));
+      await new Promise((r) => setTimeout(r, 50));
       (document.querySelector('[data-action="confirm"]') as HTMLElement)?.click();
       return promise;
     });
@@ -314,9 +312,7 @@ test.describe('State Management', () => {
     const initialState = await getAppState(page);
     expect(initialState.channels).toHaveLength(0);
 
-    await injectChannels(page, [
-      { id: 'ch-1', name: 'Test', description: 'Test channel' },
-    ]);
+    await injectChannels(page, [{ id: 'ch-1', name: 'Test', description: 'Test channel' }]);
     await page.waitForTimeout(300);
 
     const updatedState = await getAppState(page);
@@ -327,9 +323,7 @@ test.describe('State Management', () => {
     const initialState = await getAppState(page);
     expect(initialState.matches).toHaveLength(0);
 
-    await injectMatches(page, [
-      { peerId: 'p1', name: 'Peer', similarity: 0.8 },
-    ]);
+    await injectMatches(page, [{ peerId: 'p1', name: 'Peer', similarity: 0.8 }]);
     await page.waitForTimeout(300);
 
     const updatedState = await getAppState(page);
@@ -342,9 +336,15 @@ test.describe('State Management', () => {
 test.describe('Event Handling', () => {
   test('isc:refresh-feed event is dispatched', async ({ page }) => {
     const eventDispatched = await page.evaluate(() => {
-      return new Promise(resolve => {
+      return new Promise((resolve) => {
         let dispatched = false;
-        document.addEventListener('isc:refresh-feed', () => { dispatched = true; }, { once: true });
+        document.addEventListener(
+          'isc:refresh-feed',
+          () => {
+            dispatched = true;
+          },
+          { once: true }
+        );
         document.dispatchEvent(new CustomEvent('isc:refresh-feed'));
         setTimeout(() => resolve(dispatched), 100);
       });
@@ -355,9 +355,15 @@ test.describe('Event Handling', () => {
 
   test('isc:need-channel event is dispatched', async ({ page }) => {
     const eventDispatched = await page.evaluate(() => {
-      return new Promise(resolve => {
+      return new Promise((resolve) => {
         let dispatched = false;
-        document.addEventListener('isc:need-channel', () => { dispatched = true; }, { once: true });
+        document.addEventListener(
+          'isc:need-channel',
+          () => {
+            dispatched = true;
+          },
+          { once: true }
+        );
         document.dispatchEvent(new CustomEvent('isc:need-channel'));
         setTimeout(() => resolve(dispatched), 100);
       });
