@@ -122,4 +122,8 @@ class ChannelDrawerComponent {
   }
 }
 
+export function createChannelDrawer(onNavigate) {
+  return new ChannelDrawerComponent(onNavigate);
+}
+
 export { ChannelDrawerComponent };

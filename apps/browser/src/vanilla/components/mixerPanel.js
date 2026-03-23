@@ -506,3 +506,11 @@ export function initMixerPanel(container, channel) {
   container.innerHTML = '';
   return new MixerPanelComponent(container, channel);
 }
+
+export function showEditModal(channel) {
+  const container = document.createElement('div');
+  document.body.appendChild(container);
+  const panel = new MixerPanelComponent(container, channel);
+  panel.open();
+  return panel;
+}
