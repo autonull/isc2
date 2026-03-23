@@ -24,6 +24,7 @@ class ChannelScreen {
   #lazyObserver = null;
   #neighborsComponent = null;
   #boundHandlers = [];
+  #lastChannelId = null;
 
   render() {
     const { channels, activeChannelId } = getState();
@@ -714,6 +715,11 @@ class ChannelScreen {
     const connLabel = connected ? 'connected' : status;
     const { channels, activeChannelId } = getState();
     const activeChannel = channels?.find((c) => c.id === activeChannelId);
+
+    if (activeChannel && activeChannelId !== this.#lastChannelId) {
+      this.#lastChannelId = activeChannelId;
+      this.#bindNeighbors(container, activeChannel);
+    }
 
     if (activeChannel && networkService.fetchMessagesForChannel) {
       feed.innerHTML =
