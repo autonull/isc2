@@ -179,4 +179,10 @@ class ChatsScreen {
 }
 
 const chatsScreen = new ChatsScreen();
-export const { render, bind, update, destroy } = chatsScreen;
+const screen = {
+  render: () => chatsScreen.render(),
+  bind: chatsScreen.bind.bind(chatsScreen),
+  update: chatsScreen.update.bind(chatsScreen),
+  destroy: chatsScreen.destroy.bind(chatsScreen),
+};
+export const { render, bind, update, destroy } = screen;
