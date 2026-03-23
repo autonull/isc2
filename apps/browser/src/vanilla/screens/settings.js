@@ -21,6 +21,7 @@ export function render() {
   const channels = channelService.getAll();
   const netStatus = networkService.getStatus();
   const connected = netStatus?.connected ?? false;
+  const activeTab = localStorage.getItem('isc:settings-tab') || 'profile';
 
   return `
     <div class="screen settings-screen" data-testid="settings-screen">
@@ -31,26 +32,34 @@ export function render() {
         </span>
       </div>
 
+      <div class="settings-tabs" data-testid="settings-tabs">
+        <button class="settings-tab${activeTab === 'profile' ? ' active' : ''}" data-tab="profile" data-testid="settings-tab-profile">Profile</button>
+        <button class="settings-tab${activeTab === 'network' ? ' active' : ''}" data-tab="network" data-testid="settings-tab-network">Network</button>
+        <button class="settings-tab${activeTab === 'appearance' ? ' active' : ''}" data-tab="appearance" data-testid="settings-tab-appearance">Appearance</button>
+        <button class="settings-tab${activeTab === 'channels' ? ' active' : ''}" data-tab="channels" data-testid="settings-tab-channels">Channels</button>
+        <button class="settings-tab${activeTab === 'privacy' ? ' active' : ''}" data-tab="privacy" data-testid="settings-tab-privacy">Privacy</button>
+      </div>
+
       <div class="screen-body" data-testid="settings-content">
-        ${renderProfile(identity)}
-        ${renderIdentity(identity)}
-        ${renderThoughtConnections()}
-        ${renderDiscovery(settings)}
-        ${renderAppearance(settings)}
-        ${renderAdvanced()}
-        ${renderModeration()}
-        ${renderShare()}
-        ${renderChannels(channels)}
-        ${renderDangerZone()}
-        ${renderAbout()}
+        ${renderProfile(identity, activeTab === 'profile')}
+        ${renderIdentity(identity, activeTab === 'profile')}
+        ${renderThoughtConnections(activeTab === 'profile')}
+        ${renderDiscovery(settings, activeTab === 'network')}
+        ${renderAdvanced(activeTab === 'network')}
+        ${renderAppearance(settings, activeTab === 'appearance')}
+        ${renderShare(activeTab === 'appearance')}
+        ${renderChannels(channels, activeTab === 'channels')}
+        ${renderModeration(activeTab === 'privacy')}
+        ${renderDangerZone(activeTab === 'privacy')}
+        ${renderAbout(activeTab === 'privacy')}
       </div>
     </div>
   `;
 }
 
-function renderProfile(identity) {
+function renderProfile(identity, isActive = true) {
   return `
-    <section class="settings-section" data-testid="profile-section">
+    <section class="settings-section" data-testid="profile-section" data-settings-tab="profile"${isActive ? '' : ' style="display:none"'}>
       <div class="section-title">Profile</div>
       <form id="profile-form" data-testid="profile-form">
         <div class="form-group">
@@ -82,14 +91,14 @@ function renderProfile(identity) {
   `;
 }
 
-function renderIdentity(identity) {
+function renderIdentity(identity, isActive = true) {
   const identityId = identity?.peerId ?? identity?.pubkey;
   const fingerprint = identityId
     ? escapeHtml(identityId.slice(0, 8) + '…' + identityId.slice(-8))
     : 'N/A';
   const isEphemeral = localStorage.getItem('isc-ephemeral-session') === 'true';
   return `
-    <section class="settings-section" data-testid="identity-section">
+    <section class="settings-section" data-testid="identity-section" data-settings-tab="profile"${isActive ? '' : ' style="display:none"'}>
       <div class="section-title">Identity</div>
       <div class="form-group">
         <label class="form-label">Fingerprint</label>
@@ -121,9 +130,9 @@ function renderIdentity(identity) {
   `;
 }
 
-function renderThoughtConnections() {
+function renderThoughtConnections(isActive = true) {
   return `
-    <section class="settings-section" data-testid="thought-connections-section">
+    <section class="settings-section" data-testid="thought-connections-section" data-settings-tab="profile"${isActive ? '' : ' style="display:none"'}>
       <div class="section-title">Thought Connections</div>
       <div class="form-hint mb-3">
         Peers who have been thinking near you over time. Relationship insight — not a discovery feed.
@@ -141,9 +150,9 @@ function renderThoughtConnections() {
   `;
 }
 
-function renderDiscovery(settings) {
+function renderDiscovery(settings, isActive = true) {
   return `
-    <section class="settings-section" data-testid="discovery-section">
+    <section class="settings-section" data-testid="discovery-section" data-settings-tab="network"${isActive ? '' : ' style="display:none"'}>
       <div class="section-title">Discovery</div>
 
       <div class="toggle-row">
@@ -180,9 +189,9 @@ function renderDiscovery(settings) {
   `;
 }
 
-function renderAppearance(settings) {
+function renderAppearance(settings, isActive = true) {
   return `
-    <section class="settings-section" data-testid="appearance-section">
+    <section class="settings-section" data-testid="appearance-section" data-settings-tab="appearance"${isActive ? '' : ' style="display:none"'}>
       <div class="section-title">Appearance & Preferences</div>
 
       <div class="form-group">
@@ -230,12 +239,12 @@ function renderAppearance(settings) {
   `;
 }
 
-function renderAdvanced() {
+function renderAdvanced(isActive = true) {
   const chaosLevel = parseInt(localStorage.getItem('isc:chaos-level') || '0', 10);
   const disableThoughtTwin = localStorage.getItem('isc:disable-thoughttwin') === 'true';
 
   return `
-    <section class="settings-section" data-testid="advanced-section">
+    <section class="settings-section" data-testid="advanced-section" data-settings-tab="network"${isActive ? '' : ' style="display:none"'}>
       <div class="section-title">Advanced</div>
 
       <div class="toggle-row">
@@ -272,7 +281,7 @@ function renderAdvanced() {
   `;
 }
 
-function renderChannels(channels) {
+function renderChannels(channels, isActive = true) {
   return `
     <section class="settings-section" data-testid="channels-section">
       <div class="section-title">My Channels (${channels.length})</div>
@@ -429,16 +438,34 @@ export function bind(container) {
   // Apply current theme
   applyTheme(settingsService.get().theme ?? 'dark');
 
+  // Settings tab switching
+  const tabButtons = container.querySelectorAll('.settings-tab');
+  tabButtons.forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const tabName = btn.dataset.tab;
+      localStorage.setItem('isc:settings-tab', tabName);
+
+      container.querySelectorAll('.settings-tab').forEach((b) => b.classList.remove('active'));
+      btn.classList.add('active');
+
+      container.querySelectorAll('[data-settings-tab]').forEach((section) => {
+        section.style.display = section.dataset.settingsTab === tabName ? 'block' : 'none';
+      });
+    });
+  });
+
   // Load Thought Twin asynchronously (most consistently co-present peer, 7+ days)
   const thoughtTwinContainer = container.querySelector('#thought-twin-container');
   if (thoughtTwinContainer) {
-    getTopSimilarPeers(10).then((peers) => {
-      const twin = peers.find(p => p.days >= 7);
-      if (!twin) {
-        thoughtTwinContainer.innerHTML = '<div class="settings-hint">No thought twin yet — spend 7+ days in channels to find yours.</div>';
-        return;
-      }
-      thoughtTwinContainer.innerHTML = `
+    getTopSimilarPeers(10)
+      .then((peers) => {
+        const twin = peers.find((p) => p.days >= 7);
+        if (!twin) {
+          thoughtTwinContainer.innerHTML =
+            '<div class="settings-hint">No thought twin yet — spend 7+ days in channels to find yours.</div>';
+          return;
+        }
+        thoughtTwinContainer.innerHTML = `
         <div class="thought-twin-card" data-testid="thought-twin-card">
           <div class="thought-twin-label">Your Thought Twin</div>
           <div class="thought-twin-info">
@@ -450,26 +477,34 @@ export function bind(container) {
           </button>
         </div>
       `;
-      thoughtTwinContainer.addEventListener('click', (e) => {
-        const btn = e.target.closest('[data-dm-peer]');
-        if (!btn) return;
-        document.dispatchEvent(new CustomEvent('isc:start-chat', { detail: { peerId: btn.dataset.dmPeer } }));
-        window.location.hash = '#/chats';
+        thoughtTwinContainer.addEventListener('click', (e) => {
+          const btn = e.target.closest('[data-dm-peer]');
+          if (!btn) return;
+          document.dispatchEvent(
+            new CustomEvent('isc:start-chat', { detail: { peerId: btn.dataset.dmPeer } })
+          );
+          window.location.hash = '#/chats';
+        });
+      })
+      .catch(() => {
+        thoughtTwinContainer.innerHTML =
+          '<div class="settings-hint">Could not load thought twin.</div>';
       });
-    }).catch(() => {
-      thoughtTwinContainer.innerHTML = '<div class="settings-hint">Could not load thought twin.</div>';
-    });
   }
 
   // Load Bridge Moment / Thought Connections section asynchronously
   const bridgeList = container.querySelector('#bridge-moment-list');
   if (bridgeList) {
-    getBridgeMomentCandidates().then((candidates) => {
-      if (!candidates || candidates.length === 0) {
-        bridgeList.innerHTML = '<div class="settings-hint">No thought connections yet — spend more time in channels to build proximity history.</div>';
-        return;
-      }
-      bridgeList.innerHTML = candidates.map(c => `
+    getBridgeMomentCandidates()
+      .then((candidates) => {
+        if (!candidates || candidates.length === 0) {
+          bridgeList.innerHTML =
+            '<div class="settings-hint">No thought connections yet — spend more time in channels to build proximity history.</div>';
+          return;
+        }
+        bridgeList.innerHTML = candidates
+          .map(
+            (c) => `
         <div class="bridge-moment-item" data-testid="bridge-moment-${escapeHtml(c.peerId)}">
           <div class="bridge-moment-info">
             <span class="bridge-moment-name">${escapeHtml(c.name || 'Anonymous')}</span>
@@ -480,19 +515,23 @@ export function bind(container) {
             Say hello →
           </button>
         </div>
-      `).join('');
+      `
+          )
+          .join('');
 
-      bridgeList.addEventListener('click', (e) => {
-        const btn = e.target.closest('[data-dm-peer]');
-        if (btn) {
-          const peerId = btn.dataset.dmPeer;
-          document.dispatchEvent(new CustomEvent('isc:start-chat', { detail: { peerId } }));
-          window.location.hash = '#/chats';
-        }
+        bridgeList.addEventListener('click', (e) => {
+          const btn = e.target.closest('[data-dm-peer]');
+          if (btn) {
+            const peerId = btn.dataset.dmPeer;
+            document.dispatchEvent(new CustomEvent('isc:start-chat', { detail: { peerId } }));
+            window.location.hash = '#/chats';
+          }
+        });
+      })
+      .catch(() => {
+        bridgeList.innerHTML =
+          '<div class="settings-hint">Could not load thought connections.</div>';
       });
-    }).catch(() => {
-      bridgeList.innerHTML = '<div class="settings-hint">Could not load thought connections.</div>';
-    });
   }
 
   // Profile form

@@ -5,7 +5,12 @@
  * Supports List, Space, and Grid view modes.
  */
 
-import { feedService, postService, channelService, discoveryService } from '../../services/index.js';
+import {
+  feedService,
+  postService,
+  channelService,
+  discoveryService,
+} from '../../services/index.js';
 import { networkService } from '../../services/network.ts';
 import { getState, actions, subscribe } from '../../state.js';
 import { channelSettingsService } from '../../services/channelSettings.js';
@@ -78,7 +83,8 @@ function renderComposeBar(channels, activeChannelId, activeChannel) {
               ? `<select id="compose-channel-sel" class="compose-channel-select" data-testid="compose-channel-sel">
                    ${channels
                      .map(
-                       (ch) => `<option value="${escapeHtml(ch.id)}" ${ch.id === activeChannelId ? 'selected' : ''}>#${escapeHtml(ch.name)}</option>`
+                       (ch) =>
+                         `<option value="${escapeHtml(ch.id)}" ${ch.id === activeChannelId ? 'selected' : ''}>#${escapeHtml(ch.name)}</option>`
                      )
                      .join('')}
                  </select>`
@@ -131,16 +137,21 @@ function renderFeedControls(activeChannel, viewMode, specificity, sortOrder) {
 function renderHeader(activeChannel, connected, connLabel) {
   const relationPills = activeChannel?.relations?.length
     ? `<div class="relation-pills-container">
-         ${activeChannel.relations.map((rel, idx) => `
+         ${activeChannel.relations
+           .map(
+             (rel, idx) => `
            <div class="relation-pill" data-relation-idx="${idx}" data-testid="relation-pill-${idx}" title="Edit relations">
              ${getRelationEmoji(rel.tag)} ${escapeHtml(rel.object.slice(0, 20))}${rel.object.length > 20 ? '…' : ''}
            </div>
-         `).join('')}
+         `
+           )
+           .join('')}
        </div>`
     : '';
 
-  const breadthLabel = activeChannel?.breadth ?
-    (activeChannel.breadth.charAt(0).toUpperCase() + activeChannel.breadth.slice(1)) : 'Balanced';
+  const breadthLabel = activeChannel?.breadth
+    ? activeChannel.breadth.charAt(0).toUpperCase() + activeChannel.breadth.slice(1)
+    : 'Balanced';
   const breadthBadge = activeChannel
     ? `<button class="breadth-badge" id="breadth-badge-btn" data-testid="breadth-badge" title="Click to edit channel breadth">
        ${breadthLabel}
@@ -150,8 +161,9 @@ function renderHeader(activeChannel, connected, connLabel) {
   return `
     <div class="screen-header channel-header" data-testid="channel-header">
       <div class="header-channel-identity">
-        ${activeChannel
-          ? `<div class="channel-title-row">
+        ${
+          activeChannel
+            ? `<div class="channel-title-row">
                <h1 class="channel-screen-title" data-testid="channel-title">#${escapeHtml(activeChannel.name)}</h1>
                ${breadthBadge}
                <button class="btn btn-icon btn-danger-ghost channel-delete-btn"
@@ -163,7 +175,7 @@ function renderHeader(activeChannel, connected, connLabel) {
              </div>
              <p class="channel-screen-desc" data-testid="channel-description">${escapeHtml(activeChannel.description || '')}</p>
              ${relationPills}`
-          : '<h1 class="channel-screen-title">Channel</h1>'
+            : '<h1 class="channel-screen-title">Channel</h1>'
         }
       </div>
       <div class="header-status">
@@ -178,16 +190,16 @@ function renderHeader(activeChannel, connected, connLabel) {
 
 function getRelationEmoji(tag) {
   const emojis = {
-    'in_location': '📍',
-    'during_time': '📅',
-    'with_mood': '😊',
-    'under_domain': '🎯',
-    'causes_effect': '⚡',
-    'part_of': '🧩',
-    'similar_to': '🔄',
-    'opposed_to': '↔️',
-    'requires': '🔗',
-    'boosted_by': '⬆️',
+    in_location: '📍',
+    during_time: '📅',
+    with_mood: '😊',
+    under_domain: '🎯',
+    causes_effect: '⚡',
+    part_of: '🧩',
+    similar_to: '🔄',
+    opposed_to: '↔️',
+    requires: '🔗',
+    boosted_by: '⬆️',
   };
   return emojis[tag] || '🏷️';
 }
@@ -200,7 +212,14 @@ function renderEmptyState(channels, connected, connLabel) {
         title: 'What are you thinking about?',
         description:
           "Create a channel — describe what's on your mind. ISC will find people on the same wavelength.",
-        actions: [{ label: 'Create Your First Channel', href: '#', 'data-action': 'new-channel', variant: 'primary' }],
+        actions: [
+          {
+            label: 'Create Your First Channel',
+            href: '#',
+            'data-action': 'new-channel',
+            variant: 'primary',
+          },
+        ],
       })}
 
       <details class="explainer-details mt-4">
@@ -224,7 +243,7 @@ function renderEmptyState(channels, connected, connLabel) {
     icon: '📭',
     title: 'No posts yet',
     description: connected
-      ? "Post something to your channel — peers in your semantic neighborhood will see it."
+      ? 'Post something to your channel — peers in your semantic neighborhood will see it.'
       : 'Connect to the network to start exchanging messages with semantic neighbors.',
     actions: [],
   });
@@ -232,9 +251,10 @@ function renderEmptyState(channels, connected, connLabel) {
 
 function renderNeighborPanel(activeChannel) {
   const matches = discoveryService.getMatches();
-  // Filter to peers plausibly in this channel's neighborhood (using all matches as approximation
-  // until per-channel filtering is available from the network layer)
-  const neighbors = matches.slice(0, 10);
+  const settings = channelSettingsService.getSettings(activeChannel.id) ?? {};
+  const specificity = settings.specificity ?? 50;
+  const threshold = specificity / 100;
+  const neighbors = matches.filter((m) => (m.similarity ?? 0) >= threshold).slice(0, 10);
 
   return `
     <aside class="neighbor-panel" data-testid="neighbor-panel" aria-label="Channel neighbors">
@@ -243,9 +263,10 @@ function renderNeighborPanel(activeChannel) {
         <span class="neighbor-panel-count" data-testid="neighbor-count">${neighbors.length}</span>
       </div>
       <div class="neighbor-list" data-testid="neighbor-list">
-        ${neighbors.length === 0
-          ? '<div class="neighbor-empty">No peers in neighborhood yet</div>'
-          : neighbors.map(m => renderNeighborItem(m)).join('')
+        ${
+          neighbors.length === 0
+            ? '<div class="neighbor-empty">No peers in neighborhood yet</div>'
+            : neighbors.map((m) => renderNeighborItem(m)).join('')
         }
       </div>
     </aside>
@@ -454,7 +475,7 @@ function renderGridPosts(posts, channels) {
 
 function renderSpacePosts(posts, channels) {
   const { channels: allChannels, activeChannelId } = getState();
-  const activeChannel = allChannels?.find(c => c.id === activeChannelId);
+  const activeChannel = allChannels?.find((c) => c.id === activeChannelId);
   const userMarker = activeChannel ? renderUserMarker(activeChannel) : '';
 
   return `
@@ -468,7 +489,8 @@ function renderSpacePosts(posts, channels) {
 function renderUserMarker(activeChannel) {
   // Render user's position marker (simplified - uses center position)
   // Full implementation would project channel.embedding to PCA space
-  const spread = activeChannel.breadth === 'broad' ? 0.25 : (activeChannel.breadth === 'narrow' ? 0.08 : 0.15);
+  const spread =
+    activeChannel.breadth === 'broad' ? 0.25 : activeChannel.breadth === 'narrow' ? 0.08 : 0.15;
   const radiusPct = Math.round(spread * 100);
 
   return `
@@ -537,24 +559,27 @@ export function bind(container) {
   const activeChannel = channels?.find((c) => c.id === activeChannelId);
 
   if (activeChannel && activeChannelId) {
-    feedService.computeChannelPostScores(activeChannelId).then((scores) => {
-      Object.entries(scores).forEach(([postId, { similarityScore, matchedChannelName }]) => {
-        const postCard = container.querySelector(`[data-post-id="${postId}"]`);
-        if (postCard && similarityScore != null) {
-          const badge = document.createElement('div');
-          badge.className = 'post-sim-badge';
-          badge.textContent = `${(similarityScore).toFixed(2)} · #${matchedChannelName}`;
-          badge.setAttribute('title', 'Contexts overlap');
+    feedService
+      .computeChannelPostScores(activeChannelId)
+      .then((scores) => {
+        Object.entries(scores).forEach(([postId, { similarityScore, matchedChannelName }]) => {
+          const postCard = container.querySelector(`[data-post-id="${postId}"]`);
+          if (postCard && similarityScore != null) {
+            const badge = document.createElement('div');
+            badge.className = 'post-sim-badge';
+            badge.textContent = `${similarityScore.toFixed(2)} · #${matchedChannelName}`;
+            badge.setAttribute('title', 'Contexts overlap');
 
-          const postContent = postCard.querySelector('.post-content');
-          if (postContent) {
-            postContent.parentNode.insertBefore(badge, postContent.nextSibling);
+            const postContent = postCard.querySelector('.post-content');
+            if (postContent) {
+              postContent.parentNode.insertBefore(badge, postContent.nextSibling);
+            }
           }
-        }
+        });
+      })
+      .catch((err) => {
+        console.warn('Failed to compute similarity scores:', err.message);
       });
-    }).catch((err) => {
-      console.warn('Failed to compute similarity scores:', err.message);
-    });
   }
 
   const settings = activeChannel ? channelSettingsService.getSettings(activeChannel.id) : {};
@@ -593,7 +618,9 @@ export function bind(container) {
           viewMode,
         });
       }
-      document.dispatchEvent(new CustomEvent('isc:channel-view-change', { detail: { mode: viewMode } }));
+      document.dispatchEvent(
+        new CustomEvent('isc:channel-view-change', { detail: { mode: viewMode } })
+      );
     });
   }
 
@@ -683,7 +710,9 @@ export function bind(container) {
     if (dmBtn) {
       const peerId = dmBtn.dataset.peerId;
       if (peerId) {
-        document.dispatchEvent(new CustomEvent('isc:start-chat', { detail: { peerId }, bubbles: true }));
+        document.dispatchEvent(
+          new CustomEvent('isc:start-chat', { detail: { peerId }, bubbles: true })
+        );
         window.location.hash = '#/chats';
       }
     }
@@ -809,7 +838,7 @@ export function bind(container) {
   // Bind channel delete button
   bindDelegate(container, '[data-testid="channel-delete-btn"]', 'click', async () => {
     const { activeChannelId, channels } = getState();
-    const channel = channels?.find(c => c.id === activeChannelId);
+    const channel = channels?.find((c) => c.id === activeChannelId);
     if (!channel) return;
 
     const confirmHtml = `
@@ -825,7 +854,9 @@ export function bind(container) {
 
     const overlay = modals.open(confirmHtml);
 
-    overlay.querySelector('[data-action="cancel"]')?.addEventListener('click', () => modals.close());
+    overlay
+      .querySelector('[data-action="cancel"]')
+      ?.addEventListener('click', () => modals.close());
     overlay.querySelector('[data-action="confirm"]')?.addEventListener('click', async () => {
       modals.close();
       try {
@@ -899,7 +930,7 @@ export function bind(container) {
   });
 
   // If space view is already persisted, trigger canvas initialization
-  const { channels: allChannels, activeChannelId } = getState();
+  const { channels: allChannels } = getState();
   const currentActiveChannel = allChannels?.find((c) => c.id === activeChannelId);
   const initialViewMode = currentActiveChannel
     ? channelSettingsService.getSettings(currentActiveChannel.id).viewMode
@@ -907,7 +938,9 @@ export function bind(container) {
 
   if (initialViewMode === 'space') {
     // Trigger the same canvas init path as the dropdown would
-    document.dispatchEvent(new CustomEvent('isc:channel-view-change', { detail: { mode: 'space' } }));
+    document.dispatchEvent(
+      new CustomEvent('isc:channel-view-change', { detail: { mode: 'space' } })
+    );
   }
 
   return [
@@ -924,7 +957,7 @@ export function bind(container) {
 
 function showAuthorPopover(postCard, peerId, authorName) {
   // Remove any existing popover
-  document.querySelectorAll('.author-popover').forEach(p => p.remove());
+  document.querySelectorAll('.author-popover').forEach((p) => p.remove());
 
   const popover = document.createElement('div');
   popover.className = 'author-popover';
@@ -944,15 +977,21 @@ function showAuthorPopover(postCard, peerId, authorName) {
   postCard.appendChild(popover);
 
   popover.querySelector('.author-popover-dm')?.addEventListener('click', () => {
-    document.dispatchEvent(new CustomEvent('isc:start-chat', { detail: { peerId }, bubbles: true }));
+    document.dispatchEvent(
+      new CustomEvent('isc:start-chat', { detail: { peerId }, bubbles: true })
+    );
     window.location.hash = '#/chats';
     popover.remove();
   });
 
   popover.querySelector('.author-popover-profile')?.addEventListener('click', () => {
     popover.remove();
-    const peer = networkService.getMatches?.()?.find(p => p.peerId === peerId)
-      ?? { peerId, identity: { name: authorName, bio: '' }, similarity: null, online: false };
+    const peer = networkService.getMatches?.()?.find((p) => p.peerId === peerId) ?? {
+      peerId,
+      identity: { name: authorName, bio: '' },
+      similarity: null,
+      online: false,
+    };
     modals.showPeerProfile(peer);
   });
 
@@ -1005,12 +1044,32 @@ function handleLike(e, target) {
   if (counter) counter.textContent = String(parseInt(counter.textContent || '0') + delta);
 
   // Persist with rollback on failure
-  postService.like(target.dataset.postId).catch(() => {
-    target.dataset.liked = String(wasLiked);
-    target.classList.toggle('liked', wasLiked);
-    if (counter) counter.textContent = String(parseInt(counter.textContent || '0') - delta);
-    toasts.warning('Could not save like');
-  });
+  postService
+    .like(target.dataset.postId)
+    .then(() => {
+      // Force re-render of the feed to update like states
+      const feed = document.querySelector('#now-feed');
+      if (feed) {
+        const { activeChannelId, channels } = getState();
+        const activeChannel = channels?.find((c) => c.id === activeChannelId);
+        const viewMode = activeChannel
+          ? channelSettingsService.getSettings(activeChannel.id).viewMode
+          : 'list';
+        const posts = activeChannelId
+          ? feedService.getByChannel(activeChannelId, 50)
+          : feedService.getForYou(50);
+        feed.innerHTML =
+          posts.length === 0
+            ? renderEmptyState(channels, true, 'connected')
+            : renderPosts(posts, channels, viewMode);
+      }
+    })
+    .catch(() => {
+      target.dataset.liked = String(wasLiked);
+      target.classList.toggle('liked', wasLiked);
+      if (counter) counter.textContent = String(parseInt(counter.textContent || '0') - delta);
+      toasts.warning('Could not save like');
+    });
 
   document.dispatchEvent(
     new CustomEvent('isc:like-post', { detail: { postId: target.dataset.postId } })
@@ -1048,25 +1107,30 @@ export function update(container, { scrollToTop = false } = {}) {
   const { connected = false, status = 'disconnected' } = networkService.getStatus() ?? {};
   const connLabel = connected ? 'connected' : status;
   const { channels, activeChannelId } = getState();
-  const activeChannel = channels?.find(c => c.id === activeChannelId);
+  const activeChannel = channels?.find((c) => c.id === activeChannelId);
 
   if (activeChannel && networkService.fetchMessagesForChannel) {
     feed.innerHTML = '<div class="feed-loading" data-testid="feed-loading">Loading messages…</div>';
-    networkService.fetchMessagesForChannel(activeChannel).then(posts => {
-      if (!container.isConnected) return;
-      feed.innerHTML = posts.length === 0
-        ? renderEmptyState(channels, connected, connLabel)
-        : renderPosts(posts, channels);
-      if (scrollToTop) {
-        container.querySelector('[data-testid="channel-body"]')?.scrollTo({ top: 0 });
-      }
-    }).catch(() => {
-      // Fallback to local posts on DHT error
-      const localPosts = activeChannelId ? feedService.getByChannel(activeChannelId, 50) : [];
-      feed.innerHTML = localPosts.length === 0
-        ? renderEmptyState(channels, connected, connLabel)
-        : renderPosts(localPosts, channels);
-    });
+    networkService
+      .fetchMessagesForChannel(activeChannel)
+      .then((posts) => {
+        if (!container.isConnected) return;
+        feed.innerHTML =
+          posts.length === 0
+            ? renderEmptyState(channels, connected, connLabel)
+            : renderPosts(posts, channels);
+        if (scrollToTop) {
+          container.querySelector('[data-testid="channel-body"]')?.scrollTo({ top: 0 });
+        }
+      })
+      .catch(() => {
+        // Fallback to local posts on DHT error
+        const localPosts = activeChannelId ? feedService.getByChannel(activeChannelId, 50) : [];
+        feed.innerHTML =
+          localPosts.length === 0
+            ? renderEmptyState(channels, connected, connLabel)
+            : renderPosts(localPosts, channels);
+      });
     return;
   }
 
@@ -1117,7 +1181,9 @@ function bindFloatingToolbar(container, activeChannel) {
         ...settings,
         viewMode,
       });
-      document.dispatchEvent(new CustomEvent('isc:channel-view-change', { detail: { mode: viewMode } }));
+      document.dispatchEvent(
+        new CustomEvent('isc:channel-view-change', { detail: { mode: viewMode } })
+      );
     });
   }
 
@@ -1324,7 +1390,9 @@ function showAdvancedOptions(container, activeChannel) {
 </div>
     `;
     const editOverlay = modals.open(html);
-    editOverlay.querySelector('[data-action="cancel"]')?.addEventListener('click', () => modals.close());
+    editOverlay
+      .querySelector('[data-action="cancel"]')
+      ?.addEventListener('click', () => modals.close());
     editOverlay.querySelector('[data-action="save"]')?.addEventListener('click', () => {
       const name = editOverlay.querySelector('#channel-name-input').value;
       const description = editOverlay.querySelector('#channel-desc-input').value;
