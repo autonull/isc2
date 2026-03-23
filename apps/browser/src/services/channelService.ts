@@ -35,18 +35,17 @@ export function createChannelService(channelManager: ChannelManager): ChannelSer
         throw new Error('Channel name must be at least 3 characters');
       }
 
-      if (!input.description || input.description.trim().length < 10) {
-        throw new Error('Channel description must be at least 10 characters');
-      }
-
       if (input.spread !== undefined && (input.spread < 0 || input.spread > 100)) {
         throw new Error('Spread must be between 0 and 100');
       }
 
+      // If description is blank, use name as the embedding text
+      const effectiveDescription = input.description?.trim() || input.name.trim();
+
       // Create the channel
       const channel = await channelManager.createChannel(
         input.name.trim(),
-        input.description.trim(),
+        effectiveDescription,
         input.spread ?? 50,
         input.relations ?? []
       );
@@ -125,10 +124,6 @@ export function validateChannelInput(input: CreateChannelInput): {
 
   if (input.name && input.name.length > 50) {
     errors.push('Channel name must be less than 50 characters');
-  }
-
-  if (!input.description || input.description.trim().length < 10) {
-    errors.push('Channel description must be at least 10 characters');
   }
 
   if (input.description && input.description.length > 500) {

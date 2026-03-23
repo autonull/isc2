@@ -79,12 +79,12 @@ function renderConversationList(conversations) {
 }
 
 function renderEmptyConv() {
-  return renderEmpty({
+  return `<div data-testid="empty-conversations">${renderEmpty({
     icon: '🔭',
     title: 'No conversations yet',
     description: 'Create a channel to find peers with similar interests.',
     actions: [{ label: '# Open Channel', href: '#/channel', variant: 'primary' }],
-  });
+  })}</div>`;
 }
 
 function renderConvItem(conv, active) {
@@ -475,6 +475,11 @@ export function bind(container) {
             <span class="chat-more-label">Send Photo</span>
             <span class="chat-more-desc">Share an image from your device</span>
           </button>
+          <button class="chat-more-item danger" data-action="block-peer" data-testid="block-peer-action">
+            <span class="chat-more-icon">🚫</span>
+            <span class="chat-more-label">Block Peer</span>
+            <span class="chat-more-desc">Stop receiving messages from this person</span>
+          </button>
         </div>
         <div class="modal-actions">
           <button class="btn btn-ghost" data-action="cancel">Cancel</button>
@@ -486,13 +491,17 @@ export function bind(container) {
         ?.addEventListener('click', () => modals.close());
       overlay.querySelector('[data-action="send-file"]')?.addEventListener('click', () => {
         modals.close();
-        document.dispatchEvent(new CustomEvent('isc:send-file', { detail: { peerId } }));
+        toasts.info('File sharing coming soon');
       });
       overlay.querySelector('[data-action="send-photo"]')?.addEventListener('click', () => {
         modals.close();
-        document.dispatchEvent(
-          new CustomEvent('isc:send-file', { detail: { peerId, accept: 'image/*' } })
-        );
+        toasts.info('Photo sharing coming soon');
+      });
+      overlay.querySelector('[data-action="block-peer"]')?.addEventListener('click', () => {
+        modals.close();
+        const peer = networkService.getMatches?.()?.find(p => p.peerId === peerId)
+          ?? { peerId, identity: { name: '?', bio: '' }, similarity: null };
+        modals.showPeerProfile(peer);
       });
     }
   });

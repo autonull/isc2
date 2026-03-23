@@ -22,11 +22,11 @@ test.describe('UI Health Checks', () => {
       console.log('Page error:', error.message);
     });
 
-    // Skip onboarding for tests
-    await page.goto('/');
-    await page.evaluate(() => {
+    // Skip onboarding for tests — must run BEFORE page.goto so the app reads it during init
+    await page.addInitScript(() => {
       localStorage.setItem('isc-onboarding-completed', 'true');
     });
+    await page.goto('/');
   });
 
   test('all tabs are clickable and respond', async ({ page }) => {

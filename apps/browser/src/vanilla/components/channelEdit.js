@@ -44,13 +44,13 @@ export function openChannelEdit(channel = null) {
   </div>
 
   <div class="form-group">
-    <label class="form-label" for="channel-edit-description">Description</label>
+    <label class="form-label" for="channel-edit-description">Description (optional)</label>
     <textarea id="channel-edit-description" class="form-textarea"
-              placeholder="What are you thinking about right now? Be specific — this is your semantic fingerprint."
+              placeholder="Optional. The more you say, the more precisely you'll be matched."
               maxlength="500" rows="4"
               data-testid="channel-edit-description">${escapeHtml(channel?.description ?? '')}</textarea>
     <div class="form-hint">
-      This is what gets embedded. Your text is processed locally — nothing leaves your device.
+      If left blank, your channel name is used as the semantic fingerprint. Processed locally — nothing leaves your device.
     </div>
   </div>
 
@@ -205,8 +205,7 @@ export function openChannelEdit(channel = null) {
 
   function validate() {
     const name = nameInput.value.trim();
-    const desc = descInput.value.trim();
-    saveBtn.disabled = name.length < 3 || desc.length < 10;
+    saveBtn.disabled = name.length < 3;
   }
 
   nameInput.addEventListener('input', validate);
@@ -221,10 +220,6 @@ export function openChannelEdit(channel = null) {
 
     if (name.length < 3) {
       showError(errorEl, 'Channel name must be at least 3 characters.');
-      return;
-    }
-    if (description.length < 10) {
-      showError(errorEl, 'Description must be at least 10 characters for meaningful matching.');
       return;
     }
 

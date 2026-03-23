@@ -13,16 +13,30 @@ import type { Page } from '@playwright/test';
  */
 export async function waitForAppReady(page: Page, timeout?: number): Promise<void> {
   await page.waitForSelector('[data-testid="irc-layout"]', { timeout });
-  await page.waitForSelector('[data-testid="sidebar"]', { timeout });
+  await page.waitForSelector('[data-testid="sidebar"]', { state: 'attached', timeout });
 }
 
 /**
  * Wait for navigation to a named tab to complete.
- * Both the sidebar nav item and the mobile tab bar set data-active="true"
- * when a route is active.
+ * Uses the screen-level testid which is reliably present when the screen renders.
  */
 export async function waitForNavigation(page: Page, tabName: string, timeout?: number): Promise<void> {
-  await page.waitForSelector(`[data-testid="nav-tab-${tabName}"][data-active="true"]`, { timeout });
+  // Map tab names to their screen testids
+  const screenMap: Record<string, string> = {
+    now: 'now-screen',
+    channel: 'channel-screen',
+    chats: 'chats-screen',
+    settings: 'settings-screen',
+    // compose maps to channel edit modal
+    compose: 'channel-edit-body',
+  };
+  const screenTestId = screenMap[tabName];
+  if (screenTestId) {
+    await page.waitForSelector(`[data-testid="${screenTestId}"]`, { timeout });
+  } else {
+    // Fallback: wait for nav-tab element to have data-active="true"
+    await page.waitForSelector(`[data-testid="nav-tab-${tabName}"][data-active="true"]`, { timeout });
+  }
 }
 
 /**

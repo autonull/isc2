@@ -154,6 +154,12 @@ function renderHeader(activeChannel, connected, connLabel) {
           ? `<div class="channel-title-row">
                <h1 class="channel-screen-title" data-testid="channel-title">#${escapeHtml(activeChannel.name)}</h1>
                ${breadthBadge}
+               <button class="btn btn-icon btn-danger-ghost channel-delete-btn"
+                       data-testid="channel-delete-btn"
+                       title="Delete channel"
+                       aria-label="Delete channel ${escapeHtml(activeChannel.name)}">
+                 ✕
+               </button>
              </div>
              <p class="channel-screen-desc" data-testid="channel-description">${escapeHtml(activeChannel.description || '')}</p>
              ${relationPills}`
@@ -301,7 +307,9 @@ function renderPosts(posts, channels, viewMode = 'list') {
       content = renderGridPosts(visible, channels);
       break;
     case 'space':
-      content = renderSpacePosts(visible, channels);
+      content = `<div class="space-canvas-placeholder" data-testid="space-canvas-placeholder">
+        <canvas id="space-canvas" class="space-canvas" data-testid="space-canvas"></canvas>
+      </div>`;
       break;
     case 'list':
     default:
@@ -798,6 +806,38 @@ export function bind(container) {
 
   setupCtrlEnterSubmit(composeInput, composeForm);
 
+  // Bind channel delete button
+  bindDelegate(container, '[data-testid="channel-delete-btn"]', 'click', async () => {
+    const { activeChannelId, channels } = getState();
+    const channel = channels?.find(c => c.id === activeChannelId);
+    if (!channel) return;
+
+    const confirmHtml = `
+<div class="modal-header"><h2 class="modal-title">Delete channel?</h2></div>
+<div class="modal-body">
+  <p>Are you sure you want to delete <strong>#${escapeHtml(channel.name)}</strong>?</p>
+  <p class="text-muted">This cannot be undone.</p>
+</div>
+<div class="modal-actions">
+  <button class="btn btn-ghost" data-action="cancel">Cancel</button>
+  <button class="btn btn-danger" data-action="confirm" data-testid="confirm-delete-channel">Delete</button>
+</div>`;
+
+    const overlay = modals.open(confirmHtml);
+
+    overlay.querySelector('[data-action="cancel"]')?.addEventListener('click', () => modals.close());
+    overlay.querySelector('[data-action="confirm"]')?.addEventListener('click', async () => {
+      modals.close();
+      try {
+        await networkService.deleteChannel(activeChannelId);
+        toasts.success('Channel deleted');
+        window.location.hash = '#/now';
+      } catch (err) {
+        toasts.error('Failed to delete channel');
+      }
+    });
+  });
+
   const unsubPosts = subscribe((state) => {
     const count = state.posts?.length ?? 0;
     if (count !== _lastPostCount && !refreshing) {
@@ -858,6 +898,18 @@ export function bind(container) {
     }
   });
 
+  // If space view is already persisted, trigger canvas initialization
+  const { channels: allChannels, activeChannelId } = getState();
+  const currentActiveChannel = allChannels?.find((c) => c.id === activeChannelId);
+  const initialViewMode = currentActiveChannel
+    ? channelSettingsService.getSettings(currentActiveChannel.id).viewMode
+    : 'list';
+
+  if (initialViewMode === 'space') {
+    // Trigger the same canvas init path as the dropdown would
+    document.dispatchEvent(new CustomEvent('isc:channel-view-change', { detail: { mode: 'space' } }));
+  }
+
   return [
     unbindLike,
     unbindReply,
@@ -882,6 +934,9 @@ function showAuthorPopover(postCard, peerId, authorName) {
     <button class="btn btn-sm btn-primary author-popover-dm" data-peer-id="${escapeHtml(peerId)}">
       Message →
     </button>
+    <button class="btn btn-sm btn-ghost author-popover-profile" data-peer-id="${escapeHtml(peerId)}">
+      View Profile
+    </button>
     <button class="btn btn-sm btn-ghost author-popover-close">Close</button>
   `;
 
@@ -893,6 +948,14 @@ function showAuthorPopover(postCard, peerId, authorName) {
     window.location.hash = '#/chats';
     popover.remove();
   });
+
+  popover.querySelector('.author-popover-profile')?.addEventListener('click', () => {
+    popover.remove();
+    const peer = networkService.getMatches?.()?.find(p => p.peerId === peerId)
+      ?? { peerId, identity: { name: authorName, bio: '' }, similarity: null, online: false };
+    modals.showPeerProfile(peer);
+  });
+
   popover.querySelector('.author-popover-close')?.addEventListener('click', () => popover.remove());
 
   // Auto-dismiss on outside click

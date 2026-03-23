@@ -49,10 +49,10 @@ function render(el, state) {
 
   el.innerHTML = `
     <div class="sidebar-nav-strip" role="toolbar" aria-label="Main navigation" data-testid="sidebar-nav-strip">
-      <button class="snav-btn" data-route="/now" title="Now — home dashboard" aria-label="Now" data-testid="snav-now">⌂</button>
-      <button class="snav-btn" data-route="/channel" title="Channel — message stream" aria-label="Channel" data-testid="snav-channel">#</button>
-      <button class="snav-btn" data-route="/chats" title="Chats" aria-label="Chats" data-testid="snav-chats">◷</button>
-      <button class="snav-btn" data-route="/settings" title="Settings (Ctrl+,)" aria-label="Settings" data-testid="snav-settings">⚙</button>
+      <button class="snav-btn" data-route="/now" title="Now — home dashboard" aria-label="Now" data-testid="nav-tab-now">⌂</button>
+      <button class="snav-btn" data-route="/channel" title="Channel — message stream" aria-label="Channel" data-testid="nav-tab-channel">#</button>
+      <button class="snav-btn" data-route="/chats" title="Chats" aria-label="Chats" data-testid="nav-tab-chats">◷</button>
+      <button class="snav-btn" data-route="/settings" title="Settings (Ctrl+,)" aria-label="Settings" data-testid="nav-tab-settings">⚙</button>
     </div>
 
     <div class="irc-sidebar-scroll">
@@ -104,6 +104,7 @@ function updateSidebar(el, state, route) {
     const active = btn.dataset.route === route;
     btn.classList.toggle('active', active);
     btn.setAttribute('aria-current', active ? 'page' : '');
+    btn.setAttribute('data-active', String(active));
   });
 
   // Update channel list

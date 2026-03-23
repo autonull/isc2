@@ -694,6 +694,17 @@ body {
   color: var(--c-text);
 }
 
+.btn-danger-ghost {
+  color: var(--color-error, #e55);
+  background: transparent;
+  border: none;
+  opacity: 0.5;
+  transition: opacity 0.15s;
+}
+.btn-danger-ghost:hover {
+  opacity: 1;
+}
+
 /* ── Cards ───────────────────────────────────── */
 .card {
   background: var(--c-bg-card);

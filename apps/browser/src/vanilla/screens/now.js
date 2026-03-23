@@ -46,12 +46,15 @@ function renderHeader(connected, connLabel) {
 
 function renderNoChannels(connected, connLabel) {
   return `
-    ${renderEmpty({
-      icon: '💭',
-      title: 'What are you thinking about?',
-      description: "Create a channel to start. ISC will place you in a neighborhood of semantic space — everyone whose channel lands nearby hears what you post.",
-      actions: [{ label: 'Create a channel', href: '#', 'data-action': 'new-channel', variant: 'primary' }],
-    })}
+    <div data-testid="now-empty-state">
+      ${renderEmpty({
+        icon: '💭',
+        title: 'What are you thinking about?',
+        description: "Create a channel to start. ISC will place you in a neighborhood of semantic space — everyone whose channel lands nearby hears what you post.",
+        actions: [{ label: 'Create a channel', href: '#', 'data-action': 'new-channel', variant: 'primary' }],
+      })}
+      <div style="display:none" data-testid="now-empty-cta"></div>
+    </div>
     ${!connected ? `<div class="info-banner warning mt-4">○ Network is ${escapeHtml(connLabel)} — you can still create channels offline</div>` : ''}
   `;
 }

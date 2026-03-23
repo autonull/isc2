@@ -82,25 +82,6 @@ export async function main(): Promise<void> {
     }
   );
 
-  await node.handle([TIER_PROTOCOL], async ({ stream, connection }) => {
-    try {
-      const remotePeerId = connection.remotePeer.toString();
-      const encoded = new TextEncoder().encode(
-        JSON.stringify({
-          v: 2,
-          tier: SECURITY_TIER,
-          peerID: node!.peerId.toString(),
-          ts: Date.now(),
-          type: 'tier_identify',
-          networkID: NETWORK_ID,
-        })
-      );
-      await stream.sink([encoded]);
-    } catch (err) {
-      console.debug('[Tier] Identify push error:', err);
-    }
-  });
-
   await node.start();
 
   console.log('Relay server listening on:');

@@ -134,7 +134,17 @@ export function createApp(container) {
   function initLayout() {
     layout = buildLayout(container, { onNavigate: navigate });
     setupLoggerInterceptor(logger, logBuffer, layout.debugPanel, escapeHtml);
-    router = createRouter(SCREENS, DEFAULT_ROUTE, layout.main, layout.sidebar);
+
+    // Wrap sidebar to also update tab bar on route change
+    const sidebarWithTabBar = layout.sidebar ? {
+      ...layout.sidebar,
+      update(route, state) {
+        layout.sidebar.update(route, state);
+        layout.updateTabBar(route);
+      },
+    } : null;
+
+    router = createRouter(SCREENS, DEFAULT_ROUTE, layout.main, sidebarWithTabBar);
   }
 
   function navigate(route) {

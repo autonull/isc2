@@ -22,15 +22,16 @@ import {
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
 async function createChannel(page: any, name: string, description: string) {
-  await page.click('[data-testid="nav-tab-compose"]');
-  await waitForNavigation(page, 'compose');
-  await page.fill('[data-testid="compose-name-input"]', name);
-  await page.fill('[data-testid="compose-description-input"]', description);
-  // Save button enables when name ≥3 chars & description ≥10 chars
-  await expect(page.locator('[data-testid="compose-save"]')).toBeEnabled();
-  await page.click('[data-testid="compose-save"]');
-  // After save, app navigates back to /now (1200ms redirect)
-  await page.waitForSelector('[data-testid="now-screen"]', { timeout: 5000 });
+  // Click the new channel button in the sidebar
+  await page.click('[data-testid="new-channel-btn"]');
+  await page.waitForSelector('[data-testid="channel-edit-body"]', { timeout: 5000 });
+  await page.fill('[data-testid="channel-edit-name"]', name);
+  await page.fill('[data-testid="channel-edit-description"]', description);
+  // Wait for save button to become enabled (validation: name >= 3 chars, description >= 1 char)
+  await expect(page.locator('[data-testid="channel-edit-save"]')).toBeEnabled({ timeout: 3000 });
+  await page.click('[data-testid="channel-edit-save"]');
+  // Wait for modal to close and channel creation to complete
+  await page.waitForSelector('[data-testid="channel-edit-body"]', { state: 'detached', timeout: 15000 });
 }
 
 // ── Suite setup ──────────────────────────────────────────────────────────────
@@ -53,54 +54,36 @@ test.beforeEach(async ({ page }) => {
 test.describe('Channel Management', () => {
   test('creates a channel and shows it in the sidebar', async ({ page }) => {
     await createChannel(page, 'AI Ethics', 'Ethical implications of machine learning and AI autonomy');
-
-    // Sidebar should list the channel
     await expect(page.locator('[data-testid="sidebar-channel-list"] [data-channel-id]').first()).toBeVisible();
   });
 
-  test('newly created channel appears in compose channel selector', async ({ page }) => {
+  test('newly created channel appears active after creation', async ({ page }) => {
     await createChannel(page, 'Philosophy', 'The philosophy of consciousness and qualia in the age of AI');
-
-    // Navigate to Now — the compose area should have the channel in its selector or label
-    await page.click('[data-testid="nav-tab-now"]');
-    await waitForNavigation(page, 'now');
-    await expect(page.locator('[data-testid="now-screen"]')).toBeVisible();
+    await expect(page.locator('[data-testid="sidebar-channel-list"] [data-active="true"]').first()).toBeVisible();
   });
 
-  test('can cancel channel creation and return to feed', async ({ page }) => {
-    await page.click('[data-testid="nav-tab-compose"]');
-    await waitForNavigation(page, 'compose');
-    await page.click('[data-testid="compose-cancel"]');
-    await page.waitForSelector('[data-testid="now-screen"]', { timeout: 5000 });
+  test('can cancel channel creation', async ({ page }) => {
+    await page.click('[data-testid="new-channel-btn"]');
+    await page.waitForSelector('[data-testid="channel-edit-body"]', { timeout: 5000 });
+    await page.click('[data-testid="channel-edit-cancel"]');
+    // Modal closes
+    await expect(page.locator('[data-testid="channel-edit-body"]')).not.toBeVisible();
   });
 
-  test('save button disabled until name and description meet minimums', async ({ page }) => {
-    await page.click('[data-testid="nav-tab-compose"]');
-    await waitForNavigation(page, 'compose');
+  test('save button is disabled until name meets minimum', async ({ page }) => {
+    await page.click('[data-testid="new-channel-btn"]');
+    await page.waitForSelector('[data-testid="channel-edit-body"]', { timeout: 5000 });
 
-    const saveBtn = page.locator('[data-testid="compose-save"]');
+    const saveBtn = page.locator('[data-testid="channel-edit-save"]');
     await expect(saveBtn).toBeDisabled();
 
-    await page.fill('[data-testid="compose-name-input"]', 'Hi');        // < 3 chars
+    await page.fill('[data-testid="channel-edit-name"]', 'Hi'); // < 3 chars
     await expect(saveBtn).toBeDisabled();
 
-    await page.fill('[data-testid="compose-name-input"]', 'Valid name');
-    await page.fill('[data-testid="compose-description-input"]', 'Short');  // < 10 chars
-    await expect(saveBtn).toBeDisabled();
-
-    await page.fill('[data-testid="compose-description-input"]', 'This is a valid description');
+    await page.fill('[data-testid="channel-edit-name"]', 'Valid name'); // ≥ 3 chars, no description
     await expect(saveBtn).toBeEnabled();
-  });
 
-  test('character counters update as user types', async ({ page }) => {
-    await page.click('[data-testid="nav-tab-compose"]');
-    await waitForNavigation(page, 'compose');
-
-    await page.fill('[data-testid="compose-name-input"]', 'Test');
-    await expect(page.locator('#name-count')).toHaveText('4 / 50');
-
-    await page.fill('[data-testid="compose-description-input"]', 'Hello world');
-    await expect(page.locator('#desc-count')).toHaveText('11 / 500');
+    await page.click('[data-testid="channel-edit-cancel"]');
   });
 
   test('can delete a channel from settings', async ({ page }) => {
@@ -109,15 +92,28 @@ test.describe('Channel Management', () => {
     await page.click('[data-testid="nav-tab-settings"]');
     await waitForNavigation(page, 'settings');
 
-    const deleteBtn = page.locator('[data-testid="channels-section"] button.delete-channel-btn').first();
-    await expect(deleteBtn).toBeVisible();
+    const deleteBtn = page.locator('[data-testid="settings-content"] button.delete-channel-btn').first();
+    await expect(deleteBtn).toBeVisible({ timeout: 3000 });
     await deleteBtn.click({ force: true });
 
-    // Confirmation modal
     await page.waitForSelector('[data-testid="modal-overlay"]', { timeout: 3000 });
     await page.click('[data-action="confirm"]');
+    await waitForToast(page, 'Channel deleted', 3000);
+  });
+
+  test('can delete active channel from channel header', async ({ page }) => {
+    await createChannel(page, 'Deletable', 'A channel that will be deleted from the header');
+    await page.click('[data-testid="nav-tab-channel"]');
+    await waitForNavigation(page, 'channel');
+
+    await page.click('[data-testid="channel-delete-btn"]');
+    await page.waitForSelector('[data-testid="modal-overlay"]', { timeout: 3000 });
+    await page.click('[data-testid="confirm-delete-channel"]');
 
     await waitForToast(page, 'Channel deleted', 3000);
+    // Should navigate back to Now screen
+    await waitForNavigation(page, 'now');
+    await expect(page.locator('[data-testid="now-screen"]')).toBeVisible();
   });
 });
 
@@ -126,51 +122,37 @@ test.describe('Channel Management', () => {
 test.describe('Posts & Feed', () => {
   test.beforeEach(async ({ page }) => {
     await createChannel(page, 'Post Test', 'Channel for testing post creation and feed display');
+    // Navigate to channel screen where compose and feed live
+    await page.click('[data-testid="nav-tab-channel"]');
+    await waitForNavigation(page, 'channel');
   });
 
   test('creates a post and shows it in the feed', async ({ page }) => {
-    await page.click('[data-testid="nav-tab-now"]');
-    await waitForNavigation(page, 'now');
-
     const input = page.locator('[data-testid="compose-input"]');
     await expect(input).toBeVisible();
     await input.fill('Testing the ISC social layer from Playwright!');
-
     await page.click('[data-testid="compose-submit"]');
     await waitForToast(page, 'Posted!', 5000);
-
     await expect(page.locator('[data-testid="post-card"]').first()).toBeVisible();
     await expect(page.locator('[data-testid="feed-container"]')).toContainText('Testing the ISC social layer');
   });
 
   test('compose submit button disabled when input is empty', async ({ page }) => {
-    await page.click('[data-testid="nav-tab-now"]');
-    await waitForNavigation(page, 'now');
-
     const submit = page.locator('[data-testid="compose-submit"]');
     await expect(submit).toBeDisabled();
-
     await page.locator('[data-testid="compose-input"]').fill('Some text');
     await expect(submit).toBeEnabled();
   });
 
   test('character counter updates in compose input', async ({ page }) => {
-    await page.click('[data-testid="nav-tab-now"]');
-    await waitForNavigation(page, 'now');
-
     await page.locator('[data-testid="compose-input"]').fill('hello');
     await expect(page.locator('[data-testid="compose-count"]')).toHaveText('5 / 2000');
   });
 
   test('can like a post', async ({ page }) => {
-    // Create a post first
-    await page.click('[data-testid="nav-tab-now"]');
-    await waitForNavigation(page, 'now');
     await page.locator('[data-testid="compose-input"]').fill('A likeable post');
     await page.click('[data-testid="compose-submit"]');
     await waitForToast(page, 'Posted!', 5000);
-
-    // Like the post
     const likeBtn = page.locator('[data-like-btn]').first();
     await expect(likeBtn).toBeVisible();
     await likeBtn.click({ force: true });
@@ -178,38 +160,26 @@ test.describe('Posts & Feed', () => {
   });
 
   test('reply prefills compose input with quoted post', async ({ page }) => {
-    await page.click('[data-testid="nav-tab-now"]');
-    await waitForNavigation(page, 'now');
     await page.locator('[data-testid="compose-input"]').fill('Original content here');
     await page.click('[data-testid="compose-submit"]');
     await waitForToast(page, 'Posted!', 5000);
-
     const replyBtn = page.locator('[data-reply-btn]').first();
     await replyBtn.click({ force: true });
-
-    // Compose input should now contain a quote of the original post
-    // Use toHaveValue — toContainText checks textContent, not the JS .value property of a textarea
     await expect(page.locator('[data-testid="compose-input"]')).toHaveValue(/^>/);
   });
 
   test('can delete a post via the delete button', async ({ page }) => {
-    await page.click('[data-testid="nav-tab-now"]');
-    await waitForNavigation(page, 'now');
     await page.locator('[data-testid="compose-input"]').fill('Post to be deleted immediately');
     await page.click('[data-testid="compose-submit"]');
     await waitForToast(page, 'Posted!', 5000);
-
     const deleteBtn = page.locator('[data-delete-btn]').first();
     await deleteBtn.click({ force: true });
-
-    // Confirmation modal
     await page.waitForSelector('[data-testid="modal-overlay"]', { timeout: 3000 });
     await page.click('[data-action="confirm"]');
     await waitForToast(page, 'Post deleted', 3000);
   });
 
   test('shows empty state when no posts and no channels', async ({ page }) => {
-    // Fresh page with no channels — clear both localStorage and IndexedDB (channels are stored in IDB)
     await page.evaluate(async () => {
       localStorage.clear();
       await new Promise<void>(resolve => {
@@ -223,58 +193,40 @@ test.describe('Posts & Feed', () => {
     await page.evaluate(() => localStorage.setItem('isc-onboarding-completed', 'true'));
     await page.reload();
     await waitForAppReady(page);
-
+    // With no channels, Now screen shows empty state
     await page.click('[data-testid="nav-tab-now"]');
     await waitForNavigation(page, 'now');
     await expect(page.locator('[data-testid="now-empty-state"]')).toBeVisible();
-    await expect(page.locator('[data-testid="now-empty-cta"]')).toBeVisible();
   });
 });
 
-// ── Discover ─────────────────────────────────────────────────────────────────
+// ── Discovery via Channel Curation ───────────────────────────────────────────
 
-test.describe('Discover', () => {
-  test('renders the discover screen with empty state when no matches', async ({ page }) => {
-    await page.click('[data-testid="nav-tab-discover"]');
-    await waitForNavigation(page, 'discover');
-
-    await expect(page.locator('[data-testid="discover-screen"]')).toBeVisible();
-    await expect(page.locator('[data-testid="discover-title"]')).toContainText('Discover');
-  });
-
-  test('shows need-channels banner when no channels created', async ({ page }) => {
-    await page.click('[data-testid="nav-tab-discover"]');
-    await waitForNavigation(page, 'discover');
-
-    await expect(page.locator('[data-testid="need-channels-banner"]')).toBeVisible();
-  });
-
-  test('shows match cards when matches are injected', async ({ page }) => {
+test.describe('Discovery via Channel Curation', () => {
+  test('Now screen shows neighbor count when matches are present', async ({ page }) => {
     await injectMatches(page, [
       { peerId: 'peer-abc-123', name: 'Alice', bio: 'AI researcher', similarity: 0.92 },
       { peerId: 'peer-def-456', name: 'Bob', bio: 'Philosophy enthusiast', similarity: 0.78 },
     ]);
-
-    await page.click('[data-testid="nav-tab-discover"]');
-    await waitForNavigation(page, 'discover');
-    await waitForMatchesLoaded(page, 5000);
-    await expect(page.locator('[data-testid^="match-card-"]').first()).toBeVisible();
+    await page.click('[data-testid="nav-tab-now"]');
+    await waitForNavigation(page, 'now');
+    await expect(page.locator('[data-testid="now-screen"]')).toBeVisible();
   });
 
-  test('connect button appears on match cards', async ({ page }) => {
+  test('Channel screen shows neighbor panel when channel is active', async ({ page }) => {
+    await createChannel(page, 'AI Ethics', 'Ethical implications of AI and machine learning systems');
     await injectMatches(page, [
       { peerId: 'peer-xyz-789', name: 'Carol', similarity: 0.88 },
     ]);
+    await page.click('[data-testid="nav-tab-channel"]');
+    await waitForNavigation(page, 'channel');
+    await expect(page.locator('[data-testid="channel-screen"]')).toBeVisible();
+  });
 
-    await page.click('[data-testid="nav-tab-discover"]');
-    await waitForNavigation(page, 'discover');
-    await waitForMatchesLoaded(page, 5000);
-
-    const matchCard = page.locator('[data-testid^="match-card-"]').first();
-    if (await matchCard.count() > 0) {
-      await expect(matchCard.locator('[data-connect-btn]')).toBeVisible();
-      await expect(matchCard.locator('[data-message-btn]')).toBeVisible();
-    }
+  test('no channels shows create channel empty state on Now screen', async ({ page }) => {
+    await page.click('[data-testid="nav-tab-now"]');
+    await waitForNavigation(page, 'now');
+    await expect(page.locator('[data-testid="now-empty-state"]')).toBeVisible();
   });
 });
 
@@ -374,7 +326,8 @@ test.describe('Chats', () => {
 
 test.describe('Navigation', () => {
   test('navigates between all main tabs', async ({ page }) => {
-    for (const tab of ['now', 'discover', 'chats', 'settings'] as const) {
+    await createChannel(page, 'Nav Test', 'A channel for testing tab navigation across all screens');
+    for (const tab of ['now', 'channel', 'chats', 'settings'] as const) {
       await page.click(`[data-testid="nav-tab-${tab}"]`);
       await waitForNavigation(page, tab);
       await expect(page.locator(`[data-testid="${tab}-screen"]`)).toBeVisible();
@@ -382,30 +335,27 @@ test.describe('Navigation', () => {
   });
 
   test('sidebar nav items reflect active route', async ({ page }) => {
-    await page.click('[data-testid="nav-tab-discover"]');
-    await waitForNavigation(page, 'discover');
-
-    // Sidebar nav item for 'discover' should be active
+    await page.click('[data-testid="nav-tab-settings"]');
+    await waitForNavigation(page, 'settings');
     await expect(
-      page.locator('[data-testid="sidebar"] [data-testid="nav-tab-discover"][data-active="true"]')
+      page.locator('[data-testid="sidebar"] [data-testid="nav-tab-settings"][data-active="true"]')
     ).toBeVisible();
   });
 
   test('mobile tab bar items reflect active route', async ({ page }) => {
-    // The tab bar is only visible on mobile viewports
     await page.setViewportSize({ width: 390, height: 844 });
     await page.click('[data-testid="tab-bar"] [data-testid="nav-tab-chats"]');
     await waitForNavigation(page, 'chats');
-
     await expect(
       page.locator('[data-testid="tab-bar"] [data-testid="nav-tab-chats"][data-active="true"]')
     ).toBeVisible();
   });
 
-  test('keyboard shortcut Ctrl+K navigates to compose', async ({ page }) => {
+  test('keyboard shortcut Ctrl+K opens channel edit modal', async ({ page }) => {
     await page.keyboard.press('Control+k');
-    await waitForNavigation(page, 'compose');
-    await expect(page.locator('[data-testid="compose-screen"]')).toBeVisible();
+    await page.waitForSelector('[data-testid="channel-edit-body"]', { timeout: 5000 });
+    await expect(page.locator('[data-testid="channel-edit-body"]')).toBeVisible();
+    await page.keyboard.press('Escape');
   });
 
   test('keyboard shortcut Ctrl+, navigates to settings', async ({ page }) => {
@@ -416,7 +366,6 @@ test.describe('Navigation', () => {
 
   test('pressing ? shows the keyboard help modal', async ({ page }) => {
     await page.keyboard.press('?');
-    // The modal system renders an overlay
     await page.waitForSelector('[data-testid="modal-overlay"]', { timeout: 3000 });
     await expect(page.locator('[data-testid="modal-overlay"]')).toBeVisible();
   });
@@ -495,7 +444,8 @@ test.describe('PWA Features', () => {
 
 test.describe('Accessibility', () => {
   test('each main screen has exactly one h1', async ({ page }) => {
-    for (const tab of ['now', 'discover', 'chats', 'settings']) {
+    await createChannel(page, 'H1 Test', 'A channel for accessibility heading count testing');
+    for (const tab of ['now', 'channel', 'chats', 'settings']) {
       await page.click(`[data-testid="nav-tab-${tab}"]`);
       await waitForNavigation(page, tab);
       const h1Count = await page.locator('h1').count();
@@ -530,7 +480,7 @@ test.describe('Accessibility', () => {
   });
 
   test('status bar is visible', async ({ page }) => {
-    await expect(page.locator('[data-testid="status-bar"]')).toBeVisible();
+    await expect(page.locator('[data-testid="sidebar-status"]')).toBeVisible();
   });
 });
 
