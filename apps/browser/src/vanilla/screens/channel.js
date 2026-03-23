@@ -358,7 +358,8 @@ class ChannelScreen {
       const settings = channelSettingsService.getSettings(activeChannel.id);
       this.#neighborsComponent?.destroy();
       this.#neighborsComponent = new NeighborsComponent(neighborPanelContainer, {
-        channelId: activeChannel.name,
+        channelId: activeChannel.id,
+        channelName: activeChannel.name,
         threshold: (settings.specificity ?? 50) / 100,
         limit: 10,
         sortBy: 'similarity',
