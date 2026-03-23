@@ -2,6 +2,7 @@
  * Router Module
  *
  * Hash-based routing with screen management.
+ * OOP class with proper lifecycle management.
  */
 
 import { getState, actions } from '../state.js';
@@ -9,100 +10,99 @@ import { logger } from '../logger.js';
 import { escapeHtml } from './utils/dom.js';
 import { toasts } from '../utils/toast.js';
 
-/**
- * @typedef {Object} Screen
- * @property {Function} render
- * @property {Function} [bind]
- * @property {Function} [update]
- * @property {Function} [destroy]
- */
+class Router {
+  #screens;
+  #defaultRoute;
+  #mainContent;
+  #sidebar;
+  #currentRoute = null;
+  #currentScreen = null;
+  #boundHandlers = [];
 
-/**
- * @typedef {Object} Router
- * @property {Function} navigate
- * @property {Function} getCurrentRoute
- * @property {Function} destroy
- */
-
-/**
- * Create router
- * @param {Object} screens - Map of route paths to screen modules
- * @param {string} defaultRoute
- * @param {HTMLElement} mainContent
- * @param {Object} sidebar
- * @returns {Router}
- */
-export function createRouter(screens, defaultRoute, mainContent, sidebar) {
-  let currentRoute = null;
-  let currentScreen = null;
-
-  function init() {
-    window.addEventListener('hashchange', handleHashChange);
-    renderRoute(parseRoute());
+  constructor(screens, defaultRoute, mainContent, sidebar) {
+    this.#screens = screens;
+    this.#defaultRoute = defaultRoute;
+    this.#mainContent = mainContent;
+    this.#sidebar = sidebar;
+    this.#init();
   }
 
-  function parseRoute() {
+  #init() {
+    const hashHandler = () => this.#handleHashChange();
+    window.addEventListener('hashchange', hashHandler);
+    this.#boundHandlers.push(() => window.removeEventListener('hashchange', hashHandler));
+
+    const storageHandler = (e) => {
+      if (e.key?.startsWith('isc:chat:unread:')) this.#updateChatsBadge();
+    };
+    window.addEventListener('storage', storageHandler);
+    this.#boundHandlers.push(() => window.removeEventListener('storage', storageHandler));
+
+    this.#renderRoute(this.#parseRoute());
+  }
+
+  #parseRoute() {
     const full = window.location.hash.replace('#', '').trim();
     const [path, query] = full.split('?');
     const params = query ? Object.fromEntries(new URLSearchParams(query)) : {};
-    if (path && !screens[path] && import.meta.env?.DEV !== false) {
-      console.warn(`[Router] Unknown route: ${path}, falling back to ${defaultRoute}`);
+    if (path && !this.#screens[path]) {
+      console.warn(`[Router] Unknown route: ${path}, falling back to ${this.#defaultRoute}`);
     }
-    return { route: screens[path] ? path : defaultRoute, params };
+    return { route: this.#screens[path] ? path : this.#defaultRoute, params };
   }
 
-  function handleHashChange() {
-    const { route } = parseRoute();
-    if (route !== currentRoute) renderRoute(route);
+  #handleHashChange() {
+    const { route } = this.#parseRoute();
+    if (route !== this.#currentRoute) this.#renderRoute(route);
   }
 
-  function navigate(route) {
-    if (!screens[route]) route = defaultRoute;
+  navigate(route) {
+    if (!this.#screens[route]) route = this.#defaultRoute;
     if (window.location.hash !== `#${route}`) {
       window.location.hash = `#${route}`;
     } else {
-      renderRoute(route);
+      this.#renderRoute(route);
     }
   }
 
-  function getCurrentRoute() {
-    return currentRoute;
+  getCurrentRoute() {
+    return this.#currentRoute;
   }
 
-  function renderRoute(routePath) {
-    let { route, params } = typeof routePath === 'object' ? routePath : { route: routePath, params: {} };
-    if (!screens[route]) route = defaultRoute;
-    currentRoute = route;
+  #renderRoute(routePath) {
+    const { route, params } =
+      typeof routePath === 'object' ? routePath : { route: routePath, params: {} };
+    if (!this.#screens[route]) route = this.#defaultRoute;
+    this.#currentRoute = route;
 
-    const screen = screens[route];
-    if (!mainContent) return;
+    const screen = this.#screens[route];
+    if (!this.#mainContent) return;
 
-    // Cleanup previous screen
-    if (currentScreen?.destroy) {
+    if (this.#currentScreen?.destroy) {
       try {
-        currentScreen.destroy();
+        this.#currentScreen.destroy();
       } catch (err) {
         /* ignore */
       }
     }
 
     try {
-      mainContent.innerHTML = screen.render(params);
-      screen.bind?.(mainContent, params);
-      currentScreen = screen;
+      this.#mainContent.innerHTML = screen.render(params);
+      screen.bind?.(this.#mainContent, params);
+      this.#currentScreen = screen;
     } catch (err) {
       logger.error(`[Router] Screen render error (${route}):`, err.message);
-      mainContent.innerHTML = renderErrorScreen(err, route);
-      mainContent.querySelector('[data-action="reload"]')?.addEventListener('click', () => {
+      this.#mainContent.innerHTML = this.#renderErrorScreen(err, route);
+      this.#mainContent.querySelector('[data-action="reload"]')?.addEventListener('click', () => {
         location.reload();
       });
     }
 
-    sidebar?.update?.(route);
-    updateChatsBadge();
+    this.#sidebar?.update?.(route);
+    this.#updateChatsBadge();
 
-    mainContent.setAttribute('tabindex', '-1');
-    mainContent.focus({ preventScroll: false });
+    this.#mainContent.setAttribute('tabindex', '-1');
+    this.#mainContent.focus({ preventScroll: false });
 
     import('./utils/dom.js').then(({ announce }) => {
       const screenTitle = route.slice(1).charAt(0).toUpperCase() + route.slice(2);
@@ -110,7 +110,7 @@ export function createRouter(screens, defaultRoute, mainContent, sidebar) {
     });
   }
 
-  function renderErrorScreen(err, route) {
+  #renderErrorScreen(err, route) {
     return `
       <div class="empty-state" data-testid="screen-error">
         <div class="empty-state-icon">⚠️</div>
@@ -121,7 +121,7 @@ export function createRouter(screens, defaultRoute, mainContent, sidebar) {
     `;
   }
 
-  function getTotalUnreadCount() {
+  #getTotalUnreadCount() {
     let total = 0;
     try {
       for (let i = 0; i < localStorage.length; i++) {
@@ -136,13 +136,12 @@ export function createRouter(screens, defaultRoute, mainContent, sidebar) {
     return total;
   }
 
-  function updateChatsBadge() {
-    if (currentRoute === '/chats') return;
+  #updateChatsBadge() {
+    if (this.#currentRoute === '/chats') return;
 
-    const count = getTotalUnreadCount();
+    const count = this.#getTotalUnreadCount();
     document.querySelectorAll('[data-testid="nav-tab-chats"]').forEach((el) => {
       let badge = el.querySelector('.nav-unread-badge');
-
       if (count > 0) {
         if (!badge) {
           badge = document.createElement('span');
@@ -157,19 +156,17 @@ export function createRouter(screens, defaultRoute, mainContent, sidebar) {
     });
   }
 
-  function destroy() {
-    window.removeEventListener('hashchange', handleHashChange);
-    if (currentScreen?.destroy) currentScreen.destroy();
+  destroy() {
+    this.#boundHandlers.forEach((unbind) => unbind());
+    this.#boundHandlers = [];
+    if (this.#currentScreen?.destroy) this.#currentScreen.destroy();
   }
+}
 
-  // Listen for chat unread updates
-  window.addEventListener('storage', (e) => {
-    if (e.key?.startsWith('isc:chat:unread:')) updateChatsBadge();
-  });
+export { Router };
 
-  init();
-
-  return { navigate, getCurrentRoute, destroy };
+export function createRouter(screens, defaultRoute, mainContent, sidebar) {
+  return new Router(screens, defaultRoute, mainContent, sidebar);
 }
 
 /**
@@ -323,7 +320,9 @@ export function setupKeyboardShortcuts({ onNavigate, onToggleDebug, mainContent,
 }
 
 function cycleSidebarFocus(direction) {
-  const items = [...document.querySelectorAll('.snav-btn, .irc-channel-item, .nav-item, [role="tab"]')];
+  const items = [
+    ...document.querySelectorAll('.snav-btn, .irc-channel-item, .nav-item, [role="tab"]'),
+  ];
   if (!items.length) return;
 
   const focused = document.activeElement;
