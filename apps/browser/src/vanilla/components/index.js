@@ -54,6 +54,26 @@ export { FeedHeader, mountFeedHeader } from './FeedHeader.js';
 
 export { ViewMode, mountViewMode } from './ViewMode.js';
 
+export {
+  PostList,
+  renderPostCard,
+  renderPostBody,
+  renderPostActions,
+  renderReplyPost,
+  renderListPosts,
+  renderGridPosts,
+  renderSpaceView,
+} from './PostList.js';
+
+export {
+  EmptyState,
+  renderEmptyState,
+  createNoPostsState,
+  createNoNeighborsState,
+  createNoChannelsState,
+  createOfflineState,
+} from './EmptyState.js';
+
 // Re-export modal (enhanced version)
 export { modals } from './modal.js';
 

@@ -280,6 +280,7 @@ class ChannelScreen {
     this.#container = container;
     const { channels, activeChannelId } = getState();
     const activeChannel = channels?.find((c) => c.id === activeChannelId);
+    this.#lastChannelId = activeChannelId;
 
     this.#initSimilarityScores(container, activeChannel, activeChannelId);
     this.#initLazyLoading(container);
@@ -354,7 +355,14 @@ class ChannelScreen {
 
   #bindNeighbors(container, activeChannel) {
     const neighborPanelContainer = container.querySelector('[data-component="neighbors"]');
-    if (neighborPanelContainer && activeChannel) {
+
+    if (!activeChannel) {
+      this.#neighborsComponent?.destroy();
+      this.#neighborsComponent = null;
+      return;
+    }
+
+    if (neighborPanelContainer) {
       const settings = channelSettingsService.getSettings(activeChannel.id);
       this.#neighborsComponent?.destroy();
       this.#neighborsComponent = new NeighborsComponent(neighborPanelContainer, {

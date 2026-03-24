@@ -43,34 +43,90 @@ class NeighborsComponent {
     if (opts.channelId) {
       const channelSettings = channelSettingsService.getSettings(opts.channelId);
       const channelSpecificity = (channelSettings?.specificity ?? 50) / 100;
-      const effectiveThreshold = opts.threshold * channelSpecificity;
-      matches = matches.filter((m) => (m.similarity ?? 0) >= effectiveThreshold);
+      const effectiveThreshold = Math.max(opts.threshold, channelSpecificity);
+
+      // Score each match based on channel-specific relevance
+      matches = matches
+        .map((m) => ({
+          ...m,
+          // Use matched topics to compute channel-specific score
+          channelScore: this.#computeChannelScore(m, opts.channelId),
+        }))
+        .filter((m) => (m.channelScore ?? m.similarity ?? 0) >= effectiveThreshold);
+
+      // Sort by channel-specific score when in a channel
+      matches.sort((a, b) => (b.channelScore ?? 0) - (a.channelScore ?? 0));
     } else {
       matches = matches.filter((m) => (m.similarity ?? 0) >= opts.threshold);
     }
 
-    switch (opts.sortBy) {
-      case 'recency':
-        matches = matches.sort((a, b) => (b.lastSeen ?? 0) - (a.lastSeen ?? 0));
-        break;
-      case 'name':
-        matches = matches.sort((a, b) =>
-          (a.identity?.name ?? '').localeCompare(b.identity?.name ?? '')
-        );
-        break;
-      case 'similarity':
-      default:
-        matches = matches.sort((a, b) => (b.similarity ?? 0) - (a.similarity ?? 0));
+    // When in channel mode, already sorted by channelScore
+    // Only apply additional sorting when not in channel mode or when explicitly requested
+    const isChannelMode = !!opts.channelId;
+
+    if (!isChannelMode) {
+      switch (opts.sortBy) {
+        case 'recency':
+          matches = matches.sort((a, b) => (b.lastSeen ?? 0) - (a.lastSeen ?? 0));
+          break;
+        case 'name':
+          matches = matches.sort((a, b) =>
+            (a.identity?.name ?? '').localeCompare(b.identity?.name ?? '')
+          );
+          break;
+        case 'similarity':
+        default:
+          matches = matches.sort((a, b) => (b.similarity ?? 0) - (a.similarity ?? 0));
+      }
     }
 
     return matches.slice(0, opts.limit).map((m) => ({
       peerId: m.peerId,
       identity: m.identity ?? { name: m.peer?.name ?? 'Anonymous', bio: m.peer?.description ?? '' },
-      similarity: m.similarity ?? 0,
+      similarity: m.channelScore ?? m.similarity ?? 0,
       matchedTopics: m.matchedTopics ?? [],
       online: m.online ?? false,
       lastSeen: m.lastSeen,
     }));
+  }
+
+  /**
+   * Compute channel-specific similarity score
+   * Considers: global similarity + topic overlap + recency
+   * @param {Object} match - Peer match
+   * @param {string} channelId - Channel ID
+   * @returns {number} Channel-specific score 0-1
+   */
+  #computeChannelScore(match, channelId) {
+    const globalSimilarity = match.similarity ?? 0;
+    const matchedTopics = match.matchedTopics ?? [];
+    const isOnline = match.online ?? false;
+    const lastSeen = match.lastSeen ?? 0;
+
+    // Base score from global similarity
+    let score = globalSimilarity * 0.6;
+
+    // Boost for topic overlap (matched topics indicate channel relevance)
+    if (matchedTopics.length > 0) {
+      // Each matched topic adds to the score
+      const topicBoost = Math.min(matchedTopics.length * 0.1, 0.3);
+      score += topicBoost;
+    }
+
+    // Slight boost for online peers (more relevant for interaction)
+    if (isOnline) {
+      score += 0.1;
+    }
+
+    // Recency boost (recently active peers more relevant)
+    const hoursSinceLastSeen = (Date.now() - lastSeen) / (1000 * 60 * 60);
+    if (hoursSinceLastSeen < 1) {
+      score += 0.1;
+    } else if (hoursSinceLastSeen < 24) {
+      score += 0.05;
+    }
+
+    return Math.min(score, 1);
   }
 
   #renderListView() {
