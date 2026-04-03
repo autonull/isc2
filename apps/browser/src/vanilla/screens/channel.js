@@ -453,7 +453,7 @@ class ChannelScreen {
         }
 
         if (this.#replyTo) {
-          await postService.reply(this.#replyTo.id, content);
+          await postService.replyToPost(this.#replyTo.id, content);
           this.#replyTo = null;
           container.querySelector('.compose-reply-context')?.remove();
         } else {
@@ -663,9 +663,8 @@ class ChannelScreen {
   }
 
   #handleReply(e, target) {
-    document.dispatchEvent(
-      new CustomEvent('isc:reply-post', { detail: { postId: target.dataset.postId } })
-    );
+    // Reply is handled inline via #setReplyContext and #replyTo state
+    // No event dispatch needed — class-based screen manages reply state directly
   }
 
   async #handleDelete(e, target) {

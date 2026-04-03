@@ -182,13 +182,15 @@ test.describe('Posts & Feed', () => {
     await expect(likeBtn).toBeEnabled();
   });
 
-  test('reply prefills compose input with quoted post', async ({ page }) => {
+  test('reply shows reply context above compose input', async ({ page }) => {
     await page.locator('[data-testid="compose-input"]').fill('Original content here');
     await page.click('[data-testid="compose-submit"]');
     await waitForToast(page, 'Posted!', 5000);
     const replyBtn = page.locator('[data-reply-btn]').first();
     await replyBtn.click({ force: true });
-    await expect(page.locator('[data-testid="compose-input"]')).toHaveValue(/^>/);
+    // Reply context should appear above compose area
+    await expect(page.locator('.compose-reply-context')).toBeVisible();
+    await expect(page.locator('.reply-label')).toContainText('Replying to');
   });
 
   test('can delete a post via the delete button', async ({ page }) => {

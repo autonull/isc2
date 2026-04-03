@@ -2071,6 +2071,52 @@ body {
   flex-shrink: 0;
 }
 
+/* Serendipity mode toggle */
+.header-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.serendipity-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 3px 8px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: var(--r-md);
+  background: transparent;
+  color: var(--c-text-dim);
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+.serendipity-toggle:hover {
+  border-color: var(--c-brand);
+  color: var(--c-text);
+}
+.serendipity-toggle.active {
+  border-color: var(--c-brand);
+  background: rgba(74, 144, 217, 0.15);
+  color: var(--c-brand);
+}
+.serendipity-toggle.active:hover {
+  background: rgba(74, 144, 217, 0.25);
+}
+.serendipity-icon {
+  font-size: 13px;
+  line-height: 1;
+}
+.serendipity-level {
+  font-size: 10px;
+  opacity: 0.8;
+  background: rgba(255, 255, 255, 0.1);
+  padding: 1px 5px;
+  border-radius: var(--r-sm);
+}
+
+
+
 .post-card {
   background: var(--c-bg-card);
   border: 1px solid rgba(255, 255, 255, 0.07);
