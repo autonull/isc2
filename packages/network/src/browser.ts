@@ -1,8 +1,6 @@
-// @ts-nocheck
 /**
  * ISC Network - Browser Network Service
  *
- * Main network service for browser applications.
  * Integrates embedding, DHT, storage, and peer management.
  */
 
@@ -11,7 +9,6 @@ import {
   createDHT,
   VirtualPeer,
   type PeerMatch,
-  type PeerInfo,
   type EmbeddingService,
 } from './index.js';
 import { createStorage, type StorageAdapter } from '@isc/adapters';
@@ -286,7 +283,6 @@ export class BrowserNetworkService {
 
     // Announce to DHT
     await this.localPeer.announce(this.dht, this.config.announceTTL);
-    console.log('[Network] Announced to DHT');
   }
 
   /**
@@ -304,17 +300,14 @@ export class BrowserNetworkService {
         return Math.max(base, 60000);
       }
 
-      if (typeof navigator !== 'undefined' && navigator.getBattery) {
-        navigator
-          .getBattery()
-          .then((battery) => {
-            if (battery.level < 0.2 && !battery.charging) {
-              console.log('[Network] Low battery - reducing discovery frequency');
-              this.stopAutoDiscovery();
-              this.discoveryTimer = setInterval(() => this.discoverPeers(), Math.max(base, 120000));
-            }
-          })
-          .catch(() => {});
+      const nav = navigator as Navigator & { getBattery?: () => Promise<{ level: number; charging: boolean }> };
+      if (nav.getBattery) {
+        nav.getBattery().then((battery) => {
+          if (battery.level < 0.2 && !battery.charging) {
+            this.stopAutoDiscovery();
+            this.discoveryTimer = setInterval(() => this.discoverPeers(), Math.max(base, 120000));
+          }
+        }).catch(() => {});
       }
 
       return base;
@@ -368,8 +361,6 @@ export class BrowserNetworkService {
           this.events.onPeerDiscovered?.(match);
         }
         this.events.onMatchesUpdated?.(this.matches);
-
-        console.log(`[Network] Found ${uniqueMatches.length} new matches`);
       }
 
       return uniqueMatches;
@@ -413,7 +404,6 @@ export class BrowserNetworkService {
     this.subscribeChannelBuckets(channel);
 
     this.events.onChannelCreated?.(channel);
-    console.log(`[Network] Created channel: ${channel.name}`);
 
     return channel;
   }
@@ -613,7 +603,6 @@ export class BrowserNetworkService {
         this.storage.set('isc-posts', this.posts),
       ]);
     }
-    console.log(`[Network] Deleted channel: ${channelId}`);
   }
 
   /**
@@ -634,8 +623,6 @@ export class BrowserNetworkService {
 
     // Re-announce to DHT with updated lurker status
     await this.announceChannel(channel);
-
-    console.log(`[Network] Channel ${channelId} lurk mode: ${isLurker}`);
   }
 
   /**
@@ -646,7 +633,6 @@ export class BrowserNetworkService {
     if (this.shouldPersist()) {
       await this.storage.set('isc-posts', this.posts);
     }
-    console.log(`[Network] Deleted post: ${postId}`);
   }
 
   /**
@@ -807,14 +793,10 @@ export class BrowserNetworkService {
    */
   destroy(): void {
     this.stopAutoDiscovery();
-    if (this.embedding) {
-      this.embedding.unload();
-    }
     if (this.networkAdapter) {
       this.networkAdapter.stop().catch(console.error);
     }
     this.initialized = false;
-    console.log('[Network] Service destroyed');
   }
 }
 

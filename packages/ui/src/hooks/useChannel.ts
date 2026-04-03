@@ -46,33 +46,27 @@ export function useActiveChannels(): Channel[] {
  * Use channel actions
  */
 export function useChannelActions() {
-  const setActiveChannel = useCallback((id: string | null) => {
-    console.log('Set active channel:', id);
+  const setActiveChannel = useCallback((_id: string | null) => {
     // Would dispatch action in real implementation
   }, []);
 
-  const createChannel = useCallback(async (name: string, description: string) => {
-    console.log('Create channel:', name, description);
+  const createChannel = useCallback(async (_name: string, _description: string) => {
     // Would dispatch action in real implementation
   }, []);
 
-  const updateChannel = useCallback(async (id: string, updates: Partial<Channel>) => {
-    console.log('Update channel:', id, updates);
+  const updateChannel = useCallback(async (_id: string, _updates: Partial<Channel>) => {
     // Would dispatch action in real implementation
   }, []);
 
-  const deleteChannel = useCallback(async (id: string) => {
-    console.log('Delete channel:', id);
+  const deleteChannel = useCallback(async (_id: string) => {
     // Would dispatch action in real implementation
   }, []);
 
-  const activateChannel = useCallback(async (id: string) => {
-    console.log('Activate channel:', id);
+  const activateChannel = useCallback(async (_id: string) => {
     // Would dispatch action in real implementation
   }, []);
 
-  const deactivateChannel = useCallback(async (id: string) => {
-    console.log('Deactivate channel:', id);
+  const deactivateChannel = useCallback(async (_id: string) => {
     // Would dispatch action in real implementation
   }, []);
 

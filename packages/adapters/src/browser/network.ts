@@ -157,10 +157,6 @@ export class BrowserNetworkAdapter implements NetworkAdapter {
     await this.node.start();
     this._running = true;
 
-    if (this._config.relayOnly) {
-      console.log('[Network] Started in RELAY-ONLY mode - IP addresses hidden from peers');
-    }
-
     this.node.addEventListener('peer:discovery', (event) => {
       this.emit('peer:discovery', event.detail);
     });
@@ -172,8 +168,6 @@ export class BrowserNetworkAdapter implements NetworkAdapter {
     this.node.addEventListener('peer:disconnect', (event) => {
       this.emit('peer:disconnect', event.detail);
     });
-
-    console.log(`[Network] Started with peerId: ${this.node.peerId.toString()}`);
   }
 
   async stop(): Promise<void> {
@@ -181,7 +175,6 @@ export class BrowserNetworkAdapter implements NetworkAdapter {
     await this.node.stop();
     this.node = null;
     this._running = false;
-    console.log('[Network] Stopped');
   }
 
   getPeerId(): string {

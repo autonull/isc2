@@ -45,13 +45,10 @@ export function useFeed(type: 'for-you' | 'following', options?: FeedOptions): U
 
   const refresh = useCallback(async () => {
     // Action dispatch would be handled by store
-    // This is a placeholder for the actual implementation
-    console.log('Refresh feed:', type, options);
   }, [type, options]);
 
   const loadMore = useCallback(async () => {
     if (!feedState.hasMore) return;
-    console.log('Load more:', type, feedState.cursor);
   }, [type, feedState.hasMore, feedState.cursor]);
 
   return {

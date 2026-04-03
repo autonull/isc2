@@ -6,7 +6,6 @@ export async function handleAnnounceStream(stream: Stream): Promise<void> {
   try {
     for await (const chunk of stream.source) {
       const announcement = decode(chunk) as SignedAnnouncement;
-      console.log('Received announcement:', announcement.channelID);
 
       const ack = { success: true, channelID: announcement.channelID, timestamp: Date.now() };
       await stream.sink({

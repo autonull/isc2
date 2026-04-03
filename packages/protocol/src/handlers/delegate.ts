@@ -6,7 +6,6 @@ export async function handleDelegateStream(stream: Stream): Promise<void> {
   try {
     for await (const chunk of stream.source) {
       const request = decode(chunk) as DelegateRequest;
-      console.log('Handling delegate request:', request.requestID);
 
       const response = await handleDelegateRequest(request);
       await stream.sink({
