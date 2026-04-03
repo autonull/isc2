@@ -1469,6 +1469,37 @@ body {
 }
 
 /* ── Settings ────────────────────────────────── */
+.settings-tabs {
+  display: flex;
+  gap: 0.5rem;
+  overflow-x: auto;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+  margin-bottom: 16px;
+}
+
+.settings-tab {
+  padding: 0.5rem 1rem;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: var(--c-text-muted);
+  transition: color 0.2s;
+  white-space: nowrap;
+  font-size: 13px;
+  font-weight: 500;
+  border-bottom: 2px solid transparent;
+}
+
+.settings-tab:hover {
+  color: var(--c-text);
+}
+
+.settings-tab.active {
+  color: var(--c-text);
+  border-bottom-color: var(--c-brand);
+}
+
 .settings-section {
   background: var(--c-bg-card);
   border: 1px solid rgba(255, 255, 255, 0.07);
