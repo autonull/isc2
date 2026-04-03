@@ -14,7 +14,6 @@ import type { DirectMessage } from '../types/dm.js';
 import {
   sealSenderIdentity,
   unsealSenderIdentity,
-  extractSealedEnvelope,
   type SealedEnvelope,
 } from './sealedSender.js';
 

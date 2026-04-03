@@ -3,8 +3,7 @@
     "target": "ES2022",
     "module": "Preserve",
     "moduleResolution": "bundler",
-    "strict": false,
-    "noImplicitAny": false,
+    "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
@@ -13,7 +12,11 @@
     "noEmit": true,
     "jsx": "preserve",
     "allowSyntheticDefaultImports": true,
-    "moduleDetection": "force"
+    "moduleDetection": "force",
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noImplicitReturns": true,
+    "noFallthroughCasesInSwitch": true
   },
   "include": ["src/**/*.ts"],
   "exclude": ["node_modules"]

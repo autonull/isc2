@@ -8,7 +8,7 @@ import type { SocialNetwork, SignedPost, Message, Channel } from '@isc/social';
 import type { PeerProfile, FollowSubscription } from '@isc/social';
 import { encode, Config, sign } from '@isc/core';
 import { DelegationClient } from '@isc/delegation';
-import { getKeypair, getPeerID } from '../../identity/index.js';
+import { getKeypair } from '../../identity/index.js';
 
 const DEFAULT_TTL = 86400 * 30; // 30 days
 
@@ -80,18 +80,11 @@ export const browserNetworkAdapter: SocialNetwork = {
 
   async queryFollows(peerID: string): Promise<FollowSubscription[]> {
     const client = DelegationClient.getInstance();
-    if (!client) {
-      return [];
-    }
+    if (!client) return [];
 
-    try {
-      // Query DHT for follows: /isc/follow/peerID/*
-      const key = `/isc/follow/${peerID}`;
-      // This would need a queryRange or similar method on DelegationClient
-      // For now, return empty
-      return [];
-    } catch {
-      return [];
-    }
+    // Query DHT for follows: /isc/follow/peerID/*
+    // This would need a queryRange or similar method on DelegationClient
+    // For now, return empty
+    return [];
   },
 };

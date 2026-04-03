@@ -5,7 +5,7 @@
  */
 
 import type { SocialStorage } from '@isc/social';
-import type { SignedPost, Message, Channel, Interaction, FollowSubscription, ProfileSummary } from '@isc/social';
+import type { SignedPost, Message, Channel, Interaction, ProfileSummary } from '@isc/social';
 import { dbGet, dbGetAll, dbPut, dbDelete, dbFilter } from '../../db/helpers.js';
 
 const POSTS_STORE = 'posts';

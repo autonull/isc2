@@ -79,6 +79,28 @@ class IdentityServiceImpl implements IIdentityService {
       .map(b => b.toString(16).padStart(2, '0'))
       .join('');
   }
+
+  async getIdentity(): Promise<any> {
+    return this.getKeypair();
+  }
+
+  async update(_updates: any): Promise<void> {
+    logger.info('Identity update requested');
+  }
+
+  async export(): Promise<any> {
+    return this.getKeypair();
+  }
+
+  async import(_identityData: any): Promise<void> {
+    logger.info('Identity import requested');
+  }
+
+  async clear(): Promise<void> {
+    this.initialized = false;
+    this.fingerprintCache = null;
+    logger.info('Identity cleared');
+  }
 }
 
 let _instance: IdentityServiceImpl | null = null;

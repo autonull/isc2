@@ -5,7 +5,7 @@
  */
 
 import type { SocialIdentity } from '@isc/social';
-import { sign, verify, encode, decode } from '@isc/core';
+import { sign, verify } from '@isc/core';
 import { getPeerID, getKeypair, getPeerPublicKey } from '../../identity/index.js';
 
 export const browserIdentityAdapter: SocialIdentity = {

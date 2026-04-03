@@ -9,7 +9,7 @@ import { DelegationClient } from '@isc/delegation';
 import { getPeerID } from '../../../identity/index.js';
 import { CommunityRepository } from './CommunityRepository.js';
 import { CommunitySigningService } from './CommunitySigningService.js';
-import { validateCommunity, hasPermission } from '../utils/communityValidator.js';
+import { validateCommunity } from '../utils/communityValidator.js';
 import { COMMUNITY_CONFIG, COMMUNITY_DHT_PREFIXES } from '../config/communityConfig.js';
 import type { Community, CommunityPayload } from '../types/community.js';
 

@@ -1,23 +1,23 @@
 /**
  * Status Command
- * 
+ *
  * - status: Show connection and system status
  */
 
-import type { Command } from 'commander';
 import * as fs from 'fs';
 import * as os from 'os';
-import type { CLIConfig } from '../config.js';
+import * as path from 'path';
+import type { CLIProgram } from '../config.js';
 
-export function statusCommand(program: Command): void {
+export function statusCommand(program: CLIProgram): void {
   program
     .command('status')
     .description('Show connection and system status')
     .option('--json', 'Output as JSON')
     .action((options: { json: boolean }) => {
       try {
-        const config = (program as any).config as CLIConfig;
-        
+        const config = program.config;
+
         const status = {
           identity: {
             loggedIn: fs.existsSync(config.identityPath),
@@ -122,5 +122,3 @@ function formatDuration(ms: number): string {
   }
   return `${seconds}s`;
 }
-
-import * as path from 'path';

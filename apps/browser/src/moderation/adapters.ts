@@ -6,7 +6,7 @@
  * CouncilProvider interfaces using browser-specific primitives.
  */
 
-import { sign, encode } from '@isc/core';
+import { sign } from '@isc/core';
 import type {
   ModerationStorage,
   ModerationIdentity,

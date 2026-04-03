@@ -22,8 +22,8 @@ interface SharedWorkerResponse {
 // Shared state across all tabs
 let networkAdapter: BrowserNetworkAdapter | null = null;
 let initialized = false;
-let messageQueue: Map<string, any[]> = new Map(); // tabId -> queued messages
-let connectedTabs: Set<string> = new Set();
+let _messageQueue: Map<string, any[]> = new Map(); // tabId -> queued messages
+let _connectedTabs: Set<string> = new Set();
 
 // Message port for broadcasting to all tabs
 let ports: MessagePort[] = [];
@@ -89,7 +89,7 @@ async function initializeNetwork() {
 }
 
 async function handleMessage(port: MessagePort, message: SharedWorkerMessage) {
-  const { type, payload, tabId } = message;
+  const { type, payload, tabId: _tabId } = message;
 
   console.log('[SharedWorker] Received message:', type, payload);
 

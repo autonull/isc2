@@ -10,7 +10,7 @@ import { AudioSpaceService } from './AudioSpaceService.js';
 import { AUDIO_CONFIG } from '../config/audioConfig.js';
 import { getPeerID } from '../../../identity/index.js';
 import { DelegationClient } from '@isc/delegation';
-import type { AudioMessage, AudioSpace } from '../types/audioSpace.js';
+import type { AudioMessage } from '../types/audioSpace.js';
 
 export class AudioParticipantService {
   private static instance: AudioParticipantService;

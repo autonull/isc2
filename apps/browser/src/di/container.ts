@@ -12,11 +12,13 @@ export interface SettingsService {
 }
 
 export interface IdentityService {
-  getIdentity(): any;
+  isInitialized(): Promise<boolean>;
+  initialize(passphrase?: string): Promise<void>;
+  getIdentity(): Promise<any>;
   update(updates: any): Promise<void>;
-  export(): any;
+  export(): Promise<any>;
   import(identityData: any): Promise<void>;
-  getFingerprint(): string | null;
+  getFingerprint(): Promise<string | null>;
   clear(): Promise<void>;
 }
 
@@ -29,11 +31,10 @@ export interface ChatService {
 }
 
 export interface VideoService {
-  startCall(peerId: string): Promise<void>;
-  endCall(): void;
-  getLocalStream(): MediaStream | null;
-  getRemoteStream(): MediaStream | null;
-  isInCall(): boolean;
+  startCall(peerId: string): Promise<any>;
+  endCall(callId: string): Promise<void>;
+  getActiveCall(): Promise<any>;
+  getCallHistory(): Promise<any[]>;
 }
 
 export interface AppDependencies {

@@ -10,7 +10,7 @@ import {
   createBrowserModerationStorage,
   createBrowserModerationNetwork,
 } from '../adapters.js';
-import type { Verdict, Jury } from '@isc/social';
+import type { Verdict } from '@isc/social';
 
 export { checkVerdictReadiness };
 
