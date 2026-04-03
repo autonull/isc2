@@ -159,8 +159,9 @@ export async function completeOnboarding(page: Page): Promise<void> {
  * need to test the onboarding flow itself).
  */
 export async function skipOnboarding(page: Page): Promise<void> {
-  await page.evaluate(() => {
+  await page.addInitScript(() => {
     localStorage.setItem('isc-onboarding-completed', 'true');
+    localStorage.setItem('isc-test-mode', 'true');
   });
 }
 

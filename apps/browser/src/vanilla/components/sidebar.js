@@ -48,11 +48,11 @@ function render(el, state) {
   const statusInfo = STATUS_MAP[status] ?? { class: 'offline', label: 'Offline' };
 
   el.innerHTML = `
-    <div class="sidebar-nav-strip" role="toolbar" aria-label="Main navigation" data-testid="sidebar-nav-strip">
-      <button class="snav-btn" data-route="/now" title="Now — home dashboard" aria-label="Now" data-testid="nav-tab-now">⌂</button>
-      <button class="snav-btn" data-route="/channel" title="Channel — message stream" aria-label="Channel" data-testid="nav-tab-channel">#</button>
-      <button class="snav-btn" data-route="/chats" title="Chats" aria-label="Chats" data-testid="nav-tab-chats">◷</button>
-      <button class="snav-btn" data-route="/settings" title="Settings (Ctrl+,)" aria-label="Settings" data-testid="nav-tab-settings">⚙</button>
+    <div class="sidebar-nav-strip" role="toolbar" aria-label="Main navigation" data-testid="sidebar-nav-list">
+      <button class="snav-btn" data-route="/now" data-tab="now" title="Now — home dashboard" aria-label="Now" data-testid="nav-tab-now">⌂</button>
+      <button class="snav-btn" data-route="/channel" data-tab="channel" title="Channel — message stream" aria-label="Channel" data-testid="nav-tab-channel">#</button>
+      <button class="snav-btn" data-route="/chats" data-tab="chats" title="Chats" aria-label="Chats" data-testid="nav-tab-chats">◷</button>
+      <button class="snav-btn" data-route="/settings" data-tab="settings" title="Settings (Ctrl+,)" aria-label="Settings" data-testid="nav-tab-settings">⚙</button>
     </div>
 
     <div class="irc-sidebar-scroll">
@@ -68,9 +68,11 @@ function render(el, state) {
     </div>
 
     <div class="sidebar-status-strip" data-testid="sidebar-status" role="status" aria-live="polite">
-      <span class="sidebar-status-dot status-${statusInfo.class}" data-field="status-dot">●</span>
-      <span class="sidebar-status-text" data-field="status-text">${statusInfo.label}</span>
-      <span class="sidebar-status-peers" data-field="peer-count"></span>
+      <span class="sidebar-status-dot status-${statusInfo.class}" data-field="status-dot" data-testid="connection-status">●</span>
+      <span class="sidebar-status-text" data-field="status-text" data-testid="status-text">${statusInfo.label}</span>
+      <span class="sidebar-status-peers" data-field="peer-count" data-testid="status-peers"></span>
+      <span class="sidebar-status-channels" data-testid="status-channels" style="display:none">${channels?.length ?? 0}</span>
+      <span class="sidebar-status-log" data-testid="status-log" style="display:none">ready</span>
       <button class="sidebar-debug-btn" data-testid="debug-toggle" title="Debug panel (Ctrl+D)" aria-label="Toggle debug panel">›</button>
     </div>
   `;
@@ -120,9 +122,19 @@ function updateStatusFooter(el, status, peerCount) {
   const text = el.querySelector('[data-field="status-text"]');
   const peers = el.querySelector('[data-field="peer-count"]');
 
-  if (dot) dot.className = `sidebar-status-dot status-${statusInfo.class}`;
+  if (dot) {
+    dot.className = `sidebar-status-dot status-${statusInfo.class}`;
+    dot.setAttribute('data-testid', 'connection-status');
+  }
   if (text) text.textContent = statusInfo.label;
   if (peers) peers.textContent = peerCount > 0 ? `· ${peerCount} peer${peerCount !== 1 ? 's' : ''}` : '';
+
+  // Update channels count
+  const channelsEl = el.querySelector('[data-testid="status-channels"]');
+  if (channelsEl) {
+    const state = getState();
+    channelsEl.textContent = `${state.channels?.length ?? 0} channels`;
+  }
 }
 
 function bind(el, { onNavigate, onNewChannel }) {

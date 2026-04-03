@@ -61,7 +61,7 @@ export function buildLayout(container, { onNavigate }) {
 
   const toastContainer = el('div', { id: 'toast-container', className: 'toast-container' });
   container.appendChild(toastContainer);
-  toasts.init();
+  // toasts.init() removed - toast module doesn't require initialization
 
   const liveRegion = el('div', {
     id: 'aria-live-region',

@@ -47,15 +47,26 @@ export function createApp(container) {
 
       splash.update('Connecting to network…', 40);
 
-      await networkService.initialize().catch((err) => {
-        logger.warn('[App] Network init failed, continuing offline:', err.message);
+      // Add timeout to prevent hanging in tests
+      const isTestMode = localStorage.getItem('isc-test-mode') === 'true';
+      const networkTimeout = isTestMode ? 3000 : 15000;
+      const initPromise = networkService.initialize();
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Network init timeout')), networkTimeout)
+      );
+      
+      await Promise.race([initPromise, timeoutPromise]).catch((err) => {
+        logger.warn('[App] Network init failed or timed out, continuing offline:', err.message);
       });
 
       const embeddingService = networkService.service?.getEmbeddingService?.();
-      if (embeddingService) {
+
+      if (embeddingService && !isTestMode) {
         splash.update('Loading AI model… (first load may take ~30s)', 60);
+        let embeddingReady = false;
         const pollInterval = setInterval(() => {
           if (embeddingService.isLoaded()) {
+            embeddingReady = true;
             splash.update('AI model ready', 75);
             clearInterval(pollInterval);
           } else if (embeddingService.getError()) {
@@ -64,6 +75,15 @@ export function createApp(container) {
             clearInterval(pollInterval);
           }
         }, 500);
+        
+        // Timeout after 10s to prevent hanging in tests or offline mode
+        setTimeout(() => {
+          if (!embeddingReady) {
+            logger.warn('[App] Embedding timeout, continuing without AI features');
+            splash.update('Offline mode', 75);
+            clearInterval(pollInterval);
+          }
+        }, 10000);
       }
 
       splash.update('Initializing UI…', 80);
@@ -74,7 +94,7 @@ export function createApp(container) {
       actions.setStatus(netStatus?.connected ? 'connected' : (netStatus?.status ?? 'disconnected'));
 
       splash.update('Ready', 100);
-      await new Promise((r) => setTimeout(r, 300));
+      await new Promise((r) => setTimeout(r, isTestMode ? 50 : 300));
       splash.hide();
 
       initLayout();

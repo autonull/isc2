@@ -70,13 +70,17 @@ class Router {
   }
 
   #renderRoute(routePath) {
-    const { route, params } =
-      typeof routePath === 'object' ? routePath : { route: routePath, params: {} };
+    const parsed = typeof routePath === 'object' ? routePath : { route: routePath, params: {} };
+    let { route, params } = parsed;
     if (!this.#screens[route]) route = this.#defaultRoute;
     this.#currentRoute = route;
 
     const screen = this.#screens[route];
-    if (!this.#mainContent) return;
+    
+    if (!this.#mainContent) {
+      console.error('[Router] mainContent is null, cannot render');
+      return;
+    }
 
     if (this.#currentScreen?.destroy) {
       try {
@@ -87,11 +91,13 @@ class Router {
     }
 
     try {
-      this.#mainContent.innerHTML = screen.render(params);
+      const html = screen.render(params);
+      this.#mainContent.innerHTML = html;
       screen.bind?.(this.#mainContent, params);
       this.#currentScreen = screen;
     } catch (err) {
       logger.error(`[Router] Screen render error (${route}):`, err.message);
+      console.error('[Router] Render error:', err);
       this.#mainContent.innerHTML = this.#renderErrorScreen(err, route);
       this.#mainContent.querySelector('[data-action="reload"]')?.addEventListener('click', () => {
         location.reload();

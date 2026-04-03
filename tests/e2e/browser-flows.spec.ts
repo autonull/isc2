@@ -45,10 +45,8 @@ test.beforeEach(async ({ page }) => {
   });
   page.on('pageerror', (err) => console.log('Uncaught error:', err.message));
 
-  await page.goto('/');
   await skipOnboarding(page);
-  // Reload so the skipped-onboarding flag is seen by the app on mount
-  await page.reload();
+  await page.goto('/');
   await waitForAppReady(page);
 });
 

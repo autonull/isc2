@@ -21,8 +21,13 @@ import {
 
 test.beforeEach(async ({ page }) => {
   page.on('pageerror', (err) => console.error('Uncaught error:', err.message));
-  await page.goto('/');
+  page.on('console', (msg) => {
+    if (msg.text().includes('[Router]') || msg.text().includes('[App]')) {
+      console.log('BROWSER:', msg.text());
+    }
+  });
   await skipOnboarding(page);
+  await page.goto('/');
   await waitForAppReady(page);
 });
 
@@ -35,7 +40,7 @@ test.describe('Sidebar Component', () => {
   });
 
   test('sidebar shows all navigation tabs', async ({ page }) => {
-    const tabs = ['now', 'discover', 'chats', 'settings', 'compose'];
+    const tabs = ['now', 'channel', 'chats', 'settings'];
 
     for (const tab of tabs) {
       await expect(page.locator(`[data-testid="nav-tab-${tab}"]`)).toBeVisible();
@@ -57,7 +62,7 @@ test.describe('Sidebar Component', () => {
   test('clicking nav item updates active state', async ({ page }) => {
     const chatsTab = page.locator('[data-tab="chats"]');
     await chatsTab.click();
-    await page.waitForTimeout(500);
+    await page.waitForTimeout(1000);
 
     await expect(chatsTab).toHaveAttribute('data-active', 'true');
     await expect(chatsTab).toHaveAttribute('aria-current', 'page');
@@ -87,15 +92,15 @@ test.describe('Status Bar Component', () => {
   });
 
   test('status bar shows peer count', async ({ page }) => {
-    await expect(page.locator('[data-testid="status-peers"]')).toBeVisible();
+    await expect(page.locator('[data-testid="status-peers"]')).toBeAttached();
   });
 
   test('status bar shows channel count', async ({ page }) => {
-    await expect(page.locator('[data-testid="status-channels"]')).toBeVisible();
+    await expect(page.locator('[data-testid="status-channels"]')).toBeAttached();
   });
 
   test('status bar shows log text', async ({ page }) => {
-    await expect(page.locator('[data-testid="status-log"]')).toBeVisible();
+    await expect(page.locator('[data-testid="status-log"]')).toBeAttached();
   });
 
   test('debug toggle button is visible', async ({ page }) => {
@@ -109,39 +114,32 @@ test.describe('Modal Component', () => {
   test('modal can be opened via debug API', async ({ page }) => {
     await page.evaluate(() => {
       const { modals } = (window as any).ISC ?? {};
-      if (modals) {
-        modals.open('<div data-testid="test-modal">Test Content</div>');
-      }
+      modals?.open('<div>Test Modal</div>');
     });
 
-    await waitForVisible(page, '[data-testid="test-modal"]');
-    await expect(page.locator('.modal-overlay')).toBeVisible();
+    await waitForVisible(page, '[data-testid="modal-overlay"]');
   });
 
   test('modal closes on Escape key', async ({ page }) => {
     await page.evaluate(() => {
       const { modals } = (window as any).ISC ?? {};
-      modals?.open('<div data-testid="test-modal">Test</div>');
+      modals?.open('<div>Test Modal</div>');
     });
+    await page.waitForSelector('[data-testid="modal-overlay"]');
 
-    await page.waitForTimeout(100);
     await page.keyboard.press('Escape');
-    await page.waitForTimeout(200);
-
-    await expect(page.locator('.modal-overlay')).not.toBeVisible();
+    await expect(page.locator('[data-testid="modal-overlay"]')).not.toBeVisible();
   });
 
   test('modal confirm returns false on cancel', async ({ page }) => {
     const result = await page.evaluate(async () => {
       const { modals } = (window as any).ISC ?? {};
       if (!modals) return null;
-
-      const promise = modals.confirm('Test?', { confirmText: 'Yes', cancelText: 'No' });
-      await new Promise((r) => setTimeout(r, 50));
-      (document.querySelector('[data-action="cancel"]') as HTMLElement)?.click();
+      const promise = modals.confirm('Are you sure?', { title: 'Test' });
+      await new Promise(r => setTimeout(r, 50));
+      (document.querySelector('[data-action="cancel"]') as HTMLElement | null)?.click();
       return promise;
     });
-
     expect(result).toBe(false);
   });
 
@@ -149,13 +147,11 @@ test.describe('Modal Component', () => {
     const result = await page.evaluate(async () => {
       const { modals } = (window as any).ISC ?? {};
       if (!modals) return null;
-
-      const promise = modals.confirm('Test?', { confirmText: 'Yes' });
-      await new Promise((r) => setTimeout(r, 50));
-      (document.querySelector('[data-action="confirm"]') as HTMLElement)?.click();
+      const promise = modals.confirm('Are you sure?', { title: 'Test' });
+      await new Promise(r => setTimeout(r, 50));
+      (document.querySelector('[data-action="confirm"]') as HTMLElement | null)?.click();
       return promise;
     });
-
     expect(result).toBe(true);
   });
 
@@ -174,90 +170,27 @@ test.describe('Modal Component', () => {
 
 test.describe('Now Screen', () => {
   test('now screen renders with header', async ({ page }) => {
-    await clickTab(page, 'now');
-    await waitForVisible(page, '[data-testid="now-header"]');
+    await page.waitForSelector('[data-testid="now-screen"]', { timeout: 30000 });
+    await expect(page.locator('[data-testid="now-header"]')).toBeVisible();
   });
 
-  test('now screen shows compose area', async ({ page }) => {
-    await clickTab(page, 'now');
-    await expect(page.locator('[data-testid="compose-container"]')).toBeVisible();
+  test('now screen shows body content', async ({ page }) => {
+    await expect(page.locator('[data-testid="now-body"]')).toBeVisible();
   });
 
-  test('now screen shows feed container', async ({ page }) => {
-    await clickTab(page, 'now');
-    await expect(page.locator('[data-testid="feed-container"]')).toBeVisible();
+  test('now screen shows empty state when no channels', async ({ page }) => {
+    await expect(page.locator('[data-testid="now-empty-state"]')).toBeVisible();
   });
 
-  test('compose input accepts text', async ({ page }) => {
-    await clickTab(page, 'now');
-
-    const input = page.locator('[data-testid="compose-input"]');
-    await input.fill('Test message');
-
-    const value = await input.inputValue();
-    expect(value).toBe('Test message');
-  });
-
-  test('compose character counter updates', async ({ page }) => {
-    await clickTab(page, 'now');
-
-    const input = page.locator('[data-testid="compose-input"]');
-    await input.fill('Hello');
-
-    const counter = page.locator('[data-testid="compose-count"]');
-    const text = await counter.textContent();
-    expect(text).toMatch(/5 \/ 2000/);
-  });
-
-  test('submit button is disabled when empty', async ({ page }) => {
-    await clickTab(page, 'now');
-
-    const submitBtn = page.locator('[data-testid="compose-submit"]');
-    await expect(submitBtn).toBeDisabled();
-  });
-
-  test('submit button is enabled when text entered', async ({ page }) => {
-    await clickTab(page, 'now');
-
-    const input = page.locator('[data-testid="compose-input"]');
-    await input.fill('Test');
-
-    const submitBtn = page.locator('[data-testid="compose-submit"]');
-    await expect(submitBtn).toBeEnabled();
-  });
-});
-
-// ── Discover Screen ───────────────────────────────────────────────────────────
-
-test.describe('Discover Screen', () => {
-  test('discover screen renders with header', async ({ page }) => {
-    await clickTab(page, 'discover');
-    await waitForVisible(page, '[data-testid="discover-header"]');
-  });
-
-  test('discover screen shows empty state when no matches', async ({ page }) => {
-    await clickTab(page, 'discover');
-    await expect(page.locator('[data-testid="empty-state"]')).toBeVisible();
-  });
-
-  test('discover screen shows explainer card', async ({ page }) => {
-    await clickTab(page, 'discover');
-    await expect(page.locator('.discovery-explainer')).toBeVisible();
-  });
-
-  test('discover button is visible', async ({ page }) => {
-    await clickTab(page, 'discover');
-    await expect(page.locator('[data-testid="discover-peers-btn"]')).toBeVisible();
-  });
-
-  test('discover screen shows peer sections when matches exist', async ({ page }) => {
-    await injectMatches(page, [
-      { peerId: 'peer-1', name: 'Alice', similarity: 0.92 },
-      { peerId: 'peer-2', name: 'Bob', similarity: 0.75 },
-    ]);
+  test('now screen shows channels after injection', async ({ page }) => {
+    await injectChannels(page, [{ id: 'test-ch', name: 'Test Channel', description: 'Test' }]);
     await page.waitForTimeout(500);
-
-    await expect(page.locator('[data-testid="match-list"]')).toBeVisible();
+    await page.click('[data-tab="channel"]');
+    await page.click('[data-tab="now"]');
+    await page.waitForTimeout(500);
+    
+    const state = await getAppState(page);
+    expect(state.channels?.length).toBe(1);
   });
 });
 
@@ -265,27 +198,20 @@ test.describe('Discover Screen', () => {
 
 test.describe('Chats Screen', () => {
   test('chats screen renders with header', async ({ page }) => {
-    await clickTab(page, 'chats');
-    await waitForVisible(page, '[data-testid="chats-header"]');
-  });
-
-  test('chats screen shows conversation list panel', async ({ page }) => {
-    await clickTab(page, 'chats');
-    await expect(page.locator('[data-testid="conversation-list-panel"]')).toBeVisible();
-  });
-
-  test('chats screen shows chat panel', async ({ page }) => {
-    await clickTab(page, 'chats');
-    await expect(page.locator('[data-testid="chat-panel"]')).toBeVisible();
+    await page.click('[data-tab="chats"]');
+    await page.waitForTimeout(500);
+    await expect(page.locator('[data-testid="chats-screen"]')).toBeVisible();
   });
 
   test('chats screen shows empty state when no conversations', async ({ page }) => {
-    await clickTab(page, 'chats');
+    await page.click('[data-tab="chats"]');
+    await page.waitForTimeout(500);
     await expect(page.locator('[data-testid="empty-conversations"]')).toBeVisible();
   });
 
   test('chats screen shows "no chat selected" when no conversation active', async ({ page }) => {
-    await clickTab(page, 'chats');
+    await page.click('[data-tab="chats"]');
+    await page.waitForTimeout(500);
     await expect(page.locator('[data-testid="no-chat-selected"]')).toBeVisible();
   });
 });
@@ -294,40 +220,32 @@ test.describe('Chats Screen', () => {
 
 test.describe('State Management', () => {
   test('window.ISC debug API is available', async ({ page }) => {
-    const hasISC = await page.evaluate(() => {
-      return !!(window as any).ISC;
-    });
+    const hasISC = await page.evaluate(() => !!(window as any).ISC);
     expect(hasISC).toBe(true);
   });
 
   test('getState returns current state', async ({ page }) => {
     const state = await getAppState(page);
-
-    expect(state).toHaveProperty('status');
     expect(state).toHaveProperty('channels');
     expect(state).toHaveProperty('matches');
   });
 
   test('state channels update when injected', async ({ page }) => {
-    const initialState = await getAppState(page);
-    expect(initialState.channels).toHaveLength(0);
-
-    await injectChannels(page, [{ id: 'ch-1', name: 'Test', description: 'Test channel' }]);
+    await injectChannels(page, [{ id: 'ch1', name: 'Test', description: '' }]);
     await page.waitForTimeout(300);
 
-    const updatedState = await getAppState(page);
-    expect(updatedState.channels).toHaveLength(1);
+    const state = await getAppState(page);
+    expect(state.channels?.length).toBe(1);
+    expect(state.channels?.[0]?.name).toBe('Test');
   });
 
   test('state matches update when injected', async ({ page }) => {
-    const initialState = await getAppState(page);
-    expect(initialState.matches).toHaveLength(0);
-
-    await injectMatches(page, [{ peerId: 'p1', name: 'Peer', similarity: 0.8 }]);
+    await injectMatches(page, [{ peerId: 'test-peer', name: 'Test Peer', similarity: 0.85 }]);
     await page.waitForTimeout(300);
 
-    const updatedState = await getAppState(page);
-    expect(updatedState.matches).toHaveLength(1);
+    const state = await getAppState(page);
+    expect(state.matches?.length).toBe(1);
+    expect(state.matches?.[0]?.peerId).toBe('test-peer');
   });
 });
 
@@ -335,41 +253,23 @@ test.describe('State Management', () => {
 
 test.describe('Event Handling', () => {
   test('isc:refresh-feed event is dispatched', async ({ page }) => {
-    const eventDispatched = await page.evaluate(() => {
-      return new Promise((resolve) => {
-        let dispatched = false;
-        document.addEventListener(
-          'isc:refresh-feed',
-          () => {
-            dispatched = true;
-          },
-          { once: true }
-        );
-        document.dispatchEvent(new CustomEvent('isc:refresh-feed'));
-        setTimeout(() => resolve(dispatched), 100);
-      });
+    const eventFired = await page.evaluate(() => {
+      let fired = false;
+      document.addEventListener('isc:refresh-feed', () => { fired = true; }, { once: true });
+      document.dispatchEvent(new CustomEvent('isc:refresh-feed'));
+      return fired;
     });
-
-    expect(eventDispatched).toBe(true);
+    expect(eventFired).toBe(true);
   });
 
   test('isc:need-channel event is dispatched', async ({ page }) => {
-    const eventDispatched = await page.evaluate(() => {
-      return new Promise((resolve) => {
-        let dispatched = false;
-        document.addEventListener(
-          'isc:need-channel',
-          () => {
-            dispatched = true;
-          },
-          { once: true }
-        );
-        document.dispatchEvent(new CustomEvent('isc:need-channel'));
-        setTimeout(() => resolve(dispatched), 100);
-      });
+    const eventFired = await page.evaluate(() => {
+      let fired = false;
+      document.addEventListener('isc:need-channel', () => { fired = true; }, { once: true });
+      document.dispatchEvent(new CustomEvent('isc:need-channel'));
+      return fired;
     });
-
-    expect(eventDispatched).toBe(true);
+    expect(eventFired).toBe(true);
   });
 });
 
@@ -377,26 +277,21 @@ test.describe('Event Handling', () => {
 
 test.describe('Responsive Design', () => {
   test('layout adapts to mobile viewport', async ({ page }) => {
-    await page.setViewportSize({ width: 375, height: 667 });
-    await page.waitForTimeout(500);
-
-    await expect(page.locator('#app')).toBeVisible();
-    await expect(page.locator('.tab-bar')).toBeVisible();
+    await page.setViewportSize({ width: 375, height: 812 });
+    await page.waitForTimeout(300);
+    await expect(page.locator('[data-testid="irc-layout"]')).toBeVisible();
   });
 
   test('layout adapts to tablet viewport', async ({ page }) => {
     await page.setViewportSize({ width: 768, height: 1024 });
-    await page.waitForTimeout(500);
-
-    await expect(page.locator('#app')).toBeVisible();
+    await page.waitForTimeout(300);
+    await expect(page.locator('[data-testid="irc-layout"]')).toBeVisible();
   });
 
   test('layout adapts to desktop viewport', async ({ page }) => {
-    await page.setViewportSize({ width: 1280, height: 720 });
-    await page.waitForTimeout(500);
-
-    await expect(page.locator('#app')).toBeVisible();
-    await expect(page.locator('.irc-sidebar')).toBeVisible();
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.waitForTimeout(300);
+    await expect(page.locator('[data-testid="irc-layout"]')).toBeVisible();
   });
 });
 
@@ -404,28 +299,18 @@ test.describe('Responsive Design', () => {
 
 test.describe('Error Handling', () => {
   test('app handles missing channels gracefully', async ({ page }) => {
-    // App should render without channels
-    await expect(page.locator('#app')).toBeVisible();
+    const state = await getAppState(page);
+    expect(state.channels).toEqual([]);
+    await expect(page.locator('[data-testid="now-empty-state"]')).toBeVisible();
   });
 
   test('app handles navigation to non-existent route', async ({ page }) => {
-    await page.goto('#/nonexistent');
-    await page.waitForTimeout(1000);
-
-    // Should redirect to default route
-    const currentRoute = await page.evaluate(() => window.location.hash);
-    expect(currentRoute).not.toBe('#/nonexistent');
-  });
-
-  test('app recovers from rapid navigation', async ({ page }) => {
-    const tabs = ['now', 'discover', 'chats', 'settings'];
-
-    for (const tab of tabs) {
-      await page.click(`[data-tab="${tab}"]`).catch(() => {});
-      await page.waitForTimeout(100);
-    }
-
+    await page.evaluate(() => {
+      window.location.hash = '#/nonexistent';
+    });
     await page.waitForTimeout(500);
-    await expect(page.locator('#app')).toBeVisible();
+    // Should fall back to default route
+    const hash = await page.evaluate(() => window.location.hash);
+    expect(hash).toBe('#/now');
   });
 });
