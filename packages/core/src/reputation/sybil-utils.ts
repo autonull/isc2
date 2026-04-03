@@ -4,10 +4,10 @@
  * Applies Sybil resistance caps to prevent reputation manipulation.
  */
 
-export const SYBIL_CONSTANTS = {
-  SYBIL_CAP: 0.3,
-  MUTUAL_FOLLOW_CAP: 0.4,
-  MUTUAL_FOLLOW_BONUS_PER: 0.05,
+export const SYBIL_CONSTANTS: SybilConfig = {
+  sybilCap: 0.3,
+  mutualFollowCap: 0.4,
+  mutualFollowBonusPerFollow: 0.05,
 } as const;
 
 export interface SybilConfig {

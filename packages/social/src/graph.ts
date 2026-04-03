@@ -122,7 +122,7 @@ export function createGraphService(
       return following.has(followee);
     },
 
-    async getFollowerCount(peerID: string): Promise<number> {
+    async getFollowerCount(_peerID: string): Promise<number> {
       // This requires querying the DHT or maintaining a follower index
       // For now, return a stub that would need network adapter extension
       return 0;
@@ -154,7 +154,7 @@ export function createGraphService(
     async computeReputation(peerID: string, halfLifeDays: number = DECAY_HALF_LIFE_DAYS): Promise<ReputationResult> {
       const interactions = await storage.getInteractions(peerID);
       const decayedScore = interactions.reduce(
-        (sum, i) => sum + computeDecayedScore(i, halfLifeDays),
+        (sum, i) => sum + computeDecayedScore([{ score: i.weight, timestamp: i.timestamp }], halfLifeDays),
         0
       );
 
@@ -204,7 +204,7 @@ export function createGraphService(
     async findTrustPaths(
       source: string,
       target: string,
-      maxDepth: number = 3
+      _maxDepth: number = 3
     ): Promise<Array<{ source: string; target: string; hops: string[]; depth: number; confidence: number }>> {
       if (source === target) {
         return [{ source, target, hops: [], depth: 0, confidence: 1.0 }];

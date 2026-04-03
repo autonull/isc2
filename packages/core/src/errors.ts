@@ -5,16 +5,31 @@
 export const ErrorCodes = {
   UNKNOWN: 'UNKNOWN_ERROR',
   VALIDATION: 'VALIDATION_ERROR',
+  VALIDATION_FAILED: 'VALIDATION_FAILED',
   NOT_FOUND: 'NOT_FOUND',
   UNAUTHORIZED: 'UNAUTHORIZED',
+  IDENTITY_REQUIRED: 'IDENTITY_REQUIRED',
+  SHAMIR_INVALID: 'SHAMIR_INVALID',
   NETWORK: 'NETWORK_ERROR',
   INTERNAL: 'INTERNAL_ERROR',
 } as const;
 
+export interface ErrorOptions {
+  recoverable?: boolean;
+  cause?: Error;
+  context?: Record<string, unknown>;
+}
+
 export class AppError extends Error {
-  constructor(message: string, public code: string = ErrorCodes.UNKNOWN) {
+  public readonly recoverable: boolean;
+  public readonly context?: Record<string, unknown>;
+
+  constructor(message: string, public code: string = ErrorCodes.UNKNOWN, options?: ErrorOptions) {
     super(message);
     this.name = 'AppError';
+    this.recoverable = options?.recoverable ?? true;
+    if (options?.cause) this.cause = options.cause;
+    this.context = options?.context;
   }
 }
 

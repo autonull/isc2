@@ -38,7 +38,8 @@ export function registerTierNegotiation(
   getNetworkID: () => string,
   config?: TierNegotiationConfig
 ): void {
-  node.handle([PROTOCOL_TIER], async ({ stream, connection }) => {
+  node.handle([PROTOCOL_TIER], async (data) => {
+    const { stream, connection } = data as { stream: unknown; connection: { remotePeer: { toString(): string } } };
     try {
       const remotePeerId = connection.remotePeer.toString();
       const localTier = getSecurityTier();
@@ -54,10 +55,11 @@ export function registerTierNegotiation(
       };
 
       const encoded = new TextEncoder().encode(JSON.stringify(push));
-      await stream.sink([encoded]);
+      const duplexStream = stream as { sink: (data: Uint8Array[]) => Promise<void>; source: AsyncIterable<Uint8Array> };
+      await duplexStream.sink([encoded]);
 
       const chunks: Uint8Array[] = [];
-      for await (const chunk of stream.source) {
+      for await (const chunk of duplexStream.source) {
         chunks.push(Uint8Array.from(chunk instanceof Uint8Array ? chunk : chunk.subarray()));
       }
 
@@ -106,10 +108,11 @@ export function registerTierNegotiation(
       };
 
       const encoded = new TextEncoder().encode(JSON.stringify(push));
-      await stream.sink([encoded]);
+      const duplexStream = stream as { sink: (data: Uint8Array[]) => Promise<void>; source: AsyncIterable<Uint8Array> };
+      await duplexStream.sink([encoded]);
 
       const chunks: Uint8Array[] = [];
-      for await (const chunk of stream.source) {
+      for await (const chunk of duplexStream.source) {
         chunks.push(Uint8Array.from(chunk instanceof Uint8Array ? chunk : chunk.subarray()));
       }
 

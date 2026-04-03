@@ -147,7 +147,6 @@ export default defineConfig({
       '@isc/core/types': resolve(__dirname, '../../packages/core/src/types.ts'),
       '@isc/core/semantic': resolve(__dirname, '../../packages/core/src/semantic/index.ts'),
       '@isc/adapters': resolve(__dirname, '../../packages/adapters/src'),
-      '@isc/navigation': resolve(__dirname, '../../packages/navigation/src'),
     },
   },
   test: {

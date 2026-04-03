@@ -345,7 +345,7 @@ export namespace Layout {
     points: Point2D[],
     velocities: { x: number; y: number }[],
     repulsion: number,
-    attraction: number,
+    _attraction: number,
     damping: number
   ): void {
     for (let i = 0; i < points.length; i++) {

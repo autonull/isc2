@@ -5,8 +5,8 @@
  * Storage and identity are injected via adapters.
  */
 
-import type { SignedPost, ScoredPost } from '../types';
-import type { SocialStorage, SocialIdentity, SocialNetwork } from '../adapters/interfaces';
+import type { SignedPost, ScoredPost } from './types';
+import type { SocialStorage, SocialIdentity, SocialNetwork } from './adapters/interfaces';
 
 export interface CreatePostInput {
   content: string;

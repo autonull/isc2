@@ -1,4 +1,4 @@
-export type { Tier, DeviceCapabilities } from '@isc/core';
+export type { SecurityTier as Tier, TierConfig as DeviceCapabilities } from '@isc/core';
 
 export interface TierDetector {
   detect(): Promise<Tier>;

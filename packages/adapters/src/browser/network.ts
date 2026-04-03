@@ -242,7 +242,7 @@ export class BrowserNetworkAdapter implements NetworkAdapter {
     if (!this.eventHandlers.has(eventName)) {
       this.eventHandlers.set(eventName, new Set());
       // Only register the libp2p listener once per topic
-      this.node.services.pubsub.addEventListener('message', (event) => {
+      this.node.services.pubsub.addEventListener('message', (event: { detail: { topic: string; data: Uint8Array } }) => {
         if (event.detail.topic === topic) {
           this.emit(eventName, event.detail.data);
         }

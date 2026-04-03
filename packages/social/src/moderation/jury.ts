@@ -151,7 +151,7 @@ export function createJuryService(
 
       await enforceVerdict(updatedJury);
 
-      return storage.getJury(juryId) ?? updatedJury;
+      return updatedJury;
     },
 
     async getStats(peerId) {

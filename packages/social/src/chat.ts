@@ -5,8 +5,8 @@
  * Storage and identity are injected via adapters.
  */
 
-import type { Message, Conversation } from '../types';
-import type { SocialStorage, SocialIdentity, SocialNetwork } from '../adapters/interfaces';
+import type { Message, Conversation } from './types';
+import type { SocialStorage, SocialIdentity, SocialNetwork } from './adapters/interfaces';
 
 export interface ChatService {
   getConversations(): Promise<Conversation[]>;

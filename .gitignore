@@ -65,6 +65,7 @@ models/
 **/src/**/*.d.ts
 **/src/**/*.js
 !apps/browser/src/vanilla/**/*.js
+!apps/browser/src/services/**/*.js
 !**/src/**/*.spec.d.ts
 
 # Build artifacts in tests/ directory

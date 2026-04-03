@@ -4,8 +4,8 @@
  * Channel management operations.
  */
 
-import type { Channel } from '../types';
-import type { SocialStorage, SocialNetwork } from '../adapters/interfaces';
+import type { Channel } from './types';
+import type { SocialStorage, SocialNetwork } from './adapters/interfaces';
 
 export interface CreateChannelInput {
   name: string;
