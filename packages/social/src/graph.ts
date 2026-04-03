@@ -229,7 +229,7 @@ export function createGraphService(
       for (const followee of myFollowees) {
         const theirFollowees = await this.getFolloweesOf(followee);
         for (const candidate of theirFollowees) {
-          if (candidate === followee || await this.isFollowing(candidate)) continue;
+          if (candidate === followee || await this.isFollowing(candidate)) {continue;}
           suggestions.set(candidate, (suggestions.get(candidate) ?? 0) + 1);
         }
       }
@@ -248,7 +248,7 @@ export function createGraphService(
     },
 
     async getFolloweesOf(peerID: string): Promise<string[]> {
-      if (!network) return [];
+      if (!network) {return [];}
       const subscriptions = await network.queryFollows(peerID);
       return subscriptions.map((s) => s.followee);
     },
@@ -307,7 +307,7 @@ export function createGraphService(
 
     async getProfile(peerID: string): Promise<ProfileSummary | null> {
       const profile = await storage.getProfile(peerID);
-      if (profile) return profile;
+      if (profile) {return profile;}
 
       const [followerCount, followingCount] = await Promise.all([
         this.getFollowerCount(peerID),

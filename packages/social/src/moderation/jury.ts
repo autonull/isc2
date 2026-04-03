@@ -44,14 +44,14 @@ export function createJuryService(
 ): JuryService {
   async function enforceVerdict(jury: Jury): Promise<void> {
     const verdict = checkVerdictReadiness(jury);
-    if (!verdict) return;
+    if (!verdict) {return;}
 
     const concludedJury: Jury = { ...jury, verdict, status: 'concluded' };
     await storage.saveJury(concludedJury);
 
     // Persist verdict and update appeal status
     const appeal = await storage.getAppeal(verdict.appealId);
-    if (appeal) await storage.saveAppeal({ ...appeal, status: 'decided' });
+    if (appeal) {await storage.saveAppeal({ ...appeal, status: 'decided' });}
     await storage.saveVerdict({ ...verdict, enforced: true });
 
     if (network) {
@@ -67,7 +67,7 @@ export function createJuryService(
   return {
     async selectJurors(appealId, councilId, numJurors = COURT_CONFIG.jury.DEFAULT_JUROR_COUNT) {
       const council = await councils.getCouncil(councilId);
-      if (!council) throw new Error(`Council ${councilId} not found`);
+      if (!council) {throw new Error(`Council ${councilId} not found`);}
 
       const jurorCount = Math.max(
         COURT_CONFIG.jury.MIN_JURORS,
@@ -127,11 +127,11 @@ export function createJuryService(
       const jurorId = await identity.getPeerId();
 
       const jury = await storage.getJury(juryId);
-      if (!jury) throw new Error(`Jury ${juryId} not found`);
-      if (jury.status !== 'active') throw new Error('Jury is not accepting votes');
-      if (jury.expiresAt < Date.now()) throw new Error('Jury has expired');
-      if (!jury.jurors.includes(jurorId)) throw new Error('Not a member of this jury');
-      if (jury.votes.some((v) => v.jurorId === jurorId)) throw new Error('Already voted');
+      if (!jury) {throw new Error(`Jury ${juryId} not found`);}
+      if (jury.status !== 'active') {throw new Error('Jury is not accepting votes');}
+      if (jury.expiresAt < Date.now()) {throw new Error('Jury has expired');}
+      if (!jury.jurors.includes(jurorId)) {throw new Error('Not a member of this jury');}
+      if (jury.votes.some((v) => v.jurorId === jurorId)) {throw new Error('Already voted');}
 
       const reputationWeight = await reputation.getScore(jurorId);
 
@@ -195,7 +195,7 @@ export function createJuryService(
 
     async isEligible(peerId, councilId) {
       const council = await councils.getCouncil(councilId);
-      if (!council || !council.members.includes(peerId)) return false;
+      if (!council || !council.members.includes(peerId)) {return false;}
       return councils.isEligible(peerId, council.reputationThreshold);
     },
 

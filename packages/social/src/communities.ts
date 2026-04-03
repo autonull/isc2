@@ -157,7 +157,7 @@ export function createCommunityService(
 
     async leaveCommunity(channelID: string): Promise<void> {
       const community = await storage.getCommunity(channelID);
-      if (!community) return;
+      if (!community) {return;}
 
       const peerID = await identity.getPeerId();
       community.members = community.members.filter((m) => m !== peerID);
@@ -202,7 +202,7 @@ export function createCommunityService(
         throw new Error('Only co-editors can update community');
       }
 
-      if (updates.name) community.name = updates.name;
+      if (updates.name) {community.name = updates.name;}
       if (updates.description) {
         if (updates.description.length < COMMUNITY_CONFIG.descriptionMinLength) {
           throw new Error(`Description must be at least ${COMMUNITY_CONFIG.descriptionMinLength} characters`);
@@ -232,7 +232,7 @@ export function createCommunityService(
 
     async computeSemanticNeighborhood(channelID: string, radius: number = 0.7): Promise<Community[]> {
       const community = await storage.getCommunity(channelID);
-      if (!community) return [];
+      if (!community) {return [];}
 
       const all = await storage.getCommunities();
       return all

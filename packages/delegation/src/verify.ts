@@ -68,7 +68,7 @@ export async function verifyDelegationResponse(
 
   if (response.service === 'embed') {
     const result = decodeJsonResponse<EmbedResult>(response.payload);
-    if (!result) return false;
+    if (!result) {return false;}
     if (result.model !== expectedModel) {
       console.warn('Model mismatch:', result.model, '!=', expectedModel);
       return false;

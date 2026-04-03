@@ -41,7 +41,7 @@ export class HealthSelector {
           }
         }
       } catch {
-        if (cached) results.set(peerID, cached.health);
+        if (cached) {results.set(peerID, cached.health);}
       }
     }));
 

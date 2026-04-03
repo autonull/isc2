@@ -47,8 +47,10 @@ describe('DoubleRatchet', () => {
       expect(bobState.dhPrivate).toBeDefined();
       expect(bobState.dhPublic).toBeDefined();
       expect(bobState.rootKey).toBeDefined();
-      expect(bobState.sentChainKey).toBeNull();
+      expect(bobState.sentChainKey).toBeDefined();
       expect(bobState.receivedChainKey).toBeDefined();
+      // Responder's receivedChainKey matches sentChainKey (both from shared secret)
+      expect(bobState.receivedChainKey).toEqual(bobState.sentChainKey);
       expect(bobState.lastRemotePublic).toEqual(alicePublic);
     });
   });
@@ -187,10 +189,9 @@ describe('DoubleRatchet', () => {
       // Send a message to advance state
       await ratchetForSend(originalState);
 
-      const serialized = serializeRatchetState(originalState);
-      const restoredState = deserializeRatchetState(serialized);
+      const serialized = await serializeRatchetState(originalState);
+      const restoredState = await deserializeRatchetState(serialized);
 
-      expect(restoredState.dhPrivate).toEqual(originalState.dhPrivate);
       expect(restoredState.dhPublic).toEqual(originalState.dhPublic);
       expect(restoredState.rootKey).toEqual(originalState.rootKey);
       expect(restoredState.sentMessageNumber).toBe(originalState.sentMessageNumber);

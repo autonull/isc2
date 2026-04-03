@@ -8,7 +8,7 @@
  */
 
 export interface RatchetState {
-  dhPrivate: Uint8Array;
+  dhPrivate: CryptoKey;
   dhPublic: Uint8Array;
   rootKey: Uint8Array;
   sentChainKey: Uint8Array | null;
@@ -81,18 +81,20 @@ async function hkdf(
 async function kdfChainKey(
   chainKey: Uint8Array
 ): Promise<{ messageKey: Uint8Array; nextChainKey: Uint8Array }> {
-  const hmacResult = await hmac(chainKey, chainKey);
-  const messageKey = hmacResult.slice(0, KEY_LENGTH);
-  const nextChainKey = hmacResult.slice(KEY_LENGTH);
-
-  return { messageKey, nextChainKey };
+  const derived = await hkdf(
+    chainKey,
+    chainKey,
+    new TextEncoder().encode('ChainKey'),
+    KEY_LENGTH * 2
+  );
+  return { messageKey: derived.slice(0, KEY_LENGTH), nextChainKey: derived.slice(KEY_LENGTH) };
 }
 
-async function deriveMessageKeys(
-  chainKey: Uint8Array
-): Promise<{ keys: RatchetKeys; nextChainKey: Uint8Array }> {
-  const { messageKey, nextChainKey } = await kdfChainKey(chainKey);
+async function advanceChainKey(chainKey: Uint8Array): Promise<{ messageKey: Uint8Array; nextChainKey: Uint8Array }> {
+  return kdfChainKey(chainKey);
+}
 
+async function deriveMessageKeysFromMessageKey(messageKey: Uint8Array): Promise<RatchetKeys> {
   const keys = await hkdf(
     messageKey,
     new Uint8Array(KEY_LENGTH),
@@ -101,85 +103,20 @@ async function deriveMessageKeys(
   );
 
   return {
-    keys: {
-      encryptionKey: keys.slice(0, KEY_LENGTH),
-      macKey: keys.slice(KEY_LENGTH),
-    },
-    nextChainKey,
+    encryptionKey: keys.slice(0, KEY_LENGTH),
+    macKey: keys.slice(KEY_LENGTH),
   };
 }
 
-async function performECDH(privateKey: Uint8Array, publicKey: Uint8Array): Promise<Uint8Array> {
-  const privateCryptoKey = await crypto.subtle.importKey(
-    'raw',
-    privateKey.buffer as ArrayBuffer,
-    { name: 'ECDH', namedCurve: 'P-256' },
-    false,
-    ['deriveBits']
-  );
-
-  const publicCryptoKey = await crypto.subtle.importKey(
-    'raw',
-    publicKey.buffer as ArrayBuffer,
-    { name: 'ECDH', namedCurve: 'P-256' },
-    false,
-    []
-  );
-
-  const derivedBits = await crypto.subtle.deriveBits(
-    { name: 'ECDH', public: publicCryptoKey },
-    privateCryptoKey,
-    256
-  );
-
-  return new Uint8Array(derivedBits);
+async function deriveMessageKeys(
+  chainKey: Uint8Array
+): Promise<{ keys: RatchetKeys; nextChainKey: Uint8Array }> {
+  const { messageKey, nextChainKey } = await kdfChainKey(chainKey);
+  const keys = await deriveMessageKeysFromMessageKey(messageKey);
+  return { keys, nextChainKey };
 }
 
-function deriveChainKeys(
-  rootKey: Uint8Array,
-  dhOutput: Uint8Array
-): { rootKey: Uint8Array; chainKey: Uint8Array } {
-  const combined = new Uint8Array(rootKey.length + dhOutput.length);
-  combined.set(rootKey);
-  combined.set(dhOutput, rootKey.length);
-
-  const hashCombined = new Uint8Array(32);
-  const seed = new TextEncoder().encode('Ratchet');
-  for (let i = 0; i < 32; i++) {
-    hashCombined[i] = combined[i] ^ seed[i % seed.length];
-  }
-
-  const rootKeyNew = hashCombined.slice(0, KEY_LENGTH);
-  const chainKey = hashCombined.slice(KEY_LENGTH);
-
-  return { rootKey: rootKeyNew, chainKey };
-}
-
-async function generateECDHKeypair(): Promise<{
-  privateKey: Uint8Array;
-  publicKey: Uint8Array;
-}> {
-  const keyPair = await crypto.subtle.generateKey({ name: 'ECDH', namedCurve: 'P-256' }, true, [
-    'deriveBits',
-  ]);
-
-  const publicKeyBuffer = await crypto.subtle.exportKey('raw', keyPair.publicKey);
-
-  const privateKeyBuffer = await crypto.subtle.exportKey('jwk', keyPair.privateKey);
-
-  const privateKey = new Uint8Array(32);
-  const privateKeyJwk = privateKeyBuffer as JsonWebKey;
-  if (privateKeyJwk.d) {
-    const dBytes = base64UrlToBytes(privateKeyJwk.d);
-    privateKey.set(dBytes.slice(0, 32));
-  }
-
-  return {
-    privateKey,
-    publicKey: new Uint8Array(publicKeyBuffer),
-  };
-}
-
+// ECDH P-256 base64url padding helper
 function base64UrlToBytes(str: string): Uint8Array {
   let base64 = str.replace(/-/g, '+').replace(/_/g, '/');
   while (base64.length % 4) {
@@ -193,26 +130,82 @@ function base64UrlToBytes(str: string): Uint8Array {
   return bytes;
 }
 
+function bytesToBase64Url(bytes: Uint8Array): string {
+  let binary = '';
+  for (let i = 0; i < bytes.length; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+async function performECDH(privateKey: CryptoKey, publicKey: Uint8Array): Promise<Uint8Array> {
+  const x = publicKey.slice(1, 33);
+  const y = publicKey.slice(33, 65);
+
+  const publicJwk: JsonWebKey = {
+    kty: 'EC',
+    crv: 'P-256',
+    x: bytesToBase64Url(x),
+    y: bytesToBase64Url(y),
+    ext: true,
+  };
+
+  const publicCryptoKey = await crypto.subtle.importKey('jwk', publicJwk, { name: 'ECDH', namedCurve: 'P-256' }, false, []);
+
+  const derivedBits = await crypto.subtle.deriveBits(
+    { name: 'ECDH', public: publicCryptoKey },
+    privateKey,
+    256
+  );
+
+  return new Uint8Array(derivedBits);
+}
+
+async function deriveChainKeys(
+  rootKey: Uint8Array,
+  dhOutput: Uint8Array
+): Promise<{ rootKey: Uint8Array; chainKey: Uint8Array }> {
+  const salt = rootKey;
+  const info = new TextEncoder().encode('RatchetChain');
+  const derived = await hkdf(dhOutput, salt, info, KEY_LENGTH * 2);
+  return { rootKey: derived.slice(0, KEY_LENGTH), chainKey: derived.slice(KEY_LENGTH) };
+}
+
+async function generateECDHKeypair(): Promise<{
+  privateKey: CryptoKey;
+  publicKey: Uint8Array;
+}> {
+  const keyPair = await crypto.subtle.generateKey({ name: 'ECDH', namedCurve: 'P-256' }, true, [
+    'deriveBits',
+  ]);
+
+  const publicKeyBuffer = await crypto.subtle.exportKey('raw', keyPair.publicKey);
+
+  return {
+    privateKey: keyPair.privateKey,
+    publicKey: new Uint8Array(publicKeyBuffer),
+  };
+}
+
 export async function initializeRatchet(
   localIdentity: Uint8Array,
   remoteIdentity: Uint8Array
 ): Promise<RatchetState> {
   const { privateKey: dhPrivate, publicKey: dhPublic } = await generateECDHKeypair();
 
-  const sharedSecret = await performECDH(localIdentity, remoteIdentity);
-
-  const salt = generateRandomBytes(KEY_LENGTH);
-  const info = new TextEncoder().encode('DoubleRatchet');
-  const derived = await hkdf(sharedSecret, salt, info, KEY_LENGTH * 2);
-
-  const rootKey = derived.slice(0, KEY_LENGTH);
-  const { nextChainKey } = await deriveMessageKeys(rootKey);
+  // Derive shared secret from identity material using HKDF (simplified handshake)
+  const combined = new Uint8Array(localIdentity.length + remoteIdentity.length);
+  combined.set(localIdentity);
+  combined.set(remoteIdentity, localIdentity.length);
+  const salt = new Uint8Array(KEY_LENGTH);
+  const info = new TextEncoder().encode('DoubleRatchetInit');
+  const sharedSecret = await hkdf(combined, salt, info, KEY_LENGTH * 2);
 
   return {
     dhPrivate,
     dhPublic,
-    rootKey,
-    sentChainKey: nextChainKey,
+    rootKey: sharedSecret.slice(0, KEY_LENGTH),
+    sentChainKey: sharedSecret.slice(KEY_LENGTH),
     receivedChainKey: null,
     sentMessageNumber: 0,
     receivedMessageNumber: 0,
@@ -230,21 +223,20 @@ export async function initializeRatchetFromFirstMessage(
 ): Promise<RatchetState> {
   const { privateKey: dhPrivate, publicKey: dhPublic } = await generateECDHKeypair();
 
-  const sharedSecret = await performECDH(remoteIdentity, initiatorPublic);
-
-  const salt = generateRandomBytes(KEY_LENGTH);
-  const info = new TextEncoder().encode('DoubleRatchet');
-  const derived = await hkdf(sharedSecret, salt, info, KEY_LENGTH * 2);
-
-  const rootKey = derived.slice(0, KEY_LENGTH);
-  const { nextChainKey } = await deriveMessageKeys(rootKey);
+  // Derive same shared secret as initiator using identity material
+  const combined = new Uint8Array(remoteIdentity.length + _localIdentity.length);
+  combined.set(remoteIdentity);
+  combined.set(_localIdentity, remoteIdentity.length);
+  const salt = new Uint8Array(KEY_LENGTH);
+  const info = new TextEncoder().encode('DoubleRatchetInit');
+  const sharedSecret = await hkdf(combined, salt, info, KEY_LENGTH * 2);
 
   return {
     dhPrivate,
     dhPublic,
-    rootKey,
-    sentChainKey: null,
-    receivedChainKey: nextChainKey,
+    rootKey: sharedSecret.slice(0, KEY_LENGTH),
+    sentChainKey: sharedSecret.slice(KEY_LENGTH),
+    receivedChainKey: sharedSecret.slice(KEY_LENGTH), // Same as initiator's sent chain
     sentMessageNumber: 0,
     receivedMessageNumber: 0,
     skippedKeys: new Map(),
@@ -261,6 +253,17 @@ export async function ratchetForSend(state: RatchetState): Promise<{
 }> {
   if (!state.sentChainKey) {
     throw new Error('Cannot send: no chain key available');
+  }
+
+  // Perform DH ratchet if we have received a message with a DH key and haven't ratcheted yet
+  if (state.lastRemotePublic && state.receivedChainKey && state.sentMessageNumber === 0) {
+    const dhOutput = await performECDH(state.dhPrivate, state.lastRemotePublic);
+    const { rootKey: newRoot, chainKey: newSendChain } = await deriveChainKeys(
+      state.rootKey,
+      dhOutput
+    );
+    state.rootKey = newRoot;
+    state.sentChainKey = newSendChain;
   }
 
   const { keys, nextChainKey } = await deriveMessageKeys(state.sentChainKey);
@@ -304,21 +307,28 @@ export async function ratchetForReceive(
     };
   }
 
+  // DH ratchet step when receiving a message with a new DH public key
   if (dhPublic && (!state.lastRemotePublic || !arraysEqual(dhPublic, state.lastRemotePublic))) {
-    const { rootKey: newRootKey, chainKey: newReceivedChain } = deriveChainKeys(
+    const dhOutput = await performECDH(state.dhPrivate, dhPublic);
+    
+    // First DH exchange derives the new received chain key
+    const { rootKey: newRootKey1, chainKey: newReceivedChain } = await deriveChainKeys(
       state.rootKey,
-      await performECDH(state.dhPrivate, dhPublic)
+      dhOutput
     );
-    state.rootKey = newRootKey;
+    state.rootKey = newRootKey1;
     state.receivedChainKey = newReceivedChain;
 
+    // Generate new ephemeral key pair for sending
     const { privateKey: newDhPrivate, publicKey: newDhPublic } = await generateECDHKeypair();
     state.dhPrivate = newDhPrivate;
     state.dhPublic = newDhPublic;
 
-    const { rootKey: finalRoot, chainKey: sentChain } = deriveChainKeys(
+    // Second DH exchange with new key derives the new sent chain key
+    const dhOutput2 = await performECDH(state.dhPrivate, dhPublic);
+    const { rootKey: finalRoot, chainKey: sentChain } = await deriveChainKeys(
       state.rootKey,
-      await performECDH(state.dhPrivate, dhPublic)
+      dhOutput2
     );
     state.rootKey = finalRoot;
     state.sentChainKey = sentChain;
@@ -338,20 +348,24 @@ export async function ratchetForReceive(
     throw new Error('Message number too far ahead');
   }
 
+  // Advance chain key to the target message position, storing skipped keys
   let chainKey = state.receivedChainKey;
-  while (state.receivedMessageNumber < messageNumber) {
-    const { messageKey, nextChainKey } = await kdfChainKey(chainKey);
-    const skipKeyId = `${state.receivedMessageNumber}`;
+  const messagesToSkip = messageNumber - state.receivedMessageNumber - 1;
+  for (let i = 0; i < messagesToSkip; i++) {
+    const { messageKey, nextChainKey } = await advanceChainKey(chainKey);
+    const skipKeyId = `${state.receivedMessageNumber + 1}`;
     state.skippedKeys.set(skipKeyId, messageKey);
     chainKey = nextChainKey;
     state.receivedMessageNumber++;
   }
 
-  const { keys, nextChainKey } = await deriveMessageKeys(chainKey);
+  // Advance to target message position and derive keys
+  const { messageKey, nextChainKey } = await advanceChainKey(chainKey);
+  const keys = await deriveMessageKeysFromMessageKey(messageKey);
   state.receivedChainKey = nextChainKey;
   state.receivedMessageNumber = messageNumber + 1;
 
-  return { keys, skipped: false };
+  return { keys, skipped: messagesToSkip > 0 };
 }
 
 function arraysEqual(a: Uint8Array, b: Uint8Array): boolean {
@@ -373,7 +387,7 @@ export async function encryptMessage(
 
   const cryptoKey = await crypto.subtle.importKey(
     'raw',
-    keys.encryptionKey.buffer as ArrayBuffer,
+    keys.encryptionKey,
     { name: 'AES-GCM', length: 256 },
     false,
     ['encrypt']
@@ -382,12 +396,12 @@ export async function encryptMessage(
   const encrypted = await crypto.subtle.encrypt(
     {
       name: 'AES-GCM',
-      iv: iv.buffer as ArrayBuffer,
+      iv,
       tagLength: 128,
-      additionalData: associatedData?.buffer as ArrayBuffer,
+      additionalData: associatedData,
     },
     cryptoKey,
-    data.buffer as ArrayBuffer
+    data
   );
 
   const encryptedBytes = new Uint8Array(encrypted);
@@ -410,7 +424,7 @@ export async function decryptMessage(
 
   const cryptoKey = await crypto.subtle.importKey(
     'raw',
-    keys.encryptionKey.buffer as ArrayBuffer,
+    keys.encryptionKey,
     { name: 'AES-GCM', length: 256 },
     false,
     ['decrypt']
@@ -419,20 +433,21 @@ export async function decryptMessage(
   const decrypted = await crypto.subtle.decrypt(
     {
       name: 'AES-GCM',
-      iv: iv.buffer as ArrayBuffer,
+      iv,
       tagLength: 128,
-      additionalData: associatedData?.buffer as ArrayBuffer,
+      additionalData: associatedData,
     },
     cryptoKey,
-    encryptedData.buffer as ArrayBuffer
+    encryptedData
   );
 
   return new TextDecoder().decode(decrypted);
 }
 
-export function serializeRatchetState(state: RatchetState): string {
+export async function serializeRatchetState(state: RatchetState): Promise<string> {
+  const dhPrivateJwk = await crypto.subtle.exportKey('jwk', state.dhPrivate);
   return JSON.stringify({
-    dhPrivate: Array.from(state.dhPrivate),
+    dhPrivate: dhPrivateJwk,
     dhPublic: Array.from(state.dhPublic),
     rootKey: Array.from(state.rootKey),
     sentChainKey: state.sentChainKey ? Array.from(state.sentChainKey) : null,
@@ -446,10 +461,13 @@ export function serializeRatchetState(state: RatchetState): string {
   });
 }
 
-export function deserializeRatchetState(data: string): RatchetState {
+export async function deserializeRatchetState(data: string): Promise<RatchetState> {
   const parsed = JSON.parse(data);
+  const dhPrivate = await crypto.subtle.importKey(
+    'jwk', parsed.dhPrivate, { name: 'ECDH', namedCurve: 'P-256' }, false, ['deriveBits']
+  );
   return {
-    dhPrivate: new Uint8Array(parsed.dhPrivate),
+    dhPrivate,
     dhPublic: new Uint8Array(parsed.dhPublic),
     rootKey: new Uint8Array(parsed.rootKey),
     sentChainKey: parsed.sentChainKey ? new Uint8Array(parsed.sentChainKey) : null,

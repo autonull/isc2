@@ -1,6 +1,6 @@
 import type { DelegateRequest, DelegateResponse } from '@isc/protocol/messages';
-import { SupernodeDiscovery } from './discovery.js';
-import { HealthSelector } from './selection.js';
+import type { SupernodeDiscovery } from './discovery.js';
+import type { HealthSelector } from './selection.js';
 import { rankSupernodes, type ScoredSupernode, type SupernodeStats } from './scoring.js';
 import { createDelegationRequest } from './request.js';
 import { verifyDelegationResponse } from './verify.js';
@@ -119,7 +119,7 @@ export class DelegationClient {
 
     for (const supernode of supernodes) {
       const response = await this.trySupernode(supernode, request);
-      if (response) return response;
+      if (response) {return response;}
     }
 
     this.stats.localFallbacks++;

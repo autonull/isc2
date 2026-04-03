@@ -89,7 +89,7 @@ export function createPostService(
 
     async like(postId: string): Promise<void> {
       const post = await this.get(postId);
-      if (!post) throw new Error(`Post not found: ${postId}`);
+      if (!post) {throw new Error(`Post not found: ${postId}`);}
 
       const peerId = await identity.getPeerId();
       const likes = post.likes ?? [];
@@ -103,7 +103,7 @@ export function createPostService(
 
     async reply(postId: string, content: string): Promise<SignedPost> {
       const parent = await this.get(postId);
-      if (!parent) throw new Error(`Post not found: ${postId}`);
+      if (!parent) {throw new Error(`Post not found: ${postId}`);}
 
       const reply = await this.create({
         content,
@@ -158,7 +158,7 @@ export function createPostService(
  * Calculate cosine similarity between two vectors
  */
 function cosineSimilarity(a: number[], b: number[]): number {
-  if (a.length === 0 || b.length === 0) return 0;
+  if (a.length === 0 || b.length === 0) {return 0;}
 
   let dotProduct = 0;
   let normA = 0;
@@ -173,7 +173,7 @@ function cosineSimilarity(a: number[], b: number[]): number {
   normA = Math.sqrt(normA);
   normB = Math.sqrt(normB);
 
-  if (normA === 0 || normB === 0) return 0;
+  if (normA === 0 || normB === 0) {return 0;}
   return dotProduct / (normA * normB);
 }
 
@@ -210,7 +210,7 @@ export async function verifyPost(
   const payload = new TextEncoder().encode(JSON.stringify(postWithoutSig));
 
   const publicKey = await identity.getPublicKey();
-  if (!publicKey) return false;
+  if (!publicKey) {return false;}
 
   return identity.verify(payload, signature, publicKey);
 }

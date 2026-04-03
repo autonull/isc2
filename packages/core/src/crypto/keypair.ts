@@ -45,14 +45,14 @@ export async function importKeypair(
   const [pubKey, privKey] = await Promise.all([
     globalThis.crypto.subtle.importKey(
       'raw',
-      publicKey.buffer as ArrayBuffer,
+      publicKey,
       { name: 'Ed25519', namedCurve: 'Ed25519' },
       true,
       ['verify']
     ),
     globalThis.crypto.subtle.importKey(
       'pkcs8',
-      privateKey.buffer as ArrayBuffer,
+      privateKey,
       { name: 'Ed25519', namedCurve: 'Ed25519' },
       true,
       ['sign']

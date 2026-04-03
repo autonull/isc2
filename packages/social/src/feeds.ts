@@ -38,7 +38,7 @@ export function createFeedService(postService: PostService): FeedService {
     },
 
     async getFollowing(followedIds: string[], limit = 50): Promise<ScoredPost[]> {
-      if (followedIds.length === 0) return [];
+      if (followedIds.length === 0) {return [];}
       const followedSet = new Set(followedIds);
       const allPosts = await postService.getAll();
       return allPosts
@@ -80,7 +80,7 @@ export function createFeedService(postService: PostService): FeedService {
     },
 
     async getSimilarPosts(post: SignedPost, limit = 10): Promise<ScoredPost[]> {
-      if (!post.embedding) return [];
+      if (!post.embedding) {return [];}
 
       const allPosts = await postService.getAll();
       return allPosts

@@ -36,7 +36,7 @@ export function createSessionService(storage: ModerationStorage): SessionService
 
     async addAppeal(sessionId, appealId) {
       const session = await storage.getSession(sessionId);
-      if (!session || session.activeAppeals.includes(appealId)) return;
+      if (!session || session.activeAppeals.includes(appealId)) {return;}
       await storage.saveSession({
         ...session,
         activeAppeals: [...session.activeAppeals, appealId],
@@ -45,7 +45,7 @@ export function createSessionService(storage: ModerationStorage): SessionService
 
     async completeAppeal(sessionId, appealId) {
       const session = await storage.getSession(sessionId);
-      if (!session) return;
+      if (!session) {return;}
       await storage.saveSession({
         ...session,
         activeAppeals: session.activeAppeals.filter((id) => id !== appealId),
@@ -55,7 +55,7 @@ export function createSessionService(storage: ModerationStorage): SessionService
 
     async end(sessionId) {
       const session = await storage.getSession(sessionId);
-      if (!session) return;
+      if (!session) {return;}
       await storage.saveSession({ ...session, endedAt: Date.now() });
     },
 

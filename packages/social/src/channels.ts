@@ -61,7 +61,7 @@ export function createChannelService(
     async update(id: string, updates: Partial<Channel>): Promise<void> {
       const channels = await storage.getChannels();
       const index = channels.findIndex((c: Channel) => c.id === id);
-      if (index === -1) throw new Error(`Channel not found: ${id}`);
+      if (index === -1) {throw new Error(`Channel not found: ${id}`);}
 
       channels[index] = { ...channels[index], ...updates };
       await storage.saveChannel(channels[index]);
