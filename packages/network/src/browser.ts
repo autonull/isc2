@@ -33,6 +33,7 @@ export interface NetworkServiceConfig {
   similarityThreshold: number;
   announceTTL: number;
   maxCachedMatches: number;
+  storage?: StorageAdapter;
 }
 
 const DEFAULT_CONFIG: NetworkServiceConfig = {
@@ -122,7 +123,7 @@ export class BrowserNetworkService {
 
   constructor(config: Partial<NetworkServiceConfig> = {}) {
     this.config = { ...DEFAULT_CONFIG, ...config };
-    this.storage = createStorage();
+    this.storage = config.storage ?? createStorage();
   }
 
   private shouldPersist(): boolean {
