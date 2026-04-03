@@ -120,6 +120,9 @@ importers:
       '@isc/core':
         specifier: workspace:*
         version: link:../../packages/core
+      '@isc/delegation':
+        specifier: workspace:*
+        version: link:../../packages/delegation
       '@isc/forms':
         specifier: workspace:*
         version: link:../../packages/forms

@@ -6,9 +6,9 @@
  */
 
 import { getState, actions } from '../state.js';
-import { logger } from '../logger.js';
+import { logger } from '../utils/logger.ts';
 import { escapeHtml } from './utils/dom.js';
-import { toasts } from '../utils/toast.js';
+import { toast as toasts } from '../utils/toast.ts';
 
 class Router {
   #screens;

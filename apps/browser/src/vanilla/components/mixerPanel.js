@@ -5,9 +5,9 @@
  * OOP class with self-contained state and scoped event handling.
  */
 
-import { channelSettingsService, getSpecificityLabel } from '../../services/channelSettings.js';
+import { channelSettingsService, getSpecificityLabel } from '../../services/index.js';
 import { channelService, networkService } from '../../services/index.js';
-import { toasts } from '../../utils/toast.js';
+import { toast as toasts } from '../../utils/toast.ts';
 import { escapeHtml, isMobile } from '../utils/dom.js';
 import { getMultilingualService } from '../../services/multilingual.ts';
 import { getState, actions } from '../../state.js';

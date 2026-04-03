@@ -6,8 +6,8 @@
  */
 
 import { networkService } from '../../services/network.ts';
-import { toasts } from '../../utils/toast.js';
-import { escapeHtml } from '../../utils/dom.js';
+import { toast as toasts } from '../../utils/toast.ts';
+import { escapeHtml } from '../utils/dom.js';
 
 const PEER_COLORS = {
   self: '#3b82f6',

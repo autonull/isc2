@@ -6,8 +6,8 @@
 
 import { subscribe, getState, actions } from '../state.js';
 import { getColdStartService } from '../services/coldStart.ts';
-import { toasts } from '../utils/toast.js';
-import { logger } from '../logger.js';
+import { toast as toasts } from '../utils/toast.ts';
+import { logger } from '../utils/logger.ts';
 import { escapeHtml } from './utils/dom.js';
 
 import { buildLayout, setupLoggerInterceptor } from './layout.js';

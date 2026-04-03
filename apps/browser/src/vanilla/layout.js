@@ -8,7 +8,7 @@ import { el, isMobile } from './utils/dom.js';
 import { createSidebar } from './components/sidebar.js';
 import { createChannelDrawer } from './components/channelDrawer.js';
 import { modals } from './components/modal.js';
-import { toasts } from '../utils/toast.js';
+import { toast as toasts } from '../utils/toast.ts';
 
 const TABS = [
   { id: 'now', icon: '⌂', label: 'Now', route: '/now' },

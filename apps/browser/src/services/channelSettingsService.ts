@@ -258,3 +258,11 @@ export function cosineThresholdToSpecificity(cosine: number): number {
   // Inverse mapping: 0.3 -> 0, 0.9 -> 100
   return Math.round(((cosine - 0.3) / 0.6) * 100);
 }
+
+export function getSpecificityLabel(specificity: number): string {
+  if (specificity < 0.2) return 'Very Broad';
+  if (specificity < 0.4) return 'Broad';
+  if (specificity < 0.6) return 'Moderate';
+  if (specificity < 0.8) return 'Specific';
+  return 'Very Specific';
+}

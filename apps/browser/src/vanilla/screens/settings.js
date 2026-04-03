@@ -9,8 +9,8 @@ import {
   moderationService,
 } from '../../services/index.js';
 import { networkService } from '../../services/network.ts';
-import { escapeHtml } from '../../utils/dom.js';
-import { toasts } from '../../utils/toast.js';
+import { escapeHtml } from '../utils/dom.js';
+import { toast as toasts } from '../../utils/toast.ts';
 import { modals } from '../components/modal.js';
 import { showEditModal } from '../components/mixerPanel.js';
 import { getBridgeMomentCandidates, getTopSimilarPeers } from '../../services/peerProximity.ts';

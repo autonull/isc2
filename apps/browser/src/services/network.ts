@@ -6,10 +6,10 @@
  */
 
 import { BrowserNetworkService, type PeerMatch as NetworkPeerMatch } from '@isc/network';
-import { loggers } from '../logger.js';
+import { loggers } from '../utils/logger.ts';
 import { actions } from '../state.js';
-import { NetworkError, ChannelError, MessageError, IdentityError } from '../errors.js';
-import { STATUS } from '../constants.js';
+import { AppError as NetworkError, AppError as ChannelError, AppError as MessageError, AppError as IdentityError } from '@isc/core';
+export const STATUS = { CONNECTED: 'connected', DISCONNECTED: 'disconnected', ERROR: 'error', CONNECTING: 'connecting' };
 import { getBackgroundSyncManager, type BackgroundSyncManager } from './backgroundSync.js';
 import { getMessageQueue, type MessageQueueService } from './messageQueue.js';
 import { updatePeerProximity } from './peerProximity.js';

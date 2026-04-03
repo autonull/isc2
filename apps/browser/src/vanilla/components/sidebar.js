@@ -5,7 +5,7 @@
  */
 
 import { getState, actions } from '../../state.js';
-import { escapeHtml } from '../../utils/dom.js';
+import { escapeHtml } from '../utils/dom.js';
 
 const STATUS_MAP = {
   connected: { class: 'online', label: 'Online' },

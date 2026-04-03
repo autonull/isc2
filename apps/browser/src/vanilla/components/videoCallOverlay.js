@@ -5,7 +5,7 @@
  * OOP class with self-contained state and scoped event handling.
  */
 
-import { escapeHtml } from '../../utils/dom.js';
+import { escapeHtml } from '../utils/dom.js';
 import { networkService } from '../../services/network.ts';
 
 const VIDEO_SIGNAL_TYPE = 'video-signal';

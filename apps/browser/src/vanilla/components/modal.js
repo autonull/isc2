@@ -4,7 +4,7 @@
  * Simple, accessible modal system with promise-based confirm dialogs.
  */
 
-import { escapeHtml } from '../../utils/dom.js';
+import { escapeHtml } from '../utils/dom.js';
 import { moderationService } from '../../services/index.js';
 
 let activeModal = null;

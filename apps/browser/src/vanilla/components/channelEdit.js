@@ -14,8 +14,8 @@
 
 import { channelService } from '../../services/index.js';
 import { networkService } from '../../services/network.ts';
-import { escapeHtml } from '../../utils/dom.js';
-import { toasts } from '../../utils/toast.js';
+import { escapeHtml } from '../utils/dom.js';
+import { toast as toasts } from '../../utils/toast.ts';
 import { modals } from './modal.js';
 import { getState, actions } from '../../state.js';
 

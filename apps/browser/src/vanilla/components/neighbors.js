@@ -3,9 +3,9 @@
  */
 
 import { discoveryService } from '../../services/index.js';
-import { channelSettingsService } from '../../services/channelSettings.js';
+import { channelSettingsService } from '../../services/index.js';
 import { escapeHtml } from '../utils/dom.js';
-import { getProximityTier, formatProximity } from '../../utils/proximity.js';
+import { getProximityTier, formatProximity } from '../../utils/proximity.ts';
 
 const DEFAULT_PARAMS = {
   channelId: null,

@@ -7,10 +7,10 @@
 
 import { chatService } from '../../services/index.js';
 import { networkService } from '../../services/network.ts';
-import { toasts } from '../../utils/toast.js';
+import { toast as toasts } from '../../utils/toast.ts';
 import { modals } from '../components/modal.js';
-import { escapeHtml } from '../../utils/dom.js';
-import { formatTimestamp } from '../../utils/time.js';
+import { escapeHtml } from '../utils/dom.js';
+import { formatTimestamp } from '../../utils/time.ts';
 import { renderEmpty } from '../utils/screen.js';
 
 const TYPING_TTL = 3000;

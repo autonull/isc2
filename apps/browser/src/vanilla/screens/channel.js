@@ -5,9 +5,9 @@
 import { feedService, postService, channelService } from '../../services/index.js';
 import { networkService } from '../../services/network.ts';
 import { getState, actions, subscribe } from '../../state.js';
-import { channelSettingsService } from '../../services/channelSettings.js';
-import { toasts } from '../../utils/toast.js';
-import { formatTime } from '../../utils/time.js';
+import { channelSettingsService } from '../../services/index.js';
+import { toast as toasts } from '../../utils/toast.ts';
+import { formatTime } from '../../utils/time.ts';
 import { escapeHtml } from '../utils/dom.js';
 import { renderEmpty, bindDelegate, autoGrow, setupCtrlEnterSubmit } from '../utils/screen.js';
 import { NeighborsComponent } from '../components/neighbors.js';

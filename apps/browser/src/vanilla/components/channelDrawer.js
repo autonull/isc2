@@ -6,7 +6,7 @@
  */
 
 import { getState, actions } from '../../state.js';
-import { escapeHtml } from '../../utils/dom.js';
+import { escapeHtml } from '../utils/dom.js';
 
 class ChannelDrawerComponent {
   #onNavigate;

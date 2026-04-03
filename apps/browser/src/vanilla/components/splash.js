@@ -3,7 +3,7 @@
  * Shown during app initialization with progress tracking
  */
 
-import { escapeHtml } from '../../utils/dom.js';
+import { escapeHtml } from '../utils/dom.js';
 
 export function createSplash(container) {
   const el = document.createElement('div');
