@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * Court system configuration constants
  */

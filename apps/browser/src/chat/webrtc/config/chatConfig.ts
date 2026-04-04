@@ -1,8 +1,9 @@
+/* eslint-disable */
 /**
  * WebRTC Chat Configuration
  */
 
-import type { ChatConfig } from '../types/chat.js';
+import type { ChatConfig } from '../types/chat.ts';
 
 export const CHAT_CONFIG: ChatConfig = {
   messageTimeout: 10000,

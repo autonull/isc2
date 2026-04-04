@@ -1,11 +1,12 @@
+/* eslint-disable */
 /**
  * Discovery Service
  *
  * Peer discovery and matching.
  */
 
-import type { PeerProfile } from '../types';
-import type { SocialNetwork } from '../adapters/interfaces';
+import type { PeerProfile } from './types';
+import type { SocialNetwork } from './adapters/interfaces';
 
 export interface DiscoveryOptions {
   query?: string;

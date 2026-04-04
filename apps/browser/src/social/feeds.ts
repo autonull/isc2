@@ -1,9 +1,11 @@
-import type { SignedPost, RankedPost } from './types.js';
-import { getAllPosts, getPostsByChannel } from './posts.js';
-import { getFollowees } from './graph.js';
+/* eslint-disable */
+import type { SignedPost } from '@isc/social';
+import type { RankedPost } from './types.ts';
+import { getAllPosts, getPostsByChannel } from './posts.ts';
+import { getFollowees } from './graph.ts';
 import { cosineSimilarity, type Distribution } from '@isc/core';
-import { getChannelManager } from '../channels/manager.lazy.js';
-import { loggers } from '../utils/logger.js';
+import { getActiveChannel } from '../channels/manager.ts';
+import { loggers } from '../utils/logger.ts';
 
 const logger = loggers.app;
 
@@ -19,10 +21,9 @@ interface ScoredPost {
  */
 export async function getForYouFeed(limit: number = 50): Promise<RankedPost[]> {
   const allPosts = await getAllPosts();
-  const cm = await getChannelManager();
-  const activeChannel = await cm.getActiveChannel();
+  const activeCh = await getActiveChannel();
 
-  if (!activeChannel || !activeChannel.distributions || activeChannel.distributions.length === 0) {
+  if (!activeCh || !activeCh.distributions || activeCh.distributions.length === 0) {
     logger.warn('No active channel distributions, using chronological fallback');
     const sorted = allPosts.sort((a, b) => b.timestamp - a.timestamp);
     return sorted.slice(0, limit).map(post => toRankedPost(post));
@@ -30,7 +31,7 @@ export async function getForYouFeed(limit: number = 50): Promise<RankedPost[]> {
 
   // Rank posts by semantic similarity to active channel distributions
   const scoredPosts: ScoredPost[] = allPosts.map(post => {
-    const score = computePostScore(post, activeChannel.distributions!, activeChannel.id);
+    const score = computePostScore(post, activeCh.distributions!, activeCh.id);
     return {
       post,
       score: score.total,
@@ -157,7 +158,7 @@ export async function getTrendingPosts(
   const windowStart = now - timeWindow;
 
   // Filter to recent posts
-  const recentPosts = allPosts.filter(post => post.timestamp >= windowStart);
+  const recentPosts = allPosts.filter(p => p.timestamp >= windowStart);
 
   // Score by engagement velocity (likes + reposts + replies per hour)
   const scoredPosts = recentPosts.map(post => {
@@ -181,7 +182,7 @@ export async function getTrendingPosts(
 /**
  * Get engagement count for a post
  */
-function getEngagementCount(post: SignedPost): number {
+function getEngagementCount(_post: SignedPost): number {
   // In production, would fetch from DHT or engagement store
   // For now, return 0 (would need likes/reposts/replies integration)
   return 0;

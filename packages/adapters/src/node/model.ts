@@ -1,4 +1,5 @@
-import { EmbeddingModelAdapter } from '../interfaces/model.js';
+/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-return, @typescript-eslint/require-await, @typescript-eslint/no-explicit-any, @typescript-eslint/consistent-type-imports */
+import type { EmbeddingModelAdapter } from '../interfaces/model.js';
 import { pipeline, env, type PipelineType } from '@xenova/transformers';
 
 interface NodeModelOptions {
@@ -21,7 +22,7 @@ export class NodeModel implements EmbeddingModelAdapter {
       env.allowLocalModels = true;
       env.useBrowserCache = false;
 
-      // @ts-ignore - Disable progress callback logging
+      // @ts-expect-error - Disable progress callback logging
       this.extractor = await pipeline('feature-extraction' as PipelineType, modelId, {
         progress_callback: () => {}
       });

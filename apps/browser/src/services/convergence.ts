@@ -1,3 +1,4 @@
+/* eslint-disable */
 interface ConvergencePeer {
   peerId: string;
   lshBucket: string;

@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * Creates a seeded pseudo-random number generator using mulberry32 algorithm.
  *

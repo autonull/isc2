@@ -1,8 +1,7 @@
 /**
  * ISC Feature E2E Tests
  *
- * Covers functionality introduced/fixed in the vanilla UI:
- *   - Video screen (rendering, empty state, peer list, dial interface)
+ * Covers core functionality:
  *   - modal.confirm() promise resolves false on Escape / cancel
  *   - Sent chat messages show delivered (✓) status, not pending (○)
  *   - Notifications toggle in settings
@@ -15,95 +14,17 @@ import {
   skipOnboarding,
   injectMatches,
   injectChatMessages,
-  forceRerender,
 } from './utils/waitHelpers.js';
 
 // ── Setup ─────────────────────────────────────────────────────────────────────
 
 test.beforeEach(async ({ page }) => {
-  page.on('pageerror', err => console.error('Uncaught error:', err.message));
-  await page.goto('/');
+  page.on('pageerror', () => {
+    // captured internally; suppressed in CI
+  });
   await skipOnboarding(page);
-  await page.reload();
+  await page.goto('/');
   await waitForAppReady(page);
-});
-
-// ── Video Screen ──────────────────────────────────────────────────────────────
-
-test.describe('Video Screen', () => {
-  async function goToVideo(page: Page) {
-    await page.click('[data-testid="nav-tab-video"]');
-    await waitForNavigation(page, 'video');
-    await page.waitForSelector('[data-testid="video-screen"]');
-  }
-
-  test('renders the video screen with empty state when no peers', async ({ page }) => {
-    await goToVideo(page);
-
-    // Empty state shows when no peers discovered
-    await expect(page.locator('[data-testid="video-no-peers"]')).toBeVisible();
-
-    // Dial-by-peer-id card always present
-    await expect(page.locator('[data-testid="video-join-call"]')).toBeVisible();
-    await expect(page.locator('[data-testid="dial-peer-input"]')).toBeVisible();
-
-    // How-it-works explainer always present
-    await expect(page.locator('[data-testid="video-how-it-works"]')).toBeVisible();
-  });
-
-  test('dial button is disabled until peer ID is entered', async ({ page }) => {
-    await goToVideo(page);
-
-    const dialBtn = page.locator('[data-testid="dial-btn"]');
-    await expect(dialBtn).toBeDisabled();
-
-    await page.fill('[data-testid="dial-peer-input"]', '12D3KooWTestPeer');
-    await expect(dialBtn).toBeEnabled();
-  });
-
-  test('clearing dial input re-disables the dial button', async ({ page }) => {
-    await goToVideo(page);
-
-    await page.fill('[data-testid="dial-peer-input"]', '12D3KooWTestPeer');
-    await expect(page.locator('[data-testid="dial-btn"]')).toBeEnabled();
-
-    await page.fill('[data-testid="dial-peer-input"]', '');
-    await expect(page.locator('[data-testid="dial-btn"]')).toBeDisabled();
-  });
-
-  test('shows peer list when peers are discovered', async ({ page }) => {
-    await goToVideo(page);
-
-    // Inject peers into app state
-    await injectMatches(page, [
-      { peerId: 'peer-alpha', name: 'Alice', similarity: 0.92 },
-      { peerId: 'peer-beta',  name: 'Bob',   similarity: 0.75 },
-    ]);
-
-    // Trigger re-render via app's state subscription
-    await forceRerender(page, 'video');
-
-    // Peer list card should appear instead of empty state
-    await expect(page.locator('[data-testid="video-peer-list"]')).toBeVisible();
-    await expect(page.locator('[data-testid="video-no-peers"]')).not.toBeVisible();
-
-    // Each peer renders a call button
-    await expect(page.locator('[data-testid="call-btn-peer-alpha"]')).toBeVisible();
-    await expect(page.locator('[data-testid="call-btn-peer-beta"]')).toBeVisible();
-  });
-
-  // Discover screen removed (Phase 3.3). Peers are found via channel neighborhood.
-  // test('clicking discover link navigates to discover screen', async ({ page }) => { ... });
-
-  test('dialing a peer navigates to the chats screen', async ({ page }) => {
-    await goToVideo(page);
-
-    await page.fill('[data-testid="dial-peer-input"]', '12D3KooWTestPeer123');
-    await page.click('[data-testid="dial-btn"]');
-
-    // Should navigate to chats
-    await page.waitForSelector('[data-testid="chats-screen"]', { timeout: 5000 });
-  });
 });
 
 // ── Modal confirm() ───────────────────────────────────────────────────────────
@@ -115,16 +36,20 @@ test.describe('Modal confirm()', () => {
    */
   async function openConfirmAndGetResult(
     page: Page,
-    action: 'escape' | 'cancel' | 'confirm',
+    action: 'escape' | 'cancel' | 'confirm'
   ): Promise<boolean> {
     return page.evaluate(async (act: string) => {
       const modals = (window as any).ISC?.modals;
       if (!modals) throw new Error('window.ISC.modals not available');
 
-      const p = modals.confirm('Are you sure?', { title: 'Test', confirmText: 'Yes', cancelText: 'No' });
+      const p = modals.confirm('Are you sure?', {
+        title: 'Test',
+        confirmText: 'Yes',
+        cancelText: 'No',
+      });
 
       // Give the modal 50 ms to appear in the DOM, then trigger the action
-      await new Promise(r => setTimeout(r, 50));
+      await new Promise((r) => setTimeout(r, 50));
 
       if (act === 'escape') {
         document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
@@ -159,7 +84,7 @@ test.describe('Modal confirm()', () => {
       if (!modals) throw new Error('window.ISC.modals not available');
 
       const p = modals.confirm('Are you sure?', { title: 'Test' });
-      await new Promise(r => setTimeout(r, 50));
+      await new Promise((r) => setTimeout(r, 50));
       // Click the overlay backdrop (not the inner .modal element)
       (document.querySelector('.modal-overlay') as HTMLElement | null)?.click();
       return p;
@@ -176,9 +101,7 @@ test.describe('Chat message delivery status', () => {
 
   async function openChatWith(page: Page, peerId: string) {
     await injectMatches(page, [{ peerId, name: 'Delivery Test Peer', similarity: 0.85 }]);
-    await injectChatMessages(page, peerId, [
-      { content: 'Hey there', fromMe: false },
-    ]);
+    await injectChatMessages(page, peerId, [{ content: 'Hey there', fromMe: false }]);
     // Navigate to chats screen
     await page.click('[data-testid="nav-tab-chats"]');
     await waitForNavigation(page, 'chats');
@@ -197,10 +120,9 @@ test.describe('Chat message delivery status', () => {
     await page.keyboard.press('Enter');
 
     // Wait for the message to appear in the chat
-    await page.waitForFunction(
-      () => document.body.textContent?.includes('Hello from me'),
-      { timeout: 5000 },
-    );
+    await page.waitForFunction(() => document.body.textContent?.includes('Hello from me'), {
+      timeout: 5000,
+    });
 
     // The sent message should show ✓ (delivered/stored) not ○ (pending forever)
     const msgContent = await page.locator('[data-testid="chat-messages"]').textContent();

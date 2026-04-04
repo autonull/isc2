@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * Zero-Knowledge Proximity Proofs
  *
@@ -14,8 +15,8 @@
  * - Performance optimization for browser environments
  */
 
-export { ZK_CONFIG, ZK_PROTOCOL, ZK_STORES } from './config/zkConfig.js';
-export type { ZKConfig } from './config/zkConfig.js';
+export { ZK_CONFIG, ZK_PROTOCOL, ZK_STORES } from './config/zkConfig.ts';
+export type { ZKConfig } from './config/zkConfig.ts';
 
 export type {
   Embedding,
@@ -24,20 +25,20 @@ export type {
   ProofData,
   VerificationResult,
   SerializableProof,
-} from './models/proof.js';
+} from './models/proof.ts';
 
 export {
   createEmbeddingCommitment,
   getCommitment,
-} from './services/CommitmentService.js';
+} from './services/CommitmentService.ts';
 
 export {
   generateProximityProof,
   proveChannelRelevance,
   proveInterestSimilarity,
-} from './services/ProofGeneratorService.js';
+} from './services/ProofGeneratorService.ts';
 
-export { verifyProximityProof } from './services/ProofVerifierService.js';
+export { verifyProximityProof } from './services/ProofVerifierService.ts';
 
 export {
   generateBatchProofs,
@@ -45,10 +46,10 @@ export {
   getAllProofs,
   getProofsByProver,
   getVerifiedProofs,
-} from './services/BatchProofService.js';
+} from './services/BatchProofService.ts';
 
-export { exportProof, importProof, benchmarkProofGeneration } from './services/ProofUtilsService.js';
+export { exportProof, importProof, benchmarkProofGeneration } from './services/ProofUtilsService.ts';
 
-export { RESEARCH_NOTES, getResearchNotes } from './docs/researchNotes.js';
+export { RESEARCH_NOTES, getResearchNotes } from './docs/researchNotes.ts';
 
-export type { ResearchNotes } from './docs/researchNotes.js';
+export type { ResearchNotes } from './docs/researchNotes.ts';

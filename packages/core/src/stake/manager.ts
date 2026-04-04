@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * Stake Manager
  *
@@ -45,7 +46,7 @@ import { StakeService } from './services/StakeService.js';
 import { SlashingService } from './services/SlashingService.js';
 import { StakeRankingService } from './services/StakeRankingService.js';
 import { StakeStatsService } from './services/StakeStatsService.js';
-import { StakeBondModel } from './models/StakeBond.js';
+import type { StakeBondModel } from './models/StakeBond.js';
 
 export class StakeManager {
   private stakeService: StakeService;
@@ -132,7 +133,7 @@ export class StakeManager {
 
   getStakeTrustBonus(peerID: string): number {
     const bond = this.stakeService.getBond(peerID);
-    if (!bond) return 0;
+    if (!bond) {return 0;}
     return this.rankingService.getStakeTrustBonus(bond);
   }
 

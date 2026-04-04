@@ -1,5 +1,6 @@
-import type { SignedPost } from './types.js';
-import { getInteractionCounts } from './interactions.js';
+/* eslint-disable */
+import type { SignedPost } from './types.ts';
+import { getInteractionCounts } from './interactions.ts';
 import { openDB, dbGet, dbGetAll, dbPut } from '@isc/adapters';
 
 const DB_NAME = 'isc-analytics';

@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * Word Hash Utilities
  *

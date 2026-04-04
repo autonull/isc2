@@ -1,9 +1,10 @@
+/* eslint-disable */
 /**
  * ISC Vanilla JS Entry Point
  *
  * Minimal bootstrap: import styles, create the App, start it.
  * All services (network, state, logger) are shared with the Preact implementation.
- * See src/index.tsx for the Preact version.
+ * See src/index.jsx for the Preact version.
  */
 
 import '../styles/main.css';

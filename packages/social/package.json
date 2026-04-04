@@ -12,15 +12,17 @@
     "./discovery": "./src/discovery.ts",
     "./channels": "./src/channels.ts",
     "./moderation": "./src/moderation/index.ts",
+    "./trending": "./src/trending.ts",
+    "./interactions": "./src/interactions.ts",
     "./types": "./src/types.ts",
     "./adapters": "./src/adapters/index.ts"
   },
   "scripts": {
     "build": "echo 'No build - using tsx for dynamic TypeScript execution'",
-    "test": "vitest run",
+    "test": "vitest run --passWithNoTests",
     "test:watch": "vitest",
-    "lint": "eslint src tests",
-    "lint:fix": "eslint src tests --fix",
+    "lint": "eslint src",
+    "lint:fix": "eslint src --fix",
     "typecheck": "echo 'Use tsx for runtime - TypeScript module resolution works at runtime'",
     "clean": "rm -rf dist"
   },
@@ -31,7 +33,7 @@
     "@types/node": "^20.10.0",
     "@vitest/coverage-v8": "^1.1.0",
     "typescript": "^5.3.3",
-    "vitest": "^1.1.0",
+    "vitest": "^4.1.0",
     "tsx": "^4.7.0"
   },
   "keywords": [

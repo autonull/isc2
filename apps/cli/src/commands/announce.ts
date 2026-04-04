@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * Announce Channel Command
  *

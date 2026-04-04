@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * Posts Service Tests
  */

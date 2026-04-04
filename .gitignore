@@ -65,8 +65,18 @@ models/
 **/src/**/*.d.ts
 **/src/**/*.js
 !apps/browser/src/vanilla/**/*.js
+!apps/browser/src/services/**/*.js
 !**/src/**/*.spec.d.ts
+
+# Build artifacts in tests/ directory
+tests/**/*.js
+!tests/**/*.spec.ts
+!tests/**/*.test.ts
+tests/**/*.js.map
+tests/**/*.d.ts
+
 playwright-report
 /isc-data/
 /isc-cache/
 *.map
+!apps/browser/src/vanilla/**/*.map

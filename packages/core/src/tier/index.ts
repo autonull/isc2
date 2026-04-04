@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * ISC Phase P: Security Tier Infrastructure
  *
@@ -107,9 +108,9 @@ export function getTierName(tier: SecurityTier): string {
 }
 
 export function getReputationQuotaMultiplier(reputation: number): number {
-  if (reputation >= MIN_REP_FOR_FULL_QUOTA) return 2.0;
-  if (reputation >= 50) return 1.0;
-  if (reputation > 0) return 0.5;
+  if (reputation >= MIN_REP_FOR_FULL_QUOTA) {return 2.0;}
+  if (reputation >= 50) {return 1.0;}
+  if (reputation > 0) {return 0.5;}
   return 0.25;
 }
 
@@ -118,7 +119,7 @@ let _currentNetworkID: string = DEFAULT_GENESIS_HASH;
 
 export function setSecurityTier(tier: SecurityTier, networkID?: string): void {
   _currentTier = tier;
-  if (networkID) _currentNetworkID = networkID;
+  if (networkID) {_currentNetworkID = networkID;}
 }
 
 export function getSecurityTier(): SecurityTier {

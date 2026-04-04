@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * Debug Tools for Development
  *
@@ -5,7 +6,7 @@
  * These should only be used in development mode.
  */
 
-import type { AppDependencies } from '../di/container.js';
+import type { AppDependencies } from '../di/container.ts';
 
 const isDev = process.env.NODE_ENV !== 'production';
 

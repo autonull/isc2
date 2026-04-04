@@ -1,8 +1,7 @@
-// @ts-nocheck
+/* eslint-disable */
 /**
  * ISC Network - Browser Network Service
  *
- * Main network service for browser applications.
  * Integrates embedding, DHT, storage, and peer management.
  */
 
@@ -11,7 +10,6 @@ import {
   createDHT,
   VirtualPeer,
   type PeerMatch,
-  type PeerInfo,
   type EmbeddingService,
 } from './index.js';
 import { createStorage, type StorageAdapter } from '@isc/adapters';
@@ -36,6 +34,7 @@ export interface NetworkServiceConfig {
   similarityThreshold: number;
   announceTTL: number;
   maxCachedMatches: number;
+  storage?: StorageAdapter;
 }
 
 const DEFAULT_CONFIG: NetworkServiceConfig = {
@@ -52,8 +51,8 @@ const DEFAULT_CONFIG: NetworkServiceConfig = {
 export interface NetworkEvents {
   onPeerDiscovered?: (match: PeerMatch) => void;
   onMatchesUpdated?: (matches: PeerMatch[]) => void;
-  onChannelCreated?: (channel: any) => void;
-  onPostCreated?: (post: any) => void;
+  onChannelCreated?: (channel: ChannelData) => void;
+  onPostCreated?: (post: PostData) => void;
   onError?: (error: Error) => void;
   onStatusChange?: (status: NetworkStatus) => void;
 }
@@ -87,6 +86,8 @@ export interface PostData {
   authorId: string;
   createdAt: number;
   embedding?: number[];
+  likes?: string[];
+  reposts?: string[];
 }
 
 /**
@@ -125,7 +126,7 @@ export class BrowserNetworkService {
 
   constructor(config: Partial<NetworkServiceConfig> = {}) {
     this.config = { ...DEFAULT_CONFIG, ...config };
-    this.storage = createStorage();
+    this.storage = config.storage ?? createStorage();
   }
 
   private shouldPersist(): boolean {
@@ -158,7 +159,7 @@ export class BrowserNetworkService {
         console.log('[Network] Real libp2p network adapter started.');
 
         if (typeof window !== 'undefined') {
-          (window as any).__iscNetworkAdapter = this.networkAdapter;
+          (window as unknown as Record<string, unknown>).__iscNetworkAdapter = this.networkAdapter;
         }
 
         // Swap out the local in-memory DHT for the real libp2p DHT
@@ -286,7 +287,6 @@ export class BrowserNetworkService {
 
     // Announce to DHT
     await this.localPeer.announce(this.dht, this.config.announceTTL);
-    console.log('[Network] Announced to DHT');
   }
 
   /**
@@ -304,17 +304,14 @@ export class BrowserNetworkService {
         return Math.max(base, 60000);
       }
 
-      if (typeof navigator !== 'undefined' && navigator.getBattery) {
-        navigator
-          .getBattery()
-          .then((battery) => {
-            if (battery.level < 0.2 && !battery.charging) {
-              console.log('[Network] Low battery - reducing discovery frequency');
-              this.stopAutoDiscovery();
-              this.discoveryTimer = setInterval(() => this.discoverPeers(), Math.max(base, 120000));
-            }
-          })
-          .catch(() => {});
+      const nav = navigator as Navigator & { getBattery?: () => Promise<{ level: number; charging: boolean }> };
+      if (nav.getBattery) {
+        nav.getBattery().then((battery) => {
+          if (battery.level < 0.2 && !battery.charging) {
+            this.stopAutoDiscovery();
+            this.discoveryTimer = setInterval(() => this.discoverPeers(), Math.max(base, 120000));
+          }
+        }).catch(() => {});
       }
 
       return base;
@@ -368,8 +365,6 @@ export class BrowserNetworkService {
           this.events.onPeerDiscovered?.(match);
         }
         this.events.onMatchesUpdated?.(this.matches);
-
-        console.log(`[Network] Found ${uniqueMatches.length} new matches`);
       }
 
       return uniqueMatches;
@@ -383,7 +378,11 @@ export class BrowserNetworkService {
   /**
    * Create a new channel
    */
-  async createChannel(name: string, description: string, options: any = {}): Promise<ChannelData> {
+  async createChannel(
+    name: string,
+    description: string,
+    options: { relations?: ChannelData['relations']; spread?: string } & Record<string, unknown> = {}
+  ): Promise<ChannelData> {
     if (!this.embedding) {
       throw new Error('Embedding service not loaded');
     }
@@ -413,12 +412,11 @@ export class BrowserNetworkService {
     this.subscribeChannelBuckets(channel);
 
     this.events.onChannelCreated?.(channel);
-    console.log(`[Network] Created channel: ${channel.name}`);
 
     return channel;
   }
 
-  async updateChannel(channelId: string, updates: { name?: string; description?: string; relations?: any[] }): Promise<ChannelData> {
+  async updateChannel(channelId: string, updates: { name?: string; description?: string; relations?: ChannelData['relations'] }): Promise<ChannelData> {
     if (!this.embedding) throw new Error('Embedding service not loaded');
     const channel = this.channels.find((c) => c.id === channelId);
     if (!channel) throw new Error(`Channel ${channelId} not found`);
@@ -462,7 +460,7 @@ export class BrowserNetworkService {
     });
 
     // Set the pre-computed embedding
-    (channelPeer as any).vector = channel.embedding;
+    if (channel.embedding) channelPeer.setVector(channel.embedding);
 
     await channelPeer.announce(this.dht, this.config.announceTTL);
   }
@@ -613,7 +611,6 @@ export class BrowserNetworkService {
         this.storage.set('isc-posts', this.posts),
       ]);
     }
-    console.log(`[Network] Deleted channel: ${channelId}`);
   }
 
   /**
@@ -634,8 +631,6 @@ export class BrowserNetworkService {
 
     // Re-announce to DHT with updated lurker status
     await this.announceChannel(channel);
-
-    console.log(`[Network] Channel ${channelId} lurk mode: ${isLurker}`);
   }
 
   /**
@@ -646,14 +641,13 @@ export class BrowserNetworkService {
     if (this.shouldPersist()) {
       await this.storage.set('isc-posts', this.posts);
     }
-    console.log(`[Network] Deleted post: ${postId}`);
   }
 
   /**
    * Like a post (client-side optimistic — persisted locally only)
    */
   async likePost(postId: string): Promise<void> {
-    const post = this.posts.find((p) => p.id === postId) as any;
+    const post = this.posts.find((p) => p.id === postId);
     if (!post) return;
     if (!post.likes) post.likes = [];
     const myId = this.identity?.peerId || 'unknown';
@@ -807,14 +801,10 @@ export class BrowserNetworkService {
    */
   destroy(): void {
     this.stopAutoDiscovery();
-    if (this.embedding) {
-      this.embedding.unload();
-    }
     if (this.networkAdapter) {
       this.networkAdapter.stop().catch(console.error);
     }
     this.initialized = false;
-    console.log('[Network] Service destroyed');
   }
 }
 

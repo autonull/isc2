@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * Direct Message Commands
  * 

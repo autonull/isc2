@@ -1,4 +1,5 @@
-import { getMessageQueue } from './messageQueue.js';
+/* eslint-disable */
+import { getMessageQueue } from './messageQueue.ts';
 
 type Payload = Record<string, unknown>;
 

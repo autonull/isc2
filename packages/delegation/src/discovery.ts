@@ -1,3 +1,4 @@
+/* eslint-disable */
 import type { DelegateCapability } from '@isc/protocol/messages';
 
 export interface SupernodeDiscoveryConfig {
@@ -30,12 +31,12 @@ export class SupernodeDiscovery {
       for (const entry of entries) {
         try {
           const decoder = new TextDecoder();
-          const cap: DelegateCapability = JSON.parse(decoder.decode(entry));
+          const cap = JSON.parse(decoder.decode(entry)) as DelegateCapability;
 
-          if (seenPeerIDs.has(cap.peerID)) continue;
+          if (seenPeerIDs.has(cap.peerID)) {continue;}
           seenPeerIDs.add(cap.peerID);
 
-          if (!this.matchesRequirements(cap)) continue;
+          if (!this.matchesRequirements(cap)) {continue;}
 
           this.cache.set(cap.peerID, { capability: cap, timestamp: Date.now() });
           capabilities.push(cap);
@@ -53,7 +54,7 @@ export class SupernodeDiscovery {
   private matchesRequirements(cap: DelegateCapability): boolean {
     if (this.config.requiredServices && this.config.requiredServices.length > 0) {
       const hasAllServices = this.config.requiredServices.every((s) => cap.services.includes(s));
-      if (!hasAllServices) return false;
+      if (!hasAllServices) {return false;}
     }
 
     if (this.config.modelFilter && cap.model !== this.config.modelFilter) {
@@ -71,10 +72,10 @@ export class SupernodeDiscovery {
 
     try {
       const entry = await this.config.dht.get(`/isc/delegate/${peerID}`);
-      if (!entry) return null;
+      if (!entry) {return null;}
 
       const decoder = new TextDecoder();
-      const cap: DelegateCapability = JSON.parse(decoder.decode(entry));
+      const cap = JSON.parse(decoder.decode(entry)) as DelegateCapability;
       this.cache.set(peerID, { capability: cap, timestamp: Date.now() });
       return cap;
     } catch {

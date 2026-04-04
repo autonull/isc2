@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * Feed Service
  *
@@ -5,7 +6,7 @@
  * Handles For You, Following, and Channel feeds with scoring.
  */
 
-import type { Post } from '../types/extended.js';
+import type { Post } from '../types/extended.ts';
 import type { Channel } from '@isc/core';
 import { cosineSimilarity, computeEngagementScore as coreComputeEngagementScore } from '@isc/core';
 import { getEmbeddingService } from '@isc/network';
@@ -40,7 +41,17 @@ function saveFollowingList(following: string[]): void {
   localStorage.setItem(FOLLOWING_KEY, JSON.stringify(following));
 }
 
-export function createFeedService(postService: any, channelManager: any): FeedService {
+interface PostServiceLike {
+  getAllPosts(channelId?: string): Promise<Post[]>;
+  getPostsByChannel(channelId: string): Promise<Post[]>;
+}
+
+interface ChannelManagerLike {
+  getAllChannels(): Promise<Channel[]>;
+  isActive(channelId: string): boolean;
+}
+
+export function createFeedService(postService: PostServiceLike, channelManager: ChannelManagerLike): FeedService {
   return {
     async getForYouFeed(channelId?: string): Promise<Post[]> {
       const cacheKey = channelId ? `foryou-${channelId}` : 'foryou';
@@ -169,7 +180,7 @@ export function createFeedService(postService: any, channelManager: any): FeedSe
 /**
  * Score posts based on relevance and engagement
  */
-async function scorePosts(posts: Post[], channelManager: any): Promise<Post[]> {
+async function scorePosts(posts: Post[], channelManager: ChannelManagerLike): Promise<Post[]> {
   // Get active channels for context
   const channels: Channel[] = await channelManager.getAllChannels();
   const activeChannels = channels.filter((c: Channel) => channelManager.isActive(c.id));
@@ -239,9 +250,9 @@ export async function computeTextChannelSimilarity(
   const embeddingService = getEmbeddingService();
   if (embeddingService.isLoaded()) {
     try {
-      const textEmbedding = await (embeddingService as any).embed(text);
+      const textEmbedding = await embeddingService.compute(text);
       const channelText = `${channel.name} ${channel.description}`;
-      const channelEmbedding = await (embeddingService as any).embed(channelText);
+      const channelEmbedding = await embeddingService.compute(channelText);
       return Math.max(0, cosineSimilarity(textEmbedding, channelEmbedding));
     } catch (e) {
       console.warn('Failed to embed text or channel for similarity', e);

@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * ISC Network - Virtual Peer Implementation
  * 
@@ -76,9 +77,16 @@ export class VirtualPeer {
    */
   async computeEmbedding(service: EmbeddingService): Promise<number[]> {
     if (this.vector) return this.vector;
-    
+
     this.vector = await service.compute(this.description);
     return this.vector;
+  }
+
+  /**
+   * Set a pre-computed embedding vector (e.g. for channel peers)
+   */
+  setVector(embedding: number[]): void {
+    this.vector = embedding;
   }
 
   /**

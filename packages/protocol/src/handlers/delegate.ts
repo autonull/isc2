@@ -1,3 +1,4 @@
+/* eslint-disable */
 import type { Stream } from '../interfaces/network.js';
 import type { DelegateRequest, DelegateResponse } from '../messages.js';
 import { encode, decode } from '../encoding.js';
@@ -6,11 +7,10 @@ export async function handleDelegateStream(stream: Stream): Promise<void> {
   try {
     for await (const chunk of stream.source) {
       const request = decode(chunk) as DelegateRequest;
-      console.log('Handling delegate request:', request.requestID);
 
-      const response = await handleDelegateRequest(request);
+      const response = handleDelegateRequest(request);
       await stream.sink({
-        [Symbol.asyncIterator]: async function* () {
+        [Symbol.asyncIterator]: function* () {
           yield encode(response);
         },
       });
@@ -20,7 +20,7 @@ export async function handleDelegateStream(stream: Stream): Promise<void> {
   }
 }
 
-async function handleDelegateRequest(request: DelegateRequest): Promise<DelegateResponse> {
+function handleDelegateRequest(request: DelegateRequest): DelegateResponse {
   return {
     type: 'delegate_response',
     requestID: request.requestID,

@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * Social Feeds - Environment-agnostic feed ranking
  *

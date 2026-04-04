@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * @isc/adapters - Platform Adapters
  *

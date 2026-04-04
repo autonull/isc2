@@ -4,7 +4,8 @@
  * Accessible text input with validation.
  */
 
-import { h, JSX } from 'preact';
+import type { JSX } from 'preact';
+import { h } from 'preact';
 import { useMemo } from 'preact/hooks';
 
 /**
@@ -42,27 +43,18 @@ export function Input({
 
   const describedBy = useMemo(() => {
     const parts: string[] = [];
-    if (error) parts.push(errorId);
-    if (hint) parts.push(hintId);
-    if (ariaDescribedby && typeof ariaDescribedby === 'string') parts.push(ariaDescribedby);
+    if (error) {parts.push(errorId);}
+    if (hint) {parts.push(hintId);}
+    if (ariaDescribedby && typeof ariaDescribedby === 'string') {parts.push(ariaDescribedby);}
     return parts.join(' ') || undefined;
   }, [error, hint, ariaDescribedby, errorId, hintId]);
 
   const classNameStr = useMemo(() => {
     const base = 'isc-input';
-    const sizes: Record<InputSize, string> = {
-      sm: `${base}--sm`,
-      md: `${base}--md`,
-      lg: `${base}--lg`,
-    };
-    return [
-      base,
-      sizes[size],
-      error ? `${base}--error` : '',
-      className || '',
-    ]
-      .filter(Boolean)
-      .join(' ');
+    const sizeClass = size === 'sm' ? `${base}--sm` : size === 'lg' ? `${base}--lg` : `${base}--md`;
+    const errorClass = error ? `${base}--error` : '';
+    const extra = typeof className === 'string' ? className : '';
+    return `${base} ${sizeClass} ${errorClass} ${extra}`.trim();
   }, [size, error, className]);
 
   return h(

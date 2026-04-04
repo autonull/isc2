@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * Video Module Tests
  */

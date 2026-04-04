@@ -1,3 +1,4 @@
+/* eslint-disable */
 export const PROTOCOL_CHAT = '/isc/chat/1.0.0';
 export const PROTOCOL_DELEGATE = '/isc/delegate/1.0.0';
 export const PROTOCOL_ANNOUNCE = '/isc/announce/1.0.0';

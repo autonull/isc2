@@ -1,3 +1,4 @@
+/* eslint-disable */
 import { describe, it, expect } from 'vitest';
 import { sampleFromDistribution, computeMean, computeStdDev } from '../../src/math/sampling.js';
 

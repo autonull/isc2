@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * ISC Network - Real libp2p DHT Implementation
  *

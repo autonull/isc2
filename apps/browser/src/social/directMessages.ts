@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * Direct Messages
  *
@@ -13,23 +14,23 @@ export type {
   ConversationSummary,
   DMConfig,
   GroupEventType,
-} from './dms/types/dm.js';
+} from './dms/types/dm.ts';
 
-export { DM_CONFIG, DM_STORES, DM_DHT_PREFIXES } from './dms/config/dmConfig.js';
+export { DM_CONFIG, DM_STORES, DM_DHT_PREFIXES } from './dms/config/dmConfig.ts';
 
-export { DMEncryptionService } from './dms/services/DMEncryptionService.js';
-export { DMStorageService } from './dms/services/DMStorageService.js';
-export { DMDeliveryService } from './dms/services/DMDeliveryService.js';
-export { GroupDMService } from './dms/services/GroupDMService.js';
-export { DMQueryService } from './dms/services/DMQueryService.js';
+export { DMEncryptionService } from './dms/services/DMEncryptionService.ts';
+export { DMStorageService } from './dms/services/DMStorageService.ts';
+export { DMDeliveryService } from './dms/services/DMDeliveryService.ts';
+export { GroupDMService } from './dms/services/GroupDMService.ts';
+export { DMQueryService } from './dms/services/DMQueryService.ts';
 
 // Re-export for backward compatibility
-import type { DirectMessage, GroupDM } from './dms/types/dm.js';
-import { GroupDMService } from './dms/services/GroupDMService.js';
-import { DMQueryService } from './dms/services/DMQueryService.js';
-import { DMStorageService } from './dms/services/DMStorageService.js';
-import { DMEncryptionService } from './dms/services/DMEncryptionService.js';
-import { getPeerID } from '../identity/index.js';
+import type { DirectMessage, GroupDM } from './dms/types/dm.ts';
+import { GroupDMService } from './dms/services/GroupDMService.ts';
+import { DMQueryService } from './dms/services/DMQueryService.ts';
+import { DMStorageService } from './dms/services/DMStorageService.ts';
+import { DMEncryptionService } from './dms/services/DMEncryptionService.ts';
+import { getPeerID } from '../identity/index.ts';
 
 /**
  * Send direct message

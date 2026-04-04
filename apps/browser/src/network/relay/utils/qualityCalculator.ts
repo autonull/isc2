@@ -1,10 +1,11 @@
+/* eslint-disable */
 /**
  * Quality Calculator Utilities
  *
  * Pure functions for calculating connection and relay quality scores.
  */
 
-import { QUALITY_WEIGHTS, RELAY_CONSTANTS } from '../config/relayConfig.js';
+import { QUALITY_WEIGHTS, RELAY_CONSTANTS } from '../config/relayConfig.ts';
 
 /**
  * Calculate connection quality score from metrics

@@ -1,9 +1,10 @@
+/* eslint-disable */
 /**
  * Force-Directed Layout Algorithm
  */
 
-import type { Point2D } from '../types/semanticMap.js';
-import { LAYOUT_CONFIG, SEMANTIC_MAP_CONFIG } from '../config/semanticConfig.js';
+import type { Point2D } from '../types/semanticMap.ts';
+import { LAYOUT_CONFIG, SEMANTIC_MAP_CONFIG } from '../config/semanticConfig.ts';
 import { cosineSimilarity } from '@isc/core';
 
 interface EmbeddingData {

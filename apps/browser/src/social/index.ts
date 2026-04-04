@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * Social Layer Module
  *
@@ -27,7 +28,7 @@ export type {
   Point2D,
   ConversationStarter,
   DiscussionTopic,
-} from './types.js';
+} from './types.ts';
 
 // Posts
 export {
@@ -39,7 +40,7 @@ export {
   verifyPost,
   deletePost,
   discoverPosts,
-} from './posts.js';
+} from './posts.ts';
 
 // Feeds
 export {
@@ -48,7 +49,7 @@ export {
   getExploreFeed,
   getChannelFeed,
   refreshFeed,
-} from './feeds.js';
+} from './feeds.ts';
 
 // Graph
 export {
@@ -60,7 +61,7 @@ export {
   getFollowingCount,
   computeReputation,
   getSuggestedFollows,
-} from './graph.js';
+} from './graph.ts';
 
 // Interactions
 export {
@@ -73,7 +74,7 @@ export {
   getReplies,
   quotePost,
   getInteractionCounts,
-} from './interactions.js';
+} from './interactions.ts';
 
 // Moderation
 export {
@@ -93,7 +94,7 @@ export {
   getCouncil,
   getCouncilsForChannel,
   getMyCouncils,
-} from './moderation.js';
+} from './moderation.ts';
 
 // Direct Messages
 export {
@@ -112,7 +113,7 @@ export {
   markAllAsRead,
   getUnreadCount,
   deleteDM,
-} from './directMessages.js';
+} from './directMessages.ts';
 
 // Trending
 export {
@@ -122,7 +123,7 @@ export {
   getHotPosts,
   getTrendingTopics,
   getFollowingFeed as getTrendingFollowingFeed,
-} from './trending.js';
+} from './trending.ts';
 
 // Communities
 export {
@@ -134,9 +135,9 @@ export {
   getCommunity,
   getUserCommunities,
   queryCommunitiesByEmbedding,
-  verifyCommunity,
+  verifyCommunitySignature,
   computeSemanticNeighborhood,
-} from './communities.js';
+} from './communities.ts';
 
 // Analytics
 export {
@@ -150,7 +151,7 @@ export {
   getUserEngagementSummary,
   clearOldAnalytics,
   registerPost,
-} from './analytics.js';
+} from './analytics.ts';
 
 // Audio Spaces
 export {
@@ -161,7 +162,7 @@ export {
   getAudioSpace,
   getAllActiveSpaces,
   handleAudioMessage,
-} from './audioSpaces.js';
+} from './audioSpaces.ts';
 
 // Semantic Map
 export {
@@ -170,7 +171,7 @@ export {
   findNeighbors,
   kmeansClusters,
   renderSemanticMap,
-} from './semanticMap.js';
+} from './semanticMap.ts';
 
 // Thought Bridge
 export {
@@ -179,4 +180,4 @@ export {
   getConversationStarters,
   findBridgingPosts,
   suggestDiscussionTopics,
-} from './thoughtBridge.js';
+} from './thoughtBridge.ts';

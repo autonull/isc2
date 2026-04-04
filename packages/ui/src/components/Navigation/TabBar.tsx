@@ -5,7 +5,8 @@
  * Headless - accepts active tab and callbacks as props.
  */
 
-import { h, JSX, ComponentChildren, createContext } from 'preact';
+import type { JSX, ComponentChildren} from 'preact';
+import { h, createContext } from 'preact';
 import { useContext, useCallback } from 'preact/hooks';
 
 interface TabBarContextValue {
@@ -64,7 +65,7 @@ interface TabProps {
 
 function Tab({ id, icon, label, badge, children, className = '' }: TabProps): JSX.Element {
   const context = useContext(TabBarContext);
-  if (!context) throw new Error('Tab must be used within TabBar');
+  if (!context) {throw new Error('Tab must be used within TabBar');}
 
   const { activeTab, setActiveTab, orientation } = context;
   const isActive = activeTab === id;
@@ -114,7 +115,7 @@ interface TabPanelProps {
 }
 
 function TabPanel({ id, activeTab, children, className = '' }: TabPanelProps): JSX.Element | null {
-  if (activeTab !== id) return null;
+  if (activeTab !== id) {return null;}
 
   return (
     <div class={`tab-panel ${className}`} role="tabpanel" aria-labelledby={`tab-${id}`}>

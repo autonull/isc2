@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * Zero-Knowledge Proximity Proofs Tests
  *

@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * ZK Proximity Proofs Research Notes
  *

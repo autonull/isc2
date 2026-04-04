@@ -1,3 +1,4 @@
+/* eslint-disable */
 // Re-export trending utilities from @isc/social for backward compatibility
 export {
   calculateTrendingScore,
@@ -13,16 +14,9 @@ export {
   DEFAULT_TRENDING_CONFIG,
 } from '@isc/social/trending';
 
-import type { RankedPost } from '@isc/social/trending';
-import { getInteractionCounts } from './interactions.js';
-import { getAllPosts, getPostsByChannel } from './posts.js';
-
-async function scorePost(postID: string): Promise<RankedPost | null> {
-  const interactions = await getInteractionCounts(postID);
-  // Note: scorePost in @isc/social requires the full post object, not just ID
-  // This wrapper is for the app's specific usage pattern
-  return null;
-}
+import type { RankedPost, TrendingTopic } from '@isc/social/trending';
+import { getInteractionCounts } from './interactions.ts';
+import { getAllPosts, getPostsByChannel } from './posts.ts';
 
 export async function getTrendingPosts(limit: number = 20): Promise<RankedPost[]> {
   const allPosts = await getAllPosts();
@@ -88,7 +82,7 @@ export async function getTrendingTopics(limit: number = 10): Promise<TrendingTop
 }
 
 export async function getFollowingFeed(limit: number = 50): Promise<RankedPost[]> {
-  const { getFollowees } = await import('./graph.js');
+  const { getFollowees } = await import('./graph.ts');
   const followees = await getFollowees();
 
   if (followees.length === 0) return getTrendingPosts(limit);

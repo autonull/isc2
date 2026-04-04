@@ -1,16 +1,17 @@
+/* eslint-disable */
 /**
  * Audio Participant Service
  *
  * Manages participant join/leave/mute operations.
  */
 
-import { AudioSpaceModel } from '../models/AudioSpace.js';
-import { WebRTCAudioService } from './WebRTCAudioService.js';
-import { AudioSpaceService } from './AudioSpaceService.js';
-import { AUDIO_CONFIG } from '../config/audioConfig.js';
-import { getPeerID } from '../../../identity/index.js';
+import { AudioSpaceModel } from '../models/AudioSpace.ts';
+import { WebRTCAudioService } from './WebRTCAudioService.ts';
+import { AudioSpaceService } from './AudioSpaceService.ts';
+import { AUDIO_CONFIG } from '../config/audioConfig.ts';
+import { getPeerID } from '../../../identity/index.ts';
 import { DelegationClient } from '@isc/delegation';
-import type { AudioMessage, AudioSpace } from '../types/audioSpace.js';
+import type { AudioMessage } from '../types/audioSpace.ts';
 
 export class AudioParticipantService {
   private static instance: AudioParticipantService;

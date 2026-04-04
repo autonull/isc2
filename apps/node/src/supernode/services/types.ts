@@ -1,3 +1,4 @@
+/* eslint-disable */
 export interface EmbedRequest {
   text: string;
   model: string;

@@ -1,3 +1,4 @@
+/* eslint-disable */
 import type { SupernodeHandler } from './handler.js';
 
 export interface DelegationHealth {

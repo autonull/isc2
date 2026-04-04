@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * Social Layer Adapters
  *
@@ -5,7 +6,7 @@
  * Business logic depends on these abstractions, not implementations.
  */
 
-import type { SignedPost, Message, Channel, PeerProfile, Interaction, FollowSubscription, ProfileSummary, Community, Membership } from '../types';
+import type { SignedPost, Message, Channel, PeerProfile, Interaction, FollowSubscription, ProfileSummary, Community } from '../types';
 
 /**
  * Storage adapter for social data
@@ -82,6 +83,7 @@ export interface SocialNetwork {
   // Post distribution
   broadcastPost(post: SignedPost): Promise<void>;
   requestPosts(channelId: string): Promise<SignedPost[]>;
+  deletePost(postId: string, channelId: string): Promise<void>;
 
   // Messaging
   sendMessage(peerId: string, message: Message): Promise<void>;

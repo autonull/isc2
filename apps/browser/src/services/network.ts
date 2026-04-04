@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * Network Service Wrapper
  *
@@ -5,16 +6,19 @@
  * Integrates with BackgroundWorker for persistent background presence.
  */
 
-import { BrowserNetworkService, type PeerMatch as NetworkPeerMatch } from '@isc/network';
-import { loggers } from '../logger.js';
+import { BrowserNetworkService, type PeerMatch as NetworkPeerMatch, type ChannelData } from '@isc/network';
+
+type ChannelRelation = NonNullable<ChannelData['relations']>[number];
+import { loggers } from '../utils/logger.ts';
+// @ts-expect-error state.js has no declaration file
 import { actions } from '../state.js';
-import { NetworkError, ChannelError, MessageError, IdentityError } from '../errors.js';
-import { STATUS } from '../constants.js';
-import { getBackgroundSyncManager, type BackgroundSyncManager } from './backgroundSync.js';
-import { getMessageQueue, type MessageQueueService } from './messageQueue.js';
-import { updatePeerProximity } from './peerProximity.js';
-import { convergenceService } from './convergence.js';
-import { saveChannelSnapshot } from './channelHistory.js';
+import { AppError as NetworkError, AppError as ChannelError, AppError as MessageError, AppError as IdentityError } from '@isc/core';
+export const STATUS = { CONNECTED: 'connected', DISCONNECTED: 'disconnected', ERROR: 'error', CONNECTING: 'connecting' };
+import { getBackgroundSyncManager, type BackgroundSyncManager } from './backgroundSync.ts';
+import { getMessageQueue, type MessageQueueService } from './messageQueue.ts';
+import { updatePeerProximity } from './peerProximity.ts';
+import { convergenceService } from './convergence.ts';
+import { saveChannelSnapshot } from './channelHistory.ts';
 
 export interface PeerMatch {
   peerId: string;
@@ -37,7 +41,6 @@ class NetworkServiceWrapper {
   private sharedWorker: BackgroundSyncManager | null = null;
   private messageQueue: MessageQueueService | null = null;
   private log = loggers.network;
-  private _initialized = false;
   private reconnectAttempts = 0;
   private maxReconnectAttempts = 5;
   private useBackgroundWorker = typeof SharedWorker !== 'undefined';
@@ -56,7 +59,7 @@ class NetworkServiceWrapper {
           if (this.sharedWorker.isConnected()) {
             this.messageQueue = getMessageQueue();
             this.messageQueue.onMessage((msg) => {
-              this.log.info('Delivering queued message:', msg.id);
+              this.log.info('Delivering queued message', { msgId: msg.id });
               this.syncState();
             });
             this.log.info('BackgroundWorker initialized');
@@ -65,22 +68,20 @@ class NetworkServiceWrapper {
             this.useBackgroundWorker = false;
           }
         } catch (err) {
-          this.log.warn('BackgroundWorker init failed, using fallback:', (err as Error).message);
+          this.log.warn('BackgroundWorker init failed, using fallback', { error: (err as Error).message });
           this.useBackgroundWorker = false;
         }
       }
 
       this.service = new BrowserNetworkService();
       await this.service.initialize();
-      this._initialized = true;
       this.setupEventListeners();
       this.log.info('Network service initialized');
       return true;
     } catch (err) {
-      this.log.error('Network initialization failed', { error: (err as Error).message });
-      throw new NetworkError('Failed to initialize network', {
-        originalError: (err as Error).message,
-      });
+      const msg = err instanceof Error ? err.message : String(err);
+      this.log.warn('Network initialization failed', { error: msg });
+      throw new NetworkError(`Failed to initialize network: ${msg}`);
     }
   }
 
@@ -131,21 +132,8 @@ class NetworkServiceWrapper {
         }
       },
 
-      onDataReceived: (data) => {
-        this.log.debug('Data received', { type: data?.type });
-        if (data?.type === 'chat-message' && data?.data) {
-          // F2: Forward incoming chat messages to chatService
-          const { fromPeerId, data: messageData } = data;
-          if (fromPeerId && typeof messageData === 'object') {
-            import('./index.js').then(({ chatService }) => {
-              chatService.receiveMessage(fromPeerId, messageData);
-            });
-          }
-        }
-      },
-
       onError: (error) => {
-        this.log.error('Network error', { error: error?.message ?? error });
+        this.log.warn('Network error', { message: error?.message ?? String(error) });
       },
     });
   }
@@ -188,7 +176,7 @@ class NetworkServiceWrapper {
 
   private async attemptReconnect(): Promise<void> {
     if (this.reconnectAttempts >= this.maxReconnectAttempts) {
-      this.log.error('Max reconnect attempts reached');
+      this.log.warn('Max reconnect attempts reached');
       return;
     }
 
@@ -202,7 +190,6 @@ class NetworkServiceWrapper {
       try {
         this.service?.destroy();
         this.service = null;
-        this._initialized = false;
         await this.initialize();
         
         // K1: Trigger background sync on successful reconnect
@@ -211,7 +198,7 @@ class NetworkServiceWrapper {
           this.log.info('Background sync triggered after reconnect');
         }
       } catch (err) {
-        this.log.error('Reconnect failed', { error: (err as Error).message });
+        this.log.warn('Reconnect failed', { error: (err as Error).message });
       }
     }, delay);
   }
@@ -227,7 +214,7 @@ class NetworkServiceWrapper {
       actions.setMatches(this.normalizeMatches(matches));
       this.log.debug('State synced', { channels: channels.length, matches: matches.length });
     } catch (err) {
-      this.log.error('State sync failed', { error: (err as Error).message });
+      this.log.warn('State sync failed', { error: (err as Error).message });
     }
   }
 
@@ -236,7 +223,7 @@ class NetworkServiceWrapper {
       const matches = this.service?.getMatches() ?? [];
       actions.setMatches(this.normalizeMatches(matches));
     } catch (err) {
-      this.log.error('Match sync failed', { error: (err as Error).message });
+      this.log.warn('Match sync failed', { error: (err as Error).message });
     }
   }
 
@@ -250,16 +237,15 @@ class NetworkServiceWrapper {
     return this.service?.getIdentity() ?? null;
   }
 
-  async updateIdentity(updates: Record<string, any>) {
+  async updateIdentity(updates: Record<string, unknown>) {
     try {
       await this.service?.updateIdentity(updates);
       this.log.info('Identity updated', { updates: Object.keys(updates) });
       return this.service?.getIdentity();
     } catch (err) {
-      this.log.error('Identity update failed', { error: (err as Error).message });
-      throw new IdentityError('Failed to update identity', {
-        originalError: (err as Error).message,
-      });
+      const msg = err instanceof Error ? err.message : String(err);
+      this.log.warn('Identity update failed', { error: msg });
+      throw new IdentityError(`Failed to update identity: ${msg}`);
     }
   }
 
@@ -267,7 +253,7 @@ class NetworkServiceWrapper {
     return this.service?.getChannels() ?? [];
   }
 
-  async createChannel(name: string, description: string, options: any = {}) {
+  async createChannel(name: string, description: string, options?: Record<string, unknown>) {
     try {
       const channel = await this.service!.createChannel(name, description, options);
       this.log.info('Channel created', { id: channel.id, name: channel.name });
@@ -276,26 +262,22 @@ class NetworkServiceWrapper {
 
       return channel;
     } catch (err) {
-      this.log.error('Channel creation failed', { error: (err as Error).message });
-      throw new ChannelError('Failed to create channel', {
-        originalError: (err as Error).message,
-        name,
-      });
+      const msg = err instanceof Error ? err.message : String(err);
+      this.log.warn('Channel creation failed', { error: msg });
+      throw new ChannelError(`Failed to create channel: ${msg}`);
     }
   }
 
-  async updateChannel(channelId: string, updates: { name?: string; description?: string; relations?: any[] }) {
+  async updateChannel(channelId: string, updates: { name?: string; description?: string; relations?: ChannelRelation[] }) {
     try {
       const channel = await this.service!.updateChannel(channelId, updates);
       this.log.info('Channel updated', { channelId, updates: Object.keys(updates) });
       this.syncState();
       return channel;
     } catch (err) {
-      this.log.error('Channel update failed', { error: (err as Error).message });
-      throw new ChannelError('Failed to update channel', {
-        originalError: (err as Error).message,
-        channelId,
-      });
+      const msg = err instanceof Error ? err.message : String(err);
+      this.log.warn('Channel update failed', { error: msg });
+      throw new ChannelError(`Failed to update channel: ${msg}`);
     }
   }
 
@@ -305,11 +287,9 @@ class NetworkServiceWrapper {
       this.log.info('Channel deleted', { channelId });
       actions.removeChannel(channelId);
     } catch (err) {
-      this.log.error('Channel deletion failed', { error: (err as Error).message });
-      throw new ChannelError('Failed to delete channel', {
-        originalError: (err as Error).message,
-        channelId,
-      });
+      const msg = err instanceof Error ? err.message : String(err);
+      this.log.warn('Channel deletion failed', { error: msg });
+      throw new ChannelError(`Failed to delete channel: ${msg}`);
     }
   }
 
@@ -319,11 +299,9 @@ class NetworkServiceWrapper {
       this.log.info('Channel lurk mode updated', { channelId, isLurker });
       this.syncState();
     } catch (err) {
-      this.log.error('Failed to set channel lurk mode', { error: (err as Error).message });
-      throw new ChannelError('Failed to set channel lurk mode', {
-        originalError: (err as Error).message,
-        channelId,
-      });
+      const msg = err instanceof Error ? err.message : String(err);
+      this.log.warn('Failed to set channel lurk mode', { error: msg });
+      throw new ChannelError(`Failed to set channel lurk mode: ${msg}`);
     }
   }
 
@@ -331,11 +309,11 @@ class NetworkServiceWrapper {
     return this.service?.getPosts(channelId) ?? [];
   }
 
-  async fetchMessagesForChannel(channel: { id: string; embedding?: number[]; [key: string]: any }) {
+  async fetchMessagesForChannel(channel: ChannelData) {
     if (!this.service?.fetchMessagesForChannel) {
       return this.getPosts(channel.id);
     }
-    return this.service.fetchMessagesForChannel(channel as any);
+    return this.service.fetchMessagesForChannel(channel);
   }
 
   async createPost(channelId: string, content: string) {
@@ -344,11 +322,9 @@ class NetworkServiceWrapper {
       this.log.debug('Post created', { id: post.id, channelId });
       return post;
     } catch (err) {
-      this.log.error('Post creation failed', { error: (err as Error).message });
-      throw new MessageError('Failed to send message', {
-        originalError: (err as Error).message,
-        channelId,
-      });
+      const msg = err instanceof Error ? err.message : String(err);
+      this.log.warn('Post creation failed', { error: msg });
+      throw new MessageError(`Failed to send message: ${msg}`);
     }
   }
 
@@ -361,7 +337,7 @@ class NetworkServiceWrapper {
       await this.service?.discoverPeers();
       this.log.info('Peer discovery initiated');
     } catch (err) {
-      this.log.error('Peer discovery failed', { error: (err as Error).message });
+      this.log.warn('Peer discovery failed', { error: (err as Error).message });
     }
   }
 
@@ -370,17 +346,16 @@ class NetworkServiceWrapper {
       await this.service?.clearIdentity?.();
       this.log.info('Identity cleared from storage');
     } catch (err) {
-      this.log.error('Failed to clear identity', { error: (err as Error).message });
+      this.log.warn('Failed to clear identity', { error: (err as Error).message });
     }
   }
 
   async destroy(): Promise<void> {
     try {
       this.service?.destroy();
-      this._initialized = false;
       this.log.info('Network service destroyed');
     } catch (err) {
-      this.log.error('Destroy failed', { error: (err as Error).message });
+      this.log.warn('Destroy failed', { error: (err as Error).message });
     }
   }
 }

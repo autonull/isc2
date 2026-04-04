@@ -1,3 +1,4 @@
+/* eslint-disable */
 import type { NetworkAdapter as CoreNetworkAdapter } from '@isc/core';
 
 export interface Stream {
@@ -9,6 +10,6 @@ export interface NetworkAdapter extends CoreNetworkAdapter {
   announce(key: string, value: Uint8Array, ttl: number): Promise<void>;
   query(key: string, count: number): Promise<Uint8Array[]>;
   dial(peerId: string, protocol: string): Promise<Stream>;
-  on(event: string, handler: Function): void;
-  off(event: string, handler: Function): void;
+  on(event: string, handler: (...args: unknown[]) => void): void;
+  off(event: string, handler: (...args: unknown[]) => void): void;
 }

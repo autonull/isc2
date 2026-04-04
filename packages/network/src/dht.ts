@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * ISC Network - In-Memory DHT Implementation
  *

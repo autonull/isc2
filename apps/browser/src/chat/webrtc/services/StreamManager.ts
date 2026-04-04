@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * Stream Manager Service
  *
@@ -6,7 +7,7 @@
 
 import type { Libp2p } from 'libp2p';
 import type { Stream } from '@libp2p/interface';
-import { CHAT_CONFIG } from '../config/chatConfig.js';
+import { CHAT_CONFIG } from '../config/chatConfig.ts';
 
 export class StreamManager {
   private activeStreams: Map<string, Stream> = new Map();

@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * Centralized Logging Service
  * 

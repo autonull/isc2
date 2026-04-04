@@ -4,7 +4,8 @@
  * Provides notification context to component tree.
  */
 
-import { h, JSX } from 'preact';
+import type { JSX } from 'preact';
+import { h } from 'preact';
 import { createContext } from 'preact';
 import { useNotifications as useNotificationsHook } from '../hooks/useNotification.js';
 import type { Notification } from '../hooks/useNotification.js';

@@ -4,7 +4,8 @@
  * Displays online/offline status indicator.
  */
 
-import { h, JSX, Fragment } from 'preact';
+import type { JSX} from 'preact';
+import { h, Fragment } from 'preact';
 import { useIsOnline } from '../../hooks/useAppState.js';
 
 export interface ConnectionStatusProps {
@@ -44,7 +45,7 @@ export function ConnectionBadge({
 }: ConnectionBadgeProps): JSX.Element {
   const isOnline = useIsOnline();
 
-  if (isOnline) return <></>;
+  if (isOnline) {return <></>;}
 
   return (
     <div class={`connection-badge ${className}`} role="alert" aria-live="polite">

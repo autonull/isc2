@@ -1,5 +1,6 @@
-import { getDB, dbGet, dbPut } from '../db/factory.js';
-import { getTopSimilarPeers } from './peerProximity.js';
+/* eslint-disable */
+import { getDB, dbGet, dbPut } from '../db/factory.ts';
+import { getTopSimilarPeers } from './peerProximity.ts';
 
 const SETTINGS_DB_NAME = 'isc-settings';
 const SETTINGS_STORE = 'settings';

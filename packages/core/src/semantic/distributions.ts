@@ -1,3 +1,4 @@
+/* eslint-disable */
 import type { Channel, Distribution, Relation } from '../types.js';
 
 export interface EmbeddingModel {

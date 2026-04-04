@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * Chat Panel Component
  *
@@ -7,10 +8,10 @@
 
 import { chatService } from '../../services/index.js';
 import { networkService } from '../../services/network.ts';
-import { toasts } from '../../utils/toast.js';
+import { toast as toasts } from '../../utils/toast.ts';
 import { modals } from '../components/modal.js';
-import { escapeHtml } from '../../utils/dom.js';
-import { formatTimestamp } from '../../utils/time.js';
+import { escapeHtml } from '../utils/dom.js';
+import { formatTimestamp } from '../../utils/time.ts';
 import { renderEmpty } from '../utils/screen.js';
 
 const TYPING_TTL = 3000;
@@ -108,7 +109,6 @@ class ChatPanelComponent {
           </div>
         </div>
         <div class="chat-header-actions">
-          <button class="btn btn-icon" data-action="video-call" title="Start video call" aria-label="Video call" data-testid="video-call-btn">📹</button>
           <button class="btn btn-ghost btn-sm" data-action="more" title="More options" aria-label="More options" data-testid="chat-more-btn">⋮</button>
           <button class="btn btn-ghost btn-sm mobile-back-btn" data-action="back" title="Back to conversations" data-testid="close-chat-mobile" aria-label="Close chat">← Back</button>
           <button class="btn btn-icon desktop-close-btn" data-action="close" data-testid="close-chat" title="Close conversation" aria-label="Close chat">×</button>
@@ -247,14 +247,6 @@ class ChatPanelComponent {
       const action = btn.dataset.action;
 
       switch (action) {
-        case 'video-call':
-          this.#container.dispatchEvent(
-            new CustomEvent('chat:video-call', {
-              detail: { peerId: this.#peerId },
-              bubbles: true,
-            })
-          );
-          break;
         case 'more':
           this.#showMoreMenu();
           break;
@@ -306,16 +298,6 @@ class ChatPanelComponent {
         <button class="modal-close" aria-label="Close">×</button>
       </div>
       <div class="modal-body chat-more-menu">
-        <button class="chat-more-item" data-action="send-file">
-          <span class="chat-more-icon">📎</span>
-          <span class="chat-more-label">Send File</span>
-          <span class="chat-more-desc">Share a document or image</span>
-        </button>
-        <button class="chat-more-item" data-action="send-photo">
-          <span class="chat-more-icon">🖼️</span>
-          <span class="chat-more-label">Send Photo</span>
-          <span class="chat-more-desc">Share an image from your device</span>
-        </button>
         <button class="chat-more-item danger" data-action="block-peer">
           <span class="chat-more-icon">🚫</span>
           <span class="chat-more-label">Block Peer</span>
@@ -330,14 +312,6 @@ class ChatPanelComponent {
     overlay
       .querySelector('[data-action="cancel"]')
       ?.addEventListener('click', () => modals.close());
-    overlay.querySelector('[data-action="send-file"]')?.addEventListener('click', () => {
-      modals.close();
-      toasts.info('File sharing coming soon');
-    });
-    overlay.querySelector('[data-action="send-photo"]')?.addEventListener('click', () => {
-      modals.close();
-      toasts.info('Photo sharing coming soon');
-    });
     overlay.querySelector('[data-action="block-peer"]')?.addEventListener('click', () => {
       modals.close();
       const peer = networkService.getMatches?.()?.find((p) => p.peerId === peerId) ?? {

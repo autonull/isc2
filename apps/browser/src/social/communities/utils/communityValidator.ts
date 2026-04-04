@@ -1,9 +1,10 @@
+/* eslint-disable */
 /**
  * Community Validator Utilities
  */
 
-import { COMMUNITY_CONFIG } from '../config/communityConfig.js';
-import type { Community } from '../types/community.js';
+import { COMMUNITY_CONFIG } from '../config/communityConfig.ts';
+import type { Community } from '../types/community.ts';
 
 /**
  * Validate community name

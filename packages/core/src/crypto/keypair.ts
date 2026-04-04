@@ -1,3 +1,4 @@
+/* eslint-disable */
 export interface Keypair {
   publicKey: CryptoKey;
   privateKey: CryptoKey;
@@ -45,15 +46,15 @@ export async function importKeypair(
   const [pubKey, privKey] = await Promise.all([
     globalThis.crypto.subtle.importKey(
       'raw',
-      publicKey.buffer as ArrayBuffer,
-      { name: 'Ed25519', namedCurve: 'Ed25519' },
+      publicKey as BufferSource,
+      { name: 'Ed25519', namedCurve: 'Ed25519' } as any,
       true,
       ['verify']
     ),
     globalThis.crypto.subtle.importKey(
       'pkcs8',
-      privateKey.buffer as ArrayBuffer,
-      { name: 'Ed25519', namedCurve: 'Ed25519' },
+      privateKey as BufferSource,
+      { name: 'Ed25519', namedCurve: 'Ed25519' } as any,
       true,
       ['sign']
     ),

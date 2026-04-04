@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * Latency Health Strategy
  */

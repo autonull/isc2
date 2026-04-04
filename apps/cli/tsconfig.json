@@ -11,8 +11,9 @@
     "resolveJsonModule": true,
     "isolatedModules": true,
     "declaration": false,
-    "sourceMap": false
+    "sourceMap": false,
+    "allowJs": true
   },
-  "include": ["src/**/*"],
-  "exclude": ["node_modules", "tests"]
+  "include": ["src/**/*.ts", "src/**/*.js", "src/**/*.d.ts", "tests/**/*.ts"],
+  "exclude": ["node_modules"]
 }

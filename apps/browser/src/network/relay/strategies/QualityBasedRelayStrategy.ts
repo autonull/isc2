@@ -1,12 +1,13 @@
+/* eslint-disable */
 /**
  * Quality-Based Relay Selection Strategy
  *
  * Selects relays based on quality score with load balancing.
  */
 
-import type { RelaySelectionStrategy } from './RelaySelectionStrategy.js';
-import type { RelayCandidate } from '../types/relay.js';
-import { RELAY_CONSTANTS } from '../config/relayConfig.js';
+import type { RelaySelectionStrategy } from './RelaySelectionStrategy.ts';
+import type { RelayCandidate } from '../types/relay.ts';
+import { RELAY_CONSTANTS } from '../config/relayConfig.ts';
 
 export class QualityBasedRelayStrategy implements RelaySelectionStrategy {
   /**

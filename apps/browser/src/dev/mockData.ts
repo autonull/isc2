@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * Mock Data Generator for Development and Testing
  *
@@ -5,7 +6,7 @@
  */
 
 import type { Channel, Relation } from '@isc/core';
-import type { Post } from '../types/extended.js';
+import type { Post } from '../types/extended.ts';
 
 // Sample data pools
 const CHANNEL_TOPICS = [

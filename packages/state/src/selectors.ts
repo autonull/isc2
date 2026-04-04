@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * Memoized Selectors
  *
@@ -14,7 +15,7 @@ class MemoCache<T> {
   private deps: unknown[] = [];
 
   get(deps: unknown[]): T | undefined {
-    if (this.deps.length !== deps.length) return undefined;
+    if (this.deps.length !== deps.length) {return undefined;}
     if (this.deps.every((d, i) => d === deps[i])) {
       return this.cache;
     }

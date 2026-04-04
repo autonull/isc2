@@ -1,13 +1,14 @@
+/* eslint-disable */
 /**
  * WebRTC Audio Service
  *
  * Manages peer connections and audio streams.
  */
 
-import { AUDIO_CONFIG } from '../config/audioConfig.js';
-import { AudioSpaceModel } from '../models/AudioSpace.js';
-import { getPeerID } from '../../../identity/index.js';
-import type { AudioMessage } from '../types/audioSpace.js';
+import { AUDIO_CONFIG } from '../config/audioConfig.ts';
+import { AudioSpaceModel } from '../models/AudioSpace.ts';
+import { getPeerID } from '../../../identity/index.ts';
+import type { AudioMessage } from '../types/audioSpace.ts';
 
 type PeerConnectionMap = Map<string, RTCPeerConnection>;
 

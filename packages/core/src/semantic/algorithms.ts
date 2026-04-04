@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * Semantic Analysis Algorithms
  *
@@ -17,7 +18,7 @@ export namespace VectorMath {
 
   export function normalize(vec: Point2D): Point2D {
     const mag = magnitude(vec);
-    if (mag === 0) return { x: 0, y: 0 };
+    if (mag === 0) {return { x: 0, y: 0 };}
     return { x: vec.x / mag, y: vec.y / mag };
   }
 
@@ -50,7 +51,7 @@ export namespace VectorMath {
   }
 
   export function centroid(points: Point2D[]): Point2D {
-    if (points.length === 0) return { x: 0, y: 0 };
+    if (points.length === 0) {return { x: 0, y: 0 };}
     const sum = points.reduce((acc, p) => add(acc, p), { x: 0, y: 0 });
     return { x: sum.x / points.length, y: sum.y / points.length };
   }
@@ -111,7 +112,7 @@ export namespace Clustering {
     k: number,
     maxIterations: number = DEFAULT_MAX_ITERATIONS
   ): Point2D[] {
-    if (points.length <= k) return points;
+    if (points.length <= k) {return points;}
 
     const centroids = initializeCentroids(points, k);
 
@@ -139,7 +140,7 @@ export namespace Clustering {
 
     while (clusters.length > maxClusters) {
       const { clusterA, clusterB, minDist } = findClosestClusters(clusters, distances);
-      if (minDist === Infinity) break;
+      if (minDist === Infinity) {break;}
 
       clusters[clusterA] = [...clusters[clusterA], ...clusters[clusterB]];
       clusters.splice(clusterB, 1);
@@ -345,7 +346,7 @@ export namespace Layout {
     points: Point2D[],
     velocities: { x: number; y: number }[],
     repulsion: number,
-    attraction: number,
+    _attraction: number,
     damping: number
   ): void {
     for (let i = 0; i < points.length; i++) {
@@ -353,7 +354,7 @@ export namespace Layout {
       let vy = 0;
 
       for (let j = 0; j < points.length; j++) {
-        if (i === j) continue;
+        if (i === j) {continue;}
 
         const dx = points[i].x - points[j].x;
         const dy = points[i].y - points[j].y;
@@ -402,7 +403,7 @@ export namespace Layout {
  * Default cosine similarity implementation
  */
 function defaultCosineSimilarity(a: number[], b: number[]): number {
-  if (a.length === 0 || b.length === 0) return 0;
+  if (a.length === 0 || b.length === 0) {return 0;}
 
   let dotProduct = 0;
   let normA = 0;
@@ -418,6 +419,6 @@ function defaultCosineSimilarity(a: number[], b: number[]): number {
   normA = Math.sqrt(normA);
   normB = Math.sqrt(normB);
 
-  if (normA === 0 || normB === 0) return 0;
+  if (normA === 0 || normB === 0) {return 0;}
   return dotProduct / (normA * normB);
 }

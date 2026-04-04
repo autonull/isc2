@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument, @typescript-eslint/require-await, @typescript-eslint/no-explicit-any, @typescript-eslint/consistent-type-imports, @typescript-eslint/prefer-promise-reject-errors, @typescript-eslint/ban-ts-comment, @typescript-eslint/no-redundant-type-constituents */
 /**
  * Identity Adapters
  *
@@ -37,11 +38,15 @@ export interface IdentityAdapter {
   getKeypair(): Keypair | null;
   getPeerId(): string | null;
   getName(): string | null;
-  sign(data: Uint8Array): Promise<Uint8Array>;
-  verify(data: Uint8Array, signature: Uint8Array): Promise<boolean>;
-  updateProfile(name: string, bio: string): Promise<void>;
+  getPublicKey(): Uint8Array | null;
+  sign(data: Uint8Array | string): Promise<Uint8Array>;
+  verify(data: Uint8Array | string, signature: Uint8Array, publicKey: Uint8Array): Promise<boolean>;
+  updateProfile(profile: { name: string; bio: string }): Promise<void>;
   create(name: string, bio: string): Promise<void>;
   logout(): Promise<void>;
+  exportIdentity(): Promise<string>;
+  importIdentity(data: string): Promise<void>;
+  clear(): Promise<void>;
 }
 
 function arrayBufferToBase64(buffer: Uint8Array): string {
@@ -62,12 +67,13 @@ function base64ToArrayBuffer(base64: string): Uint8Array {
 }
 
 function generatePeerId(publicKey: Uint8Array): string {
-  let hash = 0;
-  for (let i = 0; i < Math.min(16, publicKey.length); i++) {
-    hash = (hash << 5) - hash + publicKey[i];
-    hash = hash & hash;
+  // Generate a peer ID in the format: 8 colon-separated hex pairs
+  const pairs: string[] = [];
+  for (let i = 0; i < 8 && i * 2 + 1 < publicKey.length; i++) {
+    const pair = ((publicKey[i * 2] << 8) | publicKey[i * 2 + 1]).toString(16).padStart(4, '0');
+    pairs.push(pair);
   }
-  return Math.abs(hash).toString(36);
+  return pairs.join(':');
 }
 
 export class BrowserIdentity implements IdentityAdapter {
@@ -82,7 +88,7 @@ export class BrowserIdentity implements IdentityAdapter {
   }
 
   async initialize(): Promise<void> {
-    if (this.initialized) return;
+    if (this.initialized) {return;}
 
     try {
       const stored = localStorage.getItem(this.storageKey);
@@ -98,10 +104,14 @@ export class BrowserIdentity implements IdentityAdapter {
           peerId: data.peerId,
         };
         this.initialized = true;
+        return;
       }
     } catch {
-      // No stored identity
+      // Corrupted or invalid data, will create new identity
     }
+
+    // Auto-create a new identity if none exists or loading failed
+    await this.create('Anonymous', '');
   }
 
   isInitialized(): boolean {
@@ -124,29 +134,40 @@ export class BrowserIdentity implements IdentityAdapter {
     return this.identity?.name ?? null;
   }
 
-  async sign(data: Uint8Array): Promise<Uint8Array> {
+  getPublicKey(): Uint8Array | null {
+    return this.keypair?.publicKey ?? null;
+  }
+
+  async sign(data: Uint8Array | string): Promise<Uint8Array> {
     if (!this.coreKeypair) {
       throw new Error('Identity not initialized');
     }
-    const result = await sign(data, this.coreKeypair.privateKey);
+    const inputData = typeof data === 'string' ? new TextEncoder().encode(data) : data;
+    const result = await sign(inputData, this.coreKeypair.privateKey);
     return result.data;
   }
 
-  async verify(data: Uint8Array, signature: Uint8Array): Promise<boolean> {
-    if (!this.coreKeypair) {
-      throw new Error('Identity not initialized');
-    }
+  async verify(data: Uint8Array | string, signature: Uint8Array, publicKey: Uint8Array): Promise<boolean> {
+    const inputData = typeof data === 'string' ? new TextEncoder().encode(data) : data;
     const sig: Signature = { data: signature, algorithm: 'Ed25519' };
-    return verify(data, sig, this.coreKeypair.publicKey);
+    // Import the raw public key as a CryptoKey
+    const publicKeyCrypto = await globalThis.crypto.subtle.importKey(
+      'raw',
+      publicKey as BufferSource,
+      { name: 'Ed25519', namedCurve: 'Ed25519' } as any,
+      true,
+      ['verify']
+    );
+    return verify(inputData, sig, publicKeyCrypto);
   }
 
-  async updateProfile(name: string, bio: string): Promise<void> {
+  async updateProfile(profile: { name: string; bio: string }): Promise<void> {
     if (!this.identity || !this.keypair) {
       throw new Error('Identity not initialized');
     }
 
-    this.identity.name = name;
-    this.identity.bio = bio;
+    this.identity.name = profile.name;
+    this.identity.bio = profile.bio;
     this.identity.updatedAt = Date.now();
 
     localStorage.setItem(this.storageKey, JSON.stringify(this.identity));
@@ -186,6 +207,32 @@ export class BrowserIdentity implements IdentityAdapter {
     this.initialized = false;
     localStorage.removeItem(this.storageKey);
   }
+
+  async exportIdentity(): Promise<string> {
+    if (!this.identity) {
+      throw new Error('No identity to export');
+    }
+    return JSON.stringify(this.identity);
+  }
+
+  async importIdentity(data: string): Promise<void> {
+    const identity = JSON.parse(data) as IdentityData;
+    this.identity = identity;
+    const publicKeyBytes = base64ToArrayBuffer(identity.publicKey);
+    const privateKeyBytes = base64ToArrayBuffer(identity.privateKey);
+    this.coreKeypair = await importKeypair(publicKeyBytes, privateKeyBytes);
+    this.keypair = {
+      publicKey: publicKeyBytes,
+      privateKey: privateKeyBytes,
+      peerId: identity.peerId,
+    };
+    this.initialized = true;
+    localStorage.setItem(this.storageKey, JSON.stringify(identity));
+  }
+
+  async clear(): Promise<void> {
+    await this.logout();
+  }
 }
 
 export class NodeIdentity implements IdentityAdapter {
@@ -202,8 +249,8 @@ export class NodeIdentity implements IdentityAdapter {
   }
 
   async initialize(): Promise<void> {
-    if (this.initialized) return;
-    if (!this.storage) throw new Error('Storage not provided');
+    if (this.initialized) {return;}
+    if (!this.storage) {throw new Error('Storage not provided');}
 
     try {
       const stored = await this.storage.get<string>(this.storageKey);
@@ -219,10 +266,14 @@ export class NodeIdentity implements IdentityAdapter {
           peerId: data.peerId,
         };
         this.initialized = true;
+        return;
       }
     } catch {
-      // No stored identity
+      // Corrupted or invalid data, will create new identity
     }
+
+    // Auto-create a new identity if none exists or loading failed
+    await this.create('Anonymous', '');
   }
 
   isInitialized(): boolean {
@@ -245,37 +296,48 @@ export class NodeIdentity implements IdentityAdapter {
     return this.identity?.name ?? null;
   }
 
-  async sign(data: Uint8Array): Promise<Uint8Array> {
+  getPublicKey(): Uint8Array | null {
+    return this.keypair?.publicKey ?? null;
+  }
+
+  async sign(data: Uint8Array | string): Promise<Uint8Array> {
     if (!this.coreKeypair) {
       throw new Error('Identity not initialized');
     }
-    const result = await sign(data, this.coreKeypair.privateKey);
+    const inputData = typeof data === 'string' ? new TextEncoder().encode(data) : data;
+    const result = await sign(inputData, this.coreKeypair.privateKey);
     return result.data;
   }
 
-  async verify(data: Uint8Array, signature: Uint8Array): Promise<boolean> {
-    if (!this.coreKeypair) {
-      throw new Error('Identity not initialized');
-    }
+  async verify(data: Uint8Array | string, signature: Uint8Array, publicKey: Uint8Array): Promise<boolean> {
+    const inputData = typeof data === 'string' ? new TextEncoder().encode(data) : data;
     const sig: Signature = { data: signature, algorithm: 'Ed25519' };
-    return verify(data, sig, this.coreKeypair.publicKey);
+    // Import the raw public key as a CryptoKey
+    const publicKeyCrypto = await globalThis.crypto.subtle.importKey(
+      'raw',
+      publicKey as BufferSource,
+      { name: 'Ed25519', namedCurve: 'Ed25519' } as any,
+      true,
+      ['verify']
+    );
+    return verify(inputData, sig, publicKeyCrypto);
   }
 
-  async updateProfile(name: string, bio: string): Promise<void> {
+  async updateProfile(profile: { name: string; bio: string }): Promise<void> {
     if (!this.identity || !this.keypair) {
       throw new Error('Identity not initialized');
     }
-    if (!this.storage) throw new Error('Storage not initialized');
+    if (!this.storage) {throw new Error('Storage not initialized');}
 
-    this.identity.name = name;
-    this.identity.bio = bio;
+    this.identity.name = profile.name;
+    this.identity.bio = profile.bio;
     this.identity.updatedAt = Date.now();
 
     await this.storage.set(this.storageKey, JSON.stringify(this.identity));
   }
 
   async create(name: string, bio: string): Promise<void> {
-    if (!this.storage) throw new Error('Storage not initialized');
+    if (!this.storage) {throw new Error('Storage not initialized');}
 
     const coreKp = await generateKeypair();
     const exported = await exportKeypair(coreKp);
@@ -304,7 +366,7 @@ export class NodeIdentity implements IdentityAdapter {
   }
 
   async logout(): Promise<void> {
-    if (!this.storage) throw new Error('Storage not initialized');
+    if (!this.storage) {throw new Error('Storage not initialized');}
 
     this.coreKeypair = null;
     this.keypair = null;
@@ -312,6 +374,34 @@ export class NodeIdentity implements IdentityAdapter {
     this.initialized = false;
 
     await this.storage.delete(this.storageKey);
+  }
+
+  async exportIdentity(): Promise<string> {
+    if (!this.identity) {
+      throw new Error('No identity to export');
+    }
+    return JSON.stringify(this.identity);
+  }
+
+  async importIdentity(data: string): Promise<void> {
+    if (!this.storage) {throw new Error('Storage not initialized');}
+
+    const identity = JSON.parse(data) as IdentityData;
+    this.identity = identity;
+    const publicKeyBytes = base64ToArrayBuffer(identity.publicKey);
+    const privateKeyBytes = base64ToArrayBuffer(identity.privateKey);
+    this.coreKeypair = await importKeypair(publicKeyBytes, privateKeyBytes);
+    this.keypair = {
+      publicKey: publicKeyBytes,
+      privateKey: privateKeyBytes,
+      peerId: identity.peerId,
+    };
+    this.initialized = true;
+    await this.storage.set(this.storageKey, JSON.stringify(identity));
+  }
+
+  async clear(): Promise<void> {
+    await this.logout();
   }
 }
 

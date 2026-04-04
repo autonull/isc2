@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * DM Encryption Service
  *
@@ -5,18 +6,17 @@
  * for forward secrecy and sealed sender for relay privacy.
  */
 
-import { getPeerPublicKey, getKeypair, getPeerID } from '../../../identity/index.js';
+import { getPeerPublicKey, getKeypair, getPeerID } from '../../../identity/index.ts';
 import {
   getSecureSessionManager,
   type SessionInitMessage,
-} from '../../../services/secureSession.js';
-import type { DirectMessage } from '../types/dm.js';
+} from '../../../services/secureSession.ts';
+import type { DirectMessage } from '../types/dm.ts';
 import {
   sealSenderIdentity,
   unsealSenderIdentity,
-  extractSealedEnvelope,
   type SealedEnvelope,
-} from './sealedSender.js';
+} from './sealedSender.ts';
 
 export interface EncryptedPayload {
   encryptedContent: Uint8Array;

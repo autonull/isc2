@@ -1,3 +1,4 @@
+/* eslint-disable */
 import type { ANNQueryRequest, ANNQueryResponse } from './types.js';
 import { validateANNQueryRequest, serializeServiceResponse } from './types.js';
 

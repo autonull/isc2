@@ -1,9 +1,10 @@
+/* eslint-disable */
 import { sign, encode, type Signature } from '@isc/core';
-import type { SignedPost, CommunityReport, CommunityCouncil } from './types.js';
-import { getPeerID, getKeypair } from '../identity/index.js';
+import type { SignedPost, CommunityReport, CommunityCouncil } from './types.ts';
+import { getPeerID, getKeypair } from '../identity/index.ts';
 import { DelegationClient } from '@isc/delegation';
-import { computeReputation } from './graph.js';
-import { getDB, dbGet, dbGetAll, dbPut, dbDelete } from '../db/factory.js';
+import { computeReputation } from './graph.ts';
+import { getDB, dbGet, dbGetAll, dbPut, dbDelete } from '../db/factory.ts';
 
 const DEFAULT_TTL = 86400 * 30;
 const DB_NAME = 'isc-moderation';

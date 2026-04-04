@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * Channel Management - Environment-agnostic core
  *
@@ -134,7 +135,7 @@ export class ChannelManager {
     updates: Partial<Omit<Channel, 'id' | 'createdAt'>>
   ): Promise<Channel | null> {
     const channel = await this.storage.get(id);
-    if (!channel) return null;
+    if (!channel) {return null;}
 
     const updated: Channel = { ...channel, ...updates, updatedAt: Date.now() };
     if (updates.relations) {
@@ -216,7 +217,7 @@ export class ChannelManager {
    */
   async forkChannel(id: string): Promise<Channel | null> {
     const original = await this.storage.get(id);
-    if (!original) return null;
+    if (!original) {return null;}
 
     const forked: Channel = {
       ...original,

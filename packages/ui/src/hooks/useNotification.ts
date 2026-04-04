@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * useNotification Hook
  *
@@ -34,22 +35,18 @@ export function useNotifications() {
   );
 
   const show = useCallback(
-    (notification: Omit<Notification, 'id' | 'timestamp'>): string => {
+    (_notification: Omit<Notification, 'id' | 'timestamp'>): string => {
       const id = `notif_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-      console.log('Show notification:', { id, ...notification });
-      // Would dispatch action in real implementation
       return id;
     },
     []
   );
 
-  const dismiss = useCallback((id: string) => {
-    console.log('Dismiss notification:', id);
+  const dismiss = useCallback((_id: string) => {
     // Would dispatch action in real implementation
   }, []);
 
   const dismissAll = useCallback(() => {
-    console.log('Dismiss all notifications');
     // Would dispatch action in real implementation
   }, []);
 

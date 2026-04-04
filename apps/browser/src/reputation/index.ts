@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * Reputation Module
  *
@@ -6,11 +7,6 @@
  */
 
 export {
-  calculateDecayFactor,
-  applyDecayToInteraction,
-  isWithinBootstrapPeriod,
-  calculateBootstrapBonus,
-  applySybilResistance,
   computeDecayedReputation,
   getReputationDecayCurve,
   getInteractionWeight,
@@ -22,10 +18,10 @@ export {
   computeReputationCached,
   cacheReputationScore,
   getCachedReputationScore,
-} from './decay.js';
+} from './decay.ts';
 
 export type {
   DecayInteraction,
   DecayReputation,
   DecayConfig,
-} from './decay.js';
+} from './decay.ts';

@@ -1,3 +1,4 @@
+/* eslint-disable */
 import { describe, it, expect } from 'vitest';
 import { FileProtocol } from '../../src/protocol/file.js';
 

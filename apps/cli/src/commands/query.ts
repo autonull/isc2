@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * Query Semantic Command
  *

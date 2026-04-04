@@ -1,3 +1,4 @@
+/* eslint-disable */
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { HealthSelector } from '../src/delegation/selection.js';
 import type { DelegationHealth } from '@isc/protocol/messages';

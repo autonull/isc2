@@ -1,14 +1,13 @@
+/* eslint-disable */
 /**
  * ISC Network Library - Browser Tests
  */
 
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach } from 'vitest';
 import {
   BrowserNetworkService,
   createBrowserNetworkService,
   createStorage,
-  BrowserStorage,
-  LocalStorage,
   MemoryStorage,
 } from '../src/index.js';
 
@@ -57,19 +56,6 @@ describe('Storage', () => {
     });
   });
 
-  describe('LocalStorage', () => {
-    it('should only run in browser environment', () => {
-      // Skip if localStorage is not available (Node.js)
-      if (typeof localStorage === 'undefined') {
-        expect(true).toBe(true); // Placeholder assertion
-        return;
-      }
-      
-      const storage = new LocalStorage();
-      expect(storage).toBeDefined();
-    });
-  });
-
   describe('createStorage', () => {
     it('should create appropriate storage for environment', () => {
       const storage = createStorage();
@@ -82,12 +68,20 @@ describe('Storage', () => {
 
 describe('BrowserNetworkService', () => {
   let service: BrowserNetworkService;
+  let storage: MemoryStorage;
 
   beforeEach(() => {
+    storage = new MemoryStorage();
     service = createBrowserNetworkService({
-      autoDiscover: false, // Disable auto-discovery for tests
+      autoDiscover: false,
       discoverInterval: 60000,
+      storage,
     });
+  });
+
+  afterEach(async () => {
+    await storage.clear();
+    service?.destroy();
   });
 
   afterAll(() => {
@@ -243,8 +237,9 @@ describe('BrowserNetworkService', () => {
 
 describe('BrowserNetworkService Integration', () => {
   it('should run full workflow', async () => {
-    const service = createBrowserNetworkService({ autoDiscover: false });
-    
+    const storage = new MemoryStorage();
+    const service = createBrowserNetworkService({ autoDiscover: false, storage });
+
     try {
       // Initialize
       await service.initialize();

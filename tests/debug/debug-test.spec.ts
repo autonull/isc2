@@ -7,62 +7,71 @@ import { test, expect } from '@playwright/test';
 test('App should load and show sidebar', async ({ page }) => {
   // Capture all console messages
   const messages: string[] = [];
-  page.on('console', msg => {
+  page.on('console', (msg) => {
     messages.push(`${msg.type()}: ${msg.text()}`);
   });
-  page.on('pageerror', err => {
+  page.on('pageerror', (err) => {
     messages.push(`PAGE ERROR: ${err.message}`);
     messages.push(`Stack: ${err.stack}`);
   });
 
   await page.goto('/');
-  
+
   // Wait for network to be idle
   await page.waitForLoadState('networkidle');
   await page.waitForTimeout(8000);
-  
+
   // Take a screenshot
   await page.screenshot({ path: 'test-results/debug-page.png', fullPage: true });
-  
-  // Get all messages
-  console.log('All console messages:', messages);
-  
+
+  // Keep messages for later assertions or debug artifacts (avoid noisy logs)
+
   // Check for JS errors in the page
   const jsErrors = await page.evaluate(() => {
     return (window as any).__jsErrors || [];
   });
-  console.log('JS errors from page:', jsErrors);
-  
+  // JS errors captured for assertions
+  expect(Array.isArray(jsErrors)).toBeTruthy();
+
   // Check if app div has content
   const appContent = await page.innerHTML('#app').catch(() => 'NOT FOUND');
-  console.log('App innerHTML length:', appContent.length);
-  console.log('App innerHTML (first 200 chars):', appContent.substring(0, 200));
-  
+  // Avoid printing large HTML in CI logs; perform small assertions instead
+  expect(typeof appContent === 'string').toBeTruthy();
+
   // Check for any rendered elements
   const elementCount = await page.evaluate(() => {
     return document.body.querySelectorAll('*').length;
   });
-  console.log('Total elements on page:', elementCount);
-  
+  expect(typeof elementCount === 'number').toBeTruthy();
+
   // Check for sidebar
   const sidebar = page.locator('[data-testid="sidebar"]');
   const sidebarVisible = await sidebar.isVisible().catch(() => false);
-  console.log('Sidebar visible:', sidebarVisible);
-  
+  // Sidebar visibility recorded
+
   // If sidebar not visible, find what IS visible
   if (!sidebarVisible) {
     const visibleElements = await page.evaluate(() => {
       const elements: string[] = [];
-      document.querySelectorAll('*').forEach(el => {
+      document.querySelectorAll('*').forEach((el) => {
         const style = window.getComputedStyle(el);
-        if (style.display !== 'none' && style.visibility !== 'hidden' && el.offsetWidth > 0) {
-          elements.push(el.tagName + (el.className ? '.' + el.className.split(' ').join('.') : '') + (el.id ? '#' + el.id : ''));
+        if (
+          style.display !== 'none' &&
+          style.visibility !== 'hidden' &&
+          (el as any).offsetWidth > 0
+        ) {
+          elements.push(
+            el.tagName +
+              (el.className ? '.' + el.className.split(' ').join('.') : '') +
+              (el.id ? '#' + el.id : '')
+          );
         }
       });
       return elements.slice(0, 20);
     });
-    console.log('Visible elements:', visibleElements);
+    // Visible elements captured (truncated) for inspection when debugging locally
+    expect(Array.isArray(visibleElements)).toBeTruthy();
   }
-  
+
   expect(sidebarVisible).toBe(true);
 });

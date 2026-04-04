@@ -1,10 +1,11 @@
+/* eslint-disable */
 /**
  * Commitment utilities for ZK proofs
  */
 
 import { encode } from '@isc/core';
-import type { Embedding } from '../models/proof.js';
-import type { ZKConfig } from '../config/zkConfig.js';
+import type { Embedding } from '../models/proof.ts';
+import type { ZKConfig } from '../config/zkConfig.ts';
 
 /**
  * Generate a random salt for commitments

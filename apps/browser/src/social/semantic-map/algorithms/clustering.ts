@@ -1,10 +1,11 @@
+/* eslint-disable */
 /**
  * Clustering Algorithms
  */
 
-import type { Point2D } from '../types/semanticMap.js';
-import { CLUSTERING_CONFIG } from '../config/semanticConfig.js';
-import { squaredDistance } from '../utils/vectorMath.js';
+import type { Point2D } from '../types/semanticMap.ts';
+import { CLUSTERING_CONFIG } from '../config/semanticConfig.ts';
+import { squaredDistance } from '../utils/vectorMath.ts';
 
 /**
  * K-means clustering algorithm

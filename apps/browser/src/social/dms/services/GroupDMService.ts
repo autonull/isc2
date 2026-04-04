@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * Group DM Service
  *
@@ -5,14 +6,12 @@
  */
 
 import { sign, encode, type Signature } from '@isc/core';
-import { getPeerID, getKeypair } from '../../../identity/index.js';
-import type { DirectMessage, GroupDM } from '../types/dm.js';
-import { DM_CONFIG } from '../config/dmConfig.js';
-import { DMStorageService } from './DMStorageService.js';
-import { DMDeliveryService } from './DMDeliveryService.js';
-import { DMEncryptionService } from './DMEncryptionService.js';
-
-type GroupEventType = 'created' | 'member_added' | 'member_removed' | 'member_left';
+import { getPeerID, getKeypair } from '../../../identity/index.ts';
+import type { DirectMessage, GroupDM } from '../types/dm.ts';
+import { DM_CONFIG } from '../config/dmConfig.ts';
+import { DMStorageService } from './DMStorageService.ts';
+import { DMDeliveryService } from './DMDeliveryService.ts';
+import { DMEncryptionService } from './DMEncryptionService.ts';
 
 export class GroupDMService {
   private static async signMessage(
@@ -59,28 +58,6 @@ export class GroupDMService {
     const myID = await getPeerID();
     const all = await DMStorageService.getAllGroupDMs();
     return all.filter((g) => g.members.includes(myID));
-  }
-
-  private static async updateGroup(
-    groupID: string,
-    update: (group: GroupDM) => Promise<void>,
-    event: GroupEventType,
-    member?: string
-  ): Promise<void> {
-    const group =
-      (await this.getGroup(groupID)) ??
-      (() => {
-        throw new Error(`Group DM ${groupID} not found`);
-      })();
-    const sender = await getPeerID();
-
-    if (event !== 'created' && sender !== group.creator) {
-      throw new Error('Only the creator can modify group');
-    }
-
-    await update(group);
-    await DMStorageService.storeGroupDM(group);
-    await DMDeliveryService.notifyGroupEvent(group, event, member);
   }
 
   static async addMember(groupID: string, newMember: string): Promise<void> {

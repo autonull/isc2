@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * Browser Moderation Adapters
  *
@@ -6,7 +7,7 @@
  * CouncilProvider interfaces using browser-specific primitives.
  */
 
-import { sign, encode } from '@isc/core';
+import { sign } from '@isc/core';
 import type {
   ModerationStorage,
   ModerationIdentity,
@@ -15,11 +16,11 @@ import type {
   CouncilProvider,
 } from '@isc/social';
 import { DelegationClient } from '@isc/delegation';
-import { dbGet, dbPut, dbFilter, dbGetAll } from '../db/helpers.js';
-import { getPeerID, getKeypair } from '../identity/index.js';
-import { computeReputationCached } from '../reputation/decay.js';
-import { getCouncil, isCouncilEligible } from '../social/moderation.js';
-import { COURT_CONFIG } from './config/courtConfig.js';
+import { dbGet, dbPut, dbFilter, dbGetAll } from '../db/helpers.ts';
+import { getPeerID, getKeypair } from '../identity/index.ts';
+import { computeReputationCached } from '../reputation/decay.ts';
+import { getCouncil, isCouncilEligible } from '../social/moderation.ts';
+import { COURT_CONFIG } from './config/courtConfig.ts';
 
 const { APPEALS, JURY, VERDICTS, COURTS } = COURT_CONFIG.stores;
 

@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * Hierarchical DHT
  *
@@ -171,7 +172,7 @@ export class HierarchicalDHT {
 
     for (const shard of nearbyShards) {
       for (const peer of shard.getAllPeers()) {
-        if (!peer.location) continue;
+        if (!peer.location) {continue;}
 
         const distance = GeoService.calculateDistance(location, peer.location);
         if (distance <= maxDistanceKm) {

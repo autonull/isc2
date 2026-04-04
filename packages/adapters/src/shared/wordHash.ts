@@ -1,3 +1,4 @@
+/* eslint-disable */
 const VOCAB = new Set([
   'the', 'be', 'to', 'of', 'and', 'a', 'in', 'that', 'have', 'I',
   'it', 'for', 'not', 'on', 'with', 'he', 'as', 'you', 'do', 'at',

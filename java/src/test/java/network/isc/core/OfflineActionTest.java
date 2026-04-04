@@ -9,7 +9,7 @@ import static org.junit.jupiter.api.Assertions.*;
 class OfflineActionTest {
     @Test
     void testCreateMessageAction() {
-        var action = OfflineAction.message("channel123", "Hello world");
+        OfflineAction action = OfflineAction.message("channel123", "Hello world");
 
         assertNotNull(action.getId());
         assertEquals(OfflineAction.ActionType.MESSAGE, action.getType());
@@ -20,7 +20,7 @@ class OfflineActionTest {
 
     @Test
     void testCreatePostAction() {
-        var action = OfflineAction.post("Post content", "channel456");
+        OfflineAction action = OfflineAction.post("Post content", "channel456");
 
         assertEquals(OfflineAction.ActionType.POST, action.getType());
         assertEquals(OfflineAction.Priority.NORMAL, action.getPriority());
@@ -28,7 +28,7 @@ class OfflineActionTest {
 
     @Test
     void testCreateDirectMessageAction() {
-        var action = OfflineAction.directMessage("peer789", "DM content");
+        OfflineAction action = OfflineAction.directMessage("peer789", "DM content");
 
         assertEquals(OfflineAction.ActionType.DM, action.getType());
         assertEquals(OfflineAction.Priority.HIGH, action.getPriority());
@@ -36,7 +36,7 @@ class OfflineActionTest {
 
     @Test
     void testIncrementRetry() {
-        var action = OfflineAction.message("ch1", "test");
+        OfflineAction action = OfflineAction.message("ch1", "test");
 
         action.setRetryCount(1);
         assertEquals(1, action.getRetryCount());

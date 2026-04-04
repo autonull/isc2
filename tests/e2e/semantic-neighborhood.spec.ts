@@ -22,13 +22,15 @@ import { waitForAppReady, skipOnboarding } from './utils/waitHelpers.js';
 
 async function setupContext(
   browser: Browser,
-  name: string,
+  _name: string,
   channelName: string,
   channelDesc: string
 ): Promise<{ ctx: BrowserContext; page: Page; channelId: string }> {
   const ctx = await browser.newContext({ storageState: undefined });
   const page = await ctx.newPage();
-  page.on('pageerror', err => console.log(`[${name}] Uncaught:`, err.message));
+  page.on('pageerror', () => {
+    // captured internally; suppressed in CI
+  });
 
   await page.goto('/');
   await skipOnboarding(page);
@@ -36,12 +38,15 @@ async function setupContext(
   await waitForAppReady(page);
 
   // Create the channel via the ISC service API
-  const channelId = await page.evaluate(async ({ cName, cDesc }) => {
-    const svc = (window as any).ISC?.channelService;
-    if (!svc) throw new Error('channelService not available');
-    const ch = await svc.create({ name: cName, description: cDesc });
-    return ch?.id ?? ch;
-  }, { cName: channelName, cDesc: channelDesc });
+  const channelId = await page.evaluate(
+    async ({ cName, cDesc }) => {
+      const svc = (window as any).ISC?.channelService;
+      if (!svc) throw new Error('channelService not available');
+      const ch = await svc.create({ name: cName, description: cDesc });
+      return ch?.id ?? ch;
+    },
+    { cName: channelName, cDesc: channelDesc }
+  );
 
   return { ctx, page, channelId };
 }
@@ -56,31 +61,34 @@ async function injectPost(
   content: string,
   author: string = 'Remote Peer'
 ): Promise<string> {
-  return page.evaluate(({ chId, text, auth }) => {
-    const svc = (window as any).ISC?.networkService?.service;
-    if (!svc) return 'no-service';
+  return page.evaluate(
+    ({ chId, text, auth }) => {
+      const svc = (window as any).ISC?.networkService?.service;
+      if (!svc) return 'no-service';
 
-    const post = {
-      id: `test-post-${Date.now()}-${Math.random().toString(36).slice(2)}`,
-      channelId: chId,
-      content: text,
-      author: auth,
-      timestamp: Date.now(),
-      createdAt: Date.now(),
-      likes: [],
-      replies: [],
-    };
+      const post = {
+        id: `test-post-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+        channelId: chId,
+        content: text,
+        author: auth,
+        timestamp: Date.now(),
+        createdAt: Date.now(),
+        likes: [],
+        replies: [],
+      };
 
-    // Inject into the internal post store
-    if (Array.isArray(svc.posts)) {
-      svc.posts.unshift(post);
-    } else if (Array.isArray(svc._posts)) {
-      svc._posts.unshift(post);
-    }
+      // Inject into the internal post store
+      if (Array.isArray(svc.posts)) {
+        svc.posts.unshift(post);
+      } else if (Array.isArray(svc._posts)) {
+        svc._posts.unshift(post);
+      }
 
-    document.dispatchEvent(new CustomEvent('isc:refresh-feed'));
-    return post.id;
-  }, { chId: channelId, text: content, auth: author });
+      document.dispatchEvent(new CustomEvent('isc:refresh-feed'));
+      return post.id;
+    },
+    { chId: channelId, text: content, auth: author }
+  );
 }
 
 /**
@@ -112,23 +120,28 @@ async function getPostsForChannel(page: Page, channelId: string): Promise<string
 test.describe('Semantic Neighborhood Routing (6.5)', () => {
   test.setTimeout(60000);
 
-  test('post from similar channel appears in neighbor context, not in distant context', async ({ browser }) => {
+  test('post from similar channel appears in neighbor context, not in distant context', async ({
+    browser,
+  }) => {
     // Alice: "distributed systems consensus" — will post a message
     // Bob:   "CAP theorem and partition tolerance" — semantically near Alice
     // Carol: "sourdough bread baking recipes" — semantically distant
 
     const alice = await setupContext(
-      browser, 'Alice',
+      browser,
+      'Alice',
       'Distributed Systems',
       'distributed systems consensus algorithms Raft Paxos fault tolerance'
     );
     const bob = await setupContext(
-      browser, 'Bob',
+      browser,
+      'Bob',
       'CAP Theorem',
       'CAP theorem partition tolerance consistency availability distributed databases'
     );
     const carol = await setupContext(
-      browser, 'Carol',
+      browser,
+      'Carol',
       'Sourdough Baking',
       'sourdough bread baking hydration starter levain oven spring crust'
     );
@@ -171,7 +184,7 @@ test.describe('Semantic Neighborhood Routing (6.5)', () => {
     // Verifies 4.4: async loading with loading indicator
     const ctx = await browser.newContext({ storageState: undefined });
     const page = await ctx.newPage();
-    page.on('pageerror', err => console.log('[loading-test]', err.message));
+    page.on('pageerror', (err) => console.log('[loading-test]', err.message));
 
     try {
       await page.goto('/');
@@ -215,8 +228,11 @@ test.describe('Semantic Neighborhood Routing (6.5)', () => {
       await expect(nowScreen).toBeVisible({ timeout: 5000 });
 
       // Should show either channel rows or empty state
-      const hasChannelRows = await page.locator('[data-testid="now-channel-row"]').count() > 0;
-      const hasEmptyState = await page.locator('[data-testid="now-empty-state"]').isVisible().catch(() => false);
+      const hasChannelRows = (await page.locator('[data-testid="now-channel-row"]').count()) > 0;
+      const hasEmptyState = await page
+        .locator('[data-testid="now-empty-state"]')
+        .isVisible()
+        .catch(() => false);
 
       expect(hasChannelRows || hasEmptyState).toBe(true);
     } finally {

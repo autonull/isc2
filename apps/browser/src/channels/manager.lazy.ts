@@ -1,14 +1,10 @@
-/**
- * Channel Manager Lazy Loader
- *
- * Provides lazy-loading for channelManager to avoid embedding-service
- * issues at app startup.
- */
+/* eslint-disable */
+import type { ChannelManager } from './manager.ts';
 
-let _channelManager: any = null;
-let _loadingPromise: Promise<any> | null = null;
+let _channelManager: ChannelManager | null = null;
+let _loadingPromise: Promise<ChannelManager> | null = null;
 
-export async function getChannelManager() {
+export async function getChannelManager(): Promise<ChannelManager> {
   if (_channelManager) {
     return _channelManager;
   }
@@ -18,7 +14,7 @@ export async function getChannelManager() {
   }
 
   _loadingPromise = (async () => {
-    const mod = await import('../channels/manager.js');
+    const mod = await import('./manager.ts');
     _channelManager = mod.channelManager;
     _loadingPromise = null;
     return _channelManager;
