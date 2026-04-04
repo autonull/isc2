@@ -12,6 +12,13 @@ import { loggers } from '../utils/logger.js';
 
 const logger = loggers.social;
 
+interface AuthoredContent {
+  author?: string;
+  peerID?: string;
+  liker?: string;
+  [key: string]: unknown;
+}
+
 export interface SignablePayload {
   id: string;
   timestamp: number;
@@ -47,7 +54,8 @@ export async function verifyContent<T extends SignablePayload>(
     const payload = encode(signed.data);
     
     // Get author's public key
-    const author = (signed.data as any).author || (signed.data as any).peerID || (signed.data as any).liker;
+    const data = signed.data as AuthoredContent;
+    const author = data.author || data.peerID || data.liker;
     if (!author) {
       logger.warn('No author in content for verification');
       return false;

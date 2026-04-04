@@ -1,8 +1,9 @@
-import type { SignedPost, RankedPost } from './types.js';
+import type { SignedPost } from '@isc/social';
+import type { RankedPost } from './types.js';
 import { getAllPosts, getPostsByChannel } from './posts.js';
 import { getFollowees } from './graph.js';
 import { cosineSimilarity, type Distribution } from '@isc/core';
-import { getChannelManager } from '../channels/manager.lazy.js';
+import { getActiveChannel } from '../channels/manager.js';
 import { loggers } from '../utils/logger.js';
 
 const logger = loggers.app;
@@ -19,10 +20,9 @@ interface ScoredPost {
  */
 export async function getForYouFeed(limit: number = 50): Promise<RankedPost[]> {
   const allPosts = await getAllPosts();
-  const cm = await getChannelManager();
-  const activeChannel = await cm.getActiveChannel();
+  const activeCh = await getActiveChannel();
 
-  if (!activeChannel || !activeChannel.distributions || activeChannel.distributions.length === 0) {
+  if (!activeCh || !activeCh.distributions || activeCh.distributions.length === 0) {
     logger.warn('No active channel distributions, using chronological fallback');
     const sorted = allPosts.sort((a, b) => b.timestamp - a.timestamp);
     return sorted.slice(0, limit).map(post => toRankedPost(post));
@@ -30,7 +30,7 @@ export async function getForYouFeed(limit: number = 50): Promise<RankedPost[]> {
 
   // Rank posts by semantic similarity to active channel distributions
   const scoredPosts: ScoredPost[] = allPosts.map(post => {
-    const score = computePostScore(post, activeChannel.distributions!, activeChannel.id);
+    const score = computePostScore(post, activeCh.distributions!, activeCh.id);
     return {
       post,
       score: score.total,

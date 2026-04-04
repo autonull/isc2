@@ -5,7 +5,9 @@
  * Integrates with BackgroundWorker for persistent background presence.
  */
 
-import { BrowserNetworkService, type PeerMatch as NetworkPeerMatch } from '@isc/network';
+import { BrowserNetworkService, type PeerMatch as NetworkPeerMatch, type ChannelData } from '@isc/network';
+
+type ChannelRelation = NonNullable<ChannelData['relations']>[number];
 import { loggers } from '../utils/logger.js';
 // @ts-expect-error state.js has no declaration file
 import { actions } from '../state.js';
@@ -234,7 +236,7 @@ class NetworkServiceWrapper {
     return this.service?.getIdentity() ?? null;
   }
 
-  async updateIdentity(updates: Record<string, any>) {
+  async updateIdentity(updates: Record<string, unknown>) {
     try {
       await this.service?.updateIdentity(updates);
       this.log.info('Identity updated', { updates: Object.keys(updates) });
@@ -250,7 +252,7 @@ class NetworkServiceWrapper {
     return this.service?.getChannels() ?? [];
   }
 
-  async createChannel(name: string, description: string, options: any = {}) {
+  async createChannel(name: string, description: string, options?: Record<string, unknown>) {
     try {
       const channel = await this.service!.createChannel(name, description, options);
       this.log.info('Channel created', { id: channel.id, name: channel.name });
@@ -265,7 +267,7 @@ class NetworkServiceWrapper {
     }
   }
 
-  async updateChannel(channelId: string, updates: { name?: string; description?: string; relations?: any[] }) {
+  async updateChannel(channelId: string, updates: { name?: string; description?: string; relations?: ChannelRelation[] }) {
     try {
       const channel = await this.service!.updateChannel(channelId, updates);
       this.log.info('Channel updated', { channelId, updates: Object.keys(updates) });
@@ -306,11 +308,11 @@ class NetworkServiceWrapper {
     return this.service?.getPosts(channelId) ?? [];
   }
 
-  async fetchMessagesForChannel(channel: { id: string; embedding?: number[]; [key: string]: any }) {
+  async fetchMessagesForChannel(channel: ChannelData) {
     if (!this.service?.fetchMessagesForChannel) {
       return this.getPosts(channel.id);
     }
-    return this.service.fetchMessagesForChannel(channel as any);
+    return this.service.fetchMessagesForChannel(channel);
   }
 
   async createPost(channelId: string, content: string) {

@@ -14,7 +14,10 @@ export interface SignedPost {
   content: string;
   channelID: string;
   timestamp: number;
-  signature: Signature;
+  signature: Uint8Array;
+  likes?: string[];
+  replies?: string[];
+  replyTo?: string;
   lshHash?: string; // For semantic discovery
   embedding?: number[]; // For semantic matching
 }

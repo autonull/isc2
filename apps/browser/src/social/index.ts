@@ -134,7 +134,7 @@ export {
   getCommunity,
   getUserCommunities,
   queryCommunitiesByEmbedding,
-  verifyCommunity,
+  verifyCommunitySignature,
   computeSemanticNeighborhood,
 } from './communities.js';
 

@@ -1,7 +1,13 @@
-import type { SecurityTier, TierConfig } from '@isc/core';
+import type { SecurityTier } from '@isc/core';
 
 export type Tier = SecurityTier;
-export type DeviceCapabilities = TierConfig;
+
+export interface DeviceCapabilities {
+  cpuCores: number;
+  memoryGB: number;
+  networkType: '4g' | '3g' | '2g' | 'slow-2g' | 'unknown';
+  saveData: boolean;
+}
 
 export interface TierDetector {
   detect(): Promise<Tier>;

@@ -50,8 +50,8 @@ const DEFAULT_CONFIG: NetworkServiceConfig = {
 export interface NetworkEvents {
   onPeerDiscovered?: (match: PeerMatch) => void;
   onMatchesUpdated?: (matches: PeerMatch[]) => void;
-  onChannelCreated?: (channel: any) => void;
-  onPostCreated?: (post: any) => void;
+  onChannelCreated?: (channel: ChannelData) => void;
+  onPostCreated?: (post: PostData) => void;
   onError?: (error: Error) => void;
   onStatusChange?: (status: NetworkStatus) => void;
 }
@@ -85,6 +85,8 @@ export interface PostData {
   authorId: string;
   createdAt: number;
   embedding?: number[];
+  likes?: string[];
+  reposts?: string[];
 }
 
 /**
@@ -156,7 +158,7 @@ export class BrowserNetworkService {
         console.log('[Network] Real libp2p network adapter started.');
 
         if (typeof window !== 'undefined') {
-          (window as any).__iscNetworkAdapter = this.networkAdapter;
+          (window as unknown as Record<string, unknown>).__iscNetworkAdapter = this.networkAdapter;
         }
 
         // Swap out the local in-memory DHT for the real libp2p DHT
@@ -375,7 +377,11 @@ export class BrowserNetworkService {
   /**
    * Create a new channel
    */
-  async createChannel(name: string, description: string, options: any = {}): Promise<ChannelData> {
+  async createChannel(
+    name: string,
+    description: string,
+    options: { relations?: ChannelData['relations']; spread?: string } & Record<string, unknown> = {}
+  ): Promise<ChannelData> {
     if (!this.embedding) {
       throw new Error('Embedding service not loaded');
     }
@@ -409,7 +415,7 @@ export class BrowserNetworkService {
     return channel;
   }
 
-  async updateChannel(channelId: string, updates: { name?: string; description?: string; relations?: any[] }): Promise<ChannelData> {
+  async updateChannel(channelId: string, updates: { name?: string; description?: string; relations?: ChannelData['relations'] }): Promise<ChannelData> {
     if (!this.embedding) throw new Error('Embedding service not loaded');
     const channel = this.channels.find((c) => c.id === channelId);
     if (!channel) throw new Error(`Channel ${channelId} not found`);
@@ -453,7 +459,7 @@ export class BrowserNetworkService {
     });
 
     // Set the pre-computed embedding
-    (channelPeer as any).vector = channel.embedding;
+    if (channel.embedding) channelPeer.setVector(channel.embedding);
 
     await channelPeer.announce(this.dht, this.config.announceTTL);
   }
@@ -640,7 +646,7 @@ export class BrowserNetworkService {
    * Like a post (client-side optimistic — persisted locally only)
    */
   async likePost(postId: string): Promise<void> {
-    const post = this.posts.find((p) => p.id === postId) as any;
+    const post = this.posts.find((p) => p.id === postId);
     if (!post) return;
     if (!post.likes) post.likes = [];
     const myId = this.identity?.peerId || 'unknown';

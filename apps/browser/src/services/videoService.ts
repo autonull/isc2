@@ -16,12 +16,12 @@ const logger = loggers.social;
 const callHistory: VideoCall[] = [];
 
 class VideoServiceImpl implements IVideoService {
-  async startCall(targetUserId: string): Promise<VideoCall | null> {
+  async startCall(targetUserId: string): Promise<Record<string, unknown> | null> {
     try {
       const call = await createVideoCall('direct', targetUserId);
       callHistory.push(call);
       logger.info('Video call started', { callId: call.callID, target: targetUserId });
-      return call;
+      return call as unknown as Record<string, unknown>;
     } catch (err) {
       const error = err instanceof Error ? err : new Error(String(err));
       logger.error('Failed to start video call', error, { target: targetUserId });
@@ -42,10 +42,10 @@ class VideoServiceImpl implements IVideoService {
     }
   }
 
-  async getActiveCall(): Promise<VideoCall | null> {
+  async getActiveCall(): Promise<Record<string, unknown> | null> {
     try {
       const activeCalls = getActiveVideoCalls();
-      return activeCalls.length > 0 ? activeCalls[0] : null;
+      return (activeCalls.length > 0 ? activeCalls[0] : null) as unknown as Record<string, unknown> | null;
     } catch (err) {
       const error = err instanceof Error ? err : new Error(String(err));
       logger.error('Failed to get active call', error);
@@ -53,11 +53,12 @@ class VideoServiceImpl implements IVideoService {
     }
   }
 
-  async getCallHistory(): Promise<VideoCall[]> {
+  async getCallHistory(): Promise<Array<Record<string, unknown>>> {
     try {
-      return callHistory.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+      return callHistory
+        .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0))
+        .map((c) => c as unknown as Record<string, unknown>);
     } catch {
-      // Return empty array on error - non-critical operation
       return [];
     }
   }

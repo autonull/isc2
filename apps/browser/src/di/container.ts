@@ -7,34 +7,34 @@
 export interface SettingsService {
   get<T>(key: string): Promise<T | null>;
   set<T>(key: string, value: T): Promise<void>;
-  getAll(): Promise<Record<string, any>>;
-  update(updates: Record<string, any>): Promise<void>;
+  getAll(): Promise<Record<string, unknown>>;
+  update(updates: Record<string, unknown>): Promise<void>;
 }
 
 export interface IdentityService {
   isInitialized(): Promise<boolean>;
   initialize(passphrase?: string): Promise<void>;
-  getIdentity(): Promise<any>;
-  update(updates: any): Promise<void>;
-  export(): Promise<any>;
-  import(identityData: any): Promise<void>;
+  getIdentity(): Promise<CryptoKeyPair | null>;
+  update(updates: Record<string, unknown>): Promise<void>;
+  export(): Promise<CryptoKeyPair | null>;
+  import(identityData: Record<string, unknown>): Promise<void>;
   getFingerprint(): Promise<string | null>;
   clear(): Promise<void>;
 }
 
 export interface ChatService {
-  getConversations(): any[];
-  getMessages(peerId: string): any[];
+  getConversations(): Array<Record<string, unknown>>;
+  getMessages(peerId: string): Array<Record<string, unknown>>;
   markAsRead(peerId: string): void;
-  sendMessage(peerId: string, content: string): Promise<any>;
+  sendMessage(peerId: string, content: string): Promise<Record<string, unknown>>;
   deleteConversation(peerId: string): void;
 }
 
 export interface VideoService {
-  startCall(peerId: string): Promise<any>;
+  startCall(peerId: string): Promise<Record<string, unknown> | null>;
   endCall(callId: string): Promise<void>;
-  getActiveCall(): Promise<any>;
-  getCallHistory(): Promise<any[]>;
+  getActiveCall(): Promise<Record<string, unknown> | null>;
+  getCallHistory(): Promise<Array<Record<string, unknown>>>;
 }
 
 export interface AppDependencies {
@@ -44,20 +44,37 @@ export interface AppDependencies {
   videoService: VideoService;
 }
 
-let _container: AppDependencies | null = null;
+interface LazyContainer<T> {
+  get(): T;
+}
 
-export function registerServices(deps: AppDependencies): void {
-  _container = deps;
+function lazy<T>(factory: () => T): LazyContainer<T> {
+  let value: T | undefined;
+  return { get: () => { value ??= factory(); return value; } };
+}
+
+const _containers = new Map<string, LazyContainer<unknown>>();
+
+export function registerService<K extends keyof AppDependencies>(
+  key: K,
+  factory: () => AppDependencies[K]
+): void {
+  _containers.set(key, lazy(factory));
+}
+
+export function getService<K extends keyof AppDependencies>(key: K): AppDependencies[K] {
+  const container = _containers.get(key);
+  if (!container) {
+    throw new Error(`Service "${key}" not registered`);
+  }
+  return container.get() as AppDependencies[K];
 }
 
 export function getContainer(): AppDependencies {
-  if (!_container) {
-    _container = {
-      settingsService: null as unknown as SettingsService,
-      identityService: null as unknown as IdentityService,
-      chatService: null as unknown as ChatService,
-      videoService: null as unknown as VideoService,
-    };
-  }
-  return _container;
+  return {
+    settingsService: getService('settingsService'),
+    identityService: getService('identityService'),
+    chatService: getService('chatService'),
+    videoService: getService('videoService'),
+  };
 }

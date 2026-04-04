@@ -6,6 +6,7 @@
 
 import type { SocialStorage } from '@isc/social';
 import type { SignedPost, Message, Channel, Interaction, ProfileSummary } from '@isc/social';
+import type { Community } from '@isc/social/types';
 import { dbGet, dbGetAll, dbPut, dbDelete, dbFilter } from '../../db/helpers.js';
 
 const POSTS_STORE = 'posts';
@@ -113,15 +114,15 @@ export const browserStorageAdapter: SocialStorage = {
   },
 
   // Communities
-  async getCommunity(channelID: string): Promise<any | null> {
-    return dbGet<any>(COMMUNITIES_STORE, channelID);
+  async getCommunity(channelID: string): Promise<Community | null> {
+    return dbGet<Community>(COMMUNITIES_STORE, channelID);
   },
 
-  async getCommunities(): Promise<any[]> {
-    return dbGetAll<any>(COMMUNITIES_STORE);
+  async getCommunities(): Promise<Community[]> {
+    return dbGetAll<Community>(COMMUNITIES_STORE);
   },
 
-  async saveCommunity(community: any): Promise<void> {
+  async saveCommunity(community: Community): Promise<void> {
     await dbPut(COMMUNITIES_STORE, community);
   },
 

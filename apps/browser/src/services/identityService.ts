@@ -31,7 +31,7 @@ class IdentityServiceImpl implements IIdentityService {
     }
   }
 
-  async getKeypair(): Promise<any | null> {
+  async getKeypair(): Promise<CryptoKeyPair | null> {
     try {
       return await getKeypair();
     } catch {
@@ -42,7 +42,10 @@ class IdentityServiceImpl implements IIdentityService {
   async getPublicKey(): Promise<string | null> {
     const keypair = await this.getKeypair();
     if (!keypair) return null;
-    return keypair.publicKey;
+    const exported = await crypto.subtle.exportKey('spki', keypair.publicKey);
+    return Array.from(new Uint8Array(exported))
+      .map(b => b.toString(16).padStart(2, '0'))
+      .join('');
   }
 
   async getFingerprint(): Promise<string | null> {
@@ -51,10 +54,8 @@ class IdentityServiceImpl implements IIdentityService {
     const keypair = await this.getKeypair();
     if (!keypair) return null;
 
-    // Generate fingerprint from public key
-    const encoder = new TextEncoder();
-    const data = encoder.encode(keypair.publicKey);
-    const hash = await crypto.subtle.digest('SHA-256', data);
+    const exported = await crypto.subtle.exportKey('spki', keypair.publicKey);
+    const hash = await crypto.subtle.digest('SHA-256', exported);
     const bytes = new Uint8Array(hash);
     const fingerprint = Array.from(bytes)
       .slice(0, 8)
@@ -65,14 +66,13 @@ class IdentityServiceImpl implements IIdentityService {
     return fingerprint;
   }
 
-  async sign(data: any): Promise<string> {
+  async sign(data: Uint8Array | string): Promise<string> {
     const keypair = await this.getKeypair();
     if (!keypair) {
       throw new Error('Identity not initialized - cannot sign');
     }
 
-    const encoder = new TextEncoder();
-    const payload = encoder.encode(JSON.stringify(data));
+    const payload = typeof data === 'string' ? new TextEncoder().encode(data) : data;
     const signature = await sign(payload, keypair.privateKey);
 
     return Array.from(signature.data)
@@ -80,19 +80,19 @@ class IdentityServiceImpl implements IIdentityService {
       .join('');
   }
 
-  async getIdentity(): Promise<any> {
+  async getIdentity(): Promise<CryptoKeyPair | null> {
     return this.getKeypair();
   }
 
-  async update(_updates: any): Promise<void> {
+  async update(_updates: Record<string, unknown>): Promise<void> {
     logger.info('Identity update requested');
   }
 
-  async export(): Promise<any> {
+  async export(): Promise<CryptoKeyPair | null> {
     return this.getKeypair();
   }
 
-  async import(_identityData: any): Promise<void> {
+  async import(_identityData: Record<string, unknown>): Promise<void> {
     logger.info('Identity import requested');
   }
 
