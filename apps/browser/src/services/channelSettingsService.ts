@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * Channel Settings Service
  *

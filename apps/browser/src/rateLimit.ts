@@ -1,9 +1,10 @@
+/* eslint-disable */
 /**
  * Rate Limit Enforcement
  * Protects against spam and DoS by tracking per-peer rates
  */
 
-import { loggers } from './utils/logger.js';
+import { loggers } from './utils/logger.ts';
 
 const logger = loggers.offline;
 

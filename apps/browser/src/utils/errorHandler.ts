@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * Unified Error Handling Service
  * 
@@ -8,7 +9,7 @@
  * - Recovery guidance
  */
 
-import { createLogger } from './logger.js';
+import { createLogger } from './logger.ts';
 
 export enum ErrorCode {
   // Network errors

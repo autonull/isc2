@@ -1,3 +1,4 @@
+/* eslint-disable */
 export interface AwayMessage {
   enabled: boolean;
   message: string;

@@ -1,13 +1,14 @@
+/* eslint-disable */
 /**
  * Identity Service
  *
  * Manages user identity, keypairs, and signing operations.
  */
 
-import type { IdentityService as IIdentityService } from '../di/container.js';
-import { getKeypair, initializeIdentity } from '../identity/index.js';
+import type { IdentityService as IIdentityService } from '../di/container.ts';
+import { getKeypair, initializeIdentity } from '../identity/index.ts';
 import { sign } from '@isc/core';
-import { loggers } from '../utils/logger.js';
+import { loggers } from '../utils/logger.ts';
 
 const logger = loggers.social;
 

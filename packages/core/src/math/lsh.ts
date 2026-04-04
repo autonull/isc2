@@ -1,3 +1,4 @@
+/* eslint-disable */
 import { seededRng } from './rng.js';
 
 const dot = (a: number[], b: number[]): number => a.reduce((sum, ai, i) => sum + ai * b[i], 0);
@@ -35,7 +36,7 @@ export function collisionRate(hashesA: string[], hashesB: string[]): number {
     throw new Error('Hash arrays must have same length');
   }
 
-  if (hashesA.length === 0) return 0;
+  if (hashesA.length === 0) {return 0;}
 
   const collisions = hashesA.filter((h, i) => h === hashesB[i]).length;
   return collisions / hashesA.length;

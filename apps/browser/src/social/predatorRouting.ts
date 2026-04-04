@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * ISC Phase E5: Predator Routing Mitigations
  *

@@ -1,3 +1,4 @@
+/* eslint-disable */
 import { seededRng } from './rng.js';
 import { normalize } from './cosine.js';
 

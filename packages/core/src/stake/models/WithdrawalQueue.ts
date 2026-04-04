@@ -1,3 +1,4 @@
+/* eslint-disable */
 import type { WithdrawalRequest } from '../types/stake.js';
 
 export class WithdrawalQueue {

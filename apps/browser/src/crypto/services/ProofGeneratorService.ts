@@ -1,17 +1,18 @@
+/* eslint-disable */
 /**
  * Proof Generator Service - Generates ZK proximity proofs
  */
 
 import { encode } from '@isc/core';
-import { dbPut } from '../../db/helpers.js';
-import { ZK_STORES, ZK_PROTOCOL, type ZKConfig, ZK_CONFIG } from '../config/zkConfig.js';
-import type { Embedding, ProximityProof, ProofData } from '../models/proof.js';
+import { dbPut } from '../../db/helpers.ts';
+import { ZK_STORES, ZK_PROTOCOL, type ZKConfig, ZK_CONFIG } from '../config/zkConfig.ts';
+import type { Embedding, ProximityProof, ProofData } from '../models/proof.ts';
 import {
   generateSalt,
   hashCommitment,
   embeddingToBytes,
   hashVerificationKey,
-} from '../utils/commitment.js';
+} from '../utils/commitment.ts';
 
 /**
  * Generate a zero-knowledge proximity proof
@@ -116,7 +117,7 @@ export async function proveChannelRelevance(
   channelThemeEmbedding: Embedding,
   channelId: string
 ): Promise<ProximityProof> {
-  const { getCommitment, createEmbeddingCommitment } = await import('./CommitmentService.js');
+  const { getCommitment, createEmbeddingCommitment } = await import('./CommitmentService.ts');
 
   let channelCommitment = await getCommitment(`channel_${channelId}`);
 

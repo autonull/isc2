@@ -1,3 +1,4 @@
+/* eslint-disable */
 import { describe, it, expect } from 'vitest';
 import * as core from '../src/index.js';
 

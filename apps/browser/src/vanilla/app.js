@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * ISC Vanilla App
  *

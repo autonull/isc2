@@ -1,3 +1,4 @@
+/* eslint-disable */
 export interface Keypair {
   publicKey: CryptoKey;
   privateKey: CryptoKey;

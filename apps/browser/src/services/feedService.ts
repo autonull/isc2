@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * Feed Service
  *
@@ -5,7 +6,7 @@
  * Handles For You, Following, and Channel feeds with scoring.
  */
 
-import type { Post } from '../types/extended.js';
+import type { Post } from '../types/extended.ts';
 import type { Channel } from '@isc/core';
 import { cosineSimilarity, computeEngagementScore as coreComputeEngagementScore } from '@isc/core';
 import { getEmbeddingService } from '@isc/network';

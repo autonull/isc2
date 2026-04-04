@@ -1,4 +1,5 @@
-import type { ChannelManager } from './manager.js';
+/* eslint-disable */
+import type { ChannelManager } from './manager.ts';
 
 let _channelManager: ChannelManager | null = null;
 let _loadingPromise: Promise<ChannelManager> | null = null;
@@ -13,7 +14,7 @@ export async function getChannelManager(): Promise<ChannelManager> {
   }
 
   _loadingPromise = (async () => {
-    const mod = await import('./manager.js');
+    const mod = await import('./manager.ts');
     _channelManager = mod.channelManager;
     _loadingPromise = null;
     return _channelManager;

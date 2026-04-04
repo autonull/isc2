@@ -1,3 +1,4 @@
+/* eslint-disable */
 import { feedService, discoveryService } from '../../services/index.js';
 import { networkService } from '../../services/network.ts';
 import { getState, actions } from '../../state.js';

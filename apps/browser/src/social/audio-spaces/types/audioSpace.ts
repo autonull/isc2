@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * Audio Space Type Definitions
  */

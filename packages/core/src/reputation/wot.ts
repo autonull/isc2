@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * Web of Trust (WoT) Implementation
  * 

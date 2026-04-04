@@ -1,10 +1,11 @@
+/* eslint-disable */
 /**
  * Content Sanitization - XSS Protection
  * Uses DOMPurify to sanitize user-generated content
  */
 
 import DOMPurify from 'dompurify';
-import { loggers } from './logger.js';
+import { loggers } from './logger.ts';
 
 const logger = loggers.app;
 

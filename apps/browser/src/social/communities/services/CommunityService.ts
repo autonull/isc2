@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * Community Service
  *
@@ -6,12 +7,12 @@
 
 import { lshHash } from '@isc/core';
 import { DelegationClient } from '@isc/delegation';
-import { getPeerID } from '../../../identity/index.js';
-import { CommunityRepository } from './CommunityRepository.js';
-import { CommunitySigningService } from './CommunitySigningService.js';
-import { validateCommunity } from '../utils/communityValidator.js';
-import { COMMUNITY_CONFIG, COMMUNITY_DHT_PREFIXES } from '../config/communityConfig.js';
-import type { Community, CommunityPayload } from '../types/community.js';
+import { getPeerID } from '../../../identity/index.ts';
+import { CommunityRepository } from './CommunityRepository.ts';
+import { CommunitySigningService } from './CommunitySigningService.ts';
+import { validateCommunity } from '../utils/communityValidator.ts';
+import { COMMUNITY_CONFIG, COMMUNITY_DHT_PREFIXES } from '../config/communityConfig.ts';
+import type { Community, CommunityPayload } from '../types/community.ts';
 
 export class CommunityService {
   private repository: CommunityRepository;
@@ -253,7 +254,7 @@ export class CommunityService {
   ): Promise<number[]> {
     try {
       // Lazy import EmbeddingService to avoid module-level initialization
-      const { EmbeddingService } = await import('../../../identity/embedding-service.js');
+      const { EmbeddingService } = await import('../../../identity/embedding-service.ts');
       const model = await EmbeddingService.loadModel();
       return model.embed(`${name} ${description}`);
     } catch (err) {

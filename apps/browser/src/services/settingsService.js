@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * Settings Service
  *

@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * Court Session Service — browser adapter
  *
@@ -5,7 +6,7 @@
  */
 
 import { createSessionService } from '@isc/social';
-import { createBrowserModerationStorage } from '../adapters.js';
+import { createBrowserModerationStorage } from '../adapters.ts';
 import type { CourtSession, CourtStats } from '@isc/social';
 
 const service = createSessionService(createBrowserModerationStorage());

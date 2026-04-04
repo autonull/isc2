@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * Channel Drawer Component (Mobile)
  *

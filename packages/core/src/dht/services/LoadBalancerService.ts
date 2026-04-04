@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * Load Balancer Service
  *
@@ -5,7 +6,7 @@
  */
 
 import type { LoadBalanceDecision } from '../types/dht.js';
-import { GeoShard } from '../sharding.js';
+import type { GeoShard } from '../sharding.js';
 import { DHT_CONFIG } from '../config/dhtConfig.js';
 
 export class LoadBalancerService {

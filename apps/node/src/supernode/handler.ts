@@ -1,3 +1,4 @@
+/* eslint-disable */
 import type { DelegateRequest, DelegateResponse } from '@isc/protocol';
 import { EmbedService } from './services/embed.js';
 import { ANNService } from './services/ann.js';

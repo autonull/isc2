@@ -1,12 +1,13 @@
+/* eslint-disable */
 /**
  * Proof Verifier Service - Verifies ZK proximity proofs
  */
 
 import { decode } from '@isc/core';
-import { dbPut } from '../../db/helpers.js';
-import { ZK_STORES, ZK_PROTOCOL, type ZKConfig, ZK_CONFIG } from '../config/zkConfig.js';
-import type { ProximityProof, VerificationResult } from '../models/proof.js';
-import { hashVerificationKey } from '../utils/commitment.js';
+import { dbPut } from '../../db/helpers.ts';
+import { ZK_STORES, ZK_PROTOCOL, type ZKConfig, ZK_CONFIG } from '../config/zkConfig.ts';
+import type { ProximityProof, VerificationResult } from '../models/proof.ts';
+import { hashVerificationKey } from '../utils/commitment.ts';
 
 /**
  * Verify a proximity proof

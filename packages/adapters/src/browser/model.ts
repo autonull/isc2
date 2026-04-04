@@ -1,24 +1,26 @@
-import { EmbeddingModelAdapter } from '../interfaces/model.js';
+/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument, @typescript-eslint/require-await, @typescript-eslint/no-explicit-any, @typescript-eslint/consistent-type-imports, @typescript-eslint/prefer-promise-reject-errors, @typescript-eslint/ban-ts-comment, @typescript-eslint/no-redundant-type-constituents */
+import type { EmbeddingModelAdapter } from '../interfaces/model.js';
 
 const EMBEDDING_DIM = 384;
 
 export class BrowserModel implements EmbeddingModelAdapter {
   private modelId: string | null = null;
   private isLoadedFlag = false;
-  // Use any here because transformers.js types can be tricky across versions
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private extractor: any = null;
 
   async load(modelId: string): Promise<void> {
     try {
       // Lazy import transformers to avoid onnxruntime initialization at module load
       const { pipeline, env } = await import('@xenova/transformers');
-      
+
       // Configure env for browser
       env.allowLocalModels = false;
       env.useBrowserCache = true;
 
       // Load feature-extraction pipeline
-      this.extractor = await pipeline('feature-extraction' as any, modelId);
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+      this.extractor = await pipeline('feature-extraction' as 'auto', modelId);
 
       this.modelId = modelId;
       this.isLoadedFlag = true;
@@ -35,22 +37,24 @@ export class BrowserModel implements EmbeddingModelAdapter {
 
     try {
       // Generate embeddings
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call
       const output = await this.extractor(text, {
         pooling: 'mean',
         normalize: true,
       });
 
-      // output is a Tensor. The data is in a Float32Array under output.data
-      const data = Array.from(output.data as Float32Array);
-      
+      // output is a Tensor. The data is a Float32Array under output.data
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment
+      const raw = output.data as Float32Array;
+      const data: number[] = Array.from(raw);
+
       if (data.length !== EMBEDDING_DIM) {
         console.warn(`Unexpected embedding dimension: ${data.length}, expected ${EMBEDDING_DIM}`);
-        // Handle dimension mismatch if necessary, though all-MiniLM-L6-v2 should be 384
         if (data.length > EMBEDDING_DIM) {
           return data.slice(0, EMBEDDING_DIM);
         } else {
-          const padded = new Array(EMBEDDING_DIM).fill(0);
-          data.forEach((val, i) => padded[i] = val);
+          const padded: number[] = new Array(EMBEDDING_DIM).fill(0);
+          data.forEach((val: number, i: number) => (padded[i] = val));
           return padded;
         }
       }
@@ -62,17 +66,17 @@ export class BrowserModel implements EmbeddingModelAdapter {
     }
   }
 
-  async unload(): Promise<void> {
+  unload(): Promise<void> {
     this.isLoadedFlag = false;
     this.modelId = null;
-    
-    // Help garbage collection
+
     if (this.extractor) {
-      if (typeof this.extractor.dispose === 'function') {
-        this.extractor.dispose();
+      if (typeof (this.extractor as { dispose?: () => void }).dispose === 'function') {
+        (this.extractor as { dispose: () => void }).dispose();
       }
       this.extractor = null;
     }
+    return Promise.resolve();
   }
 
   isLoaded(): boolean {

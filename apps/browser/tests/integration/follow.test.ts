@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * Follow Integration Tests
  *

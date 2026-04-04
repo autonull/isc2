@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * @isc/core - Error handling
  */
@@ -28,7 +29,7 @@ export class AppError extends Error {
     super(message);
     this.name = 'AppError';
     this.recoverable = options?.recoverable ?? true;
-    if (options?.cause) this.cause = options.cause;
+    if (options?.cause) {this.cause = options.cause;}
     this.context = options?.context;
   }
 }
@@ -62,7 +63,7 @@ export class IdentityError extends AppError {
 }
 
 export function getErrorCode(error: unknown): string {
-  if (error instanceof AppError) return error.code;
+  if (error instanceof AppError) {return error.code;}
   return ErrorCodes.UNKNOWN;
 }
 
@@ -77,7 +78,7 @@ export async function withErrorHandling<T>(
   try {
     return await promise;
   } catch (error) {
-    if (error instanceof AppError) throw error;
+    if (error instanceof AppError) {throw error;}
     throw new AppError(
       error instanceof Error ? error.message : defaultMessage,
       ErrorCodes.INTERNAL

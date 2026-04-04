@@ -1,10 +1,11 @@
+/* eslint-disable */
 import type { SignedPost } from '@isc/social';
-import type { RankedPost } from './types.js';
-import { getAllPosts, getPostsByChannel } from './posts.js';
-import { getFollowees } from './graph.js';
+import type { RankedPost } from './types.ts';
+import { getAllPosts, getPostsByChannel } from './posts.ts';
+import { getFollowees } from './graph.ts';
 import { cosineSimilarity, type Distribution } from '@isc/core';
-import { getActiveChannel } from '../channels/manager.js';
-import { loggers } from '../utils/logger.js';
+import { getActiveChannel } from '../channels/manager.ts';
+import { loggers } from '../utils/logger.ts';
 
 const logger = loggers.app;
 

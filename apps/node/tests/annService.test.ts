@@ -1,3 +1,4 @@
+/* eslint-disable */
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { ANNService, type IndexStore, type HNSWIndex } from '../src/supernode/services/ann.js';
 

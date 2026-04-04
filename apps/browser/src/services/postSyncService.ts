@@ -1,4 +1,5 @@
-import { PostProtocol } from '../protocol/post.js';
+/* eslint-disable */
+import { PostProtocol } from '../protocol/post.ts';
 import type { Libp2p } from 'libp2p';
 import type { PostData } from '@isc/network';
 
@@ -49,7 +50,7 @@ export class PostSyncService {
   }
 
   private async savePost(post: PostData): Promise<void> {
-    const { getDB, dbPut } = await import('../db/factory.js');
+    const { getDB, dbPut } = await import('../db/factory.ts');
     const db = await getDB('isc-posts', 1, ['posts']);
     await dbPut(db, 'posts', post);
   }

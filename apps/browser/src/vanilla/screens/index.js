@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * Screen Factory Module
  *

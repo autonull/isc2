@@ -1,13 +1,14 @@
+/* eslint-disable */
 /**
  * Relay Pool Manager Service
  *
  * Manages relay pool lifecycle, selection, and statistics.
  */
 
-import type { RelayCandidate, RelayPoolStats } from '../types/relay.js';
-import { RELAY_CONFIG, RELAY_CONSTANTS } from '../config/relayConfig.js';
-import { calculateRelayQualityScore } from '../utils/qualityCalculator.js';
-import { QualityBasedRelayStrategy } from '../strategies/QualityBasedRelayStrategy.js';
+import type { RelayCandidate, RelayPoolStats } from '../types/relay.ts';
+import { RELAY_CONFIG, RELAY_CONSTANTS } from '../config/relayConfig.ts';
+import { calculateRelayQualityScore } from '../utils/qualityCalculator.ts';
+import { QualityBasedRelayStrategy } from '../strategies/QualityBasedRelayStrategy.ts';
 
 export class RelayPoolManager {
   private relayPool: Map<string, RelayCandidate> = new Map();

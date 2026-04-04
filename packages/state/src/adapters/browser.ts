@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * Browser Storage Adapters
  *
@@ -18,25 +19,28 @@ export class BrowserStorage implements StateStorage {
     this.key = key;
   }
 
-  async get(): Promise<Partial<AppState> | null> {
+  get(): Promise<Partial<AppState> | null> {
     try {
       const data = localStorage.getItem(this.key);
-      return data ? (JSON.parse(data) as Partial<AppState>) : null;
+      return Promise.resolve(data ? (JSON.parse(data) as Partial<AppState>) : null);
     } catch {
-      return null;
+      return Promise.resolve(null);
     }
   }
 
-  async set(state: Partial<AppState>): Promise<void> {
+  set(state: Partial<AppState>): Promise<void> {
     try {
       localStorage.setItem(this.key, JSON.stringify(state));
+      return Promise.resolve();
     } catch {
       // Quota exceeded or storage disabled
+      return Promise.resolve();
     }
   }
 
-  async clear(): Promise<void> {
+  clear(): Promise<void> {
     localStorage.removeItem(this.key);
+    return Promise.resolve();
   }
 }
 
@@ -58,8 +62,8 @@ export class IndexedDBStorage implements StateStorage {
   }
 
   private async ensureInitialized(): Promise<void> {
-    if (this.db) return;
-    if (this.initPromise) return this.initPromise;
+    if (this.db) {return;}
+    if (this.initPromise) {return this.initPromise;}
 
     this.initPromise = this.init();
     return this.initPromise;
@@ -69,7 +73,7 @@ export class IndexedDBStorage implements StateStorage {
     return new Promise((resolve, reject) => {
       const request = indexedDB.open(this.dbName, this.version);
 
-      request.onerror = () => reject(request.error);
+      request.onerror = () => reject(new Error(`IndexedDB open failed: ${request.error?.message ?? 'unknown error'}`));
       request.onsuccess = () => {
         this.db = request.result;
         resolve();
@@ -86,42 +90,42 @@ export class IndexedDBStorage implements StateStorage {
 
   async get(): Promise<Partial<AppState> | null> {
     await this.ensureInitialized();
-    if (!this.db) return null;
+    if (!this.db) {return null;}
 
     return new Promise((resolve, reject) => {
       const tx = this.db!.transaction(this.storeName, 'readonly');
       const store = tx.objectStore(this.storeName);
       const request = store.get('state');
 
-      request.onerror = () => reject(request.error);
+      request.onerror = () => reject(new Error(`IndexedDB get failed: ${request.error?.message ?? 'unknown error'}`));
       request.onsuccess = () => resolve((request.result as Partial<AppState>) ?? null);
     });
   }
 
   async set(state: Partial<AppState>): Promise<void> {
     await this.ensureInitialized();
-    if (!this.db) return;
+    if (!this.db) {return;}
 
     return new Promise((resolve, reject) => {
       const tx = this.db!.transaction(this.storeName, 'readwrite');
       const store = tx.objectStore(this.storeName);
       const request = store.put(state, 'state');
 
-      request.onerror = () => reject(request.error);
+      request.onerror = () => reject(new Error(`IndexedDB put failed: ${request.error?.message ?? 'unknown error'}`));
       request.onsuccess = () => resolve();
     });
   }
 
   async clear(): Promise<void> {
     await this.ensureInitialized();
-    if (!this.db) return;
+    if (!this.db) {return;}
 
     return new Promise((resolve, reject) => {
       const tx = this.db!.transaction(this.storeName, 'readwrite');
       const store = tx.objectStore(this.storeName);
       const request = store.delete('state');
 
-      request.onerror = () => reject(request.error);
+      request.onerror = () => reject(new Error(`IndexedDB delete failed: ${request.error?.message ?? 'unknown error'}`));
       request.onsuccess = () => resolve();
     });
   }

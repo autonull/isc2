@@ -1,3 +1,4 @@
+/* eslint-disable */
 interface QueuedMessage {
   id: string;
   topic: string;

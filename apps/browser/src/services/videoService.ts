@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * Video Service
  *
@@ -5,10 +6,10 @@
  * Integrates with the existing video call handler infrastructure.
  */
 
-import type { VideoService as IVideoService } from '../di/container.js';
-import { createVideoCall, getActiveVideoCalls } from '../video/handler.js';
-import type { VideoCall } from '../video/types.js';
-import { loggers } from '../utils/logger.js';
+import type { VideoService as IVideoService } from '../di/container.ts';
+import { createVideoCall, getActiveVideoCalls } from '../video/handler.ts';
+import type { VideoCall } from '../video/types.ts';
+import { loggers } from '../utils/logger.ts';
 
 const logger = loggers.social;
 

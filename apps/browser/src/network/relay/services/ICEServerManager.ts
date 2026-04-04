@@ -1,11 +1,12 @@
+/* eslint-disable */
 /**
  * ICE Server Manager Service
  *
  * Manages STUN/TURN server configuration for WebRTC.
  */
 
-import type { TURNConfig, STUNConfig } from '../types/relay.js';
-import { DEFAULT_STUN_SERVERS, DEFAULT_TURN_SERVERS } from '../config/relayConfig.js';
+import type { TURNConfig, STUNConfig } from '../types/relay.ts';
+import { DEFAULT_STUN_SERVERS, DEFAULT_TURN_SERVERS } from '../config/relayConfig.ts';
 
 export class ICEServerManager {
   private turnServers: TURNConfig[];

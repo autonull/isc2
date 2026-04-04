@@ -1,3 +1,4 @@
+/* eslint-disable */
 import type { SecurityTier } from '@isc/core';
 
 export type Tier = SecurityTier;

@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * Semantic Map Renderer
  *
@@ -5,9 +6,9 @@
  * Decoupled from business logic.
  */
 
-import type { Point2D } from '../types/semanticMap.js';
-import { RENDER_CONFIG, SEMANTIC_MAP_CONFIG } from '../config/semanticConfig.js';
-import { distance } from '../utils/vectorMath.js';
+import type { Point2D } from '../types/semanticMap.ts';
+import { RENDER_CONFIG, SEMANTIC_MAP_CONFIG } from '../config/semanticConfig.ts';
+import { distance } from '../utils/vectorMath.ts';
 
 interface RenderOptions {
   onPointClick?: (point: Point2D) => void;

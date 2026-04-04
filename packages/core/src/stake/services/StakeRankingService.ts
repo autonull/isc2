@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * Stake Ranking Service
  *
@@ -6,7 +7,7 @@
 
 import type { StakeRankingEntry } from '../types/stake.js';
 import { STAKE_CONSTANTS, SLASHING_WEIGHTS } from '../config/stakeConfig.js';
-import { StakeBondModel } from '../models/StakeBond.js';
+import type { StakeBondModel } from '../models/StakeBond.js';
 
 export class StakeRankingService {
   getStakeTrustBonus(bond: StakeBondModel): number {

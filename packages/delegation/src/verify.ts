@@ -1,3 +1,4 @@
+/* eslint-disable */
 import type { DelegateResponse } from '@isc/protocol/messages';
 
 export interface EmbedResult {

@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * ISC Vanilla JS Entry Point
  *

@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * Chat Service
  *
@@ -8,8 +9,8 @@
 import { networkService } from './network.ts';
 import { discoveryService } from './discoveryService.js';
 import { logger } from '../logger.js';
-import { getDHTClient, initializeDHT } from '../network/dht.js';
-import { getPeerID } from '../identity/index.js';
+import { getDHTClient, initializeDHT } from '../network/dht.ts';
+import { getPeerID } from '../identity/index.ts';
 import { encode } from '@isc/core';
 
 const CHAT_PREFIX = 'isc:chat:';

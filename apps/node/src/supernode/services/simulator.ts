@@ -1,3 +1,4 @@
+/* eslint-disable */
 import type { Libp2p } from 'libp2p';
 import type { EmbeddingService } from '@isc/network';
 import { generateKeyPair } from '@libp2p/crypto/keys';

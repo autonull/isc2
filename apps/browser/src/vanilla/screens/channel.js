@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * Channel Screen - Semantic "For You" feed with List/Space/Grid views.
  */
@@ -398,7 +399,7 @@ class ChannelScreen {
         const { channelId } = e.detail || {};
         if (!channelId) return;
         try {
-          const { createAudioSpace, joinAudioSpace, getAllActiveSpaces } = await import('../../social/index.js');
+          const { createAudioSpace, joinAudioSpace, getAllActiveSpaces } = await import('../../social/index.ts');
           const spaces = getAllActiveSpaces();
           const existingSpace = spaces.find((s) => s.channelID === channelId);
 

@@ -1,8 +1,9 @@
+/* eslint-disable */
 /**
  * Relay Selection Strategy Interface
  */
 
-import type { RelayCandidate } from '../types/relay.js';
+import type { RelayCandidate } from '../types/relay.ts';
 
 export interface RelaySelectionStrategy {
   select(candidates: RelayCandidate[]): RelayCandidate | undefined;

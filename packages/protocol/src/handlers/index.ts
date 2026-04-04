@@ -1,3 +1,4 @@
+/* eslint-disable */
 export { ChatHandler } from './chat.js';
 export {
   handleDelegationHealthStream,

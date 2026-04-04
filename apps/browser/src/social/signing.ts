@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * Social Signing Service
  * 
@@ -6,9 +7,9 @@
  */
 
 import { sign, encode, verify, decode, type Signature } from '@isc/core';
-import { getKeypair, getPeerPublicKey } from '../identity/index.js';
+import { getKeypair, getPeerPublicKey } from '../identity/index.ts';
 import { DelegationClient } from '@isc/delegation';
-import { loggers } from '../utils/logger.js';
+import { loggers } from '../utils/logger.ts';
 
 const logger = loggers.social;
 

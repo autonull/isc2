@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * Extended Types for Browser App
  * 

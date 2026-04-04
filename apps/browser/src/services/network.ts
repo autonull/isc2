@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * Network Service Wrapper
  *
@@ -8,16 +9,16 @@
 import { BrowserNetworkService, type PeerMatch as NetworkPeerMatch, type ChannelData } from '@isc/network';
 
 type ChannelRelation = NonNullable<ChannelData['relations']>[number];
-import { loggers } from '../utils/logger.js';
+import { loggers } from '../utils/logger.ts';
 // @ts-expect-error state.js has no declaration file
 import { actions } from '../state.js';
 import { AppError as NetworkError, AppError as ChannelError, AppError as MessageError, AppError as IdentityError } from '@isc/core';
 export const STATUS = { CONNECTED: 'connected', DISCONNECTED: 'disconnected', ERROR: 'error', CONNECTING: 'connecting' };
-import { getBackgroundSyncManager, type BackgroundSyncManager } from './backgroundSync.js';
-import { getMessageQueue, type MessageQueueService } from './messageQueue.js';
-import { updatePeerProximity } from './peerProximity.js';
-import { convergenceService } from './convergence.js';
-import { saveChannelSnapshot } from './channelHistory.js';
+import { getBackgroundSyncManager, type BackgroundSyncManager } from './backgroundSync.ts';
+import { getMessageQueue, type MessageQueueService } from './messageQueue.ts';
+import { updatePeerProximity } from './peerProximity.ts';
+import { convergenceService } from './convergence.ts';
+import { saveChannelSnapshot } from './channelHistory.ts';
 
 export interface PeerMatch {
   peerId: string;

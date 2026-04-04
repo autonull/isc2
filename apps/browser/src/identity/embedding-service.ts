@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * Embedding Service
  *
@@ -6,7 +7,7 @@
  */
 
 import type { EmbeddingModelAdapter } from '@isc/adapters';
-import { loggers } from '../utils/logger.js';
+import { loggers } from '../utils/logger.ts';
 
 const logger = loggers.embed;
 

@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * Pre-computed embedding vectors for testing.
  *

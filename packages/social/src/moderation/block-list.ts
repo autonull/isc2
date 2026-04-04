@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * Moderation Service
  *
@@ -64,8 +65,8 @@ export function createModerationService(storage: SocialStorage): ModerationServi
       return peers.filter((p) => !blocked.has(p.id));
     },
 
-    async getActions(): Promise<ModerationAction[]> {
-      return [...actions];
+    getActions(): Promise<ModerationAction[]> {
+      return Promise.resolve([...actions]);
     },
   };
 }

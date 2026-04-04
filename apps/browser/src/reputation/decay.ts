@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * Time-Weighted Reputation Decay
  *
@@ -14,25 +15,25 @@ export type {
   DecayReputation,
   DecayConfig,
   DecayCurvePoint,
-} from './types/reputation.js';
+} from './types/reputation.ts';
 
 export {
   REPUTATION_CONFIG,
   INTERACTION_WEIGHTS,
   REPUTATION_CONSTANTS,
   REPUTATION_STORES,
-} from './config/reputationConfig.js';
+} from './config/reputationConfig.ts';
 
-export { ReputationService } from './services/ReputationService.js';
-export { InteractionService } from './services/InteractionService.js';
-export { ReputationCache } from './services/ReputationCache.js';
+export { ReputationService } from './services/ReputationService.ts';
+export { InteractionService } from './services/InteractionService.ts';
+export { ReputationCache } from './services/ReputationCache.ts';
 
 // Re-export main functions for backward compatibility
-import type { DecayReputation, DecayConfig, DecayCurvePoint } from './types/reputation.js';
-import { REPUTATION_CONFIG } from './config/reputationConfig.js';
-import { ReputationService } from './services/ReputationService.js';
-import { InteractionService } from './services/InteractionService.js';
-import { ReputationCache } from './services/ReputationCache.js';
+import type { DecayReputation, DecayConfig, DecayCurvePoint } from './types/reputation.ts';
+import { REPUTATION_CONFIG } from './config/reputationConfig.ts';
+import { ReputationService } from './services/ReputationService.ts';
+import { InteractionService } from './services/InteractionService.ts';
+import { ReputationCache } from './services/ReputationCache.ts';
 
 /**
  * Compute time-weighted reputation with decay

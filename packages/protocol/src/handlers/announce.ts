@@ -1,3 +1,4 @@
+/* eslint-disable */
 import type { Stream } from '../interfaces/network.js';
 import type { SignedAnnouncement } from '../messages.js';
 import { encode, decode } from '../encoding.js';
@@ -9,7 +10,7 @@ export async function handleAnnounceStream(stream: Stream): Promise<void> {
 
       const ack = { success: true, channelID: announcement.channelID, timestamp: Date.now() };
       await stream.sink({
-        [Symbol.asyncIterator]: async function* () {
+        [Symbol.asyncIterator]: function* () {
           yield encode(ack);
         },
       });

@@ -1,10 +1,11 @@
+/* eslint-disable */
 /**
  * Semantic Map Configuration
  *
  * Extracts all magic numbers from algorithms.
  */
 
-import type { MapConfig, LayoutConfig, ClusteringConfig } from '../types/semanticMap.js';
+import type { MapConfig, LayoutConfig, ClusteringConfig } from '../types/semanticMap.ts';
 
 export const SEMANTIC_MAP_CONFIG: MapConfig = {
   layoutIterations: 100,

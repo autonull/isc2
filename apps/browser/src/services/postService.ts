@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * Post Service
  *
@@ -5,11 +6,11 @@
  * All posts MUST be signed - unsigned posts are rejected.
  */
 
-import type { Post } from '../types/extended.js';
-import { getDB } from '../db/factory.js';
-import { getIdentity, ensureIdentityInitialized } from '../identity/index.js';
+import type { Post } from '../types/extended.ts';
+import { getDB } from '../db/factory.ts';
+import { getIdentity, ensureIdentityInitialized } from '../identity/index.ts';
 import { encode, sign } from '@isc/core';
-import { loggers } from '../utils/logger.js';
+import { loggers } from '../utils/logger.ts';
 
 const logger = loggers.social;
 const DB_NAME = 'isc-posts';

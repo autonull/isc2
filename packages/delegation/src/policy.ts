@@ -1,3 +1,4 @@
+/* eslint-disable */
 export interface DelegationPolicy {
   allowEmbedDelegation: boolean;
   allowANNDelegation: boolean;
@@ -8,7 +9,7 @@ export interface DelegationPolicy {
 
 export interface DelegationPolicyConfig {
   defaultPolicy: DelegationPolicy;
-  channelOverrides: Map<string, DelegationPolicy>;
+  channelOverrides: PolicyStorage;
   storage: PolicyStorage;
 }
 

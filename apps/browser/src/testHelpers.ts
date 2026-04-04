@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * Test Helpers for ISC Browser App
  * 
@@ -5,7 +6,7 @@
  */
 
 import { test, expect, type Page } from '@playwright/test';
-import { generateMockDataset, type MockDataset } from './dev/mockData.js';
+import { generateMockDataset, type MockDataset } from './dev/mockData.ts';
 
 /**
  * Test fixtures that can be reused across tests

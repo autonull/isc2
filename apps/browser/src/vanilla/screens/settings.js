@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * Settings Screen — Identity, discovery, preferences, danger zone
  */

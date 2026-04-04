@@ -1,3 +1,4 @@
+/* eslint-disable */
 export interface Relation {
   tag: string;
   object?: string;

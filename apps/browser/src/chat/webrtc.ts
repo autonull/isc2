@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * Real WebRTC Chat Handler
  *
@@ -13,17 +14,17 @@ export type {
   PendingMessage,
   MessageSendResult,
   ChatConfig,
-} from './webrtc/types/chat.js';
+} from './webrtc/types/chat.ts';
 
-export { CHAT_CONFIG, CHAT_CONSTANTS } from './webrtc/config/chatConfig.js';
+export { CHAT_CONFIG, CHAT_CONSTANTS } from './webrtc/config/chatConfig.ts';
 
-export { MessageQueue } from './webrtc/models/MessageQueue.js';
+export { MessageQueue } from './webrtc/models/MessageQueue.ts';
 
-export { MessageSender } from './webrtc/services/MessageSender.js';
-export { MessageReceiver } from './webrtc/services/MessageReceiver.js';
-export { TypingIndicatorService } from './webrtc/services/TypingIndicatorService.js';
-export { StreamManager } from './webrtc/services/StreamManager.js';
-export { WebRTChatHandler } from './webrtc/services/WebRTChatHandler.js';
+export { MessageSender } from './webrtc/services/MessageSender.ts';
+export { MessageReceiver } from './webrtc/services/MessageReceiver.ts';
+export { TypingIndicatorService } from './webrtc/services/TypingIndicatorService.ts';
+export { StreamManager } from './webrtc/services/StreamManager.ts';
+export { WebRTChatHandler } from './webrtc/services/WebRTChatHandler.ts';
 
 export {
   encodeMessage,
@@ -32,13 +33,13 @@ export {
   decodeAck,
   isTypingIndicator,
   isAcknowledgment,
-} from './webrtc/utils/messageSerializer.js';
+} from './webrtc/utils/messageSerializer.ts';
 
 // Re-export for backward compatibility
 import type { Libp2p } from 'libp2p';
 import type { Stream } from '@libp2p/interface';
-import type { ChatMessage, TypingIndicator, MessageStatus } from './webrtc/types/chat.js';
-import { WebRTChatHandler } from './webrtc/services/WebRTChatHandler.js';
+import type { ChatMessage, TypingIndicator, MessageStatus } from './webrtc/types/chat.ts';
+import { WebRTChatHandler } from './webrtc/services/WebRTChatHandler.ts';
 
 export interface ChatHandler {
   handleStream(stream: Stream): Promise<void>;

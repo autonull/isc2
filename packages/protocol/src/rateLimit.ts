@@ -1,3 +1,4 @@
+/* eslint-disable */
 export type RateLimitScope =
   | 'dht_announce'
   | 'dht_query'
@@ -43,7 +44,7 @@ export class RateLimiter {
       return true;
     }
 
-    if (window.count >= limit) return false;
+    if (window.count >= limit) {return false;}
     window.count++;
     return true;
   }

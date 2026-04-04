@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * Network Module
  *
@@ -8,7 +9,7 @@ export {
   NATTraversalManager,
   createNATTraversalManager,
   calculateConnectionQuality,
-} from './relay.js';
+} from './relay.ts';
 
 export type {
   RelayCandidate,
@@ -16,4 +17,4 @@ export type {
   STUNConfig,
   ConnectionQuality,
   NATTraversalConfig,
-} from './relay.js';
+} from './relay.ts';

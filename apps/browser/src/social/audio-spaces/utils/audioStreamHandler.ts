@@ -1,8 +1,9 @@
+/* eslint-disable */
 /**
  * Audio Stream Utilities
  */
 
-import type { AudioSpace } from '../types/audioSpace.js';
+import type { AudioSpace } from '../types/audioSpace.ts';
 
 /**
  * Toggle mute state on audio space

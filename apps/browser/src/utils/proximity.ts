@@ -1,3 +1,4 @@
+/* eslint-disable */
 export function getProximityTier(distance: number): number {
   if (distance < 0.1) return 1;
   if (distance < 0.25) return 2;

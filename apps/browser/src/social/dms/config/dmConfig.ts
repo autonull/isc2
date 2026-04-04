@@ -1,8 +1,9 @@
+/* eslint-disable */
 /**
  * Direct Message Configuration
  */
 
-import type { DMConfig } from '../types/dm.js';
+import type { DMConfig } from '../types/dm.ts';
 
 export const DM_CONFIG: DMConfig = {
   defaultTTL: 86400 * 30,

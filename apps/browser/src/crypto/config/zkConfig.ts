@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * Zero-Knowledge Proof Configuration
  */

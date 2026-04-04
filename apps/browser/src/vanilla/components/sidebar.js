@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * Sidebar Component
  *

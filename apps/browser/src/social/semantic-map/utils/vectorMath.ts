@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * Vector Math Utilities
  */

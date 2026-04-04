@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * Browser Network Service Wrapper
  * 

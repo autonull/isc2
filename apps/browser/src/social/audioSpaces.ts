@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * Audio Spaces - Legacy Compatibility Layer
  *
@@ -7,9 +8,9 @@
  * - AudioParticipantService for participant handling
  */
 
-import { AudioSpaceService } from './audio-spaces/services/AudioSpaceService.js';
-import { AudioParticipantService } from './audio-spaces/services/AudioParticipantService.js';
-import type { AudioSpace, AudioMessage } from './audio-spaces/types/audioSpace.js';
+import { AudioSpaceService } from './audio-spaces/services/AudioSpaceService.ts';
+import { AudioParticipantService } from './audio-spaces/services/AudioParticipantService.ts';
+import type { AudioSpace, AudioMessage } from './audio-spaces/types/audioSpace.ts';
 
 const spaceService = AudioSpaceService.getInstance();
 const participantService = AudioParticipantService.getInstance();

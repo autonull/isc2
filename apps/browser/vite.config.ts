@@ -122,19 +122,15 @@ export default defineConfig({
       },
       external: ['@xenova/transformers', 'onnxruntime-web'],
       output: {
-        // Configure worker output format
         entryFileNames: 'assets/[name]-[hash].js',
       },
-    },
-    // Configure worker build separately
-    worker: {
-      format: 'es',
     },
   },
   optimizeDeps: {
     exclude: ['@xenova/transformers', 'onnxruntime-web'],
   },
   resolve: {
+    extensions: ['.ts', '.js'],
     alias: {
       react: 'preact/compat',
       'react-dom': 'preact/compat',
@@ -148,6 +144,9 @@ export default defineConfig({
       '@isc/core/semantic': resolve(__dirname, '../../packages/core/src/semantic/index.ts'),
       '@isc/adapters': resolve(__dirname, '../../packages/adapters/src'),
     },
+  },
+  worker: {
+    format: 'es',
   },
   test: {
     environment: 'node',

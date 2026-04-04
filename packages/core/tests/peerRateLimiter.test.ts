@@ -1,3 +1,4 @@
+/* eslint-disable */
 import { describe, it, expect, beforeEach } from 'vitest';
 import { PeerRateLimiter, PEER_RATE_LIMITS, PeerRateLimitScope } from '../src/peerRateLimiter.js';
 

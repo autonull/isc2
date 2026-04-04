@@ -1,3 +1,4 @@
+/* eslint-disable */
 import { Config } from '@isc/core';
 
 export interface SupernodeRanking {

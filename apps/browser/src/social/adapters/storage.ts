@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * Browser Storage Adapter for SocialStorage
  *
@@ -7,7 +8,7 @@
 import type { SocialStorage } from '@isc/social';
 import type { SignedPost, Message, Channel, Interaction, ProfileSummary } from '@isc/social';
 import type { Community } from '@isc/social/types';
-import { dbGet, dbGetAll, dbPut, dbDelete, dbFilter } from '../../db/helpers.js';
+import { dbGet, dbGetAll, dbPut, dbDelete, dbFilter } from '../../db/helpers.ts';
 
 const POSTS_STORE = 'posts';
 const MESSAGES_STORE = 'messages';

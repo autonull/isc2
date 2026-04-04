@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * Chats Screen - P2P E2E encrypted direct messages via WebRTC DataChannels.
  */

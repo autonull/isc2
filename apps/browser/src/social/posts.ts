@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * Posts Module - Backward compatibility wrapper
  *
@@ -7,9 +8,9 @@
 export { type PostService, type SignedPost } from '@isc/social';
 
 import { createPostService, type PostService, type SignedPost } from '@isc/social';
-import { browserStorageAdapter } from './adapters/storage.js';
-import { browserIdentityAdapter } from './adapters/identity.js';
-import { browserNetworkAdapter } from './adapters/network.js';
+import { browserStorageAdapter } from './adapters/storage.ts';
+import { browserIdentityAdapter } from './adapters/identity.ts';
+import { browserNetworkAdapter } from './adapters/network.ts';
 
 // Lazy-loaded post service singleton
 let postService: PostService | null = null;

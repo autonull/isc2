@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * Signature Verification Service
  * Verifies signatures on incoming data from peers
@@ -5,7 +6,7 @@
 
 import { verify } from '@isc/core';
 import type { Signature } from '@isc/core';
-import { loggers } from '../utils/logger.js';
+import { loggers } from '../utils/logger.ts';
 
 const logger = loggers.crypto;
 

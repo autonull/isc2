@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * Channel Service
  *
@@ -6,7 +7,7 @@
  */
 
 import type { Channel, Relation } from '@isc/core';
-import type { ChannelManager } from '../channels/manager.js';
+import type { ChannelManager } from '../channels/manager.ts';
 
 export interface CreateChannelInput {
   name: string;

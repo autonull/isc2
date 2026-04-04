@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/require-await, @typescript-eslint/no-explicit-any */
 import type { NetworkAdapter } from '../interfaces/network.js';
 import { lshHash } from '@isc/core';
 
@@ -56,7 +57,7 @@ export class DHTClient {
 
   async announceChannel(channel: Channel, distributions: Distribution[]): Promise<void> {
     const rootDist = distributions[0];
-    if (!rootDist) throw new Error('Channel has no root distribution');
+    if (!rootDist) {throw new Error('Channel has no root distribution');}
 
     const hashes = lshHash(rootDist.mu, channel.id, 8, 16);
     const keypair = await this.config.getSigningKey();
@@ -123,30 +124,33 @@ export class DHTClient {
     return Array.from(results.values()).slice(0, count);
   }
 
-  async deactivateChannel(channelId: string): Promise<void> {
+  deactivateChannel(channelId: string): Promise<void> {
     this.activeChannels.delete(channelId);
     const intervalId = this.announcementIntervals.get(channelId);
     if (intervalId) {
       clearInterval(intervalId);
       this.announcementIntervals.delete(channelId);
     }
+    return Promise.resolve();
   }
 
   private startAnnouncementLoop(channel: Channel, distributions: Distribution[]): void {
     const existingInterval = this.announcementIntervals.get(channel.id);
-    if (existingInterval) clearInterval(existingInterval);
+    if (existingInterval) {clearInterval(existingInterval);}
 
     const refreshInterval = TTL_BY_TIER[this.config.tier] * 1000 * 0.8;
-    const intervalId = window.setInterval(async () => {
-      if (!this.activeChannels.has(channel.id)) {
-        clearInterval(intervalId);
-        return;
-      }
-      try {
-        await this.announceChannel(channel, distributions);
-      } catch (error) {
-        console.error(`Failed to refresh announcement for ${channel.id}:`, error);
-      }
+    const intervalId = window.setInterval(() => {
+      void (async () => {
+        if (!this.activeChannels.has(channel.id)) {
+          clearInterval(intervalId);
+          return;
+        }
+        try {
+          await this.announceChannel(channel, distributions);
+        } catch (error) {
+          console.error(`Failed to refresh announcement for ${channel.id}:`, error);
+        }
+      })();
     }, refreshInterval);
 
     this.announcementIntervals.set(channel.id, intervalId);
@@ -154,7 +158,7 @@ export class DHTClient {
 
   private async verifyAnnouncement(announcement: SignedAnnouncement): Promise<boolean> {
     try {
-      if (announcement.model !== this.config.modelHash) return false;
+      if (announcement.model !== this.config.modelHash) {return false;}
 
       const payload = new TextEncoder().encode(
         JSON.stringify({

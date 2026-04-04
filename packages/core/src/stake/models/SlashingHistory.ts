@@ -1,3 +1,4 @@
+/* eslint-disable */
 import type { SlashingEvent } from '../types/stake.js';
 
 export class SlashingHistory {

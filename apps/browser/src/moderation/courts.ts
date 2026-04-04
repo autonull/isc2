@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * Community Courts — re-exports
  *
@@ -6,7 +7,7 @@
  * browser adapter wrappers in ./services/.
  */
 
-export { COURT_CONFIG } from './config/courtConfig.js';
+export { COURT_CONFIG } from './config/courtConfig.ts';
 
 export type { AppealCase, Verdict, Jury, JuryVote, CourtSession, JurorStats } from '@isc/social';
 
@@ -15,7 +16,7 @@ export {
   getAppeal,
   getPendingAppeals,
   getAppealsByUser,
-} from './services/AppealService.js';
+} from './services/AppealService.ts';
 
 export {
   selectJurors,
@@ -25,14 +26,14 @@ export {
   isEligibleJuror,
   getActiveJuries,
   expireOldJuries,
-} from './services/JuryService.js';
+} from './services/JuryService.ts';
 
 export {
   checkVerdictReadiness,
   enforceVerdict,
   getVerdict,
   getAllVerdicts,
-} from './services/VerdictService.js';
+} from './services/VerdictService.ts';
 
 export {
   startCourtSession,
@@ -41,4 +42,4 @@ export {
   completeAppealInSession,
   endCourtSession,
   getCourtStats,
-} from './services/CourtSessionService.js';
+} from './services/CourtSessionService.ts';

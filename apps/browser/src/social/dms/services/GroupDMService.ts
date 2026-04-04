@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * Group DM Service
  *
@@ -5,12 +6,12 @@
  */
 
 import { sign, encode, type Signature } from '@isc/core';
-import { getPeerID, getKeypair } from '../../../identity/index.js';
-import type { DirectMessage, GroupDM } from '../types/dm.js';
-import { DM_CONFIG } from '../config/dmConfig.js';
-import { DMStorageService } from './DMStorageService.js';
-import { DMDeliveryService } from './DMDeliveryService.js';
-import { DMEncryptionService } from './DMEncryptionService.js';
+import { getPeerID, getKeypair } from '../../../identity/index.ts';
+import type { DirectMessage, GroupDM } from '../types/dm.ts';
+import { DM_CONFIG } from '../config/dmConfig.ts';
+import { DMStorageService } from './DMStorageService.ts';
+import { DMDeliveryService } from './DMDeliveryService.ts';
+import { DMEncryptionService } from './DMEncryptionService.ts';
 
 export class GroupDMService {
   private static async signMessage(

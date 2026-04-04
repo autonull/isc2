@@ -11,7 +11,8 @@
     "./crypto": "./src/crypto/index.ts",
     "./types": "./src/types.ts",
     "./encoding": "./src/encoding.ts",
-    "./stake": "./src/stake/index.ts"
+    "./stake": "./src/stake/index.ts",
+    "./reputation": "./src/reputation/index.ts"
   },
   "scripts": {
     "build": "echo 'No build - using tsx for dynamic TypeScript execution'",

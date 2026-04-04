@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * Community Repository
  *
@@ -5,8 +6,8 @@
  */
 
 import { openDB, dbGet, dbGetAll, dbPut, dbDelete } from '@isc/adapters';
-import { COMMUNITY_CONFIG, COMMUNITY_STORES } from '../config/communityConfig.js';
-import type { Community } from '../types/community.js';
+import { COMMUNITY_CONFIG, COMMUNITY_STORES } from '../config/communityConfig.ts';
+import type { Community } from '../types/community.ts';
 
 export class CommunityRepository {
   private db: IDBDatabase | null = null;

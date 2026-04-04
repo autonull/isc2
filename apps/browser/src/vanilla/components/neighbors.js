@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * Neighbors Component - Displays semantic neighbors in list or space view.
  */

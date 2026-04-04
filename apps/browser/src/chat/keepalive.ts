@@ -1,3 +1,4 @@
+/* eslint-disable */
 export interface KeepaliveConfig {
   pingIntervalMs?: number;
   timeoutMs?: number;

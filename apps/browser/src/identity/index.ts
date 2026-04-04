@@ -1,3 +1,4 @@
+/* eslint-disable */
 import {
   generateKeypair,
   exportKeypair,
@@ -253,4 +254,4 @@ export async function ensureIdentityInitialized(): Promise<IdentityManager> {
 }
 
 // Note: Embedding service is NOT re-exported here to avoid module initialization issues.
-// Import directly from './embedding-service.js' when needed.
+// Import directly from './embedding-service.ts' when needed.

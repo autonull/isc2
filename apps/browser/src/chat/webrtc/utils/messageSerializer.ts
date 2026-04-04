@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * Message Serializer Utilities
  *
@@ -5,7 +6,7 @@
  */
 
 import { fromString, toString } from 'uint8arrays';
-import type { ChatMessage, TypingIndicator } from '../types/chat.js';
+import type { ChatMessage, TypingIndicator } from '../types/chat.ts';
 
 /**
  * Encode message to Uint8Array

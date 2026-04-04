@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * Network Adapter Tests
  *

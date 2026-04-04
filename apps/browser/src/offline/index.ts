@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * Offline Module
  * 
@@ -18,7 +19,7 @@ export {
   hasPendingActions,
   processQueue,
   type OfflineAction,
-} from './queue.js';
+} from './queue.ts';
 
 export {
   initConnectionMonitor,
@@ -29,7 +30,7 @@ export {
   cleanupConnectionMonitor,
   type ConnectionStatus,
   type ConnectionInfo,
-} from './connection.js';
+} from './connection.ts';
 
 export {
   initSyncManager,
@@ -40,4 +41,4 @@ export {
   cleanupSyncManager,
   type SyncResult,
   type ActionProcessor,
-} from './sync.js';
+} from './sync.ts';

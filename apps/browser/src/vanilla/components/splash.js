@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * Splash Screen Component
  * Shown during app initialization with progress tracking

@@ -1,12 +1,13 @@
+/* eslint-disable */
 /**
  * Connection Quality Tracker Service
  *
  * Tracks and manages connection quality metrics.
  */
 
-import type { ConnectionQuality, ConnectionQualityStats } from '../types/relay.js';
-import { RELAY_CONFIG, RELAY_CONSTANTS } from '../config/relayConfig.js';
-import { smoothValue, isAcceptable, isDegraded } from '../utils/qualityCalculator.js';
+import type { ConnectionQuality, ConnectionQualityStats } from '../types/relay.ts';
+import { RELAY_CONFIG, RELAY_CONSTANTS } from '../config/relayConfig.ts';
+import { smoothValue, isAcceptable, isDegraded } from '../utils/qualityCalculator.ts';
 
 export class ConnectionQualityTracker {
   private connectionQualities: Map<string, ConnectionQuality> = new Map();

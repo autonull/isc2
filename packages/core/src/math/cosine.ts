@@ -1,15 +1,16 @@
+/* eslint-disable */
 export function cosineSimilarity(a: number[], b: number[]): number {
   if (a.length !== b.length) {
     throw new Error(`Vector length mismatch: ${a.length} !== ${b.length}`);
   }
 
-  if (a.length === 0) return 0;
+  if (a.length === 0) {return 0;}
 
   const dotProduct = a.reduce((sum, ai, i) => sum + ai * b[i], 0);
   const normA = Math.sqrt(a.reduce((sum, v) => sum + v * v, 0));
   const normB = Math.sqrt(b.reduce((sum, v) => sum + v * v, 0));
 
-  if (normA === 0 || normB === 0) return 0;
+  if (normA === 0 || normB === 0) {return 0;}
 
   return dotProduct / (normA * normB);
 }

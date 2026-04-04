@@ -4,7 +4,8 @@
  * Catches and handles errors in child components.
  */
 
-import { h, JSX, Component, ComponentChild } from 'preact';
+import type { JSX, ComponentChild } from 'preact';
+import { h, Component } from 'preact';
 
 interface ErrorBoundaryState {
   hasError: boolean;

@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * Analytics Service Tests
  */

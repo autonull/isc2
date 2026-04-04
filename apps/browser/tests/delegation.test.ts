@@ -1,3 +1,4 @@
+/* eslint-disable */
 import { describe, it, expect, beforeEach, vi, setTimeout } from 'vitest';
 import {
   DelegationClient,

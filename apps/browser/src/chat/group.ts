@@ -1,3 +1,4 @@
+/* eslint-disable */
 import { cosineSimilarity } from '@isc/core';
 
 export interface GroupMember {

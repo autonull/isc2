@@ -4,7 +4,8 @@
  * Headless feed component with logic.
  */
 
-import { h, JSX } from 'preact';
+import type { JSX } from 'preact';
+import { h } from 'preact';
 import type { SignedPost } from '@isc/core';
 
 /**

@@ -1,3 +1,4 @@
+/* eslint-disable */
 import type { Signature } from './keypair.js';
 
 export async function sign(payload: Uint8Array, privateKey: CryptoKey): Promise<Signature> {

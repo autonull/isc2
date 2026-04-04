@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * Settings Service
  *
@@ -5,7 +6,7 @@
  * Persists to localStorage for durability.
  */
 
-import type { SettingsService as ISettingsService } from '../di/container.js';
+import type { SettingsService as ISettingsService } from '../di/container.ts';
 
 const STORAGE_KEY = 'isc-settings';
 

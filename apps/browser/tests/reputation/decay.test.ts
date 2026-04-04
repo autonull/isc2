@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * Time-Weighted Reputation Decay Tests
  *

@@ -31,6 +31,11 @@ export default tseslint.config(
       '*.config.js',
       '*.config.mjs',
       '**/node_modules/**',
+      '**/*.d.ts',
+      '**/*.d.ts.map',
+      '**/*.js.map',
+      'apps/cli/src/**/*.js',
+      'apps/browser/src/**/*.js',
     ],
   },
 );

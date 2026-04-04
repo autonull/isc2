@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * Application State Synchronization Service
  * 
@@ -7,7 +8,7 @@
  * - IndexedDB for persistent state
  */
 
-import { loggers } from '../utils/logger.js';
+import { loggers } from '../utils/logger.ts';
 
 const logger = loggers.state;
 

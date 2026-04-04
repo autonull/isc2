@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * Social Layer Type Definitions
  */

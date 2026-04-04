@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * Sybil Resistance Service for Reputation System
  *

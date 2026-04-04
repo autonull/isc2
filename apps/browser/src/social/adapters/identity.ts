@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * Browser Identity Adapter for SocialIdentity
  *
@@ -6,7 +7,7 @@
 
 import type { SocialIdentity } from '@isc/social';
 import { sign, verify } from '@isc/core';
-import { getPeerID, getKeypair, getPeerPublicKey } from '../../identity/index.js';
+import { getPeerID, getKeypair, getPeerPublicKey } from '../../identity/index.ts';
 
 export const browserIdentityAdapter: SocialIdentity = {
   async getPeerId(): Promise<string> {

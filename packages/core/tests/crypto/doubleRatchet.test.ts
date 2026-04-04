@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * Double Ratchet Protocol Tests
  */

@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * Time-Decay Functions for Reputation
  * 

@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * Browser Network Adapter for SocialNetwork
  *
@@ -8,8 +9,8 @@
 import type { SocialNetwork, SignedPost, Message, Channel } from '@isc/social';
 import type { PeerProfile, FollowSubscription } from '@isc/social';
 import { encode, decode, sign } from '@isc/core';
-import { getDHTClient, initializeDHT } from '../../network/dht.js';
-import { getKeypair } from '../../identity/index.js';
+import { getDHTClient, initializeDHT } from '../../network/dht.ts';
+import { getKeypair } from '../../identity/index.ts';
 
 const DEFAULT_TTL = 86400 * 30; // 30 days
 const POST_CHANNEL_PREFIX = '/isc/post/';

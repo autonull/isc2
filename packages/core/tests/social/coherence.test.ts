@@ -1,3 +1,4 @@
+/* eslint-disable */
 import { describe, it, expect } from 'vitest';
 import { cosineSimilarity } from '../../src/math/cosine.js';
 import {

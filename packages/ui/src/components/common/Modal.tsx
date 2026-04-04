@@ -4,7 +4,8 @@
  * Accessible modal dialog with focus trap.
  */
 
-import { h, JSX } from 'preact';
+import type { JSX } from 'preact';
+import { h } from 'preact';
 import { useEffect, useRef } from 'preact/hooks';
 import { trapFocus, saveFocus, announce } from '../../styles/accessibility.js';
 
@@ -42,7 +43,7 @@ export function Modal({
   const previouslyFocused = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
-    if (!isOpen || !modalRef.current) return;
+    if (!isOpen || !modalRef.current) {return;}
 
     // Save focus for restoration
     previouslyFocused.current = document.activeElement as HTMLElement;
@@ -71,7 +72,7 @@ export function Modal({
     };
   }, [isOpen, title, onClose, closeOnEscape]);
 
-  if (!isOpen) return null;
+  if (!isOpen) {return null;}
 
   const handleBackdropClick = (event: JSX.TargetedMouseEvent<HTMLDivElement>) => {
     if (closeOnBackdrop && event.target === event.currentTarget) {

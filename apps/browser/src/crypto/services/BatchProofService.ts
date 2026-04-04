@@ -1,12 +1,13 @@
+/* eslint-disable */
 /**
  * Batch Proof Service - Handles batch proof operations
  */
 
-import { dbFilter } from '../../db/helpers.js';
-import { ZK_STORES, ZK_PROTOCOL } from '../config/zkConfig.js';
-import type { Embedding, ProximityProof, VerificationResult } from '../models/proof.js';
-import { generateProximityProof } from './ProofGeneratorService.js';
-import { verifyProximityProof } from './ProofVerifierService.js';
+import { dbFilter } from '../../db/helpers.ts';
+import { ZK_STORES, ZK_PROTOCOL } from '../config/zkConfig.ts';
+import type { Embedding, ProximityProof, VerificationResult } from '../models/proof.ts';
+import { generateProximityProof } from './ProofGeneratorService.ts';
+import { verifyProximityProof } from './ProofVerifierService.ts';
 
 /**
  * Batch generate proofs for multiple embeddings

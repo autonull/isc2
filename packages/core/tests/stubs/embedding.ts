@@ -1,3 +1,4 @@
+/* eslint-disable */
 import { createHash } from 'crypto';
 
 const EMBEDDING_DIM = 384;

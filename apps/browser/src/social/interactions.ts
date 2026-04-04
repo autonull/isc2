@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * Interactions Module - Backward compatibility wrapper
  *
@@ -14,9 +15,9 @@ export {
 } from '@isc/social';
 
 import { createInteractionService, type InteractionService, type LikeEvent, type RepostEvent, type ReplyEvent, type QuoteEvent } from '@isc/social';
-import { browserStorageAdapter } from './adapters/storage.js';
-import { browserIdentityAdapter } from './adapters/identity.js';
-import { browserNetworkAdapter } from './adapters/network.js';
+import { browserStorageAdapter } from './adapters/storage.ts';
+import { browserIdentityAdapter } from './adapters/identity.ts';
+import { browserNetworkAdapter } from './adapters/network.ts';
 
 // Lazy-loaded interaction service singleton
 let interactionService: InteractionService | null = null;

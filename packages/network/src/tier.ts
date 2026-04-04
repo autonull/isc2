@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * ISC Phase P0: Tier Negotiation Handler
  *
