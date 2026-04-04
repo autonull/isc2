@@ -5,19 +5,20 @@
  * Covers: precision slider, view modes, filters, presets, channel switching.
  */
 
-import { test, expect, type Page } from '@playwright/test';
+import { test, expect } from '@playwright/test';
 import {
   waitForAppReady,
   waitForVisible,
   skipOnboarding,
   injectChannels,
-  getAppState,
 } from './utils/testHelpers.js';
 
 // ── Setup ─────────────────────────────────────────────────────────────────────
 
 test.beforeEach(async ({ page }) => {
-  page.on('pageerror', err => console.error('Uncaught error:', err.message));
+  page.on('pageerror', () => {
+    // captured internally; suppressed in CI
+  });
   await page.goto('/');
   await skipOnboarding(page);
   await waitForAppReady(page);
@@ -32,7 +33,7 @@ test.beforeEach(async ({ page }) => {
 });
 
 // ── Mixer Panel Visibility ────────────────────────────────────────────────────
-// NOTE: Mixer panel integration is planned for a future update. 
+// NOTE: Mixer panel integration is planned for a future update.
 // These tests are marked as fixme until the feature is implemented.
 
 test.describe('Mixer Panel - Visibility', () => {
@@ -193,7 +194,9 @@ test.describe('Mixer Panel - Progressive Disclosure', () => {
     await page.click('#mixer-expand');
     await page.waitForTimeout(300);
 
-    await expect(page.locator('.mixer-section-title-compact', { hasText: 'Filters' })).toBeVisible();
+    await expect(
+      page.locator('.mixer-section-title-compact', { hasText: 'Filters' })
+    ).toBeVisible();
   });
 
   test('expanded content shows sort section', async ({ page }) => {

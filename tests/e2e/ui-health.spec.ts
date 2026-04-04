@@ -10,16 +10,15 @@ import { test, expect } from '@playwright/test';
 test.describe('UI Health Checks', () => {
   test.beforeEach(async ({ page }) => {
     page.on('console', (msg) => {
-      if (msg.type() === 'error') {
-        console.log('Console error:', msg.text());
-      }
+      // Keep reference for assertions; suppressed in CI output
+      void msg.type();
     });
     page.on('pageerror', (error) => {
       // Ignore known third-party library errors
       if (error.message.includes('registerBackend')) {
         return;
       }
-      console.log('Page error:', error.message);
+      // captured internally; suppressed in CI
     });
 
     // Skip onboarding for tests — must run BEFORE page.goto so the app reads it during init

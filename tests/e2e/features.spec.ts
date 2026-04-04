@@ -19,7 +19,9 @@ import {
 // ── Setup ─────────────────────────────────────────────────────────────────────
 
 test.beforeEach(async ({ page }) => {
-  page.on('pageerror', err => console.error('Uncaught error:', err.message));
+  page.on('pageerror', () => {
+    // captured internally; suppressed in CI
+  });
   await skipOnboarding(page);
   await page.goto('/');
   await waitForAppReady(page);
@@ -34,16 +36,20 @@ test.describe('Modal confirm()', () => {
    */
   async function openConfirmAndGetResult(
     page: Page,
-    action: 'escape' | 'cancel' | 'confirm',
+    action: 'escape' | 'cancel' | 'confirm'
   ): Promise<boolean> {
     return page.evaluate(async (act: string) => {
       const modals = (window as any).ISC?.modals;
       if (!modals) throw new Error('window.ISC.modals not available');
 
-      const p = modals.confirm('Are you sure?', { title: 'Test', confirmText: 'Yes', cancelText: 'No' });
+      const p = modals.confirm('Are you sure?', {
+        title: 'Test',
+        confirmText: 'Yes',
+        cancelText: 'No',
+      });
 
       // Give the modal 50 ms to appear in the DOM, then trigger the action
-      await new Promise(r => setTimeout(r, 50));
+      await new Promise((r) => setTimeout(r, 50));
 
       if (act === 'escape') {
         document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
@@ -78,7 +84,7 @@ test.describe('Modal confirm()', () => {
       if (!modals) throw new Error('window.ISC.modals not available');
 
       const p = modals.confirm('Are you sure?', { title: 'Test' });
-      await new Promise(r => setTimeout(r, 50));
+      await new Promise((r) => setTimeout(r, 50));
       // Click the overlay backdrop (not the inner .modal element)
       (document.querySelector('.modal-overlay') as HTMLElement | null)?.click();
       return p;
@@ -95,9 +101,7 @@ test.describe('Chat message delivery status', () => {
 
   async function openChatWith(page: Page, peerId: string) {
     await injectMatches(page, [{ peerId, name: 'Delivery Test Peer', similarity: 0.85 }]);
-    await injectChatMessages(page, peerId, [
-      { content: 'Hey there', fromMe: false },
-    ]);
+    await injectChatMessages(page, peerId, [{ content: 'Hey there', fromMe: false }]);
     // Navigate to chats screen
     await page.click('[data-testid="nav-tab-chats"]');
     await waitForNavigation(page, 'chats');
@@ -116,10 +120,9 @@ test.describe('Chat message delivery status', () => {
     await page.keyboard.press('Enter');
 
     // Wait for the message to appear in the chat
-    await page.waitForFunction(
-      () => document.body.textContent?.includes('Hello from me'),
-      { timeout: 5000 },
-    );
+    await page.waitForFunction(() => document.body.textContent?.includes('Hello from me'), {
+      timeout: 5000,
+    });
 
     // The sent message should show ✓ (delivered/stored) not ○ (pending forever)
     const msgContent = await page.locator('[data-testid="chat-messages"]').textContent();

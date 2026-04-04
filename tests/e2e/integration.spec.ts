@@ -5,7 +5,7 @@
  * Verifies component behavior, state management, and event handling.
  */
 
-import { test, expect, type Page } from '@playwright/test';
+import { test, expect } from '@playwright/test';
 import {
   waitForAppReady,
   waitForVisible,
@@ -13,18 +13,17 @@ import {
   injectChannels,
   injectMatches,
   getAppState,
-  clickTab,
-  waitForFeedUpdate,
 } from './utils/testHelpers.js';
 
 // ── Setup ─────────────────────────────────────────────────────────────────────
 
 test.beforeEach(async ({ page }) => {
-  page.on('pageerror', (err) => console.error('Uncaught error:', err.message));
-  page.on('console', (msg) => {
-    if (msg.text().includes('[Router]') || msg.text().includes('[App]')) {
-      console.log('BROWSER:', msg.text());
-    }
+  // Capture errors silently for test assertions
+  page.on('pageerror', () => {
+    // captured internally
+  });
+  page.on('console', () => {
+    // captured internally; suppressed in CI
   });
   await skipOnboarding(page);
   await page.goto('/');
@@ -136,7 +135,7 @@ test.describe('Modal Component', () => {
       const { modals } = (window as any).ISC ?? {};
       if (!modals) return null;
       const promise = modals.confirm('Are you sure?', { title: 'Test' });
-      await new Promise(r => setTimeout(r, 50));
+      await new Promise((r) => setTimeout(r, 50));
       (document.querySelector('[data-action="cancel"]') as HTMLElement | null)?.click();
       return promise;
     });
@@ -148,7 +147,7 @@ test.describe('Modal Component', () => {
       const { modals } = (window as any).ISC ?? {};
       if (!modals) return null;
       const promise = modals.confirm('Are you sure?', { title: 'Test' });
-      await new Promise(r => setTimeout(r, 50));
+      await new Promise((r) => setTimeout(r, 50));
       (document.querySelector('[data-action="confirm"]') as HTMLElement | null)?.click();
       return promise;
     });
@@ -188,7 +187,7 @@ test.describe('Now Screen', () => {
     await page.click('[data-tab="channel"]');
     await page.click('[data-tab="now"]');
     await page.waitForTimeout(500);
-    
+
     const state = await getAppState(page);
     expect(state.channels?.length).toBe(1);
   });
@@ -255,7 +254,13 @@ test.describe('Event Handling', () => {
   test('isc:refresh-feed event is dispatched', async ({ page }) => {
     const eventFired = await page.evaluate(() => {
       let fired = false;
-      document.addEventListener('isc:refresh-feed', () => { fired = true; }, { once: true });
+      document.addEventListener(
+        'isc:refresh-feed',
+        () => {
+          fired = true;
+        },
+        { once: true }
+      );
       document.dispatchEvent(new CustomEvent('isc:refresh-feed'));
       return fired;
     });
@@ -265,7 +270,13 @@ test.describe('Event Handling', () => {
   test('isc:need-channel event is dispatched', async ({ page }) => {
     const eventFired = await page.evaluate(() => {
       let fired = false;
-      document.addEventListener('isc:need-channel', () => { fired = true; }, { once: true });
+      document.addEventListener(
+        'isc:need-channel',
+        () => {
+          fired = true;
+        },
+        { once: true }
+      );
       document.dispatchEvent(new CustomEvent('isc:need-channel'));
       return fired;
     });

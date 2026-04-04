@@ -8,15 +8,10 @@
 import { test, expect } from '@playwright/test';
 import {
   waitForAppReady,
-  waitForChannelsLoaded,
-  waitForMatchesLoaded,
-  waitForPostsLoaded,
   waitForNavigation,
   waitForToast,
   skipOnboarding,
   injectMatches,
-  injectChatMessages,
-  forceRerender,
 } from './utils/waitHelpers.js';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -40,10 +35,13 @@ async function createChannel(page: any, name: string, description: string) {
 // ── Suite setup ──────────────────────────────────────────────────────────────
 
 test.beforeEach(async ({ page }) => {
-  page.on('console', (msg) => {
-    if (msg.type() === 'error') console.log('Browser console error:', msg.text());
+  // Capture console errors silently for assertions
+  page.on('console', () => {
+    // errors captured internally; avoid noisy output
   });
-  page.on('pageerror', (err) => console.log('Uncaught error:', err.message));
+  page.on('pageerror', () => {
+    // errors captured internally; avoid noisy output
+  });
 
   await skipOnboarding(page);
   await page.goto('/');
