@@ -116,20 +116,6 @@ async function deriveMessageKeys(
   return { keys, nextChainKey };
 }
 
-// ECDH P-256 base64url padding helper
-function base64UrlToBytes(str: string): Uint8Array {
-  let base64 = str.replace(/-/g, '+').replace(/_/g, '/');
-  while (base64.length % 4) {
-    base64 += '=';
-  }
-  const binary = atob(base64);
-  const bytes = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i++) {
-    bytes[i] = binary.charCodeAt(i);
-  }
-  return bytes;
-}
-
 function bytesToBase64Url(bytes: Uint8Array): string {
   let binary = '';
   for (let i = 0; i < bytes.length; i++) {
@@ -387,7 +373,7 @@ export async function encryptMessage(
 
   const cryptoKey = await crypto.subtle.importKey(
     'raw',
-    keys.encryptionKey,
+    keys.encryptionKey as BufferSource,
     { name: 'AES-GCM', length: 256 },
     false,
     ['encrypt']
@@ -396,9 +382,9 @@ export async function encryptMessage(
   const encrypted = await crypto.subtle.encrypt(
     {
       name: 'AES-GCM',
-      iv,
+      iv: iv as BufferSource,
       tagLength: 128,
-      additionalData: associatedData,
+      additionalData: associatedData as BufferSource | undefined,
     },
     cryptoKey,
     data
@@ -424,7 +410,7 @@ export async function decryptMessage(
 
   const cryptoKey = await crypto.subtle.importKey(
     'raw',
-    keys.encryptionKey,
+    keys.encryptionKey as BufferSource,
     { name: 'AES-GCM', length: 256 },
     false,
     ['decrypt']
@@ -433,9 +419,9 @@ export async function decryptMessage(
   const decrypted = await crypto.subtle.decrypt(
     {
       name: 'AES-GCM',
-      iv,
+      iv: iv as BufferSource,
       tagLength: 128,
-      additionalData: associatedData,
+      additionalData: associatedData as BufferSource | undefined,
     },
     cryptoKey,
     encryptedData

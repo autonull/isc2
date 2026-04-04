@@ -4800,6 +4800,21 @@ body {
   font-size: 11px;
 }
 
+.neighbor-audio-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 14px;
+  padding: 2px 4px;
+  border-radius: 4px;
+  transition: background-color 0.15s ease;
+  line-height: 1;
+}
+
+.neighbor-audio-btn:hover {
+  background: rgba(74, 144, 217, 0.15);
+}
+
 .neighbor-list {
   display: flex;
   flex-direction: column;

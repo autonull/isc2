@@ -8,7 +8,7 @@ export async function sign(payload: Uint8Array, privateKey: CryptoKey): Promise<
   const signature = await globalThis.crypto.subtle.sign(
     'Ed25519',
     privateKey,
-    payload
+    payload as BufferSource
   );
 
   return { data: new Uint8Array(signature), algorithm: 'Ed25519' };
@@ -31,8 +31,8 @@ export async function verify(
     return await globalThis.crypto.subtle.verify(
       'Ed25519',
       publicKey,
-      signature.data,
-      payload
+      signature.data as BufferSource,
+      payload as BufferSource
     );
   } catch {
     return false;

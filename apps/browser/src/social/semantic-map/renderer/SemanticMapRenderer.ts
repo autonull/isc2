@@ -46,7 +46,7 @@ export function renderToSVG(
 /**
  * Create SVG element
  */
-function createSVGElement(container: HTMLElement): SVGSVGElement {
+function createSVGElement(_container: HTMLElement): SVGSVGElement {
   const svg = document.createElementNS(RENDER_CONFIG.svgNamespace, 'svg');
   svg.style.width = '100%';
   svg.style.height = '100%';

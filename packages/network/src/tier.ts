@@ -39,7 +39,7 @@ export function registerTierNegotiation(
   config?: TierNegotiationConfig
 ): void {
   node.handle([PROTOCOL_TIER], async (data) => {
-    const { stream, connection } = data as { stream: unknown; connection: { remotePeer: { toString(): string } } };
+    const { stream, connection } = data as unknown as { stream: { sink: (data: Uint8Array[]) => Promise<void>; source: AsyncIterable<{ subarray?: () => Uint8Array; byteLength?: number } | Uint8Array> }; connection: { remotePeer: { toString(): string }; close: () => void | Promise<void> } };
     try {
       const remotePeerId = connection.remotePeer.toString();
       const localTier = getSecurityTier();
@@ -54,13 +54,11 @@ export function registerTierNegotiation(
         networkID: localNetworkID,
       };
 
-      const encoded = new TextEncoder().encode(JSON.stringify(push));
-      const duplexStream = stream as { sink: (data: Uint8Array[]) => Promise<void>; source: AsyncIterable<Uint8Array> };
-      await duplexStream.sink([encoded]);
+      await stream.sink([new TextEncoder().encode(JSON.stringify(push))]);
 
       const chunks: Uint8Array[] = [];
-      for await (const chunk of duplexStream.source) {
-        chunks.push(Uint8Array.from(chunk instanceof Uint8Array ? chunk : chunk.subarray()));
+      for await (const chunk of stream.source) {
+        chunks.push(chunk instanceof Uint8Array ? chunk : new Uint8Array(chunk.subarray?.() ?? []));
       }
 
       if (chunks.length > 0) {
@@ -108,12 +106,12 @@ export function registerTierNegotiation(
       };
 
       const encoded = new TextEncoder().encode(JSON.stringify(push));
-      const duplexStream = stream as { sink: (data: Uint8Array[]) => Promise<void>; source: AsyncIterable<Uint8Array> };
+      const duplexStream = stream as unknown as { sink: (data: Uint8Array[]) => Promise<void>; source: AsyncIterable<{ subarray?: () => Uint8Array } | Uint8Array> };
       await duplexStream.sink([encoded]);
 
       const chunks: Uint8Array[] = [];
       for await (const chunk of duplexStream.source) {
-        chunks.push(Uint8Array.from(chunk instanceof Uint8Array ? chunk : chunk.subarray()));
+        chunks.push(chunk instanceof Uint8Array ? chunk : new Uint8Array(chunk.subarray?.() ?? []));
       }
 
       if (chunks.length > 0) {
@@ -127,14 +125,14 @@ export function registerTierNegotiation(
         if (response.tier !== localTier) {
           config?.onMismatch?.(localTier, response.tier, remotePeerId);
           const conns = node.getConnections(remotePeer);
-          if (conns[0]) conns[0].close();
+          if (conns[0]) (conns[0] as { close: () => void }).close();
           return;
         }
 
         if (response.networkID !== localNetworkID) {
           config?.onMismatch?.(localTier, response.tier, remotePeerId);
           const conns = node.getConnections(remotePeer);
-          if (conns[0]) conns[0].close();
+          if (conns[0]) (conns[0] as { close: () => void }).close();
           return;
         }
 

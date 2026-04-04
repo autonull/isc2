@@ -6,11 +6,6 @@
  */
 
 export {
-  calculateDecayFactor,
-  applyDecayToInteraction,
-  isWithinBootstrapPeriod,
-  calculateBootstrapBonus,
-  applySybilResistance,
   computeDecayedReputation,
   getReputationDecayCurve,
   getInteractionWeight,

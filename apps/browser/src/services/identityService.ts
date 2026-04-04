@@ -75,8 +75,8 @@ class IdentityServiceImpl implements IIdentityService {
     const payload = encoder.encode(JSON.stringify(data));
     const signature = await sign(payload, keypair.privateKey);
 
-    return Array.from(signature)
-      .map(b => b.toString(16).padStart(2, '0'))
+    return Array.from(signature.data)
+      .map((b: number) => b.toString(16).padStart(2, '0'))
       .join('');
   }
 

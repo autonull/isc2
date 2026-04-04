@@ -12,8 +12,6 @@ import { DMStorageService } from './DMStorageService.js';
 import { DMDeliveryService } from './DMDeliveryService.js';
 import { DMEncryptionService } from './DMEncryptionService.js';
 
-type GroupEventType = 'created' | 'member_added' | 'member_removed' | 'member_left';
-
 export class GroupDMService {
   private static async signMessage(
     type: 'dm' | 'group',
@@ -59,28 +57,6 @@ export class GroupDMService {
     const myID = await getPeerID();
     const all = await DMStorageService.getAllGroupDMs();
     return all.filter((g) => g.members.includes(myID));
-  }
-
-  private static async updateGroup(
-    groupID: string,
-    update: (group: GroupDM) => Promise<void>,
-    event: GroupEventType,
-    member?: string
-  ): Promise<void> {
-    const group =
-      (await this.getGroup(groupID)) ??
-      (() => {
-        throw new Error(`Group DM ${groupID} not found`);
-      })();
-    const sender = await getPeerID();
-
-    if (event !== 'created' && sender !== group.creator) {
-      throw new Error('Only the creator can modify group');
-    }
-
-    await update(group);
-    await DMStorageService.storeGroupDM(group);
-    await DMDeliveryService.notifyGroupEvent(group, event, member);
   }
 
   static async addMember(groupID: string, newMember: string): Promise<void> {

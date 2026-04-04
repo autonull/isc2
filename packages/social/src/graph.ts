@@ -55,6 +55,18 @@ const TRUST_CONSTANTS = {
   mutualFollowCap: 0.4,
 } as const;
 
+/**
+ * Compute confidence score for a trust path.
+ * Shorter paths with more mutual connections score higher.
+ */
+function computePathConfidence(hops: string[], _target: string): number {
+  const pathLength = hops.length;
+  // Base confidence decays exponentially with path length
+  const lengthScore = Math.pow(0.7, pathLength - 1);
+  // Cap at 1.0
+  return Math.min(lengthScore, 1.0);
+}
+
 export interface GraphService {
   followUser(followee: string): Promise<void>;
   unfollowUser(followee: string): Promise<void>;
@@ -122,9 +134,25 @@ export function createGraphService(
       return following.has(followee);
     },
 
-    async getFollowerCount(_peerID: string): Promise<number> {
-      // This requires querying the DHT or maintaining a follower index
-      // For now, return a stub that would need network adapter extension
+    async getFollowerCount(peerID: string): Promise<number> {
+      const myPeerId = await identity.getPeerId();
+      if (peerID === myPeerId) {
+        // For ourselves, query DHT for follow announcements
+        if (network) {
+          try {
+            const follows = await network.queryFollows(peerID);
+            return follows.length;
+          } catch {
+            // Fall through to local count
+          }
+        }
+        // Local count from interactions
+        const allInteractions = await storage.getAllInteractions();
+        return allInteractions.filter(
+          (i) => i.type === 'follow' && i.peerID === peerID
+        ).length;
+      }
+      // For other peers, would need network query
       return 0;
     },
 
@@ -204,14 +232,43 @@ export function createGraphService(
     async findTrustPaths(
       source: string,
       target: string,
-      _maxDepth: number = 3
+      maxDepth: number = 3
     ): Promise<Array<{ source: string; target: string; hops: string[]; depth: number; confidence: number }>> {
       if (source === target) {
         return [{ source, target, hops: [], depth: 0, confidence: 1.0 }];
       }
-      // Full WoT path finding would require graph traversal
-      // For now, stub implementation
-      return [];
+
+      // BFS to find trust paths through follow relationships
+      const results: Array<{ source: string; target: string; hops: string[]; depth: number; confidence: number }> = [];
+      const visited = new Set<string>();
+      const queue: Array<{ peer: string; path: string[] }> = [{ peer: source, path: [] }];
+
+      while (queue.length > 0) {
+        const { peer, path } = queue.shift()!;
+        if (visited.has(peer)) continue;
+        visited.add(peer);
+
+        const followees = await this.getFolloweesOf(peer);
+        const depth = path.length;
+
+        for (const followee of followees) {
+          if (followee === target) {
+            // Found a path
+            const confidence = computePathConfidence([...path, followee], target);
+            results.push({
+              source,
+              target,
+              hops: [...path, followee],
+              depth: depth + 1,
+              confidence,
+            });
+          } else if (depth < maxDepth - 1 && !visited.has(followee)) {
+            queue.push({ peer: followee, path: [...path, followee] });
+          }
+        }
+      }
+
+      return results.sort((a, b) => b.confidence - a.confidence).slice(0, 10);
     },
 
     async getWoTSuggestedFollows(

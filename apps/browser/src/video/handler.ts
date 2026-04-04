@@ -11,7 +11,6 @@ import { DEFAULT_VIDEO_SETTINGS, VIDEO_QUALITY_CONSTRAINTS } from './types.js';
 import { DelegationClient } from '@isc/delegation';
 import { getPeerID, getKeypair } from '../identity/index.js';
 
-const VIDEO_CALL_PROTOCOL = '/isc/video/1.0.0';
 const MAX_PARTICIPANTS = 8;
 
 const activeCalls = new Map<string, VideoCall>();

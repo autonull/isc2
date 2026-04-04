@@ -291,7 +291,6 @@ class MixerPanelComponent {
     onAll('[data-view-mode]', 'click', (e) => {
       const mode = e.target.dataset.viewMode;
       this.#updateSettings({ viewMode: mode });
-      this.#dispatch('mixer:view-change', { mode });
     });
 
     onAll('[data-filter]', 'click', (e) => {
@@ -333,6 +332,13 @@ class MixerPanelComponent {
     this.#render();
     this.#bind();
     this.#dispatch('mixer:settings-change', updates);
+    this.#dispatch('mixer:view-change', {
+      viewMode: updates.viewMode,
+      specificity: updates.specificity,
+      minSimilarity: updates.minSimilarity,
+      sortBy: updates.sortOrder,
+      filters: updates.filters,
+    });
   }
 
   #dispatch(eventName, detail) {

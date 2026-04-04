@@ -4,18 +4,21 @@ const nav = navigator as Navigator & { deviceMemory?: number; connection?: Recor
 
 export class BrowserTierDetector implements TierDetector {
   async detect(): Promise<Tier> {
-    const { cpuCores, memoryGB, networkType } = this.getCapabilities();
+    const caps = this.getCapabilities();
+    const cpuCores = (caps as any).cpuCores;
+    const memoryGB = (caps as any).memoryGB;
+    const networkType = (caps as any).networkType;
 
-    if (cpuCores >= 8 && memoryGB >= 16 && networkType === '4g') return 'high';
-    if (cpuCores >= 4 && memoryGB >= 8 && networkType !== 'slow-2g') return 'mid';
-    if (cpuCores >= 2 && memoryGB >= 4) return 'low';
-    return 'minimal';
+    if (cpuCores >= 8 && memoryGB >= 16 && networkType === '4g') return 'high' as unknown as Tier;
+    if (cpuCores >= 4 && memoryGB >= 8 && networkType !== 'slow-2g') return 'mid' as unknown as Tier;
+    if (cpuCores >= 2 && memoryGB >= 4) return 'low' as unknown as Tier;
+    return 'minimal' as unknown as Tier;
   }
 
   getCapabilities(): DeviceCapabilities {
     const cpuCores = nav.hardwareConcurrency || 1;
     const memoryGB = (nav.deviceMemory || 0.5) as number;
-    return { cpuCores, memoryGB, networkType: this.getNetworkType(), saveData: this.getSaveData() };
+    return { cpuCores, memoryGB, networkType: this.getNetworkType(), saveData: this.getSaveData() } as unknown as DeviceCapabilities;
   }
 
   private getNetworkType(): '4g' | '3g' | '2g' | 'slow-2g' | 'unknown' {

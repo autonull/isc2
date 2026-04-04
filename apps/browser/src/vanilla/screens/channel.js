@@ -12,6 +12,7 @@ import { escapeHtml } from '../utils/dom.js';
 import { renderEmpty, bindDelegate, autoGrow, setupCtrlEnterSubmit } from '../utils/screen.js';
 import { NeighborsComponent } from '../components/neighbors.js';
 import { modals } from '../components/modal.js';
+import { MixerPanelComponent } from '../components/mixerPanel.js';
 
 const PAGE_SIZE = 20;
 
@@ -23,6 +24,7 @@ class ChannelScreen {
   #postsPage = 1;
   #lazyObserver = null;
   #neighborsComponent = null;
+  #mixerPanel = null;
   #boundHandlers = [];
   #lastChannelId = null;
 
@@ -42,7 +44,7 @@ class ChannelScreen {
       <div class="screen channel-screen" data-testid="channel-screen">
         ${channels.length ? this.#renderComposeBar(channels, effectiveChannelId, activeChannel) : ''}
         ${this.#renderHeader(activeChannel, connected, connLabel)}
-        ${activeChannel ? this.#renderFeedControls(viewMode) : ''}
+        ${activeChannel ? this.#renderFeedControls() : ''}
         <div class="screen-body channel-body" data-testid="channel-body">
           <div class="channel-layout">
             <div id="now-feed" class="feed-view-${viewMode}" data-testid="feed-container" data-component="feed" data-feed="channel">
@@ -87,18 +89,9 @@ class ChannelScreen {
     `;
   }
 
-  #renderFeedControls(viewMode) {
-    return `
-      <div class="feed-controls" data-testid="feed-controls">
-        <label class="view-label">View:</label>
-        <select id="view-mode-select" class="view-select" data-testid="view-mode-select">
-          <option value="list" ${viewMode === 'list' ? 'selected' : ''}>📋 List</option>
-          <option value="grid" ${viewMode === 'grid' ? 'selected' : ''}>▦ Grid</option>
-          <option value="space" ${viewMode === 'space' ? 'selected' : ''}>🌌 Space</option>
-        </select>
-        <button type="button" id="more-options-btn" class="btn btn-small" style="margin-left: 20px;" title="Advanced options" data-testid="more-options-btn">⚙️</button>
-      </div>
-    `;
+  #renderFeedControls() {
+    // Mixer panel container - initialized in bind() with MixerPanelComponent
+    return '<div class="mixer-panel-container" data-component="mixer-panel"></div>';
   }
 
   #renderHeader(activeChannel, connected, connLabel) {
@@ -284,7 +277,7 @@ class ChannelScreen {
 
     this.#initSimilarityScores(container, activeChannel, activeChannelId);
     this.#initLazyLoading(container);
-    this.#bindViewMode(container, activeChannel);
+    this.#bindMixerPanel(container, activeChannel);
     this.#bindNeighbors(container, activeChannel);
     this.#bindFeedNavigation(container);
     this.#bindComposeForm(container, activeChannel);
@@ -336,20 +329,37 @@ class ChannelScreen {
     }
   }
 
-  #bindViewMode(container, activeChannel) {
-    container.querySelector('#view-mode-select')?.addEventListener('change', (e) => {
-      const viewMode = e.target.value;
-      if (activeChannel) {
-        const settings = channelSettingsService.getSettings(activeChannel.id);
-        channelSettingsService.updateSettings(activeChannel.id, { ...settings, viewMode });
-      }
-      document.dispatchEvent(
-        new CustomEvent('isc:channel-view-change', { detail: { mode: viewMode } })
-      );
-    });
+  #bindMixerPanel(container, activeChannel) {
+    const mixerContainer = container.querySelector('[data-component="mixer-panel"]');
+    if (!mixerContainer || !activeChannel) {
+      this.#mixerPanel?.destroy();
+      this.#mixerPanel = null;
+      return;
+    }
 
-    container.querySelector('#more-options-btn')?.addEventListener('click', () => {
-      if (activeChannel) this.#showAdvancedOptions(activeChannel);
+    this.#mixerPanel?.destroy();
+    this.#mixerPanel = new MixerPanelComponent(mixerContainer, activeChannel);
+
+    // Listen for view mode changes from mixer panel
+    mixerContainer.addEventListener('mixer:view-change', (e) => {
+      const { viewMode, specificity, minSimilarity, sortBy, filters } = e.detail || {};
+      if (!activeChannel) return;
+
+      const settings = channelSettingsService.getSettings(activeChannel.id);
+      const updatedSettings = { ...settings };
+      if (viewMode) updatedSettings.viewMode = viewMode;
+      if (specificity != null) updatedSettings.specificity = specificity;
+      if (minSimilarity != null) updatedSettings.minSimilarity = minSimilarity;
+      if (sortBy) updatedSettings.sortBy = sortBy;
+      if (filters) updatedSettings.filters = filters;
+
+      channelSettingsService.updateSettings(activeChannel.id, updatedSettings);
+
+      if (viewMode) {
+        document.dispatchEvent(
+          new CustomEvent('isc:channel-view-change', { detail: { mode: viewMode } })
+        );
+      }
     });
   }
 
@@ -381,6 +391,26 @@ class ChannelScreen {
           document.dispatchEvent(
             new CustomEvent('isc:start-chat', { detail: { peerId }, bubbles: true })
           );
+        }
+      });
+
+      neighborPanelContainer.addEventListener('neighbors:audio-space', async (e) => {
+        const { channelId } = e.detail || {};
+        if (!channelId) return;
+        try {
+          const { createAudioSpace, joinAudioSpace, getAllActiveSpaces } = await import('../../social/index.js');
+          const spaces = getAllActiveSpaces();
+          const existingSpace = spaces.find((s) => s.channelID === channelId);
+
+          if (existingSpace) {
+            await joinAudioSpace(existingSpace.spaceID);
+            toasts.info(`Joined audio space for #${existingSpace.channelID}`);
+          } else {
+            const space = await createAudioSpace(channelId);
+            toasts.info(`Created audio space for channel`);
+          }
+        } catch (err) {
+          toasts.error('Failed to join audio space: ' + err.message);
         }
       });
     }
@@ -727,6 +757,7 @@ class ChannelScreen {
     if (activeChannel && activeChannelId !== this.#lastChannelId) {
       this.#lastChannelId = activeChannelId;
       this.#bindNeighbors(container, activeChannel);
+      this.#bindMixerPanel(container, activeChannel);
     }
 
     if (activeChannel && networkService.fetchMessagesForChannel) {
@@ -753,9 +784,37 @@ class ChannelScreen {
       return;
     }
 
-    const posts = activeChannelId
+    const localPosts = activeChannelId
       ? feedService.getByChannel(activeChannelId, 50)
       : feedService.getForYou(50);
+
+    // Also include posts discovered via DHT (stored in app state)
+    const statePosts = getState().posts ?? [];
+    const allPosts = activeChannelId
+      ? [...localPosts, ...statePosts.filter(p => (p.channelId || p.channelID) === activeChannelId)]
+      : [...localPosts, ...statePosts];
+
+    // Deduplicate by id and sort by timestamp
+    const seen = new Set();
+    const posts = allPosts
+      .filter(p => {
+        if (seen.has(p.id)) return false;
+        seen.add(p.id);
+        return true;
+      })
+      .sort((a, b) => (b.timestamp || b.createdAt || 0) - (a.timestamp || a.createdAt || 0))
+      .slice(0, 50);
+
+    // Fetch more posts from DHT network if combined feed is sparse
+    const isConnected = connected || status === 'connected';
+    if (isConnected && activeChannelId && posts.length < 5) {
+      postService.discoverFromNetwork(activeChannelId).then(newPosts => {
+        if (newPosts?.length > 0 && container.isConnected) {
+          this.#update(container); // Re-render with new posts
+        }
+      }).catch(() => {});
+    }
+
     feed.innerHTML =
       posts.length === 0
         ? this.#renderEmptyState(channels, connected, connLabel)

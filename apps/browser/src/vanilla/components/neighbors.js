@@ -161,6 +161,11 @@ class NeighborsComponent {
               ? `<span class="neighbor-panel-channel">#${escapeHtml(opts.channelId)}</span>`
               : ''
           }
+          ${
+            opts.channelId
+              ? `<button class="neighbor-audio-btn" data-action="audio-space" data-testid="audio-space-btn" title="Join audio space for #${escapeHtml(opts.channelId)}">🎙</button>`
+              : ''
+          }
         </div>
         <div class="neighbor-list" data-testid="neighbor-list">
           ${this.#neighbors.map((m) => this.#renderNeighborItem(m)).join('')}
@@ -231,6 +236,7 @@ class NeighborsComponent {
     const handleListToggle = this.#container.querySelector('[data-view-mode="list"]');
     const handleSpaceToggle = this.#container.querySelector('[data-view-mode="space"]');
     const handleDm = this.#container.querySelector('[data-action="start-chat"]');
+    const handleAudio = this.#container.querySelector('[data-action="audio-space"]');
 
     const onViewToggle = (e) => {
       const btn = e.target.closest('[data-view-mode]');
@@ -250,14 +256,24 @@ class NeighborsComponent {
       }
     };
 
+    const onAudioClick = async (e) => {
+      const audioBtn = e.target.closest('[data-action="audio-space"]');
+      if (!audioBtn) return;
+      this.#container.dispatchEvent(
+        new CustomEvent('neighbors:audio-space', { detail: { channelId: this.#params.channelId }, bubbles: true })
+      );
+    };
+
     handleListToggle?.addEventListener('click', onViewToggle);
     handleSpaceToggle?.addEventListener('click', onViewToggle);
     this.#container.addEventListener('click', onDmClick);
+    handleAudio?.addEventListener('click', onAudioClick);
 
     this.#boundHandlers.push(
       () => handleListToggle?.removeEventListener('click', onViewToggle),
       () => handleSpaceToggle?.removeEventListener('click', onViewToggle),
-      () => this.#container.removeEventListener('click', onDmClick)
+      () => this.#container.removeEventListener('click', onDmClick),
+      () => handleAudio?.removeEventListener('click', onAudioClick)
     );
   }
 

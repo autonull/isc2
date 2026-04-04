@@ -10,7 +10,6 @@
 import { SemanticMapService } from './semantic-map/services/SemanticMapService.js';
 import { projectTo2D as projectFn, findNeighbors as findFn } from './semantic-map/services/SemanticLayoutService.js';
 import { kmeansClusters as kmeansFn } from './semantic-map/algorithms/clustering.js';
-import { renderToSVG } from './semantic-map/renderer/SemanticMapRenderer.js';
 import type { Point2D } from './semantic-map/types/semanticMap.js';
 import type { Channel } from '@isc/core/types';
 

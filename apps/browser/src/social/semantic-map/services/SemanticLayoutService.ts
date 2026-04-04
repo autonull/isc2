@@ -7,7 +7,7 @@
 import type { Channel } from '@isc/core/types';
 import type { Point2D } from '../types/semanticMap.js';
 import { SEMANTIC_MAP_CONFIG } from '../config/semanticConfig.js';
-import { forceDirectedLayout, initializeOnUnitCircle } from '../algorithms/layout.js';
+import { forceDirectedLayout } from '../algorithms/layout.js';
 import { distance } from '../utils/vectorMath.js';
 
 /**

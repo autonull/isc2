@@ -72,7 +72,7 @@ export class SecureSession {
     const serialized = await dbGet<string>(db, STORE_NAME, this.conversationId);
     if (!serialized) return false;
 
-    this.state = deserializeRatchetState(serialized);
+    this.state = await deserializeRatchetState(serialized);
     this.initialized = true;
     return true;
   }

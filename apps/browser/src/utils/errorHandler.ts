@@ -8,7 +8,7 @@
  * - Recovery guidance
  */
 
-import { logger, createLogger } from './logger.js';
+import { createLogger } from './logger.js';
 
 export enum ErrorCode {
   // Network errors

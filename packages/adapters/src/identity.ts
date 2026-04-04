@@ -152,8 +152,8 @@ export class BrowserIdentity implements IdentityAdapter {
     // Import the raw public key as a CryptoKey
     const publicKeyCrypto = await globalThis.crypto.subtle.importKey(
       'raw',
-      publicKey,
-      { name: 'Ed25519', namedCurve: 'Ed25519' },
+      publicKey as BufferSource,
+      { name: 'Ed25519', namedCurve: 'Ed25519' } as any,
       true,
       ['verify']
     );
@@ -314,8 +314,8 @@ export class NodeIdentity implements IdentityAdapter {
     // Import the raw public key as a CryptoKey
     const publicKeyCrypto = await globalThis.crypto.subtle.importKey(
       'raw',
-      publicKey,
-      { name: 'Ed25519', namedCurve: 'Ed25519' },
+      publicKey as BufferSource,
+      { name: 'Ed25519', namedCurve: 'Ed25519' } as any,
       true,
       ['verify']
     );

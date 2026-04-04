@@ -63,8 +63,7 @@ export async function deletePost(id: string): Promise<void> {
   return svc.delete(id);
 }
 
-export async function verifyPost(post: any): Promise<boolean> {
-  const svc = await getPostService();
+export async function verifyPost(_post: unknown): Promise<boolean> {
   // The browser version verifies against the stored public key
   // For now, return true (verification would need per-peer implementation)
   return true;

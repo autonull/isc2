@@ -2,11 +2,13 @@
  * Post Service
  *
  * Post/message management operations with optimistic updates.
+ * Broadcasts posts to DHT network and fetches from network on demand.
  */
 
 import { networkService } from './network.ts';
 import { logger } from '../logger.js';
 import { actions, getState } from '../state.js';
+import { browserNetworkAdapter } from '../social/adapters/network.js';
 
 const LIKED_POSTS_KEY = 'isc:liked-posts';
 
@@ -50,6 +52,45 @@ export const postService = {
 
     try {
       const post = await networkService.createPost(channelId, content);
+
+      // Broadcast to DHT network via social layer adapter
+      try {
+        const { getKeypair } = await import('../identity/index.js');
+        const keypair = getKeypair();
+        let signature = new Uint8Array();
+        if (keypair) {
+          const postForSigning = {
+            id: post.id,
+            author: peerId,
+            content: post.content ?? content,
+            channelID: channelId,
+            timestamp: post.timestamp ?? Date.now(),
+            likes: [],
+            replies: [],
+          };
+          const payload = new TextEncoder().encode(JSON.stringify(postForSigning));
+          const { sign } = await import('@isc/core');
+          const sig = await sign(payload, keypair.privateKey);
+          signature = sig.data;
+        }
+
+        const signedPost = {
+          id: post.id,
+          author: peerId,
+          content: post.content ?? content,
+          channelID: channelId,
+          timestamp: post.timestamp ?? Date.now(),
+          likes: [],
+          replies: [],
+          signature,
+        };
+        await browserNetworkAdapter.broadcastPost(signedPost);
+      } catch (broadcastErr) {
+        logger.warn('Post broadcast failed, post still created locally', {
+          error: broadcastErr.message,
+        });
+      }
+
       const posts = getState().posts ?? [];
       const idx = posts.findIndex(p => p.id === optimisticPost.id);
       if (idx >= 0) {
@@ -69,6 +110,45 @@ export const postService = {
 
   getByChannel(channelId) {
     return networkService.getPosts(channelId);
+  },
+
+  async discoverFromNetwork(channelId, limit = 50) {
+    try {
+      const posts = await browserNetworkAdapter.requestPosts(channelId);
+      // Merge into BrowserNetworkService's local cache (where feedService reads from)
+      const netPosts = networkService.getPosts(channelId);
+      const existingIds = new Set(netPosts.map(p => p.id));
+      const newPosts = posts
+        .filter(p => !existingIds.has(p.id))
+        .map(p => ({
+          id: p.id,
+          channelId: p.channelID,
+          content: p.content,
+          author: p.author,
+          authorId: p.author,
+          createdAt: p.timestamp,
+          timestamp: p.timestamp,
+          likes: p.likes || [],
+          replies: p.replies || [],
+        }))
+        .slice(0, limit);
+
+      if (newPosts.length > 0) {
+        // Also store in app state for cross-channel feeds
+        const existingState = getState().posts ?? [];
+        const stateIds = new Set(existingState.map(p => p.id));
+        const forState = posts.filter(p => !stateIds.has(p.id)).slice(0, limit);
+        if (forState.length > 0) {
+          actions.setPosts([...forState, ...existingState]);
+        }
+
+        logger.info('Discovered posts from network', { channelId, count: newPosts.length });
+      }
+      return newPosts;
+    } catch (err) {
+      logger.debug('Post discovery failed', { error: err.message, channelId });
+      return [];
+    }
   },
 
   getAll() {
@@ -109,11 +189,20 @@ export const postService = {
 
   async delete(postId) {
     try {
-      if (!networkService.service?.deletePost) {
-        logger.warn('postService.delete: deletePost not implemented in network layer');
-        return;
-      }
-      await networkService.service.deletePost(postId);
+      // Remove from local state immediately
+      const posts = getState().posts ?? [];
+      const filtered = posts.filter((p) => p.id !== postId);
+      actions.setPosts(filtered);
+
+      // Also remove from liked posts if present
+      const liked = getLikedPosts();
+      liked.delete(postId);
+      saveLikedPosts(liked);
+
+      // Propagate deletion via social layer (handles local + network)
+      const { deletePost } = await import('../social/posts.js');
+      await deletePost(postId);
+
       logger.info('Post deleted', { postId });
     } catch (err) {
       logger.error('Post deletion failed', { error: err.message });

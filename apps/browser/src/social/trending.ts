@@ -13,16 +13,9 @@ export {
   DEFAULT_TRENDING_CONFIG,
 } from '@isc/social/trending';
 
-import type { RankedPost } from '@isc/social/trending';
+import type { RankedPost, TrendingTopic } from '@isc/social/trending';
 import { getInteractionCounts } from './interactions.js';
 import { getAllPosts, getPostsByChannel } from './posts.js';
-
-async function scorePost(postID: string): Promise<RankedPost | null> {
-  const interactions = await getInteractionCounts(postID);
-  // Note: scorePost in @isc/social requires the full post object, not just ID
-  // This wrapper is for the app's specific usage pattern
-  return null;
-}
 
 export async function getTrendingPosts(limit: number = 20): Promise<RankedPost[]> {
   const allPosts = await getAllPosts();

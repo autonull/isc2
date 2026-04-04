@@ -15,7 +15,7 @@ export { BootstrapService, BOOTSTRAP_CONSTANTS } from './bootstrap-utils.js';
 export { SybilResistanceService, SYBIL_CONSTANTS } from './sybil-utils.js';
 
 // Types
-export type { ReputationResult, TrustPath, TrustScore, Interaction } from './types.js';
+export type { ReputationResult, TrustPath, TrustScore } from './types.js';
 export type { DecayInteraction, DecayCurvePoint } from './decay-utils.js';
 export type { BootstrapConfig } from './bootstrap-utils.js';
 export type { SybilConfig } from './sybil-utils.js';

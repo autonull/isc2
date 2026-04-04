@@ -18,9 +18,9 @@ const callHistory: VideoCall[] = [];
 class VideoServiceImpl implements IVideoService {
   async startCall(targetUserId: string): Promise<VideoCall | null> {
     try {
-      const call = await createVideoCall(targetUserId);
+      const call = await createVideoCall('direct', targetUserId);
       callHistory.push(call);
-      logger.info('Video call started', { callId: call.id, target: targetUserId });
+      logger.info('Video call started', { callId: call.callID, target: targetUserId });
       return call;
     } catch (err) {
       const error = err instanceof Error ? err : new Error(String(err));
@@ -31,17 +31,14 @@ class VideoServiceImpl implements IVideoService {
 
   async endCall(callId: string): Promise<void> {
     try {
-      // Update call history
-      const callIndex = callHistory.findIndex((c) => c.id === callId);
+      const callIndex = callHistory.findIndex((c) => c.callID === callId);
       if (callIndex >= 0) {
         callHistory[callIndex].endedAt = Date.now();
-        callHistory[callIndex].active = false;
       }
       logger.info('Video call ended', { callId });
     } catch (err) {
       const error = err instanceof Error ? err : new Error(String(err));
       logger.error('Failed to end video call', error, { callId });
-      // Don't rethrow - end call failure should not block UI
     }
   }
 

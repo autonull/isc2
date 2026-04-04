@@ -10,6 +10,7 @@ import { REPUTATION_CONFIG } from '../config/reputationConfig.js';
 import { DecayCalculator } from '@isc/core';
 import { BootstrapService } from '@isc/core';
 import { SybilResistanceService } from '@isc/core';
+import type { SybilConfig } from '@isc/core';
 import { ReputationCache } from './ReputationCache.js';
 
 export class ReputationService {
@@ -60,10 +61,15 @@ export class ReputationService {
 
     // Apply Sybil resistance
     const mutualFollowCount = 0; // Would be computed from social graph
+    const sybilConfig: SybilConfig = {
+      sybilCap: config.sybilCap,
+      mutualFollowCap: 0.4,
+      mutualFollowBonusPerFollow: 0.05,
+    };
     const sybilAdjustedScore = SybilResistanceService.applySybilResistance(
       decayedScore,
       mutualFollowCount,
-      config
+      sybilConfig
     );
 
     // Add bootstrap bonus (capped at MAX_FINAL_SCORE total)

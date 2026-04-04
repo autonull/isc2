@@ -12,6 +12,8 @@
     "./discovery": "./src/discovery.ts",
     "./channels": "./src/channels.ts",
     "./moderation": "./src/moderation/index.ts",
+    "./trending": "./src/trending.ts",
+    "./interactions": "./src/interactions.ts",
     "./types": "./src/types.ts",
     "./adapters": "./src/adapters/index.ts"
   },

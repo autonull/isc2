@@ -70,8 +70,6 @@ const STORAGE_KEYS = {
   SETTINGS: 'isc-settings',
 };
 
-const EVENT_PREFIX = 'isc-';
-
 class StateSyncServiceClass {
   private subscribers = new Map<string, Set<(state: any) => void>>();
   private stateCache = new Map<string, any>();
@@ -168,7 +166,6 @@ class StateSyncServiceClass {
     window.addEventListener('storage', (event) => {
       if (!event.key || !event.key.startsWith('isc-')) return;
 
-      const storageKey = event.key.replace('isc-', '');
       const key = Object.entries(STORAGE_KEYS).find(([_, v]) => v === event.key)?.[0];
 
       if (key) {

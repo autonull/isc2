@@ -14,7 +14,7 @@ import { buildLayout, setupLoggerInterceptor } from './layout.js';
 import { createRouter, setupEventHandlers, setupKeyboardShortcuts } from './router.js';
 import { createSplash } from './components/splash.js';
 import { modals } from './components/modal.js';
-import { postService, networkService, feedService } from '../services/index.js';
+import { postService, networkService, feedService, chatService } from '../services/index.js';
 
 import * as NowScreen from './screens/now.js';
 import * as ChannelScreen from './screens/channel.js';
@@ -129,6 +129,9 @@ export function createApp(container) {
             'Closing this tab will permanently erase your anonymous identity and all messages. Continue?';
         });
       }
+
+      // Start DHT-based DM polling for async message delivery
+      chatService.startDMPolling();
 
       setupPWAInstallPrompt();
 

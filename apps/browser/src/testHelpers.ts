@@ -205,7 +205,7 @@ export async function takeScreenshot(
 /**
  * Start video recording of the page
  */
-export async function startRecording(page: Page): Promise<void> {
+export async function startRecording(_page: Page): Promise<void> {
   // Playwright video is automatic when configured
   // This is a placeholder for any additional setup
 }

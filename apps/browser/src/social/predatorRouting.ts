@@ -130,7 +130,7 @@ export function canContactBeInitiated(
   return { allowed: true };
 }
 
-export function reportAbuse(lshBucket: string, reporterId: string): void {
+export function reportAbuse(lshBucket: string, _reporterId: string): void {
   const now = Date.now();
   let stats = abuseReportsByBucket.get(lshBucket);
 

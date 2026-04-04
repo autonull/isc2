@@ -52,6 +52,7 @@ const DEFAULT_BOOTSTRAP_NODES = [
   '/dns4/bootstrap.libp2p.io/udp/443/quic-v1/webtransport/certhash/uEiByCR7NqKrFPqB8kZJvZvZvZvZvZvZvZvZvZvZvZvZvZv/p2p/QmbLHAnMoJPWSCR5Zhtx6BHJX9KiRNN6vEf9cqLcVTQJQs',
 ];
 
+// @ts-expect-error PubSub type exported differently across libp2p versions
 import type { PubSub } from '@libp2p/interface';
 
 interface DHTService {
@@ -126,11 +127,13 @@ export class BrowserNetworkAdapter implements NetworkAdapter {
       services: {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         dht: kadDHT() as any,
+        // @ts-expect-error gossipsub component type mismatch with libp2p service registry
         pubsub: gossipsub({ allowPublishToZeroTopicPeers: true }),
       },
       transports: [
         webSockets(),
         webTransport(),
+        // @ts-expect-error webRTC component type mismatch with libp2p service registry
         webRTC({
           rtcConfiguration: {
             iceServers: [

@@ -157,7 +157,7 @@ export async function getTrendingPosts(
   const windowStart = now - timeWindow;
 
   // Filter to recent posts
-  const recentPosts = allPosts.filter(post => post.timestamp >= windowStart);
+  const recentPosts = allPosts.filter(p => p.timestamp >= windowStart);
 
   // Score by engagement velocity (likes + reposts + replies per hour)
   const scoredPosts = recentPosts.map(post => {
@@ -181,7 +181,7 @@ export async function getTrendingPosts(
 /**
  * Get engagement count for a post
  */
-function getEngagementCount(post: SignedPost): number {
+function getEngagementCount(_post: SignedPost): number {
   // In production, would fetch from DHT or engagement store
   // For now, return 0 (would need likes/reposts/replies integration)
   return 0;

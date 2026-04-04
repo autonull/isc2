@@ -4,7 +4,7 @@
  * Handles database operations for direct messages.
  */
 
-import { openDB, dbGet, dbGetAll, dbPut, dbFilter } from '@isc/adapters';
+import { openDB, dbGet, dbGetAll, dbPut } from '@isc/adapters';
 import type { DirectMessage, GroupDM } from '../types/dm.js';
 import { DM_CONFIG, DM_STORES } from '../config/dmConfig.js';
 
