@@ -13,7 +13,7 @@ const mockLocalStorage = {
   getItem: vi.fn((key: string) => store[key] ?? null),
   setItem: vi.fn((key: string, value: string) => { store[key] = value; }),
   removeItem: vi.fn((key: string) => { delete store[key]; }),
-  clear: vi.fn(() => { Object.keys(store).forEach(k => delete store[key]); }),
+  clear: vi.fn(() => { Object.keys(store).forEach(k => delete store[k]); }),
 };
 
 Object.defineProperty(globalThis, 'localStorage', {
@@ -52,8 +52,10 @@ vi.mock('../../src/state.js', () => ({
   actions: {
     addPost: vi.fn(),
     removePost: vi.fn(),
+    setPosts: vi.fn(),
   },
-  getState: vi.fn().mockReturnValue({ posts: [] }),
+  getState: vi.fn().mockReturnValue([]),
+  subscribe: vi.fn(),
 }));
 
 // Mock logger
@@ -98,7 +100,8 @@ describe('Post Service', () => {
       await postService.create('ch-1', 'Hello world');
 
       // Local creation
-      expect(networkService.createPost).toHaveBeenCalledWith('ch-1', 'Hello world');
+      const { networkService: importedNetworkService } = await import('../../src/services/network.ts');
+      expect(importedNetworkService.createPost).toHaveBeenCalledWith('ch-1', 'Hello world');
 
       // DHT broadcast
       expect(browserNetworkAdapter.broadcastPost).toHaveBeenCalled();
@@ -110,7 +113,7 @@ describe('Post Service', () => {
 
       await postService.create('ch-1', 'Test post');
 
-      expect(actions.addPost).toHaveBeenCalled();
+      expect(actions.setPosts).toHaveBeenCalled();
     });
   });
 
