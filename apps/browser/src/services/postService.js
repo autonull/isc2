@@ -106,7 +106,7 @@ export const postService = {
     } catch (err) {
       logger.error('Post creation failed, rolling back', { error: err.message });
       const posts = getState('posts') ?? [];
-      const filtered = posts.filter(p => p.id !== optimisticPost.id);
+      const filtered = Array.isArray(posts) ? posts.filter(p => p.id !== optimisticPost.id) : Array.from(Object.values(posts)).filter(p => p.id !== optimisticPost.id);
       actions.setPosts(filtered);
       throw err;
     }
@@ -216,7 +216,7 @@ export const postService = {
     try {
       // Remove from local state immediately
       const posts = getState('posts') ?? [];
-      const filtered = posts.filter((p) => p.id !== postId);
+      const filtered = Array.isArray(posts) ? posts.filter((p) => p.id !== postId) : Array.from(Object.values(posts)).filter((p) => p.id !== postId);
       actions.setPosts(filtered);
 
       // Also remove from liked posts if present
