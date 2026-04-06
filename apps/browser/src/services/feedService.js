@@ -9,7 +9,7 @@ import { networkService } from './network.ts';
 import { postService } from './postService.js';
 import { channelService } from './channelService.js';
 import { getEmbeddingService } from '@isc/network';
-import { logger } from '../logger.js';
+import { logger } from '../utils/logger.ts';
 import { getState } from '../state.js';
 
 const HOURS_24 = 86400000;

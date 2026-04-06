@@ -17,7 +17,7 @@ vi.mock('../../src/identity', () => ({
 }));
 
 // Mock delegation client
-vi.mock('../../src/delegation/fallback', () => ({
+vi.mock('@isc/delegation', () => ({
   DelegationClient: {
     getInstance: vi.fn().mockReturnValue({
       announce: vi.fn().mockResolvedValue(undefined),
@@ -44,7 +44,7 @@ describe('Direct Messages', () => {
     it('should throw error if recipient public key not found', async () => {
       const { sendDM } = await import('../../src/social/directMessages');
 
-      await expect(sendDM('unknown-recipient', 'Hello')).rejects.toThrow(
+      await expect(sendDM('12D3KooWK8vZwXhBhwD5aT34tXQjJm9F5K5bQG5a9x7Dk3L1P2Q5', 'Hello')).rejects.toThrow(
         'Public key not found for recipient'
       );
     });

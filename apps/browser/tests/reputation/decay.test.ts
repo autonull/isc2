@@ -32,7 +32,7 @@ vi.mock('../../src/identity', () => ({
   }),
 }));
 
-vi.mock('../../src/delegation/fallback', () => ({
+vi.mock('@isc/delegation', () => ({
   DelegationClient: {
     getInstance: vi.fn().mockReturnValue({
       announce: vi.fn().mockResolvedValue(undefined),
@@ -139,7 +139,7 @@ describe('Reputation Decay', () => {
 
     it('should return 0 after bootstrap period', () => {
       const oldTimestamp = Date.now() - 10 * 24 * 60 * 60 * 1000;
-      const bonus = calculateBootstrapBonus(oldTimestamp);
+      const bonus = calculateBootstrapBonus(oldTimestamp, 7);
 
       expect(bonus).toBe(0);
     });
@@ -304,7 +304,7 @@ describe('Reputation Integration', () => {
   });
 
   it('should compute reputation after recording interactions', async () => {
-    const peerId = 'integration_test_peer';
+    const peerId = '12D3KooWK8vZwXhBhwD5aT34tXQjJm9F5K5bQG5a9x7Dk3L1P2Q9';
 
     // Record some interactions
     await recordInteraction(peerId, 'like', 1);
@@ -317,7 +317,7 @@ describe('Reputation Integration', () => {
   });
 
   it('should handle weighted interactions correctly', async () => {
-    const peerId = 'weighted_peer';
+    const peerId = '12D3KooWK8vZwXhBhwD5aT34tXQjJm9F5K5bQG5a9x7Dk3L1P2R1';
 
     await recordWeightedInteraction(peerId, 'follow'); // weight 5
     await recordWeightedInteraction(peerId, 'like'); // weight 1

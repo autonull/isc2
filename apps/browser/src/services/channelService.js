@@ -6,7 +6,7 @@
  */
 
 import { networkService } from './network.ts';
-import { logger } from '../logger.js';
+import { logger } from '../utils/logger.ts';
 import { actions, getState } from '../state.js';
 
 export const channelService = {

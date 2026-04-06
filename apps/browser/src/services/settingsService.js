@@ -5,7 +5,7 @@
  * User settings management.
  */
 
-import { logger } from '../logger.js';
+import { logger } from '../utils/logger.ts';
 import { actions } from '../state.js';
 
 const SETTINGS_KEY = 'isc:settings';

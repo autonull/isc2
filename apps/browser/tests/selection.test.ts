@@ -5,7 +5,7 @@ import type { DelegationHealth } from '@isc/protocol/messages';
 
 const createMockHealth = (overrides: Partial<DelegationHealth> = {}): DelegationHealth => ({
   type: 'delegation_health',
-  peerID: 'test-peer',
+  peerID: '12D3KooWK8vZwXhBhwD5aT34tXQjJm9F5K5bQG5a9x7Dk3L1P2R2',
   successRate: 0.9,
   avgLatencyMs: 500,
   requestsServed24h: 100,
@@ -113,9 +113,9 @@ describe('HealthSelector', () => {
 
   describe('getHealthyPeerIDs', () => {
     it('should include peers without health data', () => {
-      const capabilities = [{ peerID: 'unknown' }, { peerID: 'known' }];
+      const capabilities = [{ peerID: '12D3KooWK8vZwXhBhwD5aT34tXQjJm9F5K5bQG5a9x7Dk3L1P2Q5' }, { peerID: '12D3KooWK8vZwXhBhwD5aT34tXQjJm9F5K5bQG5a9x7Dk3L1P2Q6' }];
       const healthMap = new Map<string, DelegationHealth>([
-        ['known', createMockHealth({ peerID: 'known', successRate: 0.9 })],
+        ['known', createMockHealth({ peerID: '12D3KooWK8vZwXhBhwD5aT34tXQjJm9F5K5bQG5a9x7Dk3L1P2Q6', successRate: 0.9 })],
       ]);
 
       const result = selector.getHealthyPeerIDs(capabilities, healthMap);

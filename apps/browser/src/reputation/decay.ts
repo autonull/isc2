@@ -28,6 +28,33 @@ export { ReputationService } from './services/ReputationService.ts';
 export { InteractionService } from './services/InteractionService.ts';
 export { ReputationCache } from './services/ReputationCache.ts';
 
+// Core math re-exports for testing compatibility
+import { DecayCalculator, BootstrapService, SybilResistanceService } from '@isc/core';
+
+export const calculateDecayFactor = DecayCalculator.calculateDecayFactor.bind(DecayCalculator);
+
+// Create an adapter wrapper for applyDecayToInteraction to match the test signature
+export const applyDecayToInteraction = (timestamp: number, baseWeight: number, halfLifeDays: number) => {
+  return DecayCalculator.applyDecay(timestamp, baseWeight, halfLifeDays);
+};
+
+export const isWithinBootstrapPeriod = BootstrapService.isWithinBootstrapPeriod.bind(BootstrapService);
+// Adapt arguments for tests which pass config object instead of just bootstrapPeriodDays
+export const calculateBootstrapBonus = (firstInteractionTimestamp: number, configOrPeriod: any) => {
+  const period = typeof configOrPeriod === 'object' ? configOrPeriod.bootstrapPeriodDays : configOrPeriod;
+  // If period is not provided, use default from REPUTATION_CONFIG (7 days)
+  return BootstrapService.calculateBootstrapBonus(firstInteractionTimestamp, period || REPUTATION_CONFIG.bootstrapPeriodDays);
+};
+
+export const applySybilResistance = (baseScore: number, mutualFollows: number, config?: any) => {
+  const c = {
+    sybilCap: config?.sybilCap ?? REPUTATION_CONFIG.sybilCap,
+    mutualFollowCap: config?.mutualFollowCap ?? 0.4,
+    mutualFollowBonusPerFollow: config?.mutualFollowBonusPerFollow ?? 0.05
+  };
+  return SybilResistanceService.applySybilResistance(baseScore, mutualFollows, c);
+};
+
 // Re-export main functions for backward compatibility
 import type { DecayReputation, DecayConfig, DecayCurvePoint } from './types/reputation.ts';
 import { REPUTATION_CONFIG } from './config/reputationConfig.ts';

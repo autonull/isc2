@@ -5,7 +5,7 @@
  * Block list management for peer moderation.
  */
 
-import { logger } from '../logger.js';
+import { logger } from '../utils/logger.ts';
 
 const BLOCKED_PEERS_KEY = 'isc:blocked-peers';
 const BLOCK_REASON_PREFIX = 'isc:block-reason:';

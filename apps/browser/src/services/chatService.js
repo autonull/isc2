@@ -8,7 +8,7 @@
 
 import { networkService } from './network.ts';
 import { discoveryService } from './discoveryService.js';
-import { logger } from '../logger.js';
+import { logger } from '../utils/logger.ts';
 import { getDHTClient, initializeDHT } from '../network/dht.ts';
 import { getPeerID } from '../identity/index.ts';
 import { encode } from '@isc/core';
@@ -210,7 +210,7 @@ export const chatService = {
   async _sendViaDHT(peerId, message) {
     try {
       const dht = getDHTClient();
-      if (!dht.isConnected()) {
+      if (typeof dht.isConnected === 'function' && !dht.isConnected()) {
         await initializeDHT();
       }
 
@@ -282,7 +282,7 @@ export const chatService = {
   async pollInbox() {
     try {
       const dht = getDHTClient();
-      if (!dht.isConnected()) return;
+      if (typeof dht.isConnected === 'function' && !dht.isConnected()) return;
 
       myPeerId = myPeerId || (await getPeerID());
       const inboxKey = getDMInboxKey(myPeerId);

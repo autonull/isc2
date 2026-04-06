@@ -224,7 +224,7 @@ describe('Video Module', () => {
       const message = {
         type: 'join' as const,
         callID: 'test-call',
-        sender: 'peer-1',
+        sender: '12D3KooWK8vZwXhBhwD5aT34tXQjJm9F5K5bQG5a9x7Dk3L1P2Q5',
         timestamp: Date.now(),
       };
 
