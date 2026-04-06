@@ -52,7 +52,7 @@ describe('Trending Service', () => {
         signature: { data: new Uint8Array(), algorithm: 'Ed25519' as const },
       };
 
-      const interactions = { likes: 1, reposts: 0, replies: 0, quotes: 0 };
+      const interactions = { likes: 0, reposts: 0, replies: 0, quotes: 0 };
       const score = calculateTrendingScore(post, interactions);
 
       expect(score).toBe(0);

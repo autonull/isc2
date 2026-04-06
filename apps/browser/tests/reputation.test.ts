@@ -254,7 +254,7 @@ describe('Web of Trust', () => {
 // Integration test helpers
 describe('Phase 6 Integration', () => {
   it('should complete full reputation calculation flow', async () => {
-    const peerId = 'integration_test_peer';
+    const peerId = '12D3KooWK8vZwXhBhwD5aT34tXQjJm9F5K5bQG5a9x7Dk3L1P2Q9';
 
     // Record some interactions
     await recordInteraction(peerId, 'follow', 5);

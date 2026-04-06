@@ -68,7 +68,21 @@ vi.mock('../../src/logger.js', () => ({
 describe('Identity Service', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    Object.keys(mockStore).forEach(k => delete mockStore[k]);
+    // Reset singleton if necessary via module reloading
+    // (mock modules handle state reset implicitly here)
+
+    // Mock crypto.subtle in tests
+    Object.defineProperty(globalThis, 'crypto', {
+      value: {
+        subtle: {
+          exportKey: vi.fn().mockResolvedValue(new Uint8Array([1, 2, 3]).buffer),
+          digest: vi.fn().mockResolvedValue(new Uint8Array([1, 2, 3, 4, 5, 6, 7, 8]).buffer),
+        },
+      },
+      writable: true,
+      configurable: true,
+    });
+  });
   });
 
   describe('sign', () => {
@@ -82,7 +96,7 @@ describe('Identity Service', () => {
         getPeerPublicKey: vi.fn().mockResolvedValue(mockPublicKey),
       }), { virtual: true });
 
-      const { getIdentityService } = await import('../../src/services/identityService.js');
+      const { getIdentityService } = await import('../../src/services/identityService.ts');
       const service = getIdentityService();
 
       const testData = new Uint8Array([1, 2, 3]);
@@ -101,7 +115,7 @@ describe('Identity Service', () => {
       }), { virtual: true });
 
       vi.resetModules();
-      const { getIdentityService } = await import('../../src/services/identityService.js');
+      const { getIdentityService } = await import('../../src/services/identityService.ts');
       const service = getIdentityService();
 
       await expect(service.sign(new Uint8Array([1]))).rejects.toThrow('Identity not initialized');
@@ -118,7 +132,7 @@ describe('Identity Service', () => {
       }), { virtual: true });
 
       vi.resetModules();
-      const { getIdentityService } = await import('../../src/services/identityService.js');
+      const { getIdentityService } = await import('../../src/services/identityService.ts');
       const service = getIdentityService();
 
       const fp1 = await service.getFingerprint();
@@ -137,7 +151,7 @@ describe('Identity Service', () => {
       }), { virtual: true });
 
       vi.resetModules();
-      const { getIdentityService } = await import('../../src/services/identityService.js');
+      const { getIdentityService } = await import('../../src/services/identityService.ts');
       const service = getIdentityService();
 
       const fp = await service.getFingerprint();
@@ -147,21 +161,25 @@ describe('Identity Service', () => {
 
   describe('clear', () => {
     it('should reset initialization state', async () => {
+      let currentKeypair: CryptoKeyPair | null = mockKeypair;
       vi.doMock('../../src/identity/index.js', () => ({
-        getKeypair: vi.fn(() => mockKeypair),
+        getKeypair: vi.fn(() => currentKeypair),
         initializeIdentity: vi.fn(),
         getPeerID: vi.fn().mockResolvedValue('test-peer-id'),
         getPeerPublicKey: vi.fn().mockResolvedValue(mockPublicKey),
       }), { virtual: true });
 
       vi.resetModules();
-      const { getIdentityService } = await import('../../src/services/identityService.js');
+      const { getIdentityService } = await import('../../src/services/identityService.ts');
       const service = getIdentityService();
 
       // Generate fingerprint to populate cache
       await service.getFingerprint();
 
+      // Clear service and simulate underlying keypair removal
       await service.clear();
+      currentKeypair = null;
+
       const fp = await service.getFingerprint();
       expect(fp).toBeNull(); // Cache cleared
     });

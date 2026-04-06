@@ -11,6 +11,14 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 // Mock DHT
 const mockDHTStore: Record<string, unknown> = {};
 const mockDHT = {
+  isConnected: vi.fn().mockReturnValue(true),
+  announce: vi.fn().mockImplementation(async (key: string, value: unknown) => {
+    mockDHTStore[key] = value;
+  }),
+  query: vi.fn().mockImplementation(async (key: string) => {
+    const v = mockDHTStore[key];
+    return v ? [v] : [];
+  }),
   put: vi.fn().mockImplementation(async (key: string, value: unknown) => {
     mockDHTStore[key] = value;
   }),
@@ -19,7 +27,7 @@ const mockDHT = {
   queryPeers: vi.fn().mockResolvedValue([]),
 };
 
-vi.mock('../../src/network/dht.js', () => ({
+vi.mock('../../src/network/dht.ts', () => ({
   getDHTClient: vi.fn(() => mockDHT),
   initializeDHT: vi.fn().mockResolvedValue(undefined),
 }));
@@ -91,7 +99,7 @@ describe('Browser Network Adapter', () => {
 
   describe('broadcastPost', () => {
     it('should store post in DHT with channel index', async () => {
-      const { browserNetworkAdapter } = await import('../../src/social/adapters/network.js');
+      const { browserNetworkAdapter } = await import('../../src/social/adapters/network.ts');
 
       const post = {
         id: 'post-1',
@@ -105,14 +113,14 @@ describe('Browser Network Adapter', () => {
       await browserNetworkAdapter.broadcastPost(post);
 
       // Verify DHT put was called for channel index
-      const putCalls = mockDHT.put.mock.calls;
+      const putCalls = mockDHT.announce.mock.calls;
       expect(putCalls.some(call => (call[0] as string).includes('/isc/post/ch-1/index'))).toBe(true);
     });
   });
 
   describe('requestPosts', () => {
     it('should return empty array when no posts in DHT', async () => {
-      const { browserNetworkAdapter } = await import('../../src/social/adapters/network.js');
+      const { browserNetworkAdapter } = await import('../../src/social/adapters/network.ts');
 
       const posts = await browserNetworkAdapter.requestPosts('ch-empty');
       expect(posts).toEqual([]);
@@ -121,7 +129,7 @@ describe('Browser Network Adapter', () => {
 
   describe('deletePost', () => {
     it('should remove post from channel index', async () => {
-      const { browserNetworkAdapter } = await import('../../src/social/adapters/network.js');
+      const { browserNetworkAdapter } = await import('../../src/social/adapters/network.ts');
 
       // First create a post
       const post = {
@@ -138,7 +146,7 @@ describe('Browser Network Adapter', () => {
       await browserNetworkAdapter.deletePost('post-to-delete', 'ch-1');
 
       // Verify DHT get would not find the post ID in index
-      const getCalls = mockDHT.get.mock.calls;
+      const getCalls = mockDHT.query.mock.calls;
       const indexCalls = getCalls.filter(call => (call[0] as string).includes('/isc/post/ch-1/index'));
       expect(indexCalls.length).toBeGreaterThan(0);
     });
@@ -146,18 +154,18 @@ describe('Browser Network Adapter', () => {
 
   describe('announceFollow', () => {
     it('should store follow relationship in DHT', async () => {
-      const { browserNetworkAdapter } = await import('../../src/social/adapters/network.js');
+      const { browserNetworkAdapter } = await import('../../src/social/adapters/network.ts');
 
       await browserNetworkAdapter.announceFollow('follower-1', 'followee-1', Date.now());
 
-      const putCalls = mockDHT.put.mock.calls;
+      const putCalls = mockDHT.announce.mock.calls;
       expect(putCalls.some(call => (call[0] as string).includes('/isc/follow/'))).toBe(true);
     });
   });
 
   describe('queryFollows', () => {
     it('should return empty array when no follows stored', async () => {
-      const { browserNetworkAdapter } = await import('../../src/social/adapters/network.js');
+      const { browserNetworkAdapter } = await import('../../src/social/adapters/network.ts');
 
       const follows = await browserNetworkAdapter.queryFollows('some-peer');
       expect(Array.isArray(follows)).toBe(true);
@@ -166,7 +174,7 @@ describe('Browser Network Adapter', () => {
 
   describe('sendMessage', () => {
     it('should store DM in recipient inbox', async () => {
-      const { browserNetworkAdapter } = await import('../../src/social/adapters/network.js');
+      const { browserNetworkAdapter } = await import('../../src/social/adapters/network.ts');
 
       const message = {
         id: 'dm-1',
@@ -180,7 +188,7 @@ describe('Browser Network Adapter', () => {
       await browserNetworkAdapter.sendMessage('recipient-1', message);
 
       // Verify DHT put was called for inbox
-      const putCalls = mockDHT.put.mock.calls;
+      const putCalls = mockDHT.announce.mock.calls;
       expect(putCalls.some(call => (call[0] as string).includes('/isc/dm/inbox/recipient-1'))).toBe(true);
     });
   });

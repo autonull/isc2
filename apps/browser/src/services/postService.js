@@ -7,10 +7,8 @@
  */
 
 import { networkService } from './network.ts';
-import { logger } from '../logger.js';
+import { logger } from '../utils/logger.ts';
 import { actions, getState } from '../state.js';
-import { browserNetworkAdapter } from '../social/adapters/network.ts';
-
 const LIKED_POSTS_KEY = 'isc:liked-posts';
 
 function getLikedPosts() {
@@ -44,7 +42,7 @@ export const postService = {
     };
 
     try {
-      const posts = getState().posts ?? [];
+      const posts = getState('posts') ?? [];
       posts.unshift(optimisticPost);
       actions.setPosts(posts);
     } catch {
@@ -85,14 +83,19 @@ export const postService = {
           replies: [],
           signature,
         };
-        await browserNetworkAdapter.broadcastPost(signedPost);
+        const mod = await import('../social/adapters/network.ts');
+        if (mod.browserNetworkAdapter && mod.browserNetworkAdapter.broadcastPost) {
+           await mod.browserNetworkAdapter.broadcastPost(signedPost);
+        } else if (mod.default && mod.default.broadcastPost) {
+           await mod.default.broadcastPost(signedPost);
+        }
       } catch (broadcastErr) {
         logger.warn('Post broadcast failed, post still created locally', {
           error: broadcastErr.message,
         });
       }
 
-      const posts = getState().posts ?? [];
+      const posts = getState('posts') ?? [];
       const idx = posts.findIndex(p => p.id === optimisticPost.id);
       if (idx >= 0) {
         posts[idx] = { ...post, optimistic: false, pending: false };
@@ -102,7 +105,7 @@ export const postService = {
       return post;
     } catch (err) {
       logger.error('Post creation failed, rolling back', { error: err.message });
-      const posts = getState().posts ?? [];
+      const posts = getState('posts') ?? [];
       const filtered = posts.filter(p => p.id !== optimisticPost.id);
       actions.setPosts(filtered);
       throw err;
@@ -115,6 +118,7 @@ export const postService = {
 
   async discoverFromNetwork(channelId, limit = 50) {
     try {
+      const { browserNetworkAdapter } = await import('../social/adapters/network.ts');
       const posts = await browserNetworkAdapter.requestPosts(channelId);
       // Merge into BrowserNetworkService's local cache (where feedService reads from)
       const netPosts = networkService.getPosts(channelId);
@@ -136,7 +140,7 @@ export const postService = {
 
       if (newPosts.length > 0) {
         // Also store in app state for cross-channel feeds
-        const existingState = getState().posts ?? [];
+        const existingState = getState('posts') ?? [];
         const stateIds = new Set(existingState.map(p => p.id));
         const forState = posts.filter(p => !stateIds.has(p.id)).slice(0, limit);
         if (forState.length > 0) {
@@ -177,9 +181,29 @@ export const postService = {
 
   getLikedPosts,
 
-  async reply(postId, content) {
+  toggleLike(postId, isLiked) {
+    const liked = getLikedPosts();
+    if (isLiked) {
+      liked.add(postId);
+    } else {
+      liked.delete(postId);
+    }
+    saveLikedPosts(liked);
+  },
+
+  isPostLiked(postId) {
+    return getLikedPosts().has(postId);
+  },
+
+  async repost(channelId, originalId) {
+    const post = await this.create(channelId, `[Repost of ${originalId}]`);
+    post.repostedFrom = originalId;
+    return post;
+  },
+
+  async reply(channelId, postId, content) {
     try {
-      const reply = await networkService.service?.replyToPost?.(postId, content);
+      const reply = await networkService.service?.replyToPost?.(postId, content) || { replyTo: postId };
       logger.debug('Reply created', { postId, replyId: reply?.id });
       return reply;
     } catch (err) {
@@ -191,7 +215,7 @@ export const postService = {
   async delete(postId) {
     try {
       // Remove from local state immediately
-      const posts = getState().posts ?? [];
+      const posts = getState('posts') ?? [];
       const filtered = posts.filter((p) => p.id !== postId);
       actions.setPosts(filtered);
 

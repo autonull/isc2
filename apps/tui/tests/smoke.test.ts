@@ -1,5 +1,5 @@
-/* eslint-disable */
 #!/usr/bin/env tsx
+/* eslint-disable */
 /**
  * TUI Smoke Test
  *

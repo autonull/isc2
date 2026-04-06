@@ -7,7 +7,7 @@
 
 import { networkService } from './network.ts';
 import { moderationService } from './moderationService.js';
-import { logger } from '../logger.js';
+import { logger } from '../utils/logger.ts';
 import { getState } from '../state.js';
 
 export const discoveryService = {

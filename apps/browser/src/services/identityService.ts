@@ -43,7 +43,14 @@ class IdentityServiceImpl implements IIdentityService {
   async getPublicKey(): Promise<string | null> {
     const keypair = await this.getKeypair();
     if (!keypair) return null;
-    const exported = await crypto.subtle.exportKey('spki', keypair.publicKey);
+
+    let subtle = crypto.subtle;
+    if (!subtle && typeof process !== 'undefined') {
+      const cryptoMod = await import('crypto');
+      subtle = cryptoMod.webcrypto?.subtle;
+    }
+
+    const exported = await subtle.exportKey('spki', keypair.publicKey);
     return Array.from(new Uint8Array(exported))
       .map(b => b.toString(16).padStart(2, '0'))
       .join('');
@@ -55,9 +62,15 @@ class IdentityServiceImpl implements IIdentityService {
     const keypair = await this.getKeypair();
     if (!keypair) return null;
 
-    const exported = await crypto.subtle.exportKey('spki', keypair.publicKey);
-    const hash = await crypto.subtle.digest('SHA-256', exported);
-    const bytes = new Uint8Array(hash);
+    let subtle = crypto.subtle;
+    if (!subtle && typeof process !== 'undefined') {
+      const cryptoMod = await import('crypto');
+      subtle = cryptoMod.webcrypto?.subtle;
+    }
+
+    const exported = await subtle.exportKey('spki', keypair.publicKey);
+    const hash = await subtle.digest('SHA-256', exported);
+    const bytes = new Uint8Array(hash instanceof ArrayBuffer ? hash : hash.buffer || hash);
     const fingerprint = Array.from(bytes)
       .slice(0, 8)
       .map(b => b.toString(16).padStart(2, '0'))

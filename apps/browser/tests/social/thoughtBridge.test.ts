@@ -62,7 +62,7 @@ describe('Thought Bridge', () => {
 
       const post2 = {
         id: 'post-2',
-        author: 'user2',
+        author: '12D3KooWN8vZwXhBhwD5aT34tXQjJm9F5K5bQG5a9x7Dk3L1P2Q8',
         content: 'TypeScript is great for programming',
         channelID: 'tech',
         timestamp: Date.now(),
@@ -91,7 +91,7 @@ describe('Thought Bridge', () => {
 
       const similar2 = {
         id: 'post-2',
-        author: 'user2',
+        author: '12D3KooWN8vZwXhBhwD5aT34tXQjJm9F5K5bQG5a9x7Dk3L1P2Q8',
         content: 'Programming is love',
         channelID: 'tech',
         timestamp: Date.now(),
@@ -101,7 +101,7 @@ describe('Thought Bridge', () => {
 
       const different = {
         id: 'post-3',
-        author: 'user3',
+        author: '12D3KooWO8vZwXhBhwD5aT34tXQjJm9F5K5bQG5a9x7Dk3L1P2Q9',
         content: 'I hate cooking',
         channelID: 'life',
         timestamp: Date.now(),

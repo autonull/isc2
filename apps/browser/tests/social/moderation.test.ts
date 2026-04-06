@@ -15,7 +15,7 @@ vi.mock('../../src/identity', () => ({
 }));
 
 // Mock delegation client
-vi.mock('../../src/delegation/fallback', () => ({
+vi.mock('@isc/delegation', () => ({
   DelegationClient: {
     getInstance: vi.fn().mockReturnValue({
       announce: vi.fn().mockResolvedValue(undefined),
