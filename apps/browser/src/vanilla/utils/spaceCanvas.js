@@ -188,15 +188,12 @@ class SpaceCanvasComponent {
 
   #buildDeterministicVec(peerId, similarity) {
     const seed = this.#hashString(peerId);
-    const vec = new Array(384);
-    for (let i = 0; i < 384; i++) {
-      vec[i] = Math.sin(seed * (i + 1) * 0.01) * 0.5 + Math.cos(seed * (i + 2) * 0.02) * 0.5;
-    }
+    const vec = Array.from({ length: 384 }, (_, i) =>
+      Math.sin(seed * (i + 1) * 0.01) * 0.5 + Math.cos(seed * (i + 2) * 0.02) * 0.5
+    );
     if (similarity) {
       const simInfluence = similarity * 0.3;
-      for (let i = 0; i < 384; i++) {
-        vec[i] *= 1 + simInfluence;
-      }
+      return vec.map(v => v * (1 + simInfluence));
     }
     return vec;
   }

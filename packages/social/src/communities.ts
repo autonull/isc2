@@ -65,14 +65,14 @@ export function createCommunityService(
     const words = text.toLowerCase().match(/\w+/g) || [];
     const embedding = new Array<number>(EMBEDDING_DIMENSION).fill(0);
 
-    for (let i = 0; i < Math.min(words.length, EMBEDDING_DIMENSION); i++) {
+    words.slice(0, EMBEDDING_DIMENSION).forEach((word, i) => {
       let hash = 0;
-      for (const char of words[i]) {
+      for (const char of word) {
         hash = ((hash << 5) - hash) + char.charCodeAt(0);
         hash |= 0;
       }
       embedding[i] += Math.abs(hash) / 1000000;
-    }
+    });
 
     const norm = Math.sqrt(embedding.reduce((s, v) => s + v * v, 0));
     return norm > 0 ? embedding.map((v) => v / norm) : embedding;

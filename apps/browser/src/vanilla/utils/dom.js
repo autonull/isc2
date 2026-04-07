@@ -16,7 +16,7 @@ export function el(tag, attrs = {}, children = []) {
   const node = document.createElement(tag);
 
   Object.entries(attrs).forEach(([k, v]) => {
-    if (v == null || v === false) return;
+    if (v === null || v === undefined || v === false) return;
     if (k === 'className') node.className = v;
     else if (k === 'dataset') Object.entries(v).forEach(([dk, dv]) => (node.dataset[dk] = dv));
     else if (k === 'style') Object.assign(node.style, v);
