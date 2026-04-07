@@ -1,6 +1,6 @@
 /* eslint-disable */
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { HealthSelector } from '../src/delegation/selection.js';
+import { HealthSelector } from '@isc/delegation';
 import type { DelegationHealth } from '@isc/protocol/messages';
 
 const createMockHealth = (overrides: Partial<DelegationHealth> = {}): DelegationHealth => ({
@@ -113,12 +113,12 @@ describe('HealthSelector', () => {
 
   describe('getHealthyPeerIDs', () => {
     it('should include peers without health data', () => {
-      const capabilities = [{ peerID: '12D3KooWK8vZwXhBhwD5aT34tXQjJm9F5K5bQG5a9x7Dk3L1P2Q5' }, { peerID: '12D3KooWK8vZwXhBhwD5aT34tXQjJm9F5K5bQG5a9x7Dk3L1P2Q6' }];
+      const capabilities = [{ peerID: 'unknown' }, { peerID: 'known' }];
       const healthMap = new Map<string, DelegationHealth>([
-        ['known', createMockHealth({ peerID: '12D3KooWK8vZwXhBhwD5aT34tXQjJm9F5K5bQG5a9x7Dk3L1P2Q6', successRate: 0.9 })],
+        ['known', createMockHealth({ peerID: 'known', successRate: 0.9 })],
       ]);
 
-      const result = selector.getHealthyPeerIDs(capabilities, healthMap);
+      const result = selector.getHealthyPeerIDs(capabilities as any, healthMap);
 
       expect(result).toContain('unknown');
       expect(result).toContain('known');
@@ -131,7 +131,7 @@ describe('HealthSelector', () => {
         ['bad', createMockHealth({ peerID: 'bad', successRate: 0.5 })],
       ]);
 
-      const result = selector.getHealthyPeerIDs(capabilities, healthMap);
+      const result = selector.getHealthyPeerIDs(capabilities as any, healthMap);
 
       expect(result).toContain('good');
       expect(result).not.toContain('bad');

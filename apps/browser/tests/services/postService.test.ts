@@ -79,6 +79,10 @@ vi.mock('../../src/network/dht.js', () => ({
 // Mock identity
 vi.mock('../../src/identity/index.js', () => ({
   getPeerID: vi.fn().mockResolvedValue('test-peer'),
+  getKeypair: vi.fn().mockReturnValue({
+    privateKey: {},
+    publicKey: {},
+  }),
 }));
 
 // Mock @isc/core

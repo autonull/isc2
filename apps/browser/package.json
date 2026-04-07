@@ -16,14 +16,13 @@
   },
   "dependencies": {
     "@chainsafe/libp2p-noise": "^17.0.0",
-    "umap-js": "^1.4.0",
     "@chainsafe/libp2p-yamux": "^8.0.1",
     "@isc/adapters": "workspace:*",
     "@isc/core": "workspace:*",
     "@isc/delegation": "workspace:*",
-    "@isc/social": "workspace:*",
     "@isc/network": "workspace:*",
     "@isc/protocol": "workspace:*",
+    "@isc/social": "workspace:*",
     "@isc/state": "workspace:*",
     "@isc/ui": "workspace:*",
     "@libp2p/bootstrap": "^12.0.13",
@@ -37,14 +36,15 @@
     "it-pipe": "^3.0.1",
     "libp2p": "^3.1.5",
     "preact": "^10.19.0",
-    "uint8arrays": "^5.0.0"
+    "uint8arrays": "^5.0.0",
+    "umap-js": "^1.4.0"
   },
   "devDependencies": {
     "@types/node": "^20.10.0",
     "typescript": "^5.3.3",
-    "vite": "^5.0.0",
+    "vite": "^8.0.5",
     "vite-plugin-pwa": "^1.2.0",
-    "vitest": "^4.1.0",
+    "vitest": "^4.1.2",
     "workbox-build": "^7.4.0",
     "workbox-cli": "^7.4.0",
     "workbox-window": "^7.4.0"

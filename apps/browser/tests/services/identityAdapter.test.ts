@@ -83,7 +83,6 @@ describe('Identity Service', () => {
       configurable: true,
     });
   });
-  });
 
   describe('sign', () => {
     it('should sign data and return hex string', async () => {

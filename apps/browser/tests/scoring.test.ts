@@ -6,7 +6,7 @@ import {
   filterHealthySupernodes,
   selectTopSupernodes,
   type SupernodeStats,
-} from '../src/delegation/scoring.js';
+} from '@isc/delegation';
 import type { DelegateCapability, DelegationHealth } from '@isc/protocol/messages';
 
 describe('scoring', () => {
