@@ -18,11 +18,9 @@ const DEFAULT_PRIME = 257;
 const DEFAULT_CONFIG: ShamirConfig = { prime: DEFAULT_PRIME, defaultThreshold: 3, defaultTotal: 5 };
 
 function evaluatePolynomial(coefficients: number[], x: number, prime: number): number {
-  let result = 0;
-  for (let i = coefficients.length - 1; i >= 0; i--) {
-    result = (result * x + coefficients[i]) % prime;
-  }
-  return result;
+  return coefficients.reduceRight((result, coeff) => {
+    return (result * x + coeff) % prime;
+  }, 0);
 }
 
 function generatePolynomial(secret: number, degree: number, prime: number): number[] {
