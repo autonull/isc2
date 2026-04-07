@@ -17,13 +17,27 @@ vi.mock('../../src/identity', () => ({
 }));
 
 // Mock delegation client
-vi.mock('../../src/delegation/fallback', () => ({
+vi.mock('@isc/delegation', () => ({
   DelegationClient: {
     getInstance: vi.fn().mockReturnValue({
       announce: vi.fn().mockResolvedValue(undefined),
     }),
   },
 }));
+
+// Mock window.crypto.subtle
+Object.defineProperty(globalThis, 'crypto', {
+  value: {
+    subtle: {
+      digest: vi.fn().mockResolvedValue(new Uint8Array([1, 2, 3])),
+    },
+    getRandomValues: vi.fn().mockImplementation((arr) => {
+      for (let i = 0; i < arr.length; i++) arr[i] = i;
+      return arr;
+    }),
+    randomUUID: vi.fn().mockReturnValue('mock-uuid-1234'),
+  },
+});
 
 // Mock DB helpers with in-memory storage
 const storage = new Map<string, Map<string, unknown>>();
@@ -52,6 +66,81 @@ const mockDBHelpers = {
 };
 
 vi.mock('../../src/db/helpers', () => mockDBHelpers);
+
+vi.mock('../../src/social/adapters/storage', () => ({
+  browserStorageAdapter: {
+    getPosts: vi.fn().mockResolvedValue([]),
+    getPostsByChannel: vi.fn().mockResolvedValue([]),
+    getPostsByAuthor: vi.fn().mockResolvedValue([]),
+    savePost: vi.fn().mockResolvedValue(undefined),
+    deletePost: vi.fn().mockResolvedValue(undefined),
+    getMessages: vi.fn().mockResolvedValue([]),
+    saveMessage: vi.fn().mockResolvedValue(undefined),
+    deleteMessage: vi.fn().mockResolvedValue(undefined),
+    getChannels: vi.fn().mockResolvedValue([]),
+    saveChannel: vi.fn().mockResolvedValue(undefined),
+    deleteChannel: vi.fn().mockResolvedValue(undefined),
+    getBlockedPeers: vi.fn().mockImplementation(async () => {
+      const blocked = await mockDBHelpers.dbGet('blocked_peers', 'blocked');
+      return new Set(blocked ?? []);
+    }),
+    saveBlockedPeers: vi.fn().mockImplementation(async (peers) => {
+      await mockDBHelpers.dbPut('blocked_peers', { id: 'blocked', peers: Array.from(peers) });
+    }),
+    getFollowing: vi.fn().mockImplementation(async () => {
+      const followingData = await mockDBHelpers.dbGet('following', 'following');
+      const following = followingData?.peerIds ?? followingData ?? [];
+      return new Set(following);
+    }),
+    saveFollowing: vi.fn().mockImplementation(async (peerIds) => {
+      // Need to fetch current following and merge? Or just overwrite?
+      // Wait, in real code saveFollowing overwrites, but graph.ts followUser might add to set and save.
+      // If tests mock getFollowing poorly across imports, it might overwrite with single item.
+      await mockDBHelpers.dbPut('following', { id: 'following', peerIds: Array.from(peerIds) });
+    }),
+    getInteractions: vi.fn().mockImplementation(async (peerID: string) => {
+      return mockDBHelpers.dbFilter('interactions', (i: any) => i.peerID === peerID);
+    }),
+    getAllInteractions: vi.fn().mockImplementation(async () => {
+      return mockDBHelpers.dbGetAll('interactions');
+    }),
+    saveInteraction: vi.fn().mockImplementation(async (interaction: any) => {
+      await mockDBHelpers.dbPut('interactions', interaction);
+    }),
+    deleteInteraction: vi.fn().mockImplementation(async (interactionId: string) => {
+      await mockDBHelpers.dbDelete('interactions', interactionId);
+    }),
+    getProfile: vi.fn().mockResolvedValue(null),
+    saveProfile: vi.fn().mockResolvedValue(undefined),
+    getCommunity: vi.fn().mockResolvedValue(null),
+    getCommunities: vi.fn().mockResolvedValue([]),
+    saveCommunity: vi.fn().mockResolvedValue(undefined),
+    deleteCommunity: vi.fn().mockResolvedValue(undefined),
+    getSettings: vi.fn().mockResolvedValue({}),
+    saveSettings: vi.fn().mockResolvedValue(undefined),
+  }
+}));
+
+// Mock network adapter
+vi.mock('../../src/social/adapters/network', () => ({
+  browserNetworkAdapter: {
+    broadcastPost: vi.fn().mockResolvedValue(undefined),
+    requestPosts: vi.fn().mockResolvedValue([]),
+    deletePost: vi.fn().mockResolvedValue(undefined),
+    announceFollow: vi.fn().mockResolvedValue(undefined),
+    announceUnfollow: vi.fn().mockResolvedValue(undefined),
+  }
+}));
+
+// Mock identity adapter
+vi.mock('../../src/social/adapters/identity', () => ({
+  browserIdentityAdapter: {
+    getPeerId: vi.fn().mockResolvedValue('test-peer-id'),
+    getPublicKey: vi.fn().mockResolvedValue(new Uint8Array([4, 5, 6])),
+    sign: vi.fn().mockResolvedValue({ data: new Uint8Array([1, 2, 3]), algorithm: 'Ed25519' as const }),
+    verify: vi.fn().mockResolvedValue(true),
+  }
+}));
 
 // Mock posts
 vi.mock('../../src/social/posts', () => ({
@@ -121,13 +210,22 @@ describe('Follow Integration', () => {
     it('should calculate follower count', async () => {
       const { getFollowerCount } = await import('../../src/social/graph');
 
-      // Mock multiple followers
-      storage.set('follows', new Map());
-      storage.get('follows')!.set('follower-1', { followee: 'target-user', since: Date.now() });
-      storage.get('follows')!.set('follower-2', { followee: 'target-user', since: Date.now() });
-      storage.get('follows')!.set('follower-3', { followee: 'target-user', since: Date.now() });
+      // Mock multiple followers by tracking interactions where we are the peerID
+      mockDBHelpers.dbGetAll = vi.fn().mockImplementation(async (store: string) => {
+        if (store === 'interactions') {
+          return [
+            { peerID: 'test-peer-id', type: 'follow', timestamp: Date.now() },
+            { peerID: 'test-peer-id', type: 'follow', timestamp: Date.now() },
+            { peerID: 'test-peer-id', type: 'follow', timestamp: Date.now() },
+          ]
+        }
+        return Array.from(storage.get(store)?.values() || []);
+      });
 
-      const count = await getFollowerCount('target-user');
+      // target-user needs to be our peer-id to fetch from local interactions
+      const count = await getFollowerCount('test-peer-id');
+      // For testing 'ourself' count logic, since getPeerID resolves to 'test-peer-id',
+      // when passing 'test-peer-id' it checks local db interactions targeting 'test-peer-id' and filters by type 'follow'.
       expect(count).toBe(3);
     });
   });

@@ -4,9 +4,9 @@ import {
   DelegationClient,
   type LocalHandler,
   type DelegationConfig,
-} from '../src/delegation/fallback.js';
-import { SupernodeDiscovery } from '../src/delegation/discovery.js';
-import { HealthSelector } from '../src/delegation/selection.js';
+} from '@isc/delegation';
+import { SupernodeDiscovery } from '@isc/delegation';
+import { HealthSelector } from '@isc/delegation';
 import type { DelegateCapability, DelegateResponse, DelegateRequest } from '@isc/protocol/messages';
 
 describe('Delegation Integration', () => {

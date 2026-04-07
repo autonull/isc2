@@ -252,6 +252,14 @@ export const chatService = {
     } catch (err) {
       logger.error('DHT send failed, queuing message', { error: err.message });
       message.pending = true;
+
+      const messages = this.getMessages(peerId);
+      const idx = messages.findIndex(m => m.id === message.id);
+      if (idx >= 0) {
+        messages[idx] = message;
+        this._saveMessages(peerId, messages);
+      }
+
       const pending = JSON.parse(localStorage.getItem(PENDING_KEY) || '[]');
       pending.push({ peerId, message });
       localStorage.setItem(PENDING_KEY, JSON.stringify(pending));

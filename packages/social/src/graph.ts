@@ -100,7 +100,10 @@ export function createGraphService(
       const follower = await identity.getPeerId();
       const timestamp = Date.now();
 
-      await storage.saveFollowing(new Set([followee]));
+      const following = await storage.getFollowing();
+      following.add(followee);
+      await storage.saveFollowing(following);
+
       await storage.saveInteraction({
         id: `interaction_${crypto.randomUUID()}`,
         peerID: followee,

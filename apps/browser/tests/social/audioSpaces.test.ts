@@ -23,13 +23,14 @@ vi.mock('../../src/channels/manager', () => ({
   }),
 }));
 
-// Mock delegation discovery
-vi.mock('../../src/delegation/discovery', () => ({
-  queryProximals: vi.fn().mockResolvedValue([]),
-}));
-
-// Mock delegation fallback
+// Mock delegation module
 vi.mock('@isc/delegation', () => ({
+  queryProximals: vi.fn().mockResolvedValue([]),
+  SupernodeDiscovery: {
+    getInstance: vi.fn().mockReturnValue({
+      queryAudioSpaces: vi.fn().mockResolvedValue([]),
+    }),
+  },
   DelegationClient: {
     getInstance: vi.fn().mockReturnValue({
       announce: vi.fn().mockResolvedValue(undefined),

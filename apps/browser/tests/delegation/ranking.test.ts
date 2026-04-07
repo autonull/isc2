@@ -11,7 +11,7 @@ import {
   createDelegationRanker,
   type RankingConfig,
   type SupernodeMetrics,
-} from '../../src/delegation/ranking';
+} from '@isc/delegation';
 
 describe('DelegationRanker', () => {
   let ranker: DelegationRanker;

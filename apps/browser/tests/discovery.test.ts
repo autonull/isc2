@@ -4,7 +4,7 @@ import {
   SupernodeDiscovery,
   type SupernodeDiscoveryConfig,
   type DHTAdapter,
-} from '../src/delegation/discovery.js';
+} from '@isc/delegation';
 import type { DelegateCapability } from '@isc/protocol/messages';
 
 describe('SupernodeDiscovery', () => {

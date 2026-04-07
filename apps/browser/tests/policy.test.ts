@@ -6,7 +6,7 @@ import {
   isChannelDescriptionSafe,
   sanitizeForDelegation,
   type DelegationPolicy,
-} from '../src/delegation/policy.js';
+} from '@isc/delegation';
 
 describe('DelegationPolicyManager', () => {
   let manager: DelegationPolicyManager;
