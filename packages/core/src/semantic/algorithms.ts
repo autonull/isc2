@@ -349,12 +349,12 @@ export namespace Layout {
     _attraction: number,
     damping: number
   ): void {
-    for (let i = 0; i < points.length; i++) {
+    points.forEach((pi, i) => {
       let vx = 0;
       let vy = 0;
 
-      for (let j = 0; j < points.length; j++) {
-        if (i === j) {continue;}
+      points.forEach((pj, j) => {
+        if (i === j) {return;}
 
         const dx = points[i].x - points[j].x;
         const dy = points[i].y - points[j].y;
@@ -364,19 +364,19 @@ export namespace Layout {
         const repulse = repulsion / (dist * dist);
         vx += (dx / dist) * repulse;
         vy += (dy / dist) * repulse;
-      }
+      });
 
       // Apply damping to velocity
       velocities[i].x = (velocities[i].x + vx) * damping;
       velocities[i].y = (velocities[i].y + vy) * damping;
-    }
+    });
   }
 
   function updatePositions(points: Point2D[], velocities: { x: number; y: number }[]): void {
-    for (let i = 0; i < points.length; i++) {
-      points[i].x += velocities[i].x;
-      points[i].y += velocities[i].y;
-    }
+    points.forEach((p, i) => {
+      p.x += velocities[i].x;
+      p.y += velocities[i].y;
+    });
   }
 
   function normalizeToUnitCircle(points: Point2D[], normalizationFactor: number): void {

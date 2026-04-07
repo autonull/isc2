@@ -120,15 +120,15 @@ export class TransformerEmbeddingService implements EmbeddingService {
     const results: number[][] = [];
     const toCompute: { text: string; index: number }[] = [];
 
-    for (let i = 0; i < texts.length; i++) {
-      const cached = this.cache.get(texts[i]);
+    texts.forEach((text, i) => {
+      const cached = this.cache.get(text);
       if (cached) {
         results[i] = cached;
       } else {
-        toCompute.push({ text: texts[i], index: i });
+        toCompute.push({ text, index: i });
         results[i] = []; // Placeholder
       }
-    }
+    });
 
     // Compute missing embeddings
     if (toCompute.length > 0) {

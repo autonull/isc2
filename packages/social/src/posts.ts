@@ -176,11 +176,12 @@ function cosineSimilarity(a: number[], b: number[]): number {
   let normA = 0;
   let normB = 0;
 
-  for (let i = 0; i < Math.min(a.length, b.length); i++) {
-    dotProduct += a[i] * b[i];
-    normA += a[i] * a[i];
-    normB += b[i] * b[i];
-  }
+  a.slice(0, Math.min(a.length, b.length)).forEach((valA, i) => {
+    const valB = b[i];
+    dotProduct += valA * valB;
+    normA += valA * valA;
+    normB += valB * valB;
+  });
 
   normA = Math.sqrt(normA);
   normB = Math.sqrt(normB);

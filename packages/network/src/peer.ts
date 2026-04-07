@@ -190,9 +190,9 @@ export class VirtualPeer {
 
     // Batch compute embeddings
     const vectors = await embeddingService.computeBatch(descriptions);
-    for (let i = 0; i < peers.length; i++) {
-      (peers[i] as any).vector = vectors[i];
-    }
+    peers.forEach((peer, i) => {
+      (peer as any).vector = vectors[i];
+    });
 
     return peers;
   }
