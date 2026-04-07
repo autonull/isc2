@@ -87,10 +87,10 @@ export class NodeModel implements EmbeddingModelAdapter {
   }
 
   async embedBatch(texts: string[]): Promise<number[][]> {
-    const batches: string[][] = [];
-    for (let i = 0; i < texts.length; i += this.options.maxBatchSize) {
-      batches.push(texts.slice(i, i + this.options.maxBatchSize));
-    }
+    const batches: string[][] = Array.from(
+      { length: Math.ceil(texts.length / this.options.maxBatchSize) },
+      (_, i) => texts.slice(i * this.options.maxBatchSize, (i + 1) * this.options.maxBatchSize)
+    );
 
     const results: number[][] = [];
     for (const batch of batches) {

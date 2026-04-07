@@ -50,20 +50,13 @@ export interface IdentityAdapter {
 }
 
 function arrayBufferToBase64(buffer: Uint8Array): string {
-  let binary = '';
-  for (let i = 0; i < buffer.byteLength; i++) {
-    binary += String.fromCharCode(buffer[i]);
-  }
+  const binary = Array.from(buffer).map(b => String.fromCharCode(b)).join('');
   return btoa(binary);
 }
 
 function base64ToArrayBuffer(base64: string): Uint8Array {
   const binary = atob(base64);
-  const bytes = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i++) {
-    bytes[i] = binary.charCodeAt(i);
-  }
-  return bytes;
+  return Uint8Array.from(binary, char => char.charCodeAt(0));
 }
 
 function generatePeerId(publicKey: Uint8Array): string {

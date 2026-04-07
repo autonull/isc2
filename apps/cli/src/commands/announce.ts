@@ -206,11 +206,11 @@ export function announceCommands(program: Command): void {
 
         // Announce to DHT (one announcement per distribution, up to tier limit)
         const maxAnnouncements = 5; // High tier announces all
-        for (let i = 0; i < Math.min(distributions.length, maxAnnouncements); i++) {
+        for (const dist of distributions.slice(0, maxAnnouncements)) {
           const distAnnouncement: SignedAnnouncement = {
             ...announcement,
-            vec: distributions[i].mu,
-            relTag: distributions[i].tag
+            vec: dist.mu,
+            relTag: dist.tag
           };
           
           await announceToDHT(config, distAnnouncement);
