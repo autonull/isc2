@@ -38,6 +38,10 @@ export async function main(): Promise<void> {
 
   const { createEd25519PeerId } = await import('@libp2p/peer-id-factory');
   const peerId = await createEd25519PeerId();
+  // Ensure we have a private key for gossipsub signing.
+  if (peerId.privateKey == null) {
+      throw new Error("PeerId does not have a private key.");
+  }
 
   const transports = [webSockets(), webTransport()];
   const streamMuxers = [yamux()];
@@ -56,11 +60,11 @@ export async function main(): Promise<void> {
     connectionEncryption,
     streamMuxers,
     services: {
+      ping: ping(),
       identify: identify({
         protocolPrefix: 'ipfs',
         agentVersion: `isc-relay/0.1.0 tier=${SECURITY_TIER}`,
       }),
-      ping: ping(),
       relay: circuitRelayServer({
         reservations: { maxReservations: Infinity, applyDefaultLimit: false },
       }),
