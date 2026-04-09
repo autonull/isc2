@@ -95,8 +95,12 @@ describe('Identity Service', () => {
         getPeerPublicKey: vi.fn().mockResolvedValue(mockPublicKey),
       }), { virtual: true });
 
+      vi.resetModules();
       const { getIdentityService } = await import('../../src/services/identityService.ts');
       const service = getIdentityService();
+
+      // Need to wait for initialize or manually set the keypair since we're testing the getter
+      await service.initialize();
 
       const testData = new Uint8Array([1, 2, 3]);
       const signature = await service.sign(testData);

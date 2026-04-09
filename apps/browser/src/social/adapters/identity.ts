@@ -7,10 +7,11 @@
 
 import type { SocialIdentity } from '@isc/social';
 import { sign, verify } from '@isc/core';
-import { getPeerID, getKeypair, getPeerPublicKey } from '../../identity/index.ts';
+import { getPeerID, getKeypair, getPeerPublicKey, ensureIdentityInitialized } from '../../identity/index.ts';
 
 export const browserIdentityAdapter: SocialIdentity = {
   async getPeerId(): Promise<string> {
+    await ensureIdentityInitialized();
     return getPeerID();
   },
 
@@ -26,6 +27,7 @@ export const browserIdentityAdapter: SocialIdentity = {
 
   async getPublicKey(): Promise<CryptoKey | null> {
     try {
+      await ensureIdentityInitialized();
       return await getPeerPublicKey(await this.getPeerId());
     } catch {
       return null;
@@ -38,6 +40,7 @@ export const browserIdentityAdapter: SocialIdentity = {
   },
 
   async sign(data: Uint8Array): Promise<Uint8Array> {
+    await ensureIdentityInitialized();
     const keypair = getKeypair();
     if (!keypair) throw new Error('Keypair not initialized');
     const signature = await sign(data, keypair.privateKey);

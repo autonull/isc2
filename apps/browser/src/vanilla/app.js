@@ -43,6 +43,14 @@ export function createApp(container) {
     splash.update('Loading identity…', 20);
 
     try {
+      // Ensure identity is initialized even if onboarding is skipped/test mode
+      const { ensureIdentityInitialized } = await import('../identity/index.ts');
+      try {
+        await ensureIdentityInitialized();
+      } catch (e) {
+        logger.warn('[App] ensureIdentityInitialized failed, proceeding anyway:', e.message);
+      }
+
       getColdStartService().start();
       logger.info('[App] Cold start services initialized');
 

@@ -36,11 +36,13 @@ async function createChannel(page: any, name: string, description: string) {
 
 test.beforeEach(async ({ page }) => {
   // Capture console errors silently for assertions
-  page.on('console', () => {
-    // errors captured internally; avoid noisy output
+  page.on('console', (msg) => {
+    if (msg.type() === 'error') {
+      console.error(msg.text());
+    }
   });
-  page.on('pageerror', () => {
-    // errors captured internally; avoid noisy output
+  page.on('pageerror', (err) => {
+    console.error(err.message);
   });
 
   await skipOnboarding(page);
