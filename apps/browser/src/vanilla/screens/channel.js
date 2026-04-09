@@ -484,7 +484,7 @@ class ChannelScreen {
         }
 
         if (this.#replyTo) {
-          await postService.replyToPost(this.#replyTo.id, content);
+          await postService.reply(targetChannelId, this.#replyTo.id, content);
           this.#replyTo = null;
           container.querySelector('.compose-reply-context')?.remove();
         } else {
@@ -498,6 +498,7 @@ class ChannelScreen {
         );
         toasts.success('Posted!');
       } catch (err) {
+        console.error('FAILED TO POST:', err);
         toasts.error(err.message);
       } finally {
         composeInput.disabled = false;

@@ -12,7 +12,8 @@ import { actions, getState } from '../state.js';
 export const channelService = {
   async create(name, description, spread = 0.15, context = []) {
     try {
-      const channel = await networkService.createChannel(name, description, { spread, context });
+      const effectiveDescription = description?.trim() || name.trim();
+      const channel = await networkService.createChannel(name, effectiveDescription, { spread, context });
       logger.info('Channel created', { id: channel.id, name: channel.name });
       if (!getState().activeChannelId) {
         actions.setActiveChannel(channel.id);

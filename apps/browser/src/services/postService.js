@@ -25,6 +25,12 @@ function saveLikedPosts(liked) {
 
 export const postService = {
   async create(channelId, content) {
+    const { ensureIdentityInitialized } = await import('../identity/index.ts');
+    try {
+      await ensureIdentityInitialized();
+    } catch (e) {
+      logger.warn('Identity not fully initialized, proceeding with defaults:', e.message);
+    }
     const identity = networkService.getIdentity();
     const peerId = identity?.peerId ?? identity?.pubkey ?? 'unknown';
 
@@ -42,7 +48,8 @@ export const postService = {
     };
 
     try {
-      const posts = getState('posts') ?? [];
+      let posts = getState('posts') ?? [];
+      if (!Array.isArray(posts)) posts = Array.from(Object.values(posts));
       posts.unshift(optimisticPost);
       actions.setPosts(posts);
     } catch {
@@ -95,7 +102,8 @@ export const postService = {
         });
       }
 
-      const posts = getState('posts') ?? [];
+      let posts = getState('posts') ?? [];
+      if (!Array.isArray(posts)) posts = Array.from(Object.values(posts));
       const idx = posts.findIndex(p => p.id === optimisticPost.id);
       if (idx >= 0) {
         posts[idx] = { ...post, optimistic: false, pending: false };
@@ -105,8 +113,9 @@ export const postService = {
       return post;
     } catch (err) {
       logger.error('Post creation failed, rolling back', { error: err.message });
-      const posts = getState('posts') ?? [];
-      const filtered = Array.isArray(posts) ? posts.filter(p => p.id !== optimisticPost.id) : Array.from(Object.values(posts)).filter(p => p.id !== optimisticPost.id);
+      let posts = getState('posts') ?? [];
+      if (!Array.isArray(posts)) posts = Array.from(Object.values(posts));
+      const filtered = posts.filter(p => p.id !== optimisticPost.id);
       actions.setPosts(filtered);
       throw err;
     }
