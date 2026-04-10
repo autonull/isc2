@@ -190,6 +190,10 @@ export function computeWordHashEmbedding(text: string): number[] {
     for (let i = 0; i < EMBEDDING_DIM; i++) {
       vector[i] = Math.sin(i * 0.1);
     }
+    const fallbackNorm = Math.sqrt(vector.reduce((s, v) => s + v * v, 0));
+    for (let i = 0; i < EMBEDDING_DIM; i++) {
+      vector[i] /= fallbackNorm;
+    }
   }
 
   return vector;

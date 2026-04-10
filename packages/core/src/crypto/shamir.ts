@@ -2,7 +2,7 @@
 export interface SecretShare {
   id: number;
   x: number;
-  y: Uint8Array;
+  y: Uint16Array;
   threshold: number;
   total: number;
   metadata?: { createdAt: number; purpose?: string };
@@ -80,7 +80,7 @@ export function splitSecret(
   const shares: SecretShare[] = Array.from({ length: total }, (_, i) => ({
     id: i + 1,
     x: i + 1,
-    y: new Uint8Array(secret.length),
+    y: new Uint16Array(secret.length),
     threshold,
     total,
     metadata: { createdAt: Date.now() },
@@ -131,7 +131,7 @@ export function importShare(data: object): SecretShare {
   return {
     id: d.id as number,
     x: d.x as number,
-    y: new Uint8Array(d.y as number[]),
+    y: new Uint16Array(d.y as number[]),
     threshold: d.threshold as number,
     total: d.total as number,
     metadata: d.metadata as SecretShare['metadata'],

@@ -25,21 +25,21 @@ test.describe('ISC Core Flows', () => {
 
     // Wait for app content to render (look for sidebar or tab bar)
     await page.waitForSelector(
-      '[data-component="irc-sidebar"], [data-component="tab-bar"], .irc-layout',
+      '[data-testid="sidebar"], [data-testid="tab-bar"], .irc-layout',
       { timeout: 10000 }
     );
 
     // Should have navigation
     await expect(
       page.locator(
-        '[data-component="irc-sidebar"], [data-component="tab-bar"], nav, [role="navigation"]'
-      )
+        '[data-testid="sidebar"], [data-testid="tab-bar"], nav, [role="navigation"]'
+      ).first()
     ).toBeVisible();
   });
 
   test('should display Now tab with match sections', async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('[data-component="irc-sidebar"], [data-component="tab-bar"]', {
+    await page.waitForSelector('[data-testid="sidebar"], [data-testid="tab-bar"]', {
       timeout: 10000,
     });
     await page.waitForTimeout(3000);
@@ -58,7 +58,7 @@ test.describe('ISC Core Flows', () => {
 
   test('should navigate to Compose tab', async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('[data-component="irc-sidebar"], [data-component="tab-bar"]', {
+    await page.waitForSelector('[data-testid="sidebar"], [data-testid="tab-bar"]', {
       timeout: 10000,
     });
 
@@ -75,7 +75,7 @@ test.describe('ISC Core Flows', () => {
 
   test('should navigate to Chats tab', async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('[data-component="irc-sidebar"], [data-component="tab-bar"]', {
+    await page.waitForSelector('[data-testid="sidebar"], [data-testid="tab-bar"]', {
       timeout: 10000,
     });
 
@@ -92,7 +92,7 @@ test.describe('ISC Core Flows', () => {
 
   test('should navigate to Settings tab', async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('[data-component="irc-sidebar"], [data-component="tab-bar"]', {
+    await page.waitForSelector('[data-testid="sidebar"], [data-testid="tab-bar"]', {
       timeout: 10000,
     });
 
@@ -128,7 +128,7 @@ test.describe('ISC Core Flows', () => {
 
   test('should handle responsive layout', async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('[data-component="irc-sidebar"], [data-component="tab-bar"]', {
+    await page.waitForSelector('[data-testid="sidebar"], [data-testid="tab-bar"]', {
       timeout: 10000,
     });
 
