@@ -1,0 +1,23 @@
+{
+  "name": "@isc/apps/simulation",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@isc/core": "workspace:*",
+    "@isc/adapters": "workspace:*",
+    "@isc/protocol": "workspace:*",
+    "@mlc-ai/web-llm": "^0.2.66",
+    "@xenova/transformers": "^2.17.2",
+    "umap-js": "^1.4.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.3.3",
+    "vite": "^5.1.4"
+  }
+}
