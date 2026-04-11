@@ -7,8 +7,8 @@ export function cosineSimilarity(a: number[], b: number[]): number {
   if (a.length === 0) {return 0;}
 
   const dotProduct = a.reduce((sum, ai, i) => sum + ai * b[i], 0);
-  const normA = Math.sqrt(a.reduce((sum, v) => sum + v * v, 0));
-  const normB = Math.sqrt(b.reduce((sum, v) => sum + v * v, 0));
+  const normA = magnitude(a);
+  const normB = magnitude(b);
 
   if (normA === 0 || normB === 0) {return 0;}
 
@@ -26,8 +26,12 @@ export function squaredEuclideanDistance(a: number[], b: number[]): number {
   }, 0);
 }
 
+export function magnitude(vector: number[]): number {
+  return Math.sqrt(vector.reduce((sum, v) => sum + v * v, 0));
+}
+
 export function normalize(vector: number[]): number[] {
-  const norm = Math.sqrt(vector.reduce((sum, v) => sum + v * v, 0));
+  const norm = magnitude(vector);
 
   if (norm === 0) {
     throw new Error('Cannot normalize a zero vector');
