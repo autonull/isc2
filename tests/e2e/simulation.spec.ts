@@ -10,7 +10,7 @@ test.describe('Simulation App E2E', () => {
     // Start vite for simulation
     simProcess = exec('cd apps/simulation && npx vite --port 5174');
     // Wait for it to spin up
-    await new Promise(resolve => setTimeout(resolve, 3000));
+    await new Promise(resolve => setTimeout(resolve, 5000));
   });
 
   test.afterAll(() => {
@@ -18,10 +18,11 @@ test.describe('Simulation App E2E', () => {
   });
 
   test('should load simulation dashboard, display agents and canvas without errors', async ({ page }) => {
-    // We cannot reliably use `file://` because ES modules fail via cross-origin policy when served from `file://` index.html
-    // So we use the specific test dev server
-
-    await page.goto('http://localhost:5174');
+    // Retry goto to handle slightly slow startup
+    await expect(async () => {
+        const response = await page.goto('http://localhost:5174');
+        expect(response?.ok()).toBeTruthy();
+    }).toPass({ timeout: 10000 });
 
     // Wait for app to mount
     await page.waitForSelector('#app', { state: 'attached' });

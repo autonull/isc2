@@ -2,6 +2,7 @@ export class SpaceCanvas {
   private canvas: HTMLCanvasElement;
   private ctx: CanvasRenderingContext2D;
   private agents: any[] = [];
+  private edges: { from: string, to: string, time: number }[] = [];
   private animationId: number | null = null;
   private resizeObserver: ResizeObserver;
   private time: number = 0;
@@ -30,19 +31,24 @@ export class SpaceCanvas {
     // Initialize states for new agents
     this.agents.forEach((a, i) => {
         if (!this.agentStates.has(a.peerId)) {
-            // Assign a random target position on initialization
-            const seed = a.profile.name.length * 0.1;
-            const targetX = 0.3 + (Math.sin(seed * i) * 0.4);
-            const targetY = 0.3 + (Math.cos(seed * i) * 0.4);
+            // Distribute agents in a circle initially
+            const angle = (i / this.agents.length) * Math.PI * 2;
+            const radius = 0.3; // 30% of screen from center
+            const targetX = 0.5 + Math.cos(angle) * radius;
+            const targetY = 0.5 + Math.sin(angle) * radius;
 
             this.agentStates.set(a.peerId, {
-                cx: targetX, // Current X
-                cy: targetY, // Current Y
-                tx: targetX, // Target X
-                ty: targetY  // Target Y
+                cx: targetX,
+                cy: targetY,
+                tx: targetX,
+                ty: targetY
             });
         }
     });
+  }
+
+  public setEdges(edges: { from: string, to: string, time: number }[]) {
+      this.edges = edges;
   }
 
   private resize() {
@@ -109,6 +115,38 @@ export class SpaceCanvas {
       this.ctx.beginPath(); this.ctx.moveTo(0, y); this.ctx.lineTo(w, y); this.ctx.stroke();
     }
 
+    const now = Date.now();
+
+    // Draw active connections (hearing)
+    this.edges.forEach(edge => {
+        const fromState = this.agentStates.get(edge.from);
+        const toState = this.agentStates.get(edge.to);
+
+        if (fromState && toState) {
+            // Fade out over 5 seconds
+            const age = now - edge.time;
+            if (age < 5000) {
+                const opacity = 1 - (age / 5000);
+                this.ctx.strokeStyle = `rgba(139, 92, 246, ${opacity})`; // Purple communication lines
+                this.ctx.lineWidth = 2;
+                this.ctx.beginPath();
+                this.ctx.moveTo(w * fromState.cx, h * fromState.cy);
+                this.ctx.lineTo(w * toState.cx, h * toState.cy);
+                this.ctx.stroke();
+
+                // Draw a small moving particle along the line
+                const progress = (this.time * 5) % 1;
+                const px = w * fromState.cx + (w * toState.cx - w * fromState.cx) * progress;
+                const py = h * fromState.cy + (h * toState.cy - h * fromState.cy) * progress;
+
+                this.ctx.beginPath();
+                this.ctx.arc(px, py, 3, 0, Math.PI * 2);
+                this.ctx.fillStyle = `rgba(255, 255, 255, ${opacity})`;
+                this.ctx.fill();
+            }
+        }
+    });
+
     // Draw agents
     this.agents.forEach((agent) => {
       const state = this.agentStates.get(agent.peerId);
@@ -119,11 +157,11 @@ export class SpaceCanvas {
 
       // Pulse effect if they are thinking
       const isThinking = agent.currentTopic === "Thinking...";
-      const radius = isThinking ? 10 + Math.sin(this.time * 10) * 3 : 10;
+      const radius = isThinking ? 12 + Math.sin(this.time * 10) * 4 : 12;
 
       // Draw glow
-      this.ctx.shadowBlur = 15;
-      this.ctx.shadowColor = '#3b82f6';
+      this.ctx.shadowBlur = isThinking ? 20 : 10;
+      this.ctx.shadowColor = isThinking ? '#60a5fa' : '#3b82f6';
 
       this.ctx.beginPath();
       this.ctx.arc(x, y, radius, 0, Math.PI * 2);
@@ -135,26 +173,23 @@ export class SpaceCanvas {
 
       // Label
       this.ctx.fillStyle = 'white';
-      this.ctx.font = '14px system-ui';
+      this.ctx.font = 'bold 14px system-ui';
       this.ctx.textAlign = 'center';
-      this.ctx.fillText(agent.profile.name, x, y - 20);
+      this.ctx.fillText(agent.profile.name, x, y - 25);
 
-      // Draw connection lines to center (mock gravity/concept map)
-      this.ctx.strokeStyle = 'rgba(59, 130, 246, 0.2)';
-      this.ctx.beginPath();
-      this.ctx.moveTo(x, y);
-      this.ctx.lineTo(w/2, h/2);
-      this.ctx.stroke();
+      // Draw a thought bubble if they have a thought
+      if (agent.currentTopic && agent.currentTopic !== "Thinking...") {
+          // Truncate long thoughts
+          let displayThought = agent.currentTopic;
+          if (displayThought.length > 30) {
+              displayThought = displayThought.substring(0, 30) + '...';
+          }
+
+          this.ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+          this.ctx.font = '12px system-ui';
+          this.ctx.fillText(`"${displayThought}"`, x, y + 25);
+      }
     });
-
-    // Draw center node (Global topic)
-    this.ctx.beginPath();
-    this.ctx.arc(w/2, h/2, 20, 0, Math.PI * 2);
-    this.ctx.fillStyle = '#8b5cf6';
-    this.ctx.fill();
-    this.ctx.fillStyle = 'white';
-    this.ctx.font = 'bold 16px system-ui';
-    this.ctx.fillText("Semantic Core", w/2, h/2 - 30);
   }
 
   public destroy() {

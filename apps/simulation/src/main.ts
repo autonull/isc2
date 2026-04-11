@@ -71,6 +71,8 @@ async function bootstrap() {
               }
 
               spaceCanvas.setAgents(engine.agents);
+              // Pass engine edges down to canvas for rendering
+              spaceCanvas.setEdges(engine.recentEdges);
 
               const chatContainer = document.getElementById('chat-container');
               if (!chatContainer) {
