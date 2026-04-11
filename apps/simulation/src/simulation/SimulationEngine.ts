@@ -236,12 +236,15 @@ export class SimulationEngine {
 
         console.log(`[SimulationEngine] Agent ${agent.profile.name} published to #${channelTopic}: ${thought}`);
 
-        // Occasional chance to listen to a new interesting topic
+        // Extract a hashtag or use a random interest from another agent on the network to discover a new topic
         if (Math.random() < 0.2 && observations.length > 0) {
-            const potentialNewTopics = this.dhtNetwork.slice(-5).map(p => p.topic).filter(t => t.split(' ').length === 1);
-            if (potentialNewTopics.length > 0) {
-                const newTopic = potentialNewTopics[Math.floor(Math.random() * potentialNewTopics.length)];
-                agent.subscribeToTopic(newTopic);
+            const otherAgents = this.agents.filter(a => a.peerId !== agent.peerId);
+            if (otherAgents.length > 0) {
+                const randomOther = otherAgents[Math.floor(Math.random() * otherAgents.length)];
+                if (randomOther.profile.interests.length > 0) {
+                    const newTopic = randomOther.profile.interests[Math.floor(Math.random() * randomOther.profile.interests.length)];
+                    agent.subscribeToTopic(newTopic);
+                }
             }
         }
 

@@ -176,15 +176,55 @@ export class SpaceCanvas {
       this.ctx.textAlign = 'center';
       this.ctx.fillText(agent.profile.name, x, y - 25);
 
-      if (agent.currentTopic && agent.currentTopic !== "Thinking...") {
-          let displayThought = agent.currentTopic;
-          if (displayThought.length > 30) {
-              displayThought = displayThought.substring(0, 30) + '...';
+      // Render subscribed topics as little badges under the agent
+      if (agent.subscribedTopics && agent.subscribedTopics.size > 0) {
+          const topics = Array.from(agent.subscribedTopics);
+          this.ctx.font = '10px system-ui';
+
+          let currentY = y + 25;
+          topics.slice(0, 3).forEach(topic => {
+              const text = `#${topic}`;
+              const textWidth = this.ctx.measureText(text).width;
+
+              this.ctx.fillStyle = 'rgba(16, 185, 129, 0.2)'; // Emerald transparent
+              this.ctx.beginPath();
+              this.ctx.roundRect(x - (textWidth/2) - 4, currentY - 10, textWidth + 8, 14, 4);
+              this.ctx.fill();
+
+              this.ctx.fillStyle = '#6ee7b7'; // Emerald text
+              this.ctx.fillText(text, x, currentY);
+              currentY += 18;
+          });
+
+          if (topics.length > 3) {
+             this.ctx.fillStyle = '#cbd5e1';
+             this.ctx.fillText(`+${topics.length - 3} more`, x, currentY);
+             currentY += 18;
           }
 
-          this.ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
-          this.ctx.font = '14px system-ui';
-          this.ctx.fillText(`"${displayThought}"`, x, y + 25);
+          // Draw the thought bubble below the badges
+          if (agent.currentTopic && agent.currentTopic !== "Thinking...") {
+              let displayThought = agent.currentTopic;
+              if (displayThought.length > 30) {
+                  displayThought = displayThought.substring(0, 30) + '...';
+              }
+
+              this.ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+              this.ctx.font = '14px system-ui';
+              this.ctx.fillText(`"${displayThought}"`, x, currentY + 10);
+          }
+      } else {
+          // Just draw the thought if no topics
+          if (agent.currentTopic && agent.currentTopic !== "Thinking...") {
+              let displayThought = agent.currentTopic;
+              if (displayThought.length > 30) {
+                  displayThought = displayThought.substring(0, 30) + '...';
+              }
+
+              this.ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+              this.ctx.font = '14px system-ui';
+              this.ctx.fillText(`"${displayThought}"`, x, y + 25);
+          }
       }
     });
   }
