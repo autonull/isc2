@@ -18,7 +18,7 @@ export class LLMService {
     this.progressCallback = cb;
   }
 
-  public async initialize(modelId: string = 'Llama-3.2-1B-Instruct-q4f16_1-MLC') {
+  public async initialize(modelId: string = 'SmolLM2-135M-Instruct-q4f16_1-MLC') {
     if (this.engine || this.isInitializing) return;
     this.isInitializing = true;
 

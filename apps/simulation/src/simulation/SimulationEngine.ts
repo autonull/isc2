@@ -1,5 +1,6 @@
 import { SimulationAgent, CharacterProfile } from './SimulationAgent';
 import { LLMService } from './LLMService';
+import { UMAP } from 'umap-js';
 
 export interface DHTPost {
     peerId: string;
@@ -17,6 +18,8 @@ export class SimulationEngine {
 
   public dhtNetwork: DHTPost[] = [];
   public recentEdges: { from: string, to: string, time: number }[] = [];
+  public agentPositions: Map<string, { x: number, y: number }> = new Map();
+  public umapChance: number = 0.2;
 
   constructor() {}
 
@@ -27,11 +30,18 @@ export class SimulationEngine {
   public addAgent(profile: CharacterProfile) {
     const agent = new SimulationAgent(profile);
     this.agents.push(agent);
+
+    // Initial random position if embeddings aren't ready
+    this.agentPositions.set(agent.peerId, {
+       x: 0.3 + Math.random() * 0.6,
+       y: 0.1 + Math.random() * 0.8
+    });
     return agent;
   }
 
   public removeAgent(peerId: string) {
     this.agents = this.agents.filter(a => a.peerId !== peerId);
+    this.agentPositions.delete(peerId);
   }
 
   public setTickInterval(ms: number) {
@@ -73,6 +83,67 @@ export class SimulationEngine {
     }
     if (normA === 0 || normB === 0) return 0;
     return dotProduct / (Math.sqrt(normA) * Math.sqrt(normB));
+  }
+
+  private async updateUMAPPositions() {
+    if (this.agents.length < 2) return; // Need at least 2 for UMAP to make sense (or more)
+    if (!this.llm || !this.llm.isReady()) return;
+
+    try {
+       const embeddings: number[][] = [];
+       const ids: string[] = [];
+
+       for (const agent of this.agents) {
+          const agentProfileText = agent.profile.bio + " " + agent.profile.interests.join(" ");
+          const emb = await this.llm.getEmbedding(agentProfileText);
+          embeddings.push(emb);
+          ids.push(agent.peerId);
+       }
+
+       // if we have less than n_neighbors, UMAP throws an error. UMAP n_neighbors default is 15.
+       // So we configure it explicitly based on agents count.
+       const nNeighbors = Math.max(2, Math.min(15, this.agents.length - 1));
+
+       if (embeddings.length >= 2) {
+           const umap = new UMAP({
+               nComponents: 2,
+               nNeighbors,
+               minDist: 0.1
+           });
+           const projection = umap.fit(embeddings);
+
+           // Normalize projection to 0.0 - 1.0, keeping right of the sidebar (0.35 - 0.9) and vertical (0.1 - 0.9)
+           let minX = Infinity, maxX = -Infinity;
+           let minY = Infinity, maxY = -Infinity;
+
+           projection.forEach(p => {
+               if (p[0] < minX) minX = p[0];
+               if (p[0] > maxX) maxX = p[0];
+               if (p[1] < minY) minY = p[1];
+               if (p[1] > maxY) maxY = p[1];
+           });
+
+           const rangeX = maxX - minX || 1;
+           const rangeY = maxY - minY || 1;
+
+           projection.forEach((p, i) => {
+               const normalizedX = 0.35 + ((p[0] - minX) / rangeX) * 0.55;
+               const normalizedY = 0.1 + ((p[1] - minY) / rangeY) * 0.8;
+
+               this.agentPositions.set(ids[i], {
+                   x: normalizedX,
+                   y: normalizedY
+               });
+           });
+       }
+
+    } catch (e) {
+       console.error("[SimulationEngine] Error computing UMAP:", e);
+    }
+  }
+
+  public forceUpdatePositions() {
+     this.updateUMAPPositions();
   }
 
   private async tick() {
@@ -126,6 +197,11 @@ export class SimulationEngine {
         }
 
         console.log(`[SimulationEngine] Agent ${agent.profile.name} thought: ${thought}`);
+
+        // Occasionally update positions based on embeddings
+        if (Math.random() < this.umapChance) {
+            this.updateUMAPPositions();
+        }
     } catch (e) {
         console.error("[SimulationEngine] Error during tick computation:", e);
         agent.currentTopic = "Oops, an error occurred while thinking.";

@@ -4,28 +4,43 @@ import time
 
 def run():
     proc = subprocess.Popen(["npx", "vite", "--port", "5174"], cwd="apps/simulation")
-    time.sleep(3)
+    time.sleep(5)
 
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True)
         page = browser.new_page()
 
         try:
-            page.goto("http://localhost:5174")
+            for i in range(5):
+              try:
+                  page.goto("http://localhost:5174")
+                  break
+              except Exception:
+                  time.sleep(1)
+
             page.wait_for_selector("#sim-canvas")
             time.sleep(2)
 
-            # Use a slightly wider viewport to be safe
-            page.set_viewport_size({"width": 1280, "height": 800})
+            page.set_viewport_size({"width": 1400, "height": 900})
 
-            # Check context
-            has_context = page.evaluate("() => { const c = document.getElementById('sim-canvas'); return !!c.getContext('2d'); }")
-            print(f"Has 2D Context: {has_context}")
+            # Start simulation immediately
+            page.locator('#btn-toggle-sim').click()
+            time.sleep(15)
 
-            # Let's take a screenshot after resizing the viewport
-            time.sleep(2)
-            page.screenshot(path="/home/jules/verification/canvas_debug.png", full_page=True)
-            print("Screenshot saved to /home/jules/verification/canvas_debug.png")
+            # Check context status
+            render_check = page.evaluate("""() => {
+              const canvas = document.getElementById('sim-canvas');
+              if (!canvas) return 'No canvas';
+
+              const ctx = canvas.getContext('2d');
+              if (!ctx) return 'No ctx';
+
+              return `w=${canvas.width}, h=${canvas.height}, cw=${canvas.clientWidth}, ch=${canvas.clientHeight}`;
+            }""")
+            print("Canvas Check:", render_check)
+
+            page.screenshot(path="/home/jules/verification/sim_fullscreen.png", full_page=True)
+            print("Screenshot saved.")
 
         finally:
             browser.close()
