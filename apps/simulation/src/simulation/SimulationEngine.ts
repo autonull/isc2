@@ -11,14 +11,11 @@ export interface DHTPost {
 export class SimulationEngine {
   public agents: SimulationAgent[] = [];
   public isRunning: boolean = false;
-  public tickInterval: number = 8000; // Increased default to give LLM time and avoid congestion
+  public tickInterval: number = 8000;
   private timer: any = null;
   private llm: LLMService | null = null;
 
-  // The global simulated network of thoughts with their embeddings
   public dhtNetwork: DHTPost[] = [];
-
-  // Track successful visual "hears" (edges) for the UI map
   public recentEdges: { from: string, to: string, time: number }[] = [];
 
   constructor() {}
@@ -48,6 +45,9 @@ export class SimulationEngine {
   public start() {
     if (this.isRunning) return;
     this.isRunning = true;
+
+    // Fire immediately then interval
+    this.tick();
     this.timer = setInterval(() => this.tick(), this.tickInterval);
     console.log("[SimulationEngine] Started.");
   }
@@ -62,7 +62,6 @@ export class SimulationEngine {
     console.log("[SimulationEngine] Paused.");
   }
 
-  // Cosine similarity helper
   private cosineSimilarity(a: number[], b: number[]): number {
     let dotProduct = 0;
     let normA = 0;
@@ -82,60 +81,54 @@ export class SimulationEngine {
       return;
     }
 
-    // Clean up old visual edges
     const now = Date.now();
     this.recentEdges = this.recentEdges.filter(e => now - e.time < 5000);
 
-    // Pick agent
     const agent = this.agents[Math.floor(Math.random() * this.agents.length)];
     agent.currentTopic = "Thinking...";
 
-    // Semantic Filtering: The agent only "observes" recent thoughts that are somewhat semantically related to its bio/interests
     let observations: string[] = [];
 
-    // Compute agent's "core" embedding based on their bio (cached if possible, but calculating here for simplicity)
-    const agentProfileText = agent.profile.bio + " " + agent.profile.interests.join(" ");
-    const agentProfileEmb = await this.llm.getEmbedding(agentProfileText);
+    try {
+        const agentProfileText = agent.profile.bio + " " + agent.profile.interests.join(" ");
+        const agentProfileEmb = await this.llm.getEmbedding(agentProfileText);
 
-    // Filter the network for recent, relevant posts
-    const recentNetwork = this.dhtNetwork.slice(-10).filter(p => p.peerId !== agent.peerId);
+        const recentNetwork = this.dhtNetwork.slice(-10).filter(p => p.peerId !== agent.peerId);
 
-    for (const post of recentNetwork) {
-        const similarity = this.cosineSimilarity(agentProfileEmb, post.embedding);
+        for (const post of recentNetwork) {
+            const similarity = this.cosineSimilarity(agentProfileEmb, post.embedding);
 
-        // If similarity is > 0.15 (arbitrary threshold for this simulation), the agent "hears" it
-        if (similarity > 0.15) {
-            observations.push(`Another Peer said: "${post.topic}" (similarity: ${similarity.toFixed(2)})`);
+            if (similarity > 0.15) {
+                observations.push(`Another Peer said: "${post.topic}" (similarity: ${similarity.toFixed(2)})`);
 
-            // Record the connection for the UI map visualization
-            this.recentEdges.push({
-                from: post.peerId,
-                to: agent.peerId,
-                time: now
-            });
+                this.recentEdges.push({
+                    from: post.peerId,
+                    to: agent.peerId,
+                    time: now
+                });
+            }
         }
+
+        const thought = await this.llm.generateAgentAction(agent.profile, observations);
+        agent.currentTopic = thought;
+
+        const thoughtEmb = await this.llm.getEmbedding(thought);
+
+        this.dhtNetwork.push({
+            peerId: agent.peerId,
+            topic: thought,
+            timestamp: now,
+            embedding: thoughtEmb
+        });
+
+        if (this.dhtNetwork.length > 50) {
+            this.dhtNetwork.shift();
+        }
+
+        console.log(`[SimulationEngine] Agent ${agent.profile.name} thought: ${thought}`);
+    } catch (e) {
+        console.error("[SimulationEngine] Error during tick computation:", e);
+        agent.currentTopic = "Oops, an error occurred while thinking.";
     }
-
-    // Generate new thought
-    const thought = await this.llm.generateAgentAction(agent.profile, observations);
-    agent.currentTopic = thought;
-
-    // Calculate embedding for the new thought
-    const thoughtEmb = await this.llm.getEmbedding(thought);
-
-    // Add to DHT
-    this.dhtNetwork.push({
-        peerId: agent.peerId,
-        topic: thought,
-        timestamp: now,
-        embedding: thoughtEmb
-    });
-
-    // Keep DHT somewhat bounded
-    if (this.dhtNetwork.length > 50) {
-        this.dhtNetwork.shift();
-    }
-
-    console.log(`[SimulationEngine] Agent ${agent.profile.name} thought: ${thought}`);
   }
 }

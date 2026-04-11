@@ -19,6 +19,9 @@ export class SpaceCanvas {
        this.resizeObserver.observe(this.canvas.parentElement);
     }
 
+    // Fallback resize if observer misses
+    window.addEventListener('resize', () => this.resize());
+
     // Explicit first resize
     setTimeout(() => {
         this.resize();
@@ -55,8 +58,12 @@ export class SpaceCanvas {
     const parent = this.canvas.parentElement;
     if (parent) {
       const rect = parent.getBoundingClientRect();
-      this.canvas.width = rect.width || window.innerWidth - 350;
-      this.canvas.height = rect.height || window.innerHeight;
+      // Ensure we always have a reasonable fallback dimension if rect gives 0 (can happen in some hidden DOM states)
+      this.canvas.width = rect.width > 0 ? rect.width : (window.innerWidth - 350);
+      this.canvas.height = rect.height > 0 ? rect.height : window.innerHeight;
+    } else {
+      this.canvas.width = window.innerWidth - 350;
+      this.canvas.height = window.innerHeight;
     }
   }
 
@@ -197,5 +204,6 @@ export class SpaceCanvas {
       cancelAnimationFrame(this.animationId);
     }
     this.resizeObserver.disconnect();
+    window.removeEventListener('resize', () => this.resize());
   }
 }
