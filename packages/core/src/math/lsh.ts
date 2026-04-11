@@ -1,5 +1,6 @@
 /* eslint-disable */
 import { seededRng } from './rng.js';
+import { magnitude } from './cosine.js';
 
 const dot = (a: number[], b: number[]): number => a.reduce((sum, ai, i) => sum + ai * b[i], 0);
 
@@ -10,7 +11,7 @@ function generateRandomProjection(dimensions: number, rng: () => number): number
     return Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
   });
 
-  const norm = Math.sqrt(vec.reduce((sum, z) => sum + z * z, 0));
+  const norm = magnitude(vec);
   return vec.map((z) => z / norm);
 }
 

@@ -1,4 +1,6 @@
 /* eslint-disable */
+import { magnitude } from './cosine.js';
+
 /**
  * Word Hash Utilities
  *
@@ -181,7 +183,7 @@ export function computeWordHashEmbedding(text: string): number[] {
   }
 
   // Normalize
-  const norm = Math.sqrt(vector.reduce((s, v) => s + v * v, 0));
+  const norm = magnitude(vector);
   if (norm > 0) {
     for (let i = 0; i < EMBEDDING_DIM; i++) {
       vector[i] /= norm;
@@ -190,7 +192,7 @@ export function computeWordHashEmbedding(text: string): number[] {
     for (let i = 0; i < EMBEDDING_DIM; i++) {
       vector[i] = Math.sin(i * 0.1);
     }
-    const fallbackNorm = Math.sqrt(vector.reduce((s, v) => s + v * v, 0));
+    const fallbackNorm = magnitude(vector);
     for (let i = 0; i < EMBEDDING_DIM; i++) {
       vector[i] /= fallbackNorm;
     }

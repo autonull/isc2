@@ -81,8 +81,14 @@ function updatePositions(
  * Normalize points to fit within unit circle
  */
 function normalizeToUnitCircle(points: Point2D[]): void {
-  const centerX = points.reduce((sum, p) => sum + p.x, 0) / points.length;
-  const centerY = points.reduce((sum, p) => sum + p.y, 0) / points.length;
+  if (points.length === 0) return;
+
+  const centroid = points.reduce(
+    (acc, p) => ({ x: acc.x + p.x, y: acc.y + p.y }),
+    { x: 0, y: 0 }
+  );
+  const centerX = centroid.x / points.length;
+  const centerY = centroid.y / points.length;
 
   let maxDist = 0;
   for (const p of points) {
