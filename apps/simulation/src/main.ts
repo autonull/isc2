@@ -85,46 +85,71 @@ async function bootstrap() {
     const userUiContainer = document.createElement('div');
     userUiContainer.id = 'user-ui-container';
     userUiContainer.style.position = 'absolute';
-    userUiContainer.style.top = '50px';
-    userUiContainer.style.right = '50px';
-    userUiContainer.style.width = '400px';
-    userUiContainer.style.height = '800px';
+    userUiContainer.style.top = '20px';
+    userUiContainer.style.right = '20px';
+    userUiContainer.style.width = '1000px';
+    userUiContainer.style.maxWidth = 'calc(100vw - 400px)';
+    userUiContainer.style.height = 'calc(100vh - 40px)';
     userUiContainer.style.zIndex = '1000';
     userUiContainer.style.display = 'none';
     userUiContainer.style.borderRadius = '12px';
     userUiContainer.style.overflow = 'hidden';
-    userUiContainer.style.boxShadow = '0 10px 25px rgba(0,0,0,0.5)';
+    userUiContainer.style.boxShadow = '0 10px 30px rgba(0,0,0,0.6)';
+    userUiContainer.style.border = '1px solid #475569';
+    // Add flexbox to let UI take full height smoothly
+    userUiContainer.style.display = 'none';
+    userUiContainer.style.flexDirection = 'column';
     appEl.appendChild(userUiContainer);
+
+    // Provide a way to close the UI layer
+    const closeBtn = document.createElement('button');
+    closeBtn.textContent = 'Close UI ✕';
+    closeBtn.style.padding = '8px';
+    closeBtn.style.background = '#ef4444';
+    closeBtn.style.color = 'white';
+    closeBtn.style.border = 'none';
+    closeBtn.style.cursor = 'pointer';
+    closeBtn.style.fontWeight = 'bold';
+    closeBtn.style.zIndex = '1001';
+    closeBtn.addEventListener('click', () => {
+        userUiContainer.style.display = 'none';
+    });
+    userUiContainer.appendChild(closeBtn);
+
+    // Container for the actual app
+    const appWrapper = document.createElement('div');
+    appWrapper.style.flex = '1';
+    appWrapper.style.position = 'relative';
+    appWrapper.style.overflow = 'hidden';
+    appWrapper.style.background = '#1e2028'; // Match IRC theme bg
+    appWrapper.style.display = 'flex';
+    appWrapper.style.flexDirection = 'column';
+    userUiContainer.appendChild(appWrapper);
 
     // Expose toggle logic to Dashboard
     (window as any).toggleUserUi = async () => {
         if (userUiContainer.style.display === 'none') {
-            userUiContainer.style.display = 'block';
+            userUiContainer.style.display = 'flex';
 
             // Only initialize once
-            if (!userUiContainer.hasChildNodes()) {
+            if (!appWrapper.hasChildNodes()) {
                 const uiRoot = document.createElement('div');
+                uiRoot.id = 'app'; // Important for ISC vanilla CSS selectors
+                uiRoot.className = 'app'; // Important for layout!
                 uiRoot.style.width = '100%';
                 uiRoot.style.height = '100%';
-                userUiContainer.appendChild(uiRoot);
-
-                // Dynamically import the browser app
-                const { createApp } = await import('@isc/apps/browser/vanilla/app');
+                appWrapper.appendChild(uiRoot);
 
                 // Set localStorage to enable test mode/bypass PWA so it runs smoothly embedded
                 localStorage.setItem('isc-test-mode', 'true');
                 localStorage.setItem('isc-onboarding-completed', 'true');
 
-                // Provide some styling to the container so the app looks right
-                uiRoot.style.backgroundColor = '#0f172a';
-                uiRoot.style.color = '#f8fafc';
-
                 // Load required CSS from the main app
-                // Because of vite dev server/build process, we can just inject standard browser CSS.
-                // In production build this will be bundled together, but for dynamic import to work
-                // perfectly we should just add the raw styles to head to ensure component styling is active.
                 import('@isc/apps/browser/styles/main.css');
                 import('@isc/apps/browser/vanilla/styles/irc.css');
+
+                // Dynamically import the browser app
+                const { createApp } = await import('@isc/apps/browser/vanilla/app');
 
                 // Provide the shared Network Medium to the real app's DI
                 const { browserNetwork } = await import('@isc/adapters/browser/network.js');
