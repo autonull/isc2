@@ -9,6 +9,19 @@ async function bootstrap() {
   const llm = new LLMService();
   engine.setLLM(llm);
 
+  // Auto-initialize the LLM service to start right out of the box
+  // The LLMService progress callbacks will be hooked up by the Dashboard shortly
+  setTimeout(() => {
+    llm.initialize('SmolLM2-135M-Instruct-q4f16_1-MLC').catch(e => {
+        console.error("Failed auto-initialization of LLM:", e);
+    });
+  }, 500);
+
+  // Auto-start the engine simulation
+  setTimeout(() => {
+     engine.start();
+  }, 1000);
+
   // Add default agents
   engine.addAgent({
     name: "Alice",
@@ -67,6 +80,73 @@ async function bootstrap() {
     appEl.appendChild(dashContainer);
 
     const dashboard = new DashboardComponent(dashContainer, engine, llm);
+
+    // 3. User UI Layer (Hidden by default)
+    const userUiContainer = document.createElement('div');
+    userUiContainer.id = 'user-ui-container';
+    userUiContainer.style.position = 'absolute';
+    userUiContainer.style.top = '50px';
+    userUiContainer.style.right = '50px';
+    userUiContainer.style.width = '400px';
+    userUiContainer.style.height = '800px';
+    userUiContainer.style.zIndex = '1000';
+    userUiContainer.style.display = 'none';
+    userUiContainer.style.borderRadius = '12px';
+    userUiContainer.style.overflow = 'hidden';
+    userUiContainer.style.boxShadow = '0 10px 25px rgba(0,0,0,0.5)';
+    appEl.appendChild(userUiContainer);
+
+    // Expose toggle logic to Dashboard
+    (window as any).toggleUserUi = async () => {
+        if (userUiContainer.style.display === 'none') {
+            userUiContainer.style.display = 'block';
+
+            // Only initialize once
+            if (!userUiContainer.hasChildNodes()) {
+                const uiRoot = document.createElement('div');
+                uiRoot.style.width = '100%';
+                uiRoot.style.height = '100%';
+                userUiContainer.appendChild(uiRoot);
+
+                // Dynamically import the browser app
+                const { createApp } = await import('@isc/apps/browser/vanilla/app');
+
+                // Set localStorage to enable test mode/bypass PWA so it runs smoothly embedded
+                localStorage.setItem('isc-test-mode', 'true');
+                localStorage.setItem('isc-onboarding-completed', 'true');
+
+                // Provide some styling to the container so the app looks right
+                uiRoot.style.backgroundColor = '#0f172a';
+                uiRoot.style.color = '#f8fafc';
+
+                // Load required CSS from the main app
+                // Because of vite dev server/build process, we can just inject standard browser CSS.
+                // In production build this will be bundled together, but for dynamic import to work
+                // perfectly we should just add the raw styles to head to ensure component styling is active.
+                import('@isc/apps/browser/styles/main.css');
+                import('@isc/apps/browser/vanilla/styles/irc.css');
+
+                // Provide the shared Network Medium to the real app's DI
+                const { browserNetwork } = await import('@isc/adapters/browser/network.js');
+
+                // We monkey-patch the BrowserNetworkAdapter instance to route traffic through the Simulation Engine's Medium
+                const localAdapter = engine.networkMedium.createPeer('human-user');
+
+                browserNetwork.announce = localAdapter.announce.bind(localAdapter);
+                browserNetwork.query = localAdapter.query.bind(localAdapter);
+                browserNetwork.publish = localAdapter.publish.bind(localAdapter);
+                browserNetwork.subscribe = localAdapter.subscribe.bind(localAdapter);
+                browserNetwork.unsubscribe = localAdapter.unsubscribe.bind(localAdapter);
+                browserNetwork.start = async () => {}; // Bypass real libp2p
+                browserNetwork.stop = async () => {};
+
+                const app = createApp(uiRoot);
+                await app.start();
+            }
+        } else {
+            userUiContainer.style.display = 'none';
+        }
+    };
 
     // Let it layout first
     setTimeout(() => {

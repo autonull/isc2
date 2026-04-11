@@ -8,6 +8,7 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': resolve(__dirname, 'src'),
+      '@isc/apps/browser': resolve(__dirname, '../browser/src'),
     },
   },
   optimizeDeps: {

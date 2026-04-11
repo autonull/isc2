@@ -36,9 +36,13 @@ export class DashboardComponent {
         </div>
 
         <div style="margin-bottom: 20px; background: #334155; padding: 15px; border-radius: 8px;">
+          <button id="btn-toggle-ui" style="width: 100%; padding: 12px; background: #10b981; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; margin-bottom: 15px;">
+            Jump In (Open UI)
+          </button>
+
           <h3 style="margin-top: 0;">LLM Configuration</h3>
           <div id="llm-status" style="margin-bottom: 10px;">
-            Status: ${this.llm.isReady() ? '<span style="color: #4ade80;">Ready</span>' : '<span style="color: #fbbf24;">Not initialized</span>'}
+            Status: ${this.llm.isReady() ? '<span style="color: #4ade80;">Ready</span>' : '<span style="color: #fbbf24;">Initializing (Auto-start)...</span>'}
           </div>
 
           <div style="margin-bottom: 10px;">
@@ -51,7 +55,7 @@ export class DashboardComponent {
           </div>
 
           <button id="btn-init-llm" style="width: 100%; padding: 8px 16px; background: #8b5cf6; color: white; border: none; border-radius: 4px; cursor: pointer; display: ${this.llm.isReady() ? 'none' : 'block'}">
-            Initialize Engine
+            Re-Initialize Engine
           </button>
         </div>
 
@@ -152,6 +156,15 @@ export class DashboardComponent {
               this.engine.umapChance = val / 100;
           }
       });
+    }
+
+    const btnToggleUi = this.el.querySelector('#btn-toggle-ui');
+    if (btnToggleUi) {
+        btnToggleUi.addEventListener('click', () => {
+            if (typeof (window as any).toggleUserUi === 'function') {
+                (window as any).toggleUserUi();
+            }
+        });
     }
 
     const btnInitLlm = this.el.querySelector('#btn-init-llm');

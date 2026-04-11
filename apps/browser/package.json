@@ -3,6 +3,9 @@
   "version": "0.1.0",
   "type": "module",
   "private": true,
+  "exports": {
+    "./vanilla/app.js": "./src/vanilla/app.js"
+  },
   "scripts": {
     "dev": "vite --host",
     "build": "vite build",

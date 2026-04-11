@@ -1,6 +1,7 @@
 import { SimulationAgent, CharacterProfile } from './SimulationAgent';
 import { LLMService } from './LLMService';
 import { UMAP } from 'umap-js';
+import { LocalNetworkMedium } from '@isc/adapters';
 
 export interface DHTPost {
     peerId: string;
@@ -12,16 +13,20 @@ export interface DHTPost {
 export class SimulationEngine {
   public agents: SimulationAgent[] = [];
   public isRunning: boolean = false;
-  public tickInterval: number = 8000;
+  // Decrease default interval for punchier out of the box experience
+  public tickInterval: number = 4000;
   private timer: any = null;
   private llm: LLMService | null = null;
+  public networkMedium: LocalNetworkMedium;
 
   public dhtNetwork: DHTPost[] = [];
   public recentEdges: { from: string, to: string, time: number }[] = [];
   public agentPositions: Map<string, { x: number, y: number }> = new Map();
   public umapChance: number = 0.2;
 
-  constructor() {}
+  constructor() {
+      this.networkMedium = new LocalNetworkMedium();
+  }
 
   public setLLM(llm: LLMService) {
     this.llm = llm;
@@ -29,6 +34,11 @@ export class SimulationEngine {
 
   public addAgent(profile: CharacterProfile) {
     const agent = new SimulationAgent(profile);
+
+    // Attach to real local network
+    const adapter = this.networkMedium.createPeer(agent.peerId);
+    agent.attachNetwork(adapter);
+
     this.agents.push(agent);
 
     // Initial random position if embeddings aren't ready
@@ -161,16 +171,19 @@ export class SimulationEngine {
     let observations: string[] = [];
 
     try {
+        // Collect real observations from PubSub and filter by similarity
         const agentProfileText = agent.profile.bio + " " + agent.profile.interests.join(" ");
         const agentProfileEmb = await this.llm.getEmbedding(agentProfileText);
 
-        const recentNetwork = this.dhtNetwork.slice(-10).filter(p => p.peerId !== agent.peerId);
+        // Agents look at messages they recently received via PubSub
+        const recentMessages = [...agent.recentMessages].filter(p => p.peerId !== agent.peerId);
 
-        for (const post of recentNetwork) {
-            let similarity = this.cosineSimilarity(agentProfileEmb, post.embedding);
+        for (const post of recentMessages) {
+            const postEmb = await this.llm.getEmbedding(post.message);
+            let similarity = this.cosineSimilarity(agentProfileEmb, postEmb);
 
             if (similarity > 0.15) {
-                observations.push(`Another Peer said: "${post.topic}" (similarity: ${similarity.toFixed(2)})`);
+                observations.push(`In channel #${post.topic}, another peer said: "${post.message}" (similarity: ${similarity.toFixed(2)})`);
 
                 this.recentEdges.push({
                     from: post.peerId,
@@ -180,11 +193,36 @@ export class SimulationEngine {
             }
         }
 
+        // Also do a quick DHT scan just for additional "global" flavor
+        const dhtEntries = await agent.networkAdapter!.query('global_feed', 5);
+        for (const entry of dhtEntries) {
+            try {
+                const dhtPost = JSON.parse(new TextDecoder().decode(entry));
+                if (dhtPost.peerId !== agent.peerId && !recentMessages.find(m => m.message === dhtPost.message)) {
+                    observations.push(`On the global feed, another peer said: "${dhtPost.message}"`);
+                }
+            } catch (e) {}
+        }
+
         const thought = await this.llm.generateAgentAction(agent.profile, observations);
         agent.currentTopic = thought;
 
         const thoughtEmb = await this.llm.getEmbedding(thought);
 
+        // Determine channel to publish to based on agent interests (simple heuristic for now)
+        const channelTopic = agent.profile.interests.length > 0 ? agent.profile.interests[0] : "general";
+
+        // Publish over real LocalNetworkAdapter
+        const payload = new TextEncoder().encode(JSON.stringify({
+            peerId: agent.peerId,
+            message: thought,
+            timestamp: now
+        }));
+
+        await agent.networkAdapter!.publish(channelTopic, payload);
+        await agent.networkAdapter!.announce('global_feed', payload, 300000);
+
+        // Keep local visualization synced (optional but good for dashboard)
         this.dhtNetwork.push({
             peerId: agent.peerId,
             topic: thought,
@@ -196,7 +234,16 @@ export class SimulationEngine {
             this.dhtNetwork.shift();
         }
 
-        console.log(`[SimulationEngine] Agent ${agent.profile.name} thought: ${thought}`);
+        console.log(`[SimulationEngine] Agent ${agent.profile.name} published to #${channelTopic}: ${thought}`);
+
+        // Occasional chance to listen to a new interesting topic
+        if (Math.random() < 0.2 && observations.length > 0) {
+            const potentialNewTopics = this.dhtNetwork.slice(-5).map(p => p.topic).filter(t => t.split(' ').length === 1);
+            if (potentialNewTopics.length > 0) {
+                const newTopic = potentialNewTopics[Math.floor(Math.random() * potentialNewTopics.length)];
+                agent.subscribeToTopic(newTopic);
+            }
+        }
 
         // Occasionally update positions based on embeddings
         if (Math.random() < this.umapChance) {
