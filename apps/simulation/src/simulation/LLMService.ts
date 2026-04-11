@@ -11,28 +11,15 @@ export class LLMService {
   private embedder: any = null;
   private isInitializing: boolean = false;
   private progressCallback: ((progress: number) => void) | null = null;
-  public isTestMode: boolean = false;
 
-  constructor() {
-     // Check if we're in headless test mode (set by Playwright)
-     this.isTestMode = localStorage.getItem('isc-test-mode') === 'true';
-  }
+  constructor() {}
 
   public setProgressCallback(cb: (progress: number) => void) {
     this.progressCallback = cb;
   }
 
   public async initialize(modelId: string = 'SmolLM2-135M-Instruct-q4f16_1-MLC') {
-    if (this.engine || this.isInitializing || this.isTestMode) {
-        if (this.isTestMode) {
-            console.log("[LLMService] Mocking initialization for test mode");
-            if (this.progressCallback) {
-                for(let i=0; i<=10; i++) {
-                    this.progressCallback(i / 10);
-                    await new Promise(r => setTimeout(r, 100));
-                }
-            }
-        }
+    if (this.engine || this.isInitializing) {
         return;
     }
 
@@ -68,16 +55,10 @@ export class LLMService {
   }
 
   public isReady() {
-    return this.isTestMode || (this.engine !== null && this.embedder !== null && !this.isInitializing);
+    return this.engine !== null && this.embedder !== null && !this.isInitializing;
   }
 
   public async getEmbedding(text: string): Promise<number[]> {
-    if (this.isTestMode) {
-        // Return deterministic mock embedding based on string length to allow UMAP to run somewhat meaningfully
-        const val = text.length / 100.0;
-        return Array(384).fill(val);
-    }
-
     if (!this.embedder) throw new Error("Embedder not initialized");
 
     // We normalize the embeddings for cosine similarity
@@ -86,11 +67,6 @@ export class LLMService {
   }
 
   public async generateAgentAction(profile: CharacterProfile, observations: string[]): Promise<string> {
-    if (this.isTestMode) {
-        const topics = ["Wow, I love decentralization!", "Does anyone know how to configure Gossipsub?", "UMAP is such a cool algorithm.", "P2P networking is the future.", "Thinking about vector embeddings...", "What a great day for coding!"];
-        return topics[Math.floor(Math.random() * topics.length)];
-    }
-
     if (!this.engine) {
       return "Thinking...";
     }

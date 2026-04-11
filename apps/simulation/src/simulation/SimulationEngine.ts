@@ -25,11 +25,6 @@ export class SimulationEngine {
 
   public setLLM(llm: LLMService) {
     this.llm = llm;
-    // In test mode, we want things to fly so that edges and DHT posts populate immediately for visual checks
-    if (this.llm.isTestMode) {
-        this.tickInterval = 500;
-        this.umapChance = 1.0;
-    }
   }
 
   public addAgent(profile: CharacterProfile) {
@@ -172,8 +167,7 @@ export class SimulationEngine {
         const recentNetwork = this.dhtNetwork.slice(-10).filter(p => p.peerId !== agent.peerId);
 
         for (const post of recentNetwork) {
-            // In test mode, we want edges to form easily, otherwise we use real cosine similarity threshold
-            let similarity = this.llm.isTestMode ? 0.9 : this.cosineSimilarity(agentProfileEmb, post.embedding);
+            let similarity = this.cosineSimilarity(agentProfileEmb, post.embedding);
 
             if (similarity > 0.15) {
                 observations.push(`Another Peer said: "${post.topic}" (similarity: ${similarity.toFixed(2)})`);
