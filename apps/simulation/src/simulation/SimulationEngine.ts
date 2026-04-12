@@ -1,7 +1,8 @@
 import { SimulationAgent, CharacterProfile } from './SimulationAgent';
 import { LLMService } from './LLMService';
-import { UMAP } from 'umap-js';
 import { LocalNetworkMedium } from '@isc/adapters';
+import { computeRelationalDistributions, distributionSimilarity, type Channel } from '@isc/core';
+import { Layout } from '@isc/core/semantic';
 
 export interface DHTPost {
     peerId: string;
@@ -51,7 +52,31 @@ export class SimulationEngine {
        x: 0.3 + Math.random() * 0.6,
        y: 0.1 + Math.random() * 0.8
     });
+
+    // We update distributions async if LLM is ready
+    if (this.llm && this.llm.isReady()) {
+       this.updateAgentDistributions(agent).catch(console.error);
+    }
     return agent;
+  }
+
+  private async updateAgentDistributions(agent: SimulationAgent) {
+      if (!this.llm || !this.llm.isReady()) return;
+
+      const pseudoChannel: Channel = {
+          id: agent.peerId,
+          name: agent.profile.name,
+          description: agent.profile.bio,
+          spread: 0.1,
+          relations: agent.profile.interests.map(interest => ({ tag: 'interest', object: interest, weight: 1.0 })),
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+          active: true
+      };
+
+      agent.distributions = await computeRelationalDistributions(pseudoChannel, {
+          embed: async (text: string) => await this.llm!.getEmbedding(text)
+      });
   }
 
   public removeAgent(peerId: string) {
@@ -85,19 +110,6 @@ export class SimulationEngine {
       this.timer = null;
     }
     console.log("[SimulationEngine] Paused.");
-  }
-
-  private cosineSimilarity(a: number[], b: number[]): number {
-    let dotProduct = 0;
-    let normA = 0;
-    let normB = 0;
-    for (let i = 0; i < a.length; i++) {
-        dotProduct += a[i] * b[i];
-        normA += a[i] * a[i];
-        normB += b[i] * b[i];
-    }
-    if (normA === 0 || normB === 0) return 0;
-    return dotProduct / (Math.sqrt(normA) * Math.sqrt(normB));
   }
 
   private async updateUMAPPositions() {
@@ -164,32 +176,13 @@ export class SimulationEngine {
        const totalItems = embeddings.length;
        if (totalItems < 2) return;
 
-       const nNeighbors = Math.max(2, Math.min(15, totalItems - 1));
-
        if (embeddings.length >= 2) {
-           const umap = new UMAP({
-               nComponents: 2,
-               nNeighbors,
-               minDist: 0.1
-           });
-           const projection = umap.fit(embeddings);
+           const mappedPoints = await Layout.projectUMAP(embeddings, { padding: 0.0 });
 
-           let minX = Infinity, maxX = -Infinity;
-           let minY = Infinity, maxY = -Infinity;
-
-           projection.forEach(p => {
-               if (p[0] < minX) minX = p[0];
-               if (p[0] > maxX) maxX = p[0];
-               if (p[1] < minY) minY = p[1];
-               if (p[1] > maxY) maxY = p[1];
-           });
-
-           const rangeX = maxX - minX || 1;
-           const rangeY = maxY - minY || 1;
-
-           projection.forEach((p, i) => {
-               const normalizedX = 0.35 + ((p[0] - minX) / rangeX) * 0.55;
-               const normalizedY = 0.1 + ((p[1] - minY) / rangeY) * 0.8;
+           mappedPoints.forEach((p, i) => {
+               // Re-map the generic 0-1 padding onto the specific bounds expected by this component
+               const normalizedX = 0.35 + (p.x * 0.55);
+               const normalizedY = 0.1 + (p.y * 0.8);
 
                if (isAgentList[i]) {
                    this.agentPositions.set(ids[i], { x: normalizedX, y: normalizedY });
@@ -223,25 +216,33 @@ export class SimulationEngine {
     let observations: string[] = [];
 
     try {
-        // Collect real observations from PubSub and filter by similarity
-        const agentProfileText = agent.profile.bio + " " + agent.profile.interests.join(" ");
-        const agentProfileEmb = await this.llm.getEmbedding(agentProfileText);
+        // Make sure agent distributions are initialized
+        if (!agent.distributions || agent.distributions.length === 0) {
+            await this.updateAgentDistributions(agent);
+        }
 
+        // Collect real observations from PubSub and filter by similarity
         // Agents look at messages they recently received via PubSub
         const recentMessages = [...agent.recentMessages].filter(p => p.peerId !== agent.peerId);
 
-        for (const post of recentMessages) {
-            const postEmb = await this.llm.getEmbedding(post.message);
-            let similarity = this.cosineSimilarity(agentProfileEmb, postEmb);
+        if (agent.distributions && agent.distributions.length > 0) {
+            const rootDist = agent.distributions.find(d => d.tag === 'root') || agent.distributions[0];
 
-            if (similarity > 0.15) {
-                observations.push(`In channel #${post.topic}, another peer said: "${post.message}" (similarity: ${similarity.toFixed(2)})`);
+            for (const post of recentMessages) {
+                const postEmb = await this.llm.getEmbedding(post.message);
+                const postDist = { mu: postEmb, sigma: 0.1, weight: 1.0, tag: 'root' };
 
-                this.recentEdges.push({
-                    from: post.peerId,
-                    to: agent.peerId,
-                    time: now
-                });
+                let similarity = distributionSimilarity(rootDist, postDist);
+
+                if (similarity > 0.15) {
+                    observations.push(`In channel #${post.topic}, another peer said: "${post.message}" (similarity: ${similarity.toFixed(2)})`);
+
+                    this.recentEdges.push({
+                        from: post.peerId,
+                        to: agent.peerId,
+                        time: now
+                    });
+                }
             }
         }
 

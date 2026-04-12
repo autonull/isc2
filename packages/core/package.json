@@ -39,5 +39,8 @@
   "license": "MIT",
   "engines": {
     "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "umap-js": "^1.4.0"
   }
 }

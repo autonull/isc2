@@ -9,6 +9,7 @@
 import { networkService } from '../../services/network.ts';
 import { toast as toasts } from '../../utils/toast.ts';
 import { escapeHtml } from '../utils/dom.js';
+import { Layout } from '@isc/core/semantic';
 
 const PEER_COLORS = {
   self: '#3b82f6',
@@ -27,7 +28,6 @@ class SpaceCanvasComponent {
   #canvas;
   #ctx;
   #onPeerClick;
-  #UMAP = null;
   #animationId = null;
   #hoveredPeer = null;
   #selfPosition = { x: 0.5, y: 0.5 };
@@ -95,7 +95,6 @@ class SpaceCanvasComponent {
 
   async #initCanvas(peers) {
     try {
-      this.#UMAP = await import('umap-js');
       this.#isInitialized = true;
       await this.#updatePeers(peers);
       this.#renderCanvas();
@@ -107,13 +106,13 @@ class SpaceCanvasComponent {
   }
 
   async #updatePeers(peers) {
-    if (peers.length > 0 && this.#UMAP) {
+    if (peers.length > 0) {
       await this.#projectPeers(peers);
     }
   }
 
   async #projectPeers(peers) {
-    if (!this.#UMAP || peers.length < 2) {
+    if (peers.length < 2) {
       this.#projectedPeers = peers.map((p, i) => ({
         ...p,
         x: 0.3 + Math.random() * 0.4,
@@ -147,34 +146,12 @@ class SpaceCanvasComponent {
         })
       );
 
-      const umap = new this.#UMAP.UMAP({
-        nNeighbors: Math.min(15, peers.length - 1),
-        nComponents: 2,
-        minDist: 0.1,
-        spread: 1.0,
-      });
-
-      const embedding = umap.fit(vectors);
-
-      let minX = Infinity,
-        maxX = -Infinity,
-        minY = Infinity,
-        maxY = -Infinity;
-      embedding.forEach((p) => {
-        minX = Math.min(minX, p[0]);
-        maxX = Math.max(maxX, p[0]);
-        minY = Math.min(minY, p[1]);
-        maxY = Math.max(maxY, p[1]);
-      });
-
-      const rangeX = maxX - minX || 1;
-      const rangeY = maxY - minY || 1;
-      const padding = 0.1;
+      const mappedPoints = await Layout.projectUMAP(vectors, { padding: 0.1 });
 
       this.#projectedPeers = peers.map((p, i) => ({
         ...p,
-        x: padding + ((embedding[i][0] - minX) / rangeX) * (1 - 2 * padding),
-        y: padding + ((embedding[i][1] - minY) / rangeY) * (1 - 2 * padding),
+        x: mappedPoints[i].x,
+        y: mappedPoints[i].y,
       }));
     } catch (err) {
       console.warn('[SpaceCanvas] UMAP projection failed:', err);

@@ -1,14 +1,10 @@
 import * as webllm from '@mlc-ai/web-llm';
-import { pipeline, env } from '@xenova/transformers';
+import { BrowserModel } from '@isc/adapters';
 import { CharacterProfile } from './SimulationAgent';
-
-// Configure transformers.js for browser
-env.allowLocalModels = false; // Need to fetch from HF hub since we are in browser
-env.useBrowserCache = true;
 
 export class LLMService {
   private engine: webllm.MLCEngine | null = null;
-  private embedder: any = null;
+  private embedder: BrowserModel | null = null;
   private isInitializing: boolean = false;
   private progressCallback: ((progress: number) => void) | null = null;
 
@@ -39,11 +35,12 @@ export class LLMService {
       await this.engine.reload(modelId);
       console.log(`[LLMService] Successfully loaded WebLLM model: ${modelId}`);
 
-      // Init Transformers.js Embedder
+      // Init BrowserModel Embedder (Shared with Web UI)
       if (this.progressCallback) this.progressCallback(0.85);
       console.log(`[LLMService] Loading Embedder...`);
 
-      this.embedder = await pipeline('feature-extraction', 'Xenova/all-MiniLM-L6-v2');
+      this.embedder = new BrowserModel();
+      await this.embedder.load('Xenova/all-MiniLM-L6-v2');
       console.log(`[LLMService] Successfully loaded Embedder.`);
 
       if (this.progressCallback) this.progressCallback(1.0);
@@ -59,11 +56,12 @@ export class LLMService {
   }
 
   public async getEmbedding(text: string): Promise<number[]> {
-    if (!this.embedder) throw new Error("Embedder not initialized");
+    if (!this.embedder || !this.embedder.isLoaded()) {
+      throw new Error("Embedder not initialized");
+    }
 
-    // We normalize the embeddings for cosine similarity
-    const output = await this.embedder(text, { pooling: 'mean', normalize: true });
-    return Array.from(output.data);
+    // BrowserModel handles normalization automatically
+    return await this.embedder.embed(text);
   }
 
   public async generateAgentAction(profile: CharacterProfile, observations: string[]): Promise<string> {

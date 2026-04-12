@@ -14,9 +14,13 @@ export class BrowserModel implements EmbeddingModelAdapter {
       // Lazy import transformers to avoid onnxruntime initialization at module load
       const { pipeline, env } = await import('@xenova/transformers');
 
+      // Check if we are running in an environment that has a real browser cache
+      // The tests run in Node.js (via Vitest) where self.caches doesn't exist
+      const hasBrowserCache = typeof self !== 'undefined' && 'caches' in self;
+
       // Configure env for browser
-      env.allowLocalModels = false;
-      env.useBrowserCache = true;
+      env.allowLocalModels = !hasBrowserCache; // Enable local models for tests
+      env.useBrowserCache = hasBrowserCache;
 
       // Load feature-extraction pipeline
       // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access

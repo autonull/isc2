@@ -341,6 +341,59 @@ export namespace Layout {
     }));
   }
 
+  /**
+   * Map multidimensional embeddings to 2D using UMAP
+   */
+  export async function projectUMAP(
+    embeddings: number[][],
+    config?: {
+      nNeighbors?: number;
+      minDist?: number;
+      spread?: number;
+      padding?: number;
+    }
+  ): Promise<Point2D[]> {
+    if (!embeddings || embeddings.length === 0) return [];
+    if (embeddings.length < 2) {
+      return [{ x: 0.5, y: 0.5 }];
+    }
+
+    const { UMAP } = await import('umap-js');
+
+    const maxNeighbors = Math.min(15, embeddings.length - 1);
+    const nNeighbors = config?.nNeighbors ?? Math.max(2, maxNeighbors);
+    const minDist = config?.minDist ?? 0.1;
+    const spread = config?.spread ?? 1.0;
+    const padding = config?.padding ?? 0.1;
+
+    const umap = new UMAP({
+      nComponents: 2,
+      nNeighbors,
+      minDist,
+      spread,
+    });
+
+    const projection = umap.fit(embeddings);
+
+    let minX = Infinity, maxX = -Infinity;
+    let minY = Infinity, maxY = -Infinity;
+
+    projection.forEach(p => {
+      if (p[0] < minX) minX = p[0];
+      if (p[0] > maxX) maxX = p[0];
+      if (p[1] < minY) minY = p[1];
+      if (p[1] > maxY) maxY = p[1];
+    });
+
+    const rangeX = maxX - minX || 1;
+    const rangeY = maxY - minY || 1;
+
+    return projection.map((p) => ({
+      x: padding + ((p[0] - minX) / rangeX) * (1 - 2 * padding),
+      y: padding + ((p[1] - minY) / rangeY) * (1 - 2 * padding),
+    }));
+  }
+
   // Private helper functions
   function applyForces(
     points: Point2D[],
