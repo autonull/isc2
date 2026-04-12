@@ -263,7 +263,19 @@ export class SimulationEngine {
         const thoughtEmb = await this.llm.getEmbedding(thought);
 
         // Determine channel to publish to based on agent interests (simple heuristic for now)
-        const channelTopic = agent.profile.interests.length > 0 ? agent.profile.interests[0] : "general";
+        let channelTopic = agent.profile.interests.length > 0 ? agent.profile.interests[0] : "general";
+        let bestSimilarity = -1;
+
+        for (const [topic, emb] of this.channelEmbeddings.entries()) {
+            const similarity = distributionSimilarity(
+                { mu: thoughtEmb, sigma: 0.1, weight: 1.0, tag: 'root' },
+                { mu: emb, sigma: 0.1, weight: 1.0, tag: 'root' }
+            );
+            if (similarity > bestSimilarity) {
+                bestSimilarity = similarity;
+                channelTopic = topic;
+            }
+        }
 
         // Publish over real LocalNetworkAdapter
         const payload = new TextEncoder().encode(JSON.stringify({
@@ -290,7 +302,13 @@ export class SimulationEngine {
         console.log(`[SimulationEngine] Agent ${agent.profile.name} published to #${channelTopic}: ${thought}`);
 
         // Extract a hashtag or use a random interest from another agent on the network to discover a new topic
-        if (Math.random() < 0.2 && observations.length > 0) {
+        const hashtags = thought.match(/#\w+/g);
+        if (hashtags && hashtags.length > 0) {
+            hashtags.forEach(tag => {
+                const newTopic = tag.substring(1).toLowerCase();
+                agent.subscribeToTopic(newTopic);
+            });
+        } else if (Math.random() < 0.2 && observations.length > 0) {
             const otherAgents = this.agents.filter(a => a.peerId !== agent.peerId);
             if (otherAgents.length > 0) {
                 const randomOther = otherAgents[Math.floor(Math.random() * otherAgents.length)];
