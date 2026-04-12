@@ -5,6 +5,7 @@ export interface CharacterProfile {
 }
 
 import type { LocalNetworkAdapter } from '@isc/adapters';
+import type { Distribution } from '@isc/core';
 
 export class SimulationAgent {
   public profile: CharacterProfile;
@@ -12,6 +13,7 @@ export class SimulationAgent {
   public currentTopic: string = "";
   public networkAdapter: LocalNetworkAdapter | null = null;
   public subscribedTopics: Set<string> = new Set();
+  public distributions: Distribution[] = [];
 
   // Keep track of recent messages for context
   public recentMessages: { peerId: string, message: string, topic: string }[] = [];
