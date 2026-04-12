@@ -20,6 +20,7 @@ export { BrowserIdentity, NodeIdentity, createIdentity } from './identity.js';
 
 // Shared utilities
 export { wordHash, hammingDistance } from './shared/wordHash.js';
+export { LocalNetworkMedium, LocalNetworkAdapter } from './shared/localNetwork.js';
 export {
   dbTransaction,
   dbGet,

@@ -7,6 +7,7 @@
   "exports": {
     ".": "./src/index.ts",
     "./browser": "./src/browser/index.ts",
+    "./browser/network.js": "./src/browser/network.ts",
     "./node": "./src/node/index.ts",
     "./shared": "./src/shared/index.ts",
     "./interfaces": "./src/interfaces/index.ts",

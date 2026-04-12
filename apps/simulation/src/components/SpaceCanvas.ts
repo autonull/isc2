@@ -6,6 +6,7 @@ export class SpaceCanvas {
   private animationId: number | null = null;
   private time: number = 0;
   private agentStates: Map<string, { tx: number, ty: number, cx: number, cy: number }> = new Map();
+  private channelPositions: Map<string, { x: number, y: number }> = new Map();
 
   constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas;
@@ -60,6 +61,26 @@ export class SpaceCanvas {
             this.agentStates.delete(key);
         }
     }
+  }
+
+  public setChannels(positions: Map<string, { x: number, y: number }>) {
+      // Sync channel positions
+      positions.forEach((pos, topic) => {
+          if (!this.channelPositions.has(topic)) {
+              this.channelPositions.set(topic, { ...pos });
+          } else {
+              const state = this.channelPositions.get(topic)!;
+              // Move slowly to new target
+              state.x += (pos.x - state.x) * 0.1;
+              state.y += (pos.y - state.y) * 0.1;
+          }
+      });
+      // Remove stale ones
+      for (const key of this.channelPositions.keys()) {
+          if (!positions.has(key)) {
+              this.channelPositions.delete(key);
+          }
+      }
   }
 
   public setEdges(edges: { from: string, to: string, time: number }[]) {
@@ -124,6 +145,27 @@ export class SpaceCanvas {
 
     const now = Date.now();
 
+    // Render distinct channel nodes
+    this.channelPositions.forEach((pos, topic) => {
+        const cx = w * pos.x;
+        const cy = h * pos.y;
+
+        // Large faint sphere
+        this.ctx.beginPath();
+        this.ctx.arc(cx, cy, 40, 0, Math.PI * 2);
+        this.ctx.fillStyle = 'rgba(16, 185, 129, 0.05)';
+        this.ctx.fill();
+        this.ctx.lineWidth = 1;
+        this.ctx.strokeStyle = 'rgba(16, 185, 129, 0.2)';
+        this.ctx.stroke();
+
+        // Topic label
+        this.ctx.fillStyle = 'rgba(110, 231, 183, 0.8)';
+        this.ctx.font = 'bold 12px system-ui';
+        this.ctx.textAlign = 'center';
+        this.ctx.fillText(`#${topic}`, cx, cy - 45);
+    });
+
     this.edges.forEach(edge => {
         const fromState = this.agentStates.get(edge.from);
         const toState = this.agentStates.get(edge.to);
@@ -176,6 +218,7 @@ export class SpaceCanvas {
       this.ctx.textAlign = 'center';
       this.ctx.fillText(agent.profile.name, x, y - 25);
 
+      // Just draw the thought
       if (agent.currentTopic && agent.currentTopic !== "Thinking...") {
           let displayThought = agent.currentTopic;
           if (displayThought.length > 30) {

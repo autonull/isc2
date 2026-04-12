@@ -9,6 +9,19 @@ async function bootstrap() {
   const llm = new LLMService();
   engine.setLLM(llm);
 
+  // Auto-initialize the LLM service to start right out of the box
+  // The LLMService progress callbacks will be hooked up by the Dashboard shortly
+  setTimeout(() => {
+    llm.initialize('SmolLM2-135M-Instruct-q4f16_1-MLC').catch(e => {
+        console.error("Failed auto-initialization of LLM:", e);
+    });
+  }, 500);
+
+  // Auto-start the engine simulation
+  setTimeout(() => {
+     engine.start();
+  }, 1000);
+
   // Add default agents
   engine.addAgent({
     name: "Alice",
@@ -68,6 +81,98 @@ async function bootstrap() {
 
     const dashboard = new DashboardComponent(dashContainer, engine, llm);
 
+    // 3. User UI Layer (Hidden by default)
+    const userUiContainer = document.createElement('div');
+    userUiContainer.id = 'user-ui-container';
+    userUiContainer.style.position = 'absolute';
+    userUiContainer.style.top = '20px';
+    userUiContainer.style.right = '20px';
+    userUiContainer.style.width = '1000px';
+    userUiContainer.style.maxWidth = 'calc(100vw - 400px)';
+    userUiContainer.style.height = 'calc(100vh - 40px)';
+    userUiContainer.style.zIndex = '1000';
+    userUiContainer.style.display = 'none';
+    userUiContainer.style.borderRadius = '12px';
+    userUiContainer.style.overflow = 'hidden';
+    userUiContainer.style.boxShadow = '0 10px 30px rgba(0,0,0,0.6)';
+    userUiContainer.style.border = '1px solid #475569';
+    // Add flexbox to let UI take full height smoothly
+    userUiContainer.style.display = 'none';
+    userUiContainer.style.flexDirection = 'column';
+    appEl.appendChild(userUiContainer);
+
+    // Provide a way to close the UI layer
+    const closeBtn = document.createElement('button');
+    closeBtn.textContent = 'Close UI ✕';
+    closeBtn.style.padding = '8px';
+    closeBtn.style.background = '#ef4444';
+    closeBtn.style.color = 'white';
+    closeBtn.style.border = 'none';
+    closeBtn.style.cursor = 'pointer';
+    closeBtn.style.fontWeight = 'bold';
+    closeBtn.style.zIndex = '1001';
+    closeBtn.addEventListener('click', () => {
+        userUiContainer.style.display = 'none';
+    });
+    userUiContainer.appendChild(closeBtn);
+
+    // Container for the actual app
+    const appWrapper = document.createElement('div');
+    appWrapper.style.flex = '1';
+    appWrapper.style.position = 'relative';
+    appWrapper.style.overflow = 'hidden';
+    appWrapper.style.background = '#1e2028'; // Match IRC theme bg
+    appWrapper.style.display = 'flex';
+    appWrapper.style.flexDirection = 'column';
+    userUiContainer.appendChild(appWrapper);
+
+    // Expose toggle logic to Dashboard
+    (window as any).toggleUserUi = async () => {
+        if (userUiContainer.style.display === 'none') {
+            userUiContainer.style.display = 'flex';
+
+            // Only initialize once
+            if (!appWrapper.hasChildNodes()) {
+                const uiRoot = document.createElement('div');
+                uiRoot.id = 'app'; // Important for ISC vanilla CSS selectors
+                uiRoot.className = 'app'; // Important for layout!
+                uiRoot.style.width = '100%';
+                uiRoot.style.height = '100%';
+                appWrapper.appendChild(uiRoot);
+
+                // Set localStorage to enable test mode/bypass PWA so it runs smoothly embedded
+                localStorage.setItem('isc-test-mode', 'true');
+                localStorage.setItem('isc-onboarding-completed', 'true');
+
+                // Load required CSS from the main app
+                import('@isc/apps/browser/styles/main.css');
+                import('@isc/apps/browser/vanilla/styles/irc.css');
+
+                // Dynamically import the browser app
+                const { createApp } = await import('@isc/apps/browser/vanilla/app');
+
+                // Provide the shared Network Medium to the real app's DI
+                const { browserNetwork } = await import('@isc/adapters/browser/network.js');
+
+                // We monkey-patch the BrowserNetworkAdapter instance to route traffic through the Simulation Engine's Medium
+                const localAdapter = engine.networkMedium.createPeer('human-user');
+
+                browserNetwork.announce = localAdapter.announce.bind(localAdapter);
+                browserNetwork.query = localAdapter.query.bind(localAdapter);
+                browserNetwork.publish = localAdapter.publish.bind(localAdapter);
+                browserNetwork.subscribe = localAdapter.subscribe.bind(localAdapter);
+                browserNetwork.unsubscribe = localAdapter.unsubscribe.bind(localAdapter);
+                browserNetwork.start = async () => {}; // Bypass real libp2p
+                browserNetwork.stop = async () => {};
+
+                const app = createApp(uiRoot);
+                await app.start();
+            }
+        } else {
+            userUiContainer.style.display = 'none';
+        }
+    };
+
     // Let it layout first
     setTimeout(() => {
         const spaceCanvas = new SpaceCanvas(canvasEl);
@@ -84,6 +189,7 @@ async function bootstrap() {
             if (canvasEl.height !== window.innerHeight) canvasEl.height = window.innerHeight;
 
             spaceCanvas.setAgents(engine.agents, engine.agentPositions);
+            spaceCanvas.setChannels(engine.channelPositions);
             spaceCanvas.setEdges(engine.recentEdges);
 
             const chatContainer = document.getElementById('chat-container');
