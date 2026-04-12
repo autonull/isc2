@@ -51,7 +51,11 @@ export class LocalNetworkAdapter implements NetworkAdapter {
 
     for (const entry of validEntries) {
         if (results.length >= count) break;
-        const str = Buffer.from(entry.value).toString('base64');
+        // Cross-environment friendly base64 encoding
+        const str = typeof Buffer !== 'undefined'
+            ? Buffer.from(entry.value).toString('base64')
+            : btoa(String.fromCharCode.apply(null, entry.value as unknown as number[]));
+
         if (!seen.has(str)) {
             seen.add(str);
             results.push(entry.value);

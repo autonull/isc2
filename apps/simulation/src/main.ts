@@ -189,6 +189,7 @@ async function bootstrap() {
             if (canvasEl.height !== window.innerHeight) canvasEl.height = window.innerHeight;
 
             spaceCanvas.setAgents(engine.agents, engine.agentPositions);
+            spaceCanvas.setChannels(engine.channelPositions);
             spaceCanvas.setEdges(engine.recentEdges);
 
             const chatContainer = document.getElementById('chat-container');

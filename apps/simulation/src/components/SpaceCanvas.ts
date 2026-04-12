@@ -6,6 +6,7 @@ export class SpaceCanvas {
   private animationId: number | null = null;
   private time: number = 0;
   private agentStates: Map<string, { tx: number, ty: number, cx: number, cy: number }> = new Map();
+  private channelPositions: Map<string, { x: number, y: number }> = new Map();
 
   constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas;
@@ -60,6 +61,26 @@ export class SpaceCanvas {
             this.agentStates.delete(key);
         }
     }
+  }
+
+  public setChannels(positions: Map<string, { x: number, y: number }>) {
+      // Sync channel positions
+      positions.forEach((pos, topic) => {
+          if (!this.channelPositions.has(topic)) {
+              this.channelPositions.set(topic, { ...pos });
+          } else {
+              const state = this.channelPositions.get(topic)!;
+              // Move slowly to new target
+              state.x += (pos.x - state.x) * 0.1;
+              state.y += (pos.y - state.y) * 0.1;
+          }
+      });
+      // Remove stale ones
+      for (const key of this.channelPositions.keys()) {
+          if (!positions.has(key)) {
+              this.channelPositions.delete(key);
+          }
+      }
   }
 
   public setEdges(edges: { from: string, to: string, time: number }[]) {
@@ -124,6 +145,27 @@ export class SpaceCanvas {
 
     const now = Date.now();
 
+    // Render distinct channel nodes
+    this.channelPositions.forEach((pos, topic) => {
+        const cx = w * pos.x;
+        const cy = h * pos.y;
+
+        // Large faint sphere
+        this.ctx.beginPath();
+        this.ctx.arc(cx, cy, 40, 0, Math.PI * 2);
+        this.ctx.fillStyle = 'rgba(16, 185, 129, 0.05)';
+        this.ctx.fill();
+        this.ctx.lineWidth = 1;
+        this.ctx.strokeStyle = 'rgba(16, 185, 129, 0.2)';
+        this.ctx.stroke();
+
+        // Topic label
+        this.ctx.fillStyle = 'rgba(110, 231, 183, 0.8)';
+        this.ctx.font = 'bold 12px system-ui';
+        this.ctx.textAlign = 'center';
+        this.ctx.fillText(`#${topic}`, cx, cy - 45);
+    });
+
     this.edges.forEach(edge => {
         const fromState = this.agentStates.get(edge.from);
         const toState = this.agentStates.get(edge.to);
@@ -176,55 +218,16 @@ export class SpaceCanvas {
       this.ctx.textAlign = 'center';
       this.ctx.fillText(agent.profile.name, x, y - 25);
 
-      // Render subscribed topics as little badges under the agent
-      if (agent.subscribedTopics && agent.subscribedTopics.size > 0) {
-          const topics = Array.from(agent.subscribedTopics);
-          this.ctx.font = '10px system-ui';
-
-          let currentY = y + 25;
-          topics.slice(0, 3).forEach(topic => {
-              const text = `#${topic}`;
-              const textWidth = this.ctx.measureText(text).width;
-
-              this.ctx.fillStyle = 'rgba(16, 185, 129, 0.2)'; // Emerald transparent
-              this.ctx.beginPath();
-              this.ctx.roundRect(x - (textWidth/2) - 4, currentY - 10, textWidth + 8, 14, 4);
-              this.ctx.fill();
-
-              this.ctx.fillStyle = '#6ee7b7'; // Emerald text
-              this.ctx.fillText(text, x, currentY);
-              currentY += 18;
-          });
-
-          if (topics.length > 3) {
-             this.ctx.fillStyle = '#cbd5e1';
-             this.ctx.fillText(`+${topics.length - 3} more`, x, currentY);
-             currentY += 18;
+      // Just draw the thought
+      if (agent.currentTopic && agent.currentTopic !== "Thinking...") {
+          let displayThought = agent.currentTopic;
+          if (displayThought.length > 30) {
+              displayThought = displayThought.substring(0, 30) + '...';
           }
 
-          // Draw the thought bubble below the badges
-          if (agent.currentTopic && agent.currentTopic !== "Thinking...") {
-              let displayThought = agent.currentTopic;
-              if (displayThought.length > 30) {
-                  displayThought = displayThought.substring(0, 30) + '...';
-              }
-
-              this.ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
-              this.ctx.font = '14px system-ui';
-              this.ctx.fillText(`"${displayThought}"`, x, currentY + 10);
-          }
-      } else {
-          // Just draw the thought if no topics
-          if (agent.currentTopic && agent.currentTopic !== "Thinking...") {
-              let displayThought = agent.currentTopic;
-              if (displayThought.length > 30) {
-                  displayThought = displayThought.substring(0, 30) + '...';
-              }
-
-              this.ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
-              this.ctx.font = '14px system-ui';
-              this.ctx.fillText(`"${displayThought}"`, x, y + 25);
-          }
+          this.ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+          this.ctx.font = '14px system-ui';
+          this.ctx.fillText(`"${displayThought}"`, x, y + 25);
       }
     });
   }
