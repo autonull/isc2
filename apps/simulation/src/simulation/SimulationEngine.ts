@@ -1,8 +1,8 @@
 import { SimulationAgent, CharacterProfile } from './SimulationAgent';
 import { LLMService } from './LLMService';
-import { UMAP } from 'umap-js';
 import { LocalNetworkMedium } from '@isc/adapters';
 import { computeRelationalDistributions, distributionSimilarity, type Channel } from '@isc/core';
+import { Layout } from '@isc/core/semantic';
 
 export interface DHTPost {
     peerId: string;
@@ -176,32 +176,13 @@ export class SimulationEngine {
        const totalItems = embeddings.length;
        if (totalItems < 2) return;
 
-       const nNeighbors = Math.max(2, Math.min(15, totalItems - 1));
-
        if (embeddings.length >= 2) {
-           const umap = new UMAP({
-               nComponents: 2,
-               nNeighbors,
-               minDist: 0.1
-           });
-           const projection = umap.fit(embeddings);
+           const mappedPoints = await Layout.projectUMAP(embeddings, { padding: 0.0 });
 
-           let minX = Infinity, maxX = -Infinity;
-           let minY = Infinity, maxY = -Infinity;
-
-           projection.forEach(p => {
-               if (p[0] < minX) minX = p[0];
-               if (p[0] > maxX) maxX = p[0];
-               if (p[1] < minY) minY = p[1];
-               if (p[1] > maxY) maxY = p[1];
-           });
-
-           const rangeX = maxX - minX || 1;
-           const rangeY = maxY - minY || 1;
-
-           projection.forEach((p, i) => {
-               const normalizedX = 0.35 + ((p[0] - minX) / rangeX) * 0.55;
-               const normalizedY = 0.1 + ((p[1] - minY) / rangeY) * 0.8;
+           mappedPoints.forEach((p, i) => {
+               // Re-map the generic 0-1 padding onto the specific bounds expected by this component
+               const normalizedX = 0.35 + (p.x * 0.55);
+               const normalizedY = 0.1 + (p.y * 0.8);
 
                if (isAgentList[i]) {
                    this.agentPositions.set(ids[i], { x: normalizedX, y: normalizedY });
