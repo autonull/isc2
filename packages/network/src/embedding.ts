@@ -8,12 +8,13 @@
 
 import type { EmbeddingService } from './types.js';
 import { computeWordHashEmbedding, cosineSimilarity } from '@isc/core';
+import { BrowserModel } from '@isc/adapters';
 
 /**
  * Transformer-based embedding service
  */
 export class TransformerEmbeddingService implements EmbeddingService {
-  private extractor: any = null;
+  private adapter: BrowserModel | null = null;
   private loaded = false;
   private loading = false;
   private loadError: Error | null = null;
@@ -28,7 +29,7 @@ export class TransformerEmbeddingService implements EmbeddingService {
    * Check if model is loaded
    */
   isLoaded(): boolean {
-    return this.loaded && this.extractor !== null;
+    return this.loaded && this.adapter !== null && this.adapter.isLoaded();
   }
 
   /**
@@ -62,15 +63,8 @@ export class TransformerEmbeddingService implements EmbeddingService {
     this.loadError = null;
 
     try {
-      const { pipeline, env } = await import('@xenova/transformers');
-
-      env.allowLocalModels = true;
-      env.useBrowserCache = false;
-
-      // @ts-ignore - Disable progress callback logging
-      this.extractor = await pipeline('feature-extraction', this.modelId, {
-        progress_callback: () => {},
-      });
+      this.adapter = new BrowserModel();
+      await this.adapter.load(this.modelId);
       this.loaded = true;
     } catch (err) {
       this.loadError = err instanceof Error ? err : new Error(String(err));
@@ -91,12 +85,9 @@ export class TransformerEmbeddingService implements EmbeddingService {
     }
 
     try {
-      const output = await this.extractor(text, {
-        pooling: 'mean',
-        normalize: true,
-      });
+      if (!this.adapter) throw new Error("Adapter not loaded");
 
-      const embedding = Array.from(output.data as Float32Array);
+      const embedding = await this.adapter.embed(text);
       this.cache.set(text, embedding);
 
       return embedding;
@@ -136,7 +127,7 @@ export class TransformerEmbeddingService implements EmbeddingService {
         await this.load();
       }
 
-      if (!this.extractor) {
+      if (!this.adapter) {
         throw new Error('Embedding model not loaded');
       }
 
@@ -180,7 +171,10 @@ export class TransformerEmbeddingService implements EmbeddingService {
    * Unload the model to free memory
    */
   unload(): void {
-    this.extractor = null;
+    if (this.adapter) {
+      this.adapter.unload().catch(console.error);
+    }
+    this.adapter = null;
     this.loaded = false;
     this.loading = false;
   }
