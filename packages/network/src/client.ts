@@ -13,7 +13,7 @@ import {
   type EmbeddingService,
 } from './index.js';
 import { createStorage, type StorageAdapter } from '@isc/adapters';
-import { BrowserNetworkAdapter } from '@isc/adapters/browser';
+import { LocalNetworkAdapter, LocalNetworkMedium, type NetworkAdapter } from '@isc/adapters';
 import { Libp2pDHT } from './libp2p-dht.js';
 import type { DHT } from './types.js';
 import { lshHash } from '@isc/core';
@@ -107,14 +107,14 @@ export interface Identity {
  *
  * Main entry point for network functionality in browser apps.
  */
-export class BrowserNetworkService {
+export class ClientNetworkService {
   private config: NetworkServiceConfig;
   private events: NetworkEvents = {};
   private storage: StorageAdapter;
   private embedding: EmbeddingService | null = null;
   // Use in-memory fallback unless network is started
   private dht: DHT = createDHT();
-  private networkAdapter: BrowserNetworkAdapter | null = null;
+  private networkAdapter: NetworkAdapter | null = null;
   private localPeer: VirtualPeer | null = null;
   private identity: Identity | null = null;
   private matches: PeerMatch[] = [];
@@ -153,9 +153,9 @@ export class BrowserNetworkService {
       await this.loadCachedData();
 
       // Start Real Network Adapter
-      this.networkAdapter = new BrowserNetworkAdapter();
+      this.networkAdapter = new LocalNetworkAdapter(new LocalNetworkMedium(), this.identity?.peerId || "anonymous");
       try {
-        await this.networkAdapter.start();
+        // await this.networkAdapter.start();
         console.log('[Network] Real libp2p network adapter started.');
 
         if (typeof window !== 'undefined') {
@@ -468,7 +468,7 @@ export class BrowserNetworkService {
   /**
    * Get the underlying network adapter for tests or advanced interactions
    */
-  getNetworkAdapter(): BrowserNetworkAdapter | null {
+  getNetworkAdapter(): NetworkAdapter | null {
     return this.networkAdapter;
   }
 
@@ -497,7 +497,7 @@ export class BrowserNetworkService {
     if (!this.networkAdapter?.unsubscribe || !channel.embedding) return;
     for (const hash of this.bucketHashes(channel.embedding)) {
       try {
-        this.networkAdapter.unsubscribe?.(`/isc/gossip/${LSH_SEED}/${hash}`);
+        // this.networkAdapter.unsubscribe(`/isc/gossip/${LSH_SEED}/${hash}`);
       } catch { /* best-effort */ }
     }
   }
@@ -802,7 +802,7 @@ export class BrowserNetworkService {
   destroy(): void {
     this.stopAutoDiscovery();
     if (this.networkAdapter) {
-      this.networkAdapter.stop().catch(console.error);
+      //this.networkAdapter.catch(console.error);
     }
     this.initialized = false;
   }
@@ -811,20 +811,20 @@ export class BrowserNetworkService {
 /**
  * Create a new browser network service instance
  */
-export function createBrowserNetworkService(
+export function createClientNetworkService(
   config?: Partial<NetworkServiceConfig>
-): BrowserNetworkService {
-  return new BrowserNetworkService(config);
+): ClientNetworkService {
+  return new ClientNetworkService(config);
 }
 
 /**
  * Singleton instance for convenience
  */
-let _instance: BrowserNetworkService | null = null;
+let _instance: ClientNetworkService | null = null;
 
-export function getBrowserNetworkService(): BrowserNetworkService {
+export function getClientNetworkService(): ClientNetworkService {
   if (!_instance) {
-    _instance = createBrowserNetworkService();
+    _instance = createClientNetworkService();
   }
   return _instance;
 }

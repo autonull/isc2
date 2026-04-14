@@ -2,13 +2,13 @@
 /**
  * Browser Network Service Wrapper
  * 
- * Integrates @isc/network BrowserNetworkService with the Web UI.
+ * Integrates @isc/network ClientNetworkService with the Web UI.
  * Provides a consistent API for the rest of the application.
  */
 
 import {
-  getBrowserNetworkService,
-  type BrowserNetworkService,
+  getClientNetworkService,
+  type ClientNetworkService,
   type NetworkStatus,
   type ChannelData,
   type PostData,
@@ -20,12 +20,12 @@ import {
  * Network service for browser UI
  */
 class WebUINetworkService {
-  private service: BrowserNetworkService;
+  private service: ClientNetworkService;
   private initialized = false;
   private initPromise: Promise<void> | null = null;
 
   constructor() {
-    this.service = getBrowserNetworkService();
+    this.service = getClientNetworkService();
   }
 
   /**
@@ -130,7 +130,7 @@ class WebUINetworkService {
     if ('connectToPeer' in this.service && typeof this.service.connectToPeer === 'function') {
       await (this.service as any).connectToPeer(peerId);
     } else {
-      console.warn('connectToPeer not implemented on BrowserNetworkService');
+      console.warn('connectToPeer not implemented on ClientNetworkService');
     }
   }
 

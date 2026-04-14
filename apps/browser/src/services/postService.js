@@ -129,7 +129,7 @@ export const postService = {
     try {
       const { browserNetworkAdapter } = await import('../social/adapters/network.ts');
       const posts = await browserNetworkAdapter.requestPosts(channelId);
-      // Merge into BrowserNetworkService's local cache (where feedService reads from)
+      // Merge into ClientNetworkService's local cache (where feedService reads from)
       const netPosts = networkService.getPosts(channelId);
       const existingIds = new Set(netPosts.map(p => p.id));
       const newPosts = posts
