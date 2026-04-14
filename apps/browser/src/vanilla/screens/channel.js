@@ -548,6 +548,19 @@ class ChannelScreen {
     this.#boundHandlers.push(unbindLike, unbindReply, unbindDelete);
 
     container.addEventListener('click', (e) => {
+      const authorSpan = e.target.closest('.post-author');
+      if (authorSpan) {
+        const postCard = authorSpan.closest('.post-card');
+        if (postCard) {
+          const peerId = postCard.dataset.authorId;
+          const authorName = authorSpan.textContent;
+          if (peerId) {
+            showAuthorPopover(postCard, peerId, authorName);
+            return;
+          }
+        }
+      }
+
       const expandBtn = e.target.closest('.thread-expand-btn');
       if (expandBtn) {
         expandBtn.closest('.post-thread')?.classList.add('thread-expanded');
@@ -791,7 +804,10 @@ class ChannelScreen {
       : feedService.getForYou(50);
 
     // Also include posts discovered via DHT (stored in app state)
-    const statePosts = getState().posts ?? [];
+    let statePosts = getState().posts ?? [];
+    if (!Array.isArray(statePosts)) {
+      statePosts = Array.from(Object.values(statePosts));
+    }
     const allPosts = activeChannelId
       ? [...localPosts, ...statePosts.filter(p => (p.channelId || p.channelID) === activeChannelId)]
       : [...localPosts, ...statePosts];
