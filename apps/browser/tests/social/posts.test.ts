@@ -146,8 +146,8 @@ describe('Posts Service', () => {
 
       vi.doMock('../../src/social/adapters/storage', () => ({
         browserStorageAdapter: {
-          getPost: vi.fn().mockResolvedValue(mockPost),
-          getAllPosts: vi.fn().mockResolvedValue([mockPost]),
+          getPosts: vi.fn().mockResolvedValue(mockPost),
+          getPosts: vi.fn().mockResolvedValue([mockPost]),
           savePost: vi.fn().mockResolvedValue(undefined),
         },
       }));
@@ -162,8 +162,8 @@ describe('Posts Service', () => {
     it('should return null for non-existent post', async () => {
       vi.doMock('../../src/social/adapters/storage', () => ({
         browserStorageAdapter: {
-          getPost: vi.fn().mockResolvedValue(null),
-          getAllPosts: vi.fn().mockResolvedValue([]),
+          getPosts: vi.fn().mockResolvedValue(null),
+          getPosts: vi.fn().mockResolvedValue([]),
           savePost: vi.fn().mockResolvedValue(undefined),
         },
       }));
@@ -225,7 +225,7 @@ describe('Posts Service', () => {
 
       vi.doMock('../../src/social/adapters/storage', () => ({
         browserStorageAdapter: {
-          getAllPosts: vi.fn().mockResolvedValue(mockPosts),
+          getPosts: vi.fn().mockResolvedValue(mockPosts),
           savePost: vi.fn().mockResolvedValue(undefined),
         },
       }));

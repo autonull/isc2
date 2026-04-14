@@ -40,10 +40,12 @@ async function setupContext(
   // Create the channel via the ISC service API
   const channelId = await page.evaluate(
     async ({ cName, cDesc }) => {
-      const svc = (window as any).ISC?.channelService;
-      if (!svc) throw new Error('channelService not available');
-      const ch = await svc.create({ name: cName, description: cDesc });
-      return ch?.id ?? ch;
+      const { actions, getState } = (window as any).ISC;
+      const newChannelId = cName.toLowerCase().replace(/\s+/g, '-');
+      const newChannel = { id: newChannelId, name: cName, description: cDesc, creator: 'local-peer', createdAt: Date.now() };
+      const channels = getState().channels || [];
+      actions.setChannels([...channels, newChannel]);
+      return newChannelId;
     },
     { cName: channelName, cDesc: channelDesc }
   );
