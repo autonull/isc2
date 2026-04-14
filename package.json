@@ -89,6 +89,7 @@
     "@multiformats/multiaddr": "^13.0.1",
     "concurrently": "^9.2.1",
     "libp2p": "^3.1.5",
+    "tsx": "^4.21.0",
     "uint8arrays": "^5.0.0"
   }
 }

@@ -128,7 +128,7 @@ export const browserNetworkAdapter: SocialNetwork = {
     try {
       const posts: SignedPost[] = [];
 
-      // Query using the same key pattern as BrowserNetworkService.createPost:
+      // Query using the same key pattern as ClientNetworkService.createPost:
       // /isc/post/{channelId}/{postId}
       // First try to get the channel's post index
       const indexValues = await dht.query(`${POST_CHANNEL_PREFIX}${channelId}/index`, 1);

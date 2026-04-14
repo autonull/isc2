@@ -6,7 +6,7 @@
  * Integrates with BackgroundWorker for persistent background presence.
  */
 
-import { BrowserNetworkService, type PeerMatch as NetworkPeerMatch, type ChannelData } from '@isc/network';
+import { ClientNetworkService, type PeerMatch as NetworkPeerMatch, type ChannelData } from '@isc/network';
 
 type ChannelRelation = NonNullable<ChannelData['relations']>[number];
 import { loggers } from '../utils/logger.ts';
@@ -37,7 +37,7 @@ export interface NetworkStatus {
 }
 
 class NetworkServiceWrapper {
-  private service: BrowserNetworkService | null = null;
+  private service: ClientNetworkService | null = null;
   private sharedWorker: BackgroundSyncManager | null = null;
   private messageQueue: MessageQueueService | null = null;
   private log = loggers.network;
@@ -73,7 +73,7 @@ class NetworkServiceWrapper {
         }
       }
 
-      this.service = new BrowserNetworkService();
+      this.service = new ClientNetworkService();
       await this.service.initialize();
       this.setupEventListeners();
       this.log.info('Network service initialized');

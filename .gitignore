@@ -77,7 +77,8 @@ tests/**/*.js.map
 tests/**/*.d.ts
 
 playwright-report
-/isc-data/
+isc-data/
 /isc-cache/
 *.map
 !apps/browser/src/vanilla/**/*.map
+isc-data/

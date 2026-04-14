@@ -5,8 +5,8 @@
 
 import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach } from 'vitest';
 import {
-  BrowserNetworkService,
-  createBrowserNetworkService,
+  ClientNetworkService,
+  createClientNetworkService,
   createStorage,
   MemoryStorage,
 } from '../src/index.js';
@@ -66,13 +66,13 @@ describe('Storage', () => {
   });
 });
 
-describe('BrowserNetworkService', () => {
-  let service: BrowserNetworkService;
+describe('ClientNetworkService', () => {
+  let service: ClientNetworkService;
   let storage: MemoryStorage;
 
   beforeEach(() => {
     storage = new MemoryStorage();
-    service = createBrowserNetworkService({
+    service = createClientNetworkService({
       autoDiscover: false,
       discoverInterval: 60000,
       storage,
@@ -235,10 +235,10 @@ describe('BrowserNetworkService', () => {
   });
 });
 
-describe('BrowserNetworkService Integration', () => {
+describe('ClientNetworkService Integration', () => {
   it('should run full workflow', async () => {
     const storage = new MemoryStorage();
-    const service = createBrowserNetworkService({ autoDiscover: false, storage });
+    const service = createClientNetworkService({ autoDiscover: false, storage });
 
     try {
       // Initialize

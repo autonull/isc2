@@ -66,12 +66,12 @@ export function createPostService(
     },
 
     async get(id: string): Promise<SignedPost | null> {
-      const posts = storage.getAllPosts ? await storage.getAllPosts() : await storage.getPosts();
+      const posts = await storage.getPosts();
       return posts.find((p: SignedPost) => p.id === id) ?? null;
     },
 
     async getAll(): Promise<ScoredPost[]> {
-      const posts = storage.getAllPosts ? await storage.getAllPosts() : await storage.getPosts();
+      const posts = await storage.getPosts();
       return scorePosts(posts);
     },
 
