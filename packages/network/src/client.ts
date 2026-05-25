@@ -155,7 +155,7 @@ export class ClientNetworkService {
       // Start Real Network Adapter
       this.networkAdapter = new LocalNetworkAdapter(new LocalNetworkMedium(), this.identity?.peerId || "anonymous");
       try {
-        // await this.networkAdapter.start();
+        await this.networkAdapter.start();
         console.log('[Network] Real libp2p network adapter started.');
 
         if (typeof window !== 'undefined') {

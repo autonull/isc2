@@ -20,9 +20,10 @@ async function testMcp() {
 
     const handleData = (data: Buffer) => {
       const dataStr = data.toString();
+      process.stderr.write(`[STDOUT_RAW] ${dataStr}\n`);
 
       // Stdout should ONLY contain the MCP protocol (JSON-RPC)
-      if (dataStr.includes('jsonrpc')) {
+      if (dataStr.includes('jsonrpc') || dataStr.startsWith('{')) {
         buffer += dataStr;
         let newlineIndex;
         while ((newlineIndex = buffer.indexOf('\n')) !== -1) {

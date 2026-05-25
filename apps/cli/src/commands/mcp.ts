@@ -36,7 +36,7 @@ export function mcpCommands(program: Command): void {
       // Redirect all console methods to stderr to keep stdout clean for the MCP protocol
       const logToStderr = (level: string, ...args: any[]) => {
         const message = args.map(arg =>
-          typeof arg === 'object' ? JSON.stringify(arg) : String(arg)
+          typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)
         ).join(' ');
         realStderrWrite(`[${level}] ${message}\n`);
       };
@@ -49,15 +49,16 @@ export function mcpCommands(program: Command): void {
       // Globally override console for the entire process
       (global as any).console = console;
 
-      // Patch process.stdout.write to redirect anything that isn't JSON-RPC to stderr.
+      // Only redirect stdout.write IF it doesn't look like MCP protocol
       // This prevents 3rd party libraries from corrupting the MCP pipe.
-      process.stdout.write = function(chunk: any, encoding?: any, callback?: any) {
-        const s = Buffer.isBuffer(chunk) ? chunk.toString() : String(chunk);
-        if (s.includes('"jsonrpc":"2.0"')) {
-           return realStdoutWrite(chunk, encoding, callback);
+      (process.stdout as any).write = (chunk: any, encoding?: any, callback?: any) => {
+        const s = typeof chunk === 'string' ? chunk : Buffer.isBuffer(chunk) ? chunk.toString() : '';
+        // MCP transport uses JSON.stringify + \n. If it looks like JSON-RPC, allow it.
+        if (s.includes('"jsonrpc":"2.0"') || (s.startsWith('{') && s.includes('"id":'))) {
+          return realStdoutWrite(chunk, encoding, callback);
         }
         return realStderrWrite(chunk, encoding, callback);
-      } as any;
+      };
 
       try {
         // Initialize ISC network service
@@ -66,8 +67,7 @@ export function mcpCommands(program: Command): void {
           autoDiscover: true
         });
 
-        await network.initialize();
-        console.info('ISC Network initialized');
+        const transport = new StdioServerTransport();
 
         const server = new Server(
           {
@@ -97,6 +97,12 @@ export function mcpCommands(program: Command): void {
               name: 'ISC Channels',
               mimeType: 'application/json',
               description: 'List of all joined semantic channels',
+            },
+            {
+              uri: 'isc://peers',
+              name: 'ISC Peers',
+              mimeType: 'application/json',
+              description: 'List of discovered peer matches in the semantic network',
             },
           ],
         }));
@@ -128,6 +134,18 @@ export function mcpCommands(program: Command): void {
             };
           }
 
+          if (uri === 'isc://peers') {
+            return {
+              contents: [
+                {
+                  uri,
+                  mimeType: 'application/json',
+                  text: JSON.stringify(network.getMatches(), null, 2),
+                },
+              ],
+            };
+          }
+
           if (uri.startsWith('isc://posts/')) {
             const channelId = uri.split('/').pop() || '';
             const posts = network.getPosts(channelId);
@@ -154,6 +172,17 @@ export function mcpCommands(program: Command): void {
               inputSchema: { type: 'object', properties: {} },
             },
             {
+              name: 'update_identity',
+              description: 'Update the current user identity name and bio',
+              inputSchema: {
+                type: 'object',
+                properties: {
+                  name: { type: 'string', description: 'New name for the identity' },
+                  bio: { type: 'string', description: 'New bio/description for the identity' },
+                },
+              },
+            },
+            {
               name: 'create_channel',
               description: 'Create a new semantic channel with a given name and description',
               inputSchema: {
@@ -161,8 +190,58 @@ export function mcpCommands(program: Command): void {
                 properties: {
                   name: { type: 'string', description: 'Name of the channel' },
                   description: { type: 'string', description: 'Semantic description used for vector placement in the network' },
+                  relations: {
+                    type: 'array',
+                    description: 'Optional semantic relations to other topics or objects',
+                    items: {
+                      type: 'object',
+                      properties: {
+                        tag: { type: 'string' },
+                        object: { type: 'string' },
+                        weight: { type: 'number' },
+                      },
+                      required: ['tag', 'object'],
+                    },
+                  },
                 },
                 required: ['name', 'description'],
+              },
+            },
+            {
+              name: 'update_channel',
+              description: 'Update an existing channel name, description, or relations',
+              inputSchema: {
+                type: 'object',
+                properties: {
+                  channelId: { type: 'string', description: 'ID of the channel to update' },
+                  name: { type: 'string', description: 'New name for the channel' },
+                  description: { type: 'string', description: 'New semantic description for the channel' },
+                  relations: {
+                    type: 'array',
+                    description: 'Updated semantic relations',
+                    items: {
+                      type: 'object',
+                      properties: {
+                        tag: { type: 'string' },
+                        object: { type: 'string' },
+                        weight: { type: 'number' },
+                      },
+                      required: ['tag', 'object'],
+                    },
+                  },
+                },
+                required: ['channelId'],
+              },
+            },
+            {
+              name: 'delete_channel',
+              description: 'Delete a channel and its associated posts',
+              inputSchema: {
+                type: 'object',
+                properties: {
+                  channelId: { type: 'string', description: 'ID of the channel to delete' },
+                },
+                required: ['channelId'],
               },
             },
             {
@@ -178,6 +257,40 @@ export function mcpCommands(program: Command): void {
               },
             },
             {
+              name: 'delete_post',
+              description: 'Delete a post by ID',
+              inputSchema: {
+                type: 'object',
+                properties: {
+                  postId: { type: 'string', description: 'ID of the post to delete' },
+                },
+                required: ['postId'],
+              },
+            },
+            {
+              name: 'like_post',
+              description: 'Like a post by ID',
+              inputSchema: {
+                type: 'object',
+                properties: {
+                  postId: { type: 'string', description: 'ID of the post to like' },
+                },
+                required: ['postId'],
+              },
+            },
+            {
+              name: 'set_channel_lurk_mode',
+              description: 'Set whether a channel is in lurk mode (lurker channels do not affect your semantic position)',
+              inputSchema: {
+                type: 'object',
+                properties: {
+                  channelId: { type: 'string', description: 'ID of the channel' },
+                  isLurker: { type: 'boolean', description: 'Whether the channel should be in lurk mode' },
+                },
+                required: ['channelId', 'isLurker'],
+              },
+            },
+            {
               name: 'query_peers',
               description: 'Discover peers on the network with matching semantic interests',
               inputSchema: {
@@ -186,6 +299,11 @@ export function mcpCommands(program: Command): void {
                   threshold: { type: 'number', description: 'Similarity threshold (0.0 to 1.0)', default: 0.4 },
                 },
               },
+            },
+            {
+              name: 'clear_cache',
+              description: 'Clear all locally cached channels, posts, and peer matches',
+              inputSchema: { type: 'object', properties: {} },
             },
             {
               name: 'fetch_posts',
@@ -210,13 +328,42 @@ export function mcpCommands(program: Command): void {
                 content: [{ type: 'text', text: JSON.stringify(network.getIdentity(), null, 2) }],
               };
             }
+            case 'update_identity': {
+              await network.updateIdentity({
+                name: args?.name as string,
+                bio: args?.bio as string,
+              });
+              return {
+                content: [{ type: 'text', text: 'Identity updated successfully' }],
+              };
+            }
             case 'create_channel': {
               const channel = await network.createChannel(
                 args?.name as string,
-                args?.description as string
+                args?.description as string,
+                { relations: args?.relations as any }
               );
               return {
                 content: [{ type: 'text', text: `Channel created: ${channel.id} (${channel.name})` }],
+              };
+            }
+            case 'update_channel': {
+              const channel = await network.updateChannel(
+                args?.channelId as string,
+                {
+                  name: args?.name as string,
+                  description: args?.description as string,
+                  relations: args?.relations as any,
+                }
+              );
+              return {
+                content: [{ type: 'text', text: `Channel updated: ${channel.id}` }],
+              };
+            }
+            case 'delete_channel': {
+              await network.deleteChannel(args?.channelId as string);
+              return {
+                content: [{ type: 'text', text: `Channel deleted: ${args?.channelId}` }],
               };
             }
             case 'create_post': {
@@ -228,10 +375,37 @@ export function mcpCommands(program: Command): void {
                 content: [{ type: 'text', text: `Post created: ${post.id}` }],
               };
             }
+            case 'delete_post': {
+              await network.deletePost(args?.postId as string);
+              return {
+                content: [{ type: 'text', text: `Post deleted: ${args?.postId}` }],
+              };
+            }
+            case 'like_post': {
+              await network.likePost(args?.postId as string);
+              return {
+                content: [{ type: 'text', text: `Post liked: ${args?.postId}` }],
+              };
+            }
+            case 'set_channel_lurk_mode': {
+              await network.setChannelLurkMode(
+                args?.channelId as string,
+                args?.isLurker as boolean
+              );
+              return {
+                content: [{ type: 'text', text: `Lurk mode for channel ${args?.channelId} set to ${args?.isLurker}` }],
+              };
+            }
             case 'query_peers': {
               const matches = await network.discoverPeers();
               return {
                 content: [{ type: 'text', text: JSON.stringify(matches, null, 2) }],
+              };
+            }
+            case 'clear_cache': {
+              await network.clearCache();
+              return {
+                content: [{ type: 'text', text: 'Cache cleared successfully' }],
               };
             }
             case 'fetch_posts': {
@@ -264,12 +438,30 @@ export function mcpCommands(program: Command): void {
                 },
               ],
             },
+            {
+              name: 'setup_profile',
+              description: 'Guide for setting up or updating your ISC identity and bio',
+              arguments: [
+                {
+                  name: 'name',
+                  description: 'Desired display name',
+                  required: false,
+                },
+                {
+                  name: 'bio',
+                  description: 'A description of your interests, which will be used for semantic positioning in the network',
+                  required: false,
+                },
+              ],
+            },
           ],
         }));
 
         server.setRequestHandler(GetPromptRequestSchema, async (request) => {
-          if (request.params.name === 'semantic_search') {
-            const query = request.params.arguments?.query;
+          const { name, arguments: args } = request.params;
+
+          if (name === 'semantic_search') {
+            const query = args?.query;
             return {
               messages: [
                 {
@@ -277,19 +469,49 @@ export function mcpCommands(program: Command): void {
                   content: {
                     type: 'text',
                     text: `I am looking for content on the ISC network related to: "${query}".
-Please use the 'create_channel' tool with a descriptive name and semantic description based on this query to explore the network, then 'fetch_posts' to see the messages in that semantic neighborhood.`,
+
+Instructions:
+1. Use 'create_channel' to create a semantic entry point for this query. Provide a clear name and a detailed description that captures the essence of what you're looking for.
+2. Once the channel is created, use 'fetch_posts' with the new channel ID to discover existing content in that semantic neighborhood.
+3. You can also use 'query_peers' to find other users with similar interests.
+4. If you find relevant posts, you can 'like_post' or reply by using 'create_post'.`,
                   },
                 },
               ],
             };
           }
-          throw new McpError(ErrorCode.MethodNotFound, `Unknown prompt: ${request.params.name}`);
+
+          if (name === 'setup_profile') {
+            const userName = args?.name || 'an AI agent';
+            const userBio = args?.bio || 'interested in semantic collaboration and distributed intelligence';
+            return {
+              messages: [
+                {
+                  role: 'user',
+                  content: {
+                    type: 'text',
+                    text: `I want to set up my ISC identity. My name is "${userName}" and my interests are: "${userBio}".
+
+Instructions:
+1. Use 'update_identity' with the provided name and bio.
+2. Your bio is crucial because it determines your position in the semantic space of the network, allowing you to discover like-minded peers.
+3. After updating, use 'get_identity' to verify your profile.
+4. You can then use 'query_peers' to see who is nearby in the semantic network.`,
+                  },
+                },
+              ],
+            };
+          }
+
+          throw new McpError(ErrorCode.MethodNotFound, `Unknown prompt: ${name}`);
         });
 
-        const transport = new StdioServerTransport();
         await server.connect(transport);
-
         console.info('MCP server connected to transport');
+
+        console.info('Initializing ISC Network...');
+        await network.initialize();
+        console.info('ISC Network initialized');
       } catch (error) {
         console.error('Failed to start MCP server:', error);
         process.exit(1);
