@@ -20,7 +20,9 @@
   "dependencies": {
     "@isc/adapters": "workspace:*",
     "@isc/core": "workspace:*",
+    "@isc/network": "workspace:^",
     "@isc/protocol": "workspace:*",
+    "@modelcontextprotocol/sdk": "^1.29.0",
     "commander": "^11.1.0"
   },
   "devDependencies": {
