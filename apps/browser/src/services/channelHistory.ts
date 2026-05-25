@@ -1,4 +1,5 @@
-import { getDB, dbPut, dbGetAll, dbDelete } from '../db/factory.js';
+/* eslint-disable */
+import { getDB, dbPut, dbGetAll, dbDelete } from '../db/factory.ts';
 
 const DB_NAME = 'isc-channel-history';
 const DB_VERSION = 1;

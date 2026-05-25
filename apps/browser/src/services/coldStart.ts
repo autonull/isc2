@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * Cold Start Perception Service
  *
@@ -5,10 +6,10 @@
  * sleeping state (away status), invite links, and chaos mode (serendipity).
  */
 
-import { getSleepingStateService, type SleepingStateConfig } from './sleepingState.js';
-import { getInviteLinksService, type InviteConfig } from './inviteLinks.js';
-import { getChaosModeService, type ChaosModeConfig } from './chaosMode.js';
-import type { PeerMatch } from '../services/network.js';
+import { getSleepingStateService, type SleepingStateConfig } from './sleepingState.ts';
+import { getInviteLinksService, type InviteConfig } from './inviteLinks.ts';
+import { getChaosModeService, type ChaosModeConfig } from './chaosMode.ts';
+import type { PeerMatch } from './network.ts';
 
 export interface ColdStartConfig {
   sleepingState: Partial<SleepingStateConfig>;

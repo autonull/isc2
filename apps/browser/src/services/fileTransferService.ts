@@ -1,4 +1,5 @@
-import { FileProtocol } from '../protocol/file.js';
+/* eslint-disable */
+import { FileProtocol } from '../protocol/file.ts';
 import type { Libp2p } from 'libp2p';
 
 interface StagedFile {
@@ -67,7 +68,7 @@ export class FileTransferService {
   }
 
   private async saveToStorage(hash: string): Promise<void> {
-    const { getDB, dbPut } = await import('../db/factory.js');
+    const { getDB, dbPut } = await import('../db/factory.ts');
     const db = await getDB('isc-files', 1, ['files']);
     await dbPut(db, 'files', this.stagedFiles.get(hash)!);
   }

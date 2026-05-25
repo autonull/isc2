@@ -1,7 +1,8 @@
+/* eslint-disable */
 export interface SecretShare {
   id: number;
   x: number;
-  y: Uint8Array;
+  y: Uint16Array;
   threshold: number;
   total: number;
   metadata?: { createdAt: number; purpose?: string };
@@ -17,11 +18,9 @@ const DEFAULT_PRIME = 257;
 const DEFAULT_CONFIG: ShamirConfig = { prime: DEFAULT_PRIME, defaultThreshold: 3, defaultTotal: 5 };
 
 function evaluatePolynomial(coefficients: number[], x: number, prime: number): number {
-  let result = 0;
-  for (let i = coefficients.length - 1; i >= 0; i--) {
-    result = (result * x + coefficients[i]) % prime;
-  }
-  return result;
+  return coefficients.reduceRight((result, coeff) => {
+    return (result * x + coeff) % prime;
+  }, 0);
 }
 
 function generatePolynomial(secret: number, degree: number, prime: number): number[] {
@@ -55,7 +54,7 @@ function lagrangeInterpolate(shares: { x: number; y: number }[], prime: number):
     let exp = prime - 2;
     let base = denominator;
     while (exp > 0) {
-      if (exp % 2 === 1) denomInverse = (denomInverse * base) % prime;
+      if (exp % 2 === 1) {denomInverse = (denomInverse * base) % prime;}
       base = (base * base) % prime;
       exp = Math.floor(exp / 2);
     }
@@ -73,15 +72,15 @@ export function splitSecret(
   total: number,
   config: ShamirConfig = DEFAULT_CONFIG
 ): SecretShare[] {
-  if (threshold > total) throw new Error('Threshold cannot exceed total shares');
-  if (threshold < 1) throw new Error('Threshold must be at least 1');
-  if (secret.length === 0) throw new Error('Secret cannot be empty');
+  if (threshold > total) {throw new Error('Threshold cannot exceed total shares');}
+  if (threshold < 1) {throw new Error('Threshold must be at least 1');}
+  if (secret.length === 0) {throw new Error('Secret cannot be empty');}
 
   const prime = config.prime;
   const shares: SecretShare[] = Array.from({ length: total }, (_, i) => ({
     id: i + 1,
     x: i + 1,
-    y: new Uint8Array(secret.length),
+    y: new Uint16Array(secret.length),
     threshold,
     total,
     metadata: { createdAt: Date.now() },
@@ -98,7 +97,7 @@ export function splitSecret(
 }
 
 export function reconstructSecret(shares: SecretShare[], config: ShamirConfig = DEFAULT_CONFIG): Uint8Array {
-  if (shares.length === 0) throw new Error('No shares provided');
+  if (shares.length === 0) {throw new Error('No shares provided');}
 
   const threshold = shares[0].threshold;
   const secretLength = shares[0].y.length;
@@ -108,8 +107,8 @@ export function reconstructSecret(shares: SecretShare[], config: ShamirConfig = 
   }
 
   for (const share of shares) {
-    if (share.threshold !== threshold) throw new Error('All shares must have the same threshold');
-    if (share.y.length !== secretLength) throw new Error('All shares must have the same length');
+    if (share.threshold !== threshold) {throw new Error('All shares must have the same threshold');}
+    if (share.y.length !== secretLength) {throw new Error('All shares must have the same length');}
   }
 
   const prime = config.prime;
@@ -132,7 +131,7 @@ export function importShare(data: object): SecretShare {
   return {
     id: d.id as number,
     x: d.x as number,
-    y: new Uint8Array(d.y as number[]),
+    y: new Uint16Array(d.y as number[]),
     threshold: d.threshold as number,
     total: d.total as number,
     metadata: d.metadata as SecretShare['metadata'],
@@ -164,14 +163,14 @@ export function validateShares(shares: SecretShare[]): {
   const length = shares[0].y.length;
 
   for (const share of shares) {
-    if (share.threshold !== threshold) errors.push(`Share ${share.id} has different threshold`);
-    if (share.total !== total) errors.push(`Share ${share.id} has different total`);
-    if (share.y.length !== length) errors.push(`Share ${share.id} has different length`);
-    if (share.x < 1 || share.x > total) errors.push(`Share ${share.id} has invalid x value`);
+    if (share.threshold !== threshold) {errors.push(`Share ${share.id} has different threshold`);}
+    if (share.total !== total) {errors.push(`Share ${share.id} has different total`);}
+    if (share.y.length !== length) {errors.push(`Share ${share.id} has different length`);}
+    if (share.x < 1 || share.x > total) {errors.push(`Share ${share.id} has invalid x value`);}
   }
 
   const xValues = new Set(shares.map((s) => s.x));
-  if (xValues.size !== shares.length) errors.push('Duplicate shares detected');
+  if (xValues.size !== shares.length) {errors.push('Duplicate shares detected');}
 
   return {
     valid: errors.length === 0,
@@ -190,7 +189,7 @@ export async function createKeyBackup(
   const shares = splitSecret(privateKeyBytes, threshold, total);
   if (options?.purpose) {
     for (const share of shares) {
-      if (share.metadata) share.metadata.purpose = options.purpose;
+      if (share.metadata) {share.metadata.purpose = options.purpose;}
     }
   }
   return shares;

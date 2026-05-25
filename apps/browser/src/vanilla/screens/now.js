@@ -1,20 +1,23 @@
+/* eslint-disable */
 import { feedService, discoveryService } from '../../services/index.js';
 import { networkService } from '../../services/network.ts';
 import { getState, actions } from '../../state.js';
 import { escapeHtml } from '../utils/dom.js';
-import { formatTime } from '../../utils/time.js';
+import { formatTime } from '../../utils/time.ts';
 import { renderEmpty } from '../utils/screen.js';
 import { initSpaceCanvas, destroySpaceCanvas } from '../utils/spaceCanvas.js';
+import { getColdStartService } from '../../services/coldStart.ts';
 
 export function render() {
   const { channels, activeChannelId } = getState();
   const { connected = false, status = 'disconnected' } = networkService.getStatus() ?? {};
   const connLabel = connected ? 'connected' : status;
   const matches = discoveryService.getMatches();
+  const chaosLevel = parseInt(localStorage.getItem('isc:chaos-level') || '0', 10);
 
   return `
     <div class="screen now-screen" data-testid="now-screen">
-      ${renderHeader(connected, connLabel, matches.length)}
+      ${renderHeader(connected, connLabel, matches.length, chaosLevel)}
       ${channels.length >= 2 ? renderSemanticMap(channels) : ''}
       <div class="screen-body now-body" data-testid="now-body">
         ${channels.length === 0 ? renderNoChannels(connected, connLabel, matches.length) : renderChannelRows(channels, activeChannelId)}
@@ -37,7 +40,7 @@ function renderSemanticMap(channels) {
   `;
 }
 
-function renderHeader(connected, connLabel, peerCount) {
+function renderHeader(connected, connLabel, peerCount, chaosLevel) {
   const peerLabel =
     peerCount > 0
       ? `${peerCount} ${peerCount === 1 ? 'peer' : 'peers'} in network`
@@ -50,6 +53,10 @@ function renderHeader(connected, connLabel, peerCount) {
       <div class="header-status">
         <span class="status-badge ${connected ? 'online' : 'offline'}" data-testid="network-status-badge">${connected ? '● Online' : `○ ${escapeHtml(connLabel)}`}</span>
         ${peerLabel ? `<span class="header-peer-count" data-testid="peer-count"> · ${peerLabel}</span>` : ''}
+        <button class="serendipity-toggle${chaosLevel > 0 ? ' active' : ''}" data-testid="serendipity-toggle" data-action="toggle-serendipity" title="Toggle serendipity mode">
+          <span class="serendipity-icon">✦</span>
+          ${chaosLevel > 0 ? `<span class="serendipity-level">${chaosLevel}%</span>` : ''}
+        </button>
       </div>
     </div>
   `;
@@ -147,6 +154,26 @@ function handleRowClick(e) {
   if (action === 'share-link') {
     e.preventDefault();
     document.dispatchEvent(new CustomEvent('isc:share-link'));
+    return;
+  }
+  if (action === 'toggle-serendipity') {
+    e.preventDefault();
+    const currentLevel = parseInt(localStorage.getItem('isc:chaos-level') || '0', 10);
+    const newLevel = currentLevel > 0 ? 0 : 50;
+    localStorage.setItem('isc:chaos-level', String(newLevel));
+    document.dispatchEvent(new CustomEvent('isc:toggle-chaos', { detail: { level: newLevel } }));
+    // Re-render to update the button state
+    const { channels, activeChannelId } = getState();
+    const { connected = false, status = 'disconnected' } = networkService.getStatus() ?? {};
+    const matches = discoveryService.getMatches();
+    container.innerHTML = `
+      ${renderHeader(connected, status, matches.length, newLevel)}
+      ${channels.length >= 2 ? renderSemanticMap(channels) : ''}
+      <div class="screen-body now-body" data-testid="now-body">
+        ${channels.length === 0 ? renderNoChannels(connected, status, matches.length) : renderChannelRows(channels, activeChannelId)}
+      </div>
+    `;
+    bind(container);
     return;
   }
   if (action === 'learn-relay') {

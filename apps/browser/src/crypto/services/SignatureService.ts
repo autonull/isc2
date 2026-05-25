@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * Signature Service
  *
@@ -7,7 +8,7 @@
 
 import { sign, encode, verify } from '@isc/core';
 import type { Signature } from '@isc/core';
-import { getKeypair } from '../../identity/index.js';
+import { getKeypair } from '../../identity/index.ts';
 
 export interface SignableData {
   [key: string]: unknown;

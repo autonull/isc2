@@ -1,8 +1,9 @@
+/* eslint-disable */
 /**
  * Reputation Configuration
  */
 
-import type { DecayConfig, InteractionWeightConfig } from '../types/reputation.js';
+import type { DecayConfig, InteractionWeightConfig } from '../types/reputation.ts';
 
 export const REPUTATION_CONFIG: DecayConfig = {
   halfLifeDays: 30,

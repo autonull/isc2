@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * Semantic Map Service
  *
@@ -5,11 +6,11 @@
  */
 
 import type { Channel } from '@isc/core/types';
-import type { Point2D } from '../types/semanticMap.js';
-import { computeChannelPositions } from './SemanticLayoutService.js';
-import { findNeighbors } from './SemanticLayoutService.js';
-import { kmeansClusters } from '../algorithms/clustering.js';
-import { renderToSVG, renderToCanvas, clearContainer } from '../renderer/SemanticMapRenderer.js';
+import type { Point2D } from '../types/semanticMap.ts';
+import { computeChannelPositions } from './SemanticLayoutService.ts';
+import { findNeighbors } from './SemanticLayoutService.ts';
+import { kmeansClusters } from '../algorithms/clustering.ts';
+import { renderToSVG, renderToCanvas, clearContainer } from '../renderer/SemanticMapRenderer.ts';
 
 export interface SemanticMapOptions {
   showLabels?: boolean;

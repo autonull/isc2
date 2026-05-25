@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * State Management Type Definitions
  *

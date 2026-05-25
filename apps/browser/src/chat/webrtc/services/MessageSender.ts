@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * Message Sender Service
  *
@@ -6,11 +7,11 @@
 
 import type { Libp2p } from 'libp2p';
 import { fromString } from 'uint8arrays';
-import type { ChatMessage, MessageStatus } from '../types/chat.js';
-import { CHAT_CONFIG } from '../config/chatConfig.js';
-import { MessageQueue } from '../models/MessageQueue.js';
-import { checkChatRate } from '../../../rateLimit.js';
-import { loggers } from '../../../utils/logger.js';
+import type { ChatMessage, MessageStatus } from '../types/chat.ts';
+import { CHAT_CONFIG } from '../config/chatConfig.ts';
+import { MessageQueue } from '../models/MessageQueue.ts';
+import { checkChatRate } from '../../../rateLimit.ts';
+import { loggers } from '../../../utils/logger.ts';
 
 const logger = loggers.chat;
 

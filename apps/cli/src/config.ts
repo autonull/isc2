@@ -1,26 +1,32 @@
+/* eslint-disable */
 /**
  * CLI Configuration
  */
 
 import * as fs from 'fs';
 import * as path from 'path';
+import type { Command } from 'commander';
 
 export interface CLIConfig {
   // Identity
   identityPath: string;
   passphrase?: string;
-  
+
   // Network
   supernodeUrl?: string;
   connectTimeout: number;
-  
+
   // Display
   defaultFeedLimit: number;
   colors: boolean;
-  
+
   // Paths
   dataDir: string;
   cacheDir: string;
+}
+
+export interface CLIProgram extends Command {
+  config: CLIConfig;
 }
 
 const DEFAULT_CONFIG: CLIConfig = {

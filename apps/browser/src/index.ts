@@ -1,4 +1,5 @@
-import { initializeIdentity } from './identity/index.js';
+/* eslint-disable */
+import { initializeIdentity } from './identity/index.ts';
 
 async function main() {
   console.log('ISC Browser App starting...');

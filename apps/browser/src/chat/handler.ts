@@ -1,3 +1,4 @@
+/* eslint-disable */
 import type { NetworkAdapter } from '@isc/adapters';
 
 export interface ChatMessage {

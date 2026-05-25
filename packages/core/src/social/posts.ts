@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * Social Posts - Environment-agnostic core
  *

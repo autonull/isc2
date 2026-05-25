@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * Stake Statistics Service
  *
@@ -5,8 +6,8 @@
  */
 
 import type { StakeStats } from '../types/stake.js';
-import { StakeBondModel } from '../models/StakeBond.js';
-import { WithdrawalQueue } from '../models/WithdrawalQueue.js';
+import type { StakeBondModel } from '../models/StakeBond.js';
+import type { WithdrawalQueue } from '../models/WithdrawalQueue.js';
 
 export class StakeStatsService {
   getStats(

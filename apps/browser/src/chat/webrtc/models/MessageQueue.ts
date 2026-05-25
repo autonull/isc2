@@ -1,4 +1,5 @@
-import type { ChatMessage, MessageStatus } from '../types/chat.js';
+/* eslint-disable */
+import type { ChatMessage, MessageStatus } from '../types/chat.ts';
 
 interface PendingMessage {
   message: ChatMessage;

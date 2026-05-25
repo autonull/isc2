@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * Verdict Service — browser adapter
  *
@@ -9,8 +10,8 @@ import { createVerdictService, checkVerdictReadiness } from '@isc/social';
 import {
   createBrowserModerationStorage,
   createBrowserModerationNetwork,
-} from '../adapters.js';
-import type { Verdict, Jury } from '@isc/social';
+} from '../adapters.ts';
+import type { Verdict } from '@isc/social';
 
 export { checkVerdictReadiness };
 

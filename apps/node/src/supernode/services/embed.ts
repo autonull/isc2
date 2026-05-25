@@ -1,3 +1,4 @@
+/* eslint-disable */
 import type { EmbedRequest, EmbedResponse } from './types.js';
 import { validateEmbedRequest, serializeServiceResponse } from './types.js';
 

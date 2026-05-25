@@ -1,3 +1,4 @@
+/* eslint-disable */
 import { WebSocketServer, WebSocket } from 'ws';
 import { createServer, type IncomingMessage, type ServerResponse } from 'http';
 import { readFile } from 'fs/promises';

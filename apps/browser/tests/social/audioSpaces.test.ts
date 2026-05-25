@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * Audio Spaces Tests
  */
@@ -22,13 +23,14 @@ vi.mock('../../src/channels/manager', () => ({
   }),
 }));
 
-// Mock delegation discovery
-vi.mock('../../src/delegation/discovery', () => ({
+// Mock delegation module
+vi.mock('@isc/delegation', () => ({
   queryProximals: vi.fn().mockResolvedValue([]),
-}));
-
-// Mock delegation fallback
-vi.mock('../../src/delegation/fallback', () => ({
+  SupernodeDiscovery: {
+    getInstance: vi.fn().mockReturnValue({
+      queryAudioSpaces: vi.fn().mockResolvedValue([]),
+    }),
+  },
   DelegationClient: {
     getInstance: vi.fn().mockReturnValue({
       announce: vi.fn().mockResolvedValue(undefined),

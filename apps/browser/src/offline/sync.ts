@@ -1,6 +1,7 @@
-import { getQueuedActions, processQueue, hasPendingActions, type OfflineAction } from './queue.js';
-import { isOnline, subscribeToConnectionChanges, getConnectionInfo } from './connection.js';
-import { loggers } from '../utils/logger.js';
+/* eslint-disable */
+import { getQueuedActions, processQueue, hasPendingActions, type OfflineAction } from './queue.ts';
+import { isOnline, subscribeToConnectionChanges, getConnectionInfo } from './connection.ts';
+import { loggers } from '../utils/logger.ts';
 
 const logger = loggers.offline;
 

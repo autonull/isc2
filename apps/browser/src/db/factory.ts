@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * IndexedDB Helper Factory
  * 

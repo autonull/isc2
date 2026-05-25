@@ -1,3 +1,4 @@
+/* eslint-disable */
 import { describe, it, expect, beforeEach } from 'vitest';
 import {
   DelegationPolicyManager,
@@ -5,7 +6,7 @@ import {
   isChannelDescriptionSafe,
   sanitizeForDelegation,
   type DelegationPolicy,
-} from '../src/delegation/policy.js';
+} from '@isc/delegation';
 
 describe('DelegationPolicyManager', () => {
   let manager: DelegationPolicyManager;

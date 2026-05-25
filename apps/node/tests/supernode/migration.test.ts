@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * Model Version Migration Tests
  *

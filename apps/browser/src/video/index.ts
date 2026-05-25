@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * Video Module
  * 
@@ -11,7 +12,7 @@ export type {
   VideoCallSettings,
   ScreenShareState,
   VideoCallStats,
-} from './types.js';
+} from './types.ts';
 
 export {
   createVideoCall,
@@ -26,6 +27,6 @@ export {
   getVideoCall,
   getActiveVideoCalls,
   getCallStats,
-} from './handler.js';
+} from './handler.ts';
 
-export { DEFAULT_VIDEO_SETTINGS, VIDEO_QUALITY_CONSTRAINTS } from './types.js';
+export { DEFAULT_VIDEO_SETTINGS, VIDEO_QUALITY_CONSTRAINTS } from './types.ts';

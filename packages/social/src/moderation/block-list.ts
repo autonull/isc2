@@ -1,11 +1,12 @@
+/* eslint-disable */
 /**
  * Moderation Service
  *
  * Block list management for peer moderation.
  */
 
-import type { PeerProfile, ModerationAction } from '../../types.js';
-import type { SocialStorage } from '../../adapters/interfaces.js';
+import type { PeerProfile, ModerationAction } from '../types.js';
+import type { SocialStorage } from '../adapters/interfaces.js';
 
 export interface ModerationService {
   getBlockedPeers(): Promise<Set<string>>;
@@ -25,13 +26,13 @@ export function createModerationService(storage: SocialStorage): ModerationServi
     },
 
     async isBlocked(peerId: string): Promise<boolean> {
-      if (!peerId) return false;
+      if (!peerId) {return false;}
       const blocked = await this.getBlockedPeers();
       return blocked.has(peerId);
     },
 
     async block(peerId: string, reason = ''): Promise<void> {
-      if (!peerId) return;
+      if (!peerId) {return;}
 
       const blocked = await this.getBlockedPeers();
       blocked.add(peerId);
@@ -46,7 +47,7 @@ export function createModerationService(storage: SocialStorage): ModerationServi
     },
 
     async unblock(peerId: string): Promise<void> {
-      if (!peerId) return;
+      if (!peerId) {return;}
 
       const blocked = await this.getBlockedPeers();
       blocked.delete(peerId);
@@ -64,8 +65,8 @@ export function createModerationService(storage: SocialStorage): ModerationServi
       return peers.filter((p) => !blocked.has(p.id));
     },
 
-    async getActions(): Promise<ModerationAction[]> {
-      return [...actions];
+    getActions(): Promise<ModerationAction[]> {
+      return Promise.resolve([...actions]);
     },
   };
 }

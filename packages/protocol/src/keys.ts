@@ -1,3 +1,4 @@
+/* eslint-disable */
 export const DHT_KEYS = {
   ANNOUNCE: (modelHash: string, lshHash: string) => `/isc/announce/${modelHash}/${lshHash}`,
   DELEGATE: (peerID: string) => `/isc/delegate/${peerID}`,

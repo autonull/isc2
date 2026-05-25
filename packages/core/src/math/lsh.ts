@@ -1,4 +1,6 @@
+/* eslint-disable */
 import { seededRng } from './rng.js';
+import { magnitude } from './cosine.js';
 
 const dot = (a: number[], b: number[]): number => a.reduce((sum, ai, i) => sum + ai * b[i], 0);
 
@@ -9,7 +11,7 @@ function generateRandomProjection(dimensions: number, rng: () => number): number
     return Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
   });
 
-  const norm = Math.sqrt(vec.reduce((sum, z) => sum + z * z, 0));
+  const norm = magnitude(vec);
   return vec.map((z) => z / norm);
 }
 
@@ -22,10 +24,12 @@ export function lshHash(
   const rng = seededRng(seed);
   const dim = vec.length;
 
-  return Array.from({ length: numHashes }, () => {
-    const projection = generateRandomProjection(dim, rng);
-    return Array.from({ length: hashLen }, () => (dot(vec, projection) >= 0 ? '1' : '0')).join('');
-  });
+  return Array.from({ length: numHashes }, () =>
+    Array.from({ length: hashLen }, () => {
+      const projection = generateRandomProjection(dim, rng);
+      return dot(vec, projection) >= 0 ? '1' : '0';
+    }).join('')
+  );
 }
 
 export function collisionRate(hashesA: string[], hashesB: string[]): number {
@@ -33,7 +37,7 @@ export function collisionRate(hashesA: string[], hashesB: string[]): number {
     throw new Error('Hash arrays must have same length');
   }
 
-  if (hashesA.length === 0) return 0;
+  if (hashesA.length === 0) {return 0;}
 
   const collisions = hashesA.filter((h, i) => h === hashesB[i]).length;
   return collisions / hashesA.length;

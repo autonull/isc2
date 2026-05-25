@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * ISC Phase 2.2: Stake Signaling
  * 

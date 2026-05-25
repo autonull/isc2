@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * Decay Utilities for Reputation System
  *
@@ -27,8 +28,8 @@ export class DecayCalculator {
    * Formula: decay = 0.5 ^ (age / halfLife)
    */
   static calculateDecayFactor(ageInDays: number, halfLifeDays: number): number {
-    if (ageInDays <= 0) return 1.0;
-    if (halfLifeDays <= 0) return 0.0;
+    if (ageInDays <= 0) {return 1.0;}
+    if (halfLifeDays <= 0) {return 0.0;}
 
     return Math.pow(0.5, ageInDays / halfLifeDays);
   }

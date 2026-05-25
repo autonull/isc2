@@ -39,6 +39,7 @@
     "reality-check": "bash scripts/reality-check.sh"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "@libp2p/interface": "^3.1.0",
     "@playwright/test": "^1.58.2",
     "@preact/preset-vite": "^2.10.3",
@@ -49,6 +50,7 @@
     "@vitest/coverage-v8": "^1.1.0",
     "eslint": "^10.0.3",
     "eslint-config-prettier": "^10.1.8",
+    "eslint-import-resolver-typescript": "^4.4.4",
     "eslint-plugin-import": "^2.32.0",
     "husky": "^8.0.3",
     "jsdom": "^28.1.0",
@@ -57,8 +59,9 @@
     "prettier": "^3.1.1",
     "turbo": "^1.11.3",
     "typescript": "^5.3.3",
+    "typescript-eslint": "^8.58.0",
     "vite-plugin-preact": "^0.2.1",
-    "vitest": "^4.1.0"
+    "vitest": "^4.1.2"
   },
   "engines": {
     "node": ">=18.0.0"
@@ -80,11 +83,13 @@
     "@libp2p/crypto": "^5.1.13",
     "@libp2p/kad-dht": "^16.1.5",
     "@libp2p/peer-id": "^6.0.4",
+    "@libp2p/ping": "^3.0.14",
     "@libp2p/websockets": "^10.1.5",
     "@libp2p/webtransport": "^6.0.14",
     "@multiformats/multiaddr": "^13.0.1",
     "concurrently": "^9.2.1",
     "libp2p": "^3.1.5",
+    "tsx": "^4.21.0",
     "uint8arrays": "^5.0.0"
   }
 }

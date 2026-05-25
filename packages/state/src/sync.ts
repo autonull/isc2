@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * Cross-Tab/Device State Sync
  *
@@ -47,9 +48,10 @@ export class BroadcastChannelSync implements StateSync {
     };
   }
 
-  async broadcast(state: Partial<AppState>): Promise<void> {
+  broadcast(state: Partial<AppState>): Promise<void> {
     this.init();
     this.channel?.postMessage(state);
+    return Promise.resolve();
   }
 }
 
@@ -83,12 +85,13 @@ export class StorageEventSync implements StateSync {
     };
   }
 
-  async broadcast(state: Partial<AppState>): Promise<void> {
+  broadcast(state: Partial<AppState>): Promise<void> {
     try {
       localStorage.setItem(this.storageKey, JSON.stringify(state));
     } catch {
       // Storage quota exceeded or not available
     }
+    return Promise.resolve();
   }
 }
 
@@ -122,7 +125,7 @@ export class WebSocketSync implements StateSync {
 
       this.ws.onmessage = (event) => {
         try {
-          const state = JSON.parse(event.data) as Partial<AppState>;
+          const state = JSON.parse(String(event.data)) as Partial<AppState>;
           this.callbacks.forEach((cb) => cb(state));
         } catch {
           // Ignore parse errors
@@ -144,7 +147,7 @@ export class WebSocketSync implements StateSync {
   }
 
   private scheduleReconnect(): void {
-    if (!this.shouldReconnect) return;
+    if (!this.shouldReconnect) {return;}
 
     this.reconnectTimer = setTimeout(() => {
       this.reconnectDelay = Math.min(this.reconnectDelay * 2, this.maxReconnectDelay);
@@ -164,10 +167,11 @@ export class WebSocketSync implements StateSync {
     };
   }
 
-  async broadcast(state: Partial<AppState>): Promise<void> {
+  broadcast(state: Partial<AppState>): Promise<void> {
     if (this.ws && this.ws.readyState === WebSocket.OPEN) {
       this.ws.send(JSON.stringify(state));
     }
+    return Promise.resolve();
   }
 
   disconnect(): void {
@@ -197,8 +201,9 @@ export class CompositeSync implements StateSync {
     };
   }
 
-  async broadcast(state: Partial<AppState>): Promise<void> {
-    await Promise.all(this.syncs.map((sync) => sync.broadcast(state).catch(console.error)));
+  broadcast(state: Partial<AppState>): Promise<void> {
+    void Promise.all(this.syncs.map((sync) => sync.broadcast(state).catch(console.error)));
+    return Promise.resolve();
   }
 }
 

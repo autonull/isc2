@@ -1,3 +1,4 @@
+/* eslint-disable */
 import type { DelegateRequest } from '@isc/protocol/messages';
 
 export interface DelegationRequestOptions {

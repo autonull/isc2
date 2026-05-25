@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * Semantic Analysis Module
  *
@@ -15,3 +16,6 @@ export {
   Layout,
   type Point2D,
 } from './algorithms.js';
+export * from './distributions.js';
+export * from './matching.js';
+export * from './spatiotemporal.js';

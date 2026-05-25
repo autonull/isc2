@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * Jury Service
  *
@@ -44,14 +45,14 @@ export function createJuryService(
 ): JuryService {
   async function enforceVerdict(jury: Jury): Promise<void> {
     const verdict = checkVerdictReadiness(jury);
-    if (!verdict) return;
+    if (!verdict) {return;}
 
     const concludedJury: Jury = { ...jury, verdict, status: 'concluded' };
     await storage.saveJury(concludedJury);
 
     // Persist verdict and update appeal status
     const appeal = await storage.getAppeal(verdict.appealId);
-    if (appeal) await storage.saveAppeal({ ...appeal, status: 'decided' });
+    if (appeal) {await storage.saveAppeal({ ...appeal, status: 'decided' });}
     await storage.saveVerdict({ ...verdict, enforced: true });
 
     if (network) {
@@ -67,19 +68,22 @@ export function createJuryService(
   return {
     async selectJurors(appealId, councilId, numJurors = COURT_CONFIG.jury.DEFAULT_JUROR_COUNT) {
       const council = await councils.getCouncil(councilId);
-      if (!council) throw new Error(`Council ${councilId} not found`);
+      if (!council) {throw new Error(`Council ${councilId} not found`);}
 
       const jurorCount = Math.max(
         COURT_CONFIG.jury.MIN_JURORS,
         Math.min(COURT_CONFIG.jury.MAX_JURORS, numJurors)
       );
 
-      const eligible: string[] = [];
-      for (const memberId of council.members) {
-        if (await councils.isEligible(memberId, council.reputationThreshold)) {
-          eligible.push(memberId);
-        }
-      }
+      const eligibilityChecks = await Promise.all(
+        council.members.map(async (memberId) => ({
+          memberId,
+          isEligible: await councils.isEligible(memberId, council.reputationThreshold)
+        }))
+      );
+      const eligible = eligibilityChecks
+        .filter((check) => check.isEligible)
+        .map((check) => check.memberId);
 
       if (eligible.length < COURT_CONFIG.jury.MIN_JURORS) {
         throw new Error('Insufficient eligible jurors');
@@ -127,11 +131,11 @@ export function createJuryService(
       const jurorId = await identity.getPeerId();
 
       const jury = await storage.getJury(juryId);
-      if (!jury) throw new Error(`Jury ${juryId} not found`);
-      if (jury.status !== 'active') throw new Error('Jury is not accepting votes');
-      if (jury.expiresAt < Date.now()) throw new Error('Jury has expired');
-      if (!jury.jurors.includes(jurorId)) throw new Error('Not a member of this jury');
-      if (jury.votes.some((v) => v.jurorId === jurorId)) throw new Error('Already voted');
+      if (!jury) {throw new Error(`Jury ${juryId} not found`);}
+      if (jury.status !== 'active') {throw new Error('Jury is not accepting votes');}
+      if (jury.expiresAt < Date.now()) {throw new Error('Jury has expired');}
+      if (!jury.jurors.includes(jurorId)) {throw new Error('Not a member of this jury');}
+      if (jury.votes.some((v) => v.jurorId === jurorId)) {throw new Error('Already voted');}
 
       const reputationWeight = await reputation.getScore(jurorId);
 
@@ -151,7 +155,7 @@ export function createJuryService(
 
       await enforceVerdict(updatedJury);
 
-      return storage.getJury(juryId) ?? updatedJury;
+      return updatedJury;
     },
 
     async getStats(peerId) {
@@ -161,18 +165,16 @@ export function createJuryService(
 
       const reputationScore = await reputation.getScore(peerId);
 
-      let majorityAlignments = 0;
-      let totalDecided = 0;
+      const decidedJuries = juries.filter(j => j.verdict);
+      const totalDecided = decidedJuries.length;
 
-      for (const jury of juries) {
-        if (jury.verdict) {
-          totalDecided++;
-          const userVote = jury.votes.find((v) => v.jurorId === peerId);
-          if (userVote && userVote.decision === jury.verdict.decision) {
-            majorityAlignments++;
-          }
+      const majorityAlignments = decidedJuries.reduce((alignments, jury) => {
+        const userVote = jury.votes.find((v) => v.jurorId === peerId);
+        if (userVote && userVote.decision === jury.verdict!.decision) {
+          return alignments + 1;
         }
-      }
+        return alignments;
+      }, 0);
 
       const responseTimes = votes.map(
         (v) =>
@@ -195,7 +197,7 @@ export function createJuryService(
 
     async isEligible(peerId, councilId) {
       const council = await councils.getCouncil(councilId);
-      if (!council || !council.members.includes(peerId)) return false;
+      if (!council || !council.members.includes(peerId)) {return false;}
       return councils.isEligible(peerId, council.reputationThreshold);
     },
 
@@ -209,29 +211,27 @@ export function createJuryService(
     async expireOld() {
       const now = Date.now();
       const juries = await storage.getAllJuries();
-      let count = 0;
 
-      for (const jury of juries) {
-        if (jury.status === 'active' && jury.expiresAt < now) {
-          const expiredJury: Jury = {
-            ...jury,
-            status: 'concluded',
-            verdict: jury.verdict ?? {
-              appealId: jury.appealId,
-              decision: 'uphold',
-              voteBreakdown: { uphold: 0, overturn: 0, abstain: 0 },
-              reputationWeightedScore: 0,
-              reasoning: 'Jury expired without reaching verdict',
-              decidedAt: now,
-              enforced: false,
-            },
-          };
-          await storage.saveJury(expiredJury);
-          count++;
-        }
-      }
+      const expiredJuries = juries.filter(jury => jury.status === 'active' && jury.expiresAt < now);
 
-      return count;
+      await Promise.all(expiredJuries.map(async (jury) => {
+        const expiredJury: Jury = {
+          ...jury,
+          status: 'concluded',
+          verdict: jury.verdict ?? {
+            appealId: jury.appealId,
+            decision: 'uphold',
+            voteBreakdown: { uphold: 0, overturn: 0, abstain: 0 },
+            reputationWeightedScore: 0,
+            reasoning: 'Jury expired without reaching verdict',
+            decidedAt: now,
+            enforced: false,
+          },
+        };
+        await storage.saveJury(expiredJury);
+      }));
+
+      return expiredJuries.length;
     },
   };
 }

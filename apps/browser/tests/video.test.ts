@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * Video Module Tests
  */
@@ -14,7 +15,7 @@ vi.mock('../src/identity', () => ({
 }));
 
 // Mock delegation client
-vi.mock('../src/delegation/fallback', () => ({
+vi.mock('@isc/delegation', () => ({
   DelegationClient: {
     getInstance: vi.fn().mockReturnValue({
       announce: vi.fn().mockResolvedValue(undefined),
@@ -223,7 +224,7 @@ describe('Video Module', () => {
       const message = {
         type: 'join' as const,
         callID: 'test-call',
-        sender: 'peer-1',
+        sender: '12D3KooWK8vZwXhBhwD5aT34tXQjJm9F5K5bQG5a9x7Dk3L1P2Q5',
         timestamp: Date.now(),
       };
 

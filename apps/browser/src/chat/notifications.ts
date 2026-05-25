@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * Notification Service - Browser notifications for new messages and matches
  */

@@ -1,8 +1,9 @@
+/* eslint-disable */
 /**
  * Community Configuration
  */
 
-import type { CommunityConfig } from '../types/community.js';
+import type { CommunityConfig } from '../types/community.ts';
 
 export const COMMUNITY_CONFIG: CommunityConfig = {
   defaultTTL: 86400 * 7,

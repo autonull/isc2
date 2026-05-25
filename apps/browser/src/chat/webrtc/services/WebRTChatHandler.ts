@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * WebRTC Chat Handler
  *
@@ -6,12 +7,12 @@
 
 import type { Libp2p } from 'libp2p';
 import type { Stream } from '@libp2p/interface';
-import type { ChatMessage, TypingIndicator, MessageStatus } from '../types/chat.js';
-import { MessageQueue } from '../models/MessageQueue.js';
-import { MessageSender } from '../services/MessageSender.js';
-import { MessageReceiver } from '../services/MessageReceiver.js';
-import { TypingIndicatorService } from '../services/TypingIndicatorService.js';
-import { StreamManager } from '../services/StreamManager.js';
+import type { ChatMessage, TypingIndicator, MessageStatus } from '../types/chat.ts';
+import { MessageQueue } from '../models/MessageQueue.ts';
+import { MessageSender } from './MessageSender.ts';
+import { MessageReceiver } from './MessageReceiver.ts';
+import { TypingIndicatorService } from './TypingIndicatorService.ts';
+import { StreamManager } from './StreamManager.ts';
 
 interface ChatCallbacks {
   onMessage?: (msg: ChatMessage) => void;

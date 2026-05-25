@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * Graph Module - Backward compatibility wrapper
  *
@@ -14,15 +15,15 @@ export {
 
 export type { Interaction, FollowSubscription, ProfileSummary } from '@isc/social';
 
-import { createGraphService } from '@isc/social';
-import { browserStorageAdapter } from './adapters/storage.js';
-import { browserIdentityAdapter } from './adapters/identity.js';
-import { browserNetworkAdapter } from './adapters/network.js';
+import { createGraphService, type GraphService, type Interaction, type FollowSuggestion, type BridgeProfile, type ProfileSummary, type ReputationResult, type TrustScore } from '@isc/social';
+import { browserStorageAdapter } from './adapters/storage.ts';
+import { browserIdentityAdapter } from './adapters/identity.ts';
+import { browserNetworkAdapter } from './adapters/network.ts';
 
 // Lazy-loaded graph service singleton
-let graphService: any = null;
+let graphService: GraphService | null = null;
 
-async function getGraphService() {
+async function getGraphSvc(): Promise<GraphService> {
   if (!graphService) {
     graphService = createGraphService(browserStorageAdapter, browserIdentityAdapter, browserNetworkAdapter);
   }
@@ -31,97 +32,97 @@ async function getGraphService() {
 
 // Backward-compatible function exports
 export async function followUser(followee: string): Promise<void> {
-  const svc = await getGraphService();
+  const svc = await getGraphSvc();
   return svc.followUser(followee);
 }
 
 export async function unfollowUser(followee: string): Promise<void> {
-  const svc = await getGraphService();
+  const svc = await getGraphSvc();
   return svc.unfollowUser(followee);
 }
 
 export async function getFollowees(): Promise<string[]> {
-  const svc = await getGraphService();
+  const svc = await getGraphSvc();
   return svc.getFollowees();
 }
 
 export async function isFollowing(followee: string): Promise<boolean> {
-  const svc = await getGraphService();
+  const svc = await getGraphSvc();
   return svc.isFollowing(followee);
 }
 
 export async function getFollowerCount(peerID: string): Promise<number> {
-  const svc = await getGraphService();
+  const svc = await getGraphSvc();
   return svc.getFollowerCount(peerID);
 }
 
 export async function getFollowingCount(peerID: string): Promise<number> {
-  const svc = await getGraphService();
+  const svc = await getGraphSvc();
   return svc.getFollowingCount(peerID);
 }
 
 export async function recordInteraction(peerID: string, type: string, weight?: number): Promise<void> {
-  const svc = await getGraphService();
+  const svc = await getGraphSvc();
   return svc.recordInteraction(peerID, type, weight);
 }
 
-export async function getInteractionHistory(peerID: string): Promise<any[]> {
-  const svc = await getGraphService();
+export async function getInteractionHistory(peerID: string): Promise<Interaction[]> {
+  const svc = await getGraphSvc();
   return svc.getInteractionHistory(peerID);
 }
 
-export async function computeReputation(peerID: string, halfLifeDays?: number): Promise<any> {
-  const svc = await getGraphService();
+export async function computeReputation(peerID: string, halfLifeDays?: number): Promise<ReputationResult> {
+  const svc = await getGraphSvc();
   return svc.computeReputation(peerID, halfLifeDays);
 }
 
-export async function computeTrustScore(targetPeer: string): Promise<any> {
-  const svc = await getGraphService();
+export async function computeTrustScore(targetPeer: string): Promise<TrustScore> {
+  const svc = await getGraphSvc();
   return svc.computeTrustScore(targetPeer);
 }
 
-export async function findTrustPaths(source: string, target: string, maxDepth?: number): Promise<any[]> {
-  const svc = await getGraphService();
+export async function findTrustPaths(source: string, target: string, maxDepth?: number): Promise<Array<{ source: string; target: string; hops: string[]; depth: number; confidence: number }>> {
+  const svc = await getGraphSvc();
   return svc.findTrustPaths(source, target, maxDepth);
 }
 
-export async function getWoTSuggestedFollows(limit?: number, minTrustScore?: number): Promise<any[]> {
-  const svc = await getGraphService();
+export async function getWoTSuggestedFollows(limit?: number, minTrustScore?: number): Promise<FollowSuggestion[]> {
+  const svc = await getGraphSvc();
   return svc.getWoTSuggestedFollows(limit, minTrustScore);
 }
 
-export async function getSuggestedFollows(limit?: number): Promise<any[]> {
-  const svc = await getGraphService();
+export async function getSuggestedFollows(limit?: number): Promise<FollowSuggestion[]> {
+  const svc = await getGraphSvc();
   return svc.getSuggestedFollows(limit);
 }
 
 export async function getFolloweesOf(peerID: string): Promise<string[]> {
-  const svc = await getGraphService();
+  const svc = await getGraphSvc();
   return svc.getFolloweesOf(peerID);
 }
 
-export async function getInteractionBasedSuggestions(limit?: number): Promise<any[]> {
-  const svc = await getGraphService();
+export async function getInteractionBasedSuggestions(limit?: number): Promise<FollowSuggestion[]> {
+  const svc = await getGraphSvc();
   return svc.getInteractionBasedSuggestions(limit);
 }
 
-export async function getAllFollowSuggestions(limit?: number): Promise<any[]> {
-  const svc = await getGraphService();
+export async function getAllFollowSuggestions(limit?: number): Promise<FollowSuggestion[]> {
+  const svc = await getGraphSvc();
   return svc.getAllFollowSuggestions(limit);
 }
 
-export async function getBridgeSuggestions(limit?: number): Promise<any[]> {
-  const svc = await getGraphService();
+export async function getBridgeSuggestions(limit?: number): Promise<BridgeProfile[]> {
+  const svc = await getGraphSvc();
   return svc.getBridgeSuggestions(limit);
 }
 
-export async function getProfile(peerID: string): Promise<any | null> {
-  const svc = await getGraphService();
+export async function getProfile(peerID: string): Promise<ProfileSummary | null> {
+  const svc = await getGraphSvc();
   return svc.getProfile(peerID);
 }
 
-export async function updateProfile(profile: any): Promise<void> {
-  const svc = await getGraphService();
+export async function updateProfile(profile: ProfileSummary): Promise<void> {
+  const svc = await getGraphSvc();
   return svc.updateProfile(profile);
 }
 

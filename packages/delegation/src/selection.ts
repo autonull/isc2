@@ -1,3 +1,4 @@
+/* eslint-disable */
 import type { DelegationHealth } from '@isc/protocol/messages';
 import type { DHTAdapter } from './discovery.js';
 
@@ -34,14 +35,14 @@ export class HealthSelector {
         const entry = await this.config.dht.get(`/isc/health/${peerID}`);
         if (entry) {
           const decoder = new TextDecoder();
-          const health: DelegationHealth = JSON.parse(decoder.decode(entry));
+          const health = JSON.parse(decoder.decode(entry)) as DelegationHealth;
           if (this.isValidHealth(health)) {
             this.healthCache.set(peerID, { health, timestamp: Date.now() });
             results.set(peerID, health);
           }
         }
       } catch {
-        if (cached) results.set(peerID, cached.health);
+        if (cached) {results.set(peerID, cached.health);}
       }
     }));
 

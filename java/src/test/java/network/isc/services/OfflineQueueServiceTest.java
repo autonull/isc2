@@ -36,7 +36,7 @@ class OfflineQueueServiceTest {
     void testEnqueueAction() {
         queueService = new OfflineQueueService(storage, network, postService);
 
-        var action = OfflineAction.message("ch1", "test");
+        OfflineAction action = OfflineAction.message("ch1", "test");
         queueService.enqueueAction(action);
 
         verify(storage).enqueueAction(action);
@@ -71,7 +71,7 @@ class OfflineQueueServiceTest {
     @Test
     void testRetry_onFailure() throws Exception {
         when(network.isOnline()).thenReturn(true);
-        var action = OfflineAction.post("test", "ch1");
+        OfflineAction action = OfflineAction.post("test", "ch1");
         when(storage.getQueuedActions()).thenReturn(java.util.List.of(action));
 
         // Throw exception to trigger failure

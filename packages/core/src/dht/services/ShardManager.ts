@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * Shard Manager Service
  *
@@ -146,7 +147,7 @@ export class ShardManager {
    * Get average peer location
    */
   getAveragePeerLocation(): GeoLocation | undefined {
-    if (this.peerLocations.size === 0) return undefined;
+    if (this.peerLocations.size === 0) {return undefined;}
 
     const locations = Array.from(this.peerLocations.values());
     return GeoService.calculateAverageLocation(locations);

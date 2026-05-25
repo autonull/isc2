@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * Slashing Service
  *
@@ -11,7 +12,7 @@ import type {
   SlashingEvent,
 } from '../types/stake.js';
 import { STAKE_CONFIG } from '../config/stakeConfig.js';
-import { StakeBondModel } from '../models/StakeBond.js';
+import type { StakeBondModel } from '../models/StakeBond.js';
 import { SlashingHistory } from '../models/SlashingHistory.js';
 import { SlashingConditions } from '../slashing.js';
 

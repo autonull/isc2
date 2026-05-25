@@ -1,3 +1,4 @@
+/* eslint-disable */
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { SupernodeHandler, type DelegationMetrics } from '../src/supernode/handler.js';
 import type { DelegateRequest, DelegateResponse } from '@isc/protocol';

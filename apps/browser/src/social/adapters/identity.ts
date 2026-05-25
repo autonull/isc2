@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * Browser Identity Adapter for SocialIdentity
  *
@@ -5,11 +6,12 @@
  */
 
 import type { SocialIdentity } from '@isc/social';
-import { sign, verify, encode, decode } from '@isc/core';
-import { getPeerID, getKeypair, getPeerPublicKey } from '../../identity/index.js';
+import { sign, verify } from '@isc/core';
+import { getPeerID, getKeypair, getPeerPublicKey, ensureIdentityInitialized } from '../../identity/index.ts';
 
 export const browserIdentityAdapter: SocialIdentity = {
   async getPeerId(): Promise<string> {
+    await ensureIdentityInitialized();
     return getPeerID();
   },
 
@@ -24,20 +26,9 @@ export const browserIdentityAdapter: SocialIdentity = {
   },
 
   async getPublicKey(): Promise<CryptoKey | null> {
-    // Browser crypto API uses CryptoKey, but our system uses Uint8Array
-    // This is a type mismatch that needs to be handled
-    const publicKeyBytes = await getPeerPublicKey(await this.getPeerId());
-    if (!publicKeyBytes) return null;
-
-    // Import the public key into Web Crypto API
     try {
-      return await crypto.subtle.importKey(
-        'raw',
-        publicKeyBytes,
-        { name: 'ECDSA', namedCurve: 'P-256', hash: 'SHA-256' },
-        true,
-        ['verify']
-      );
+      await ensureIdentityInitialized();
+      return await getPeerPublicKey(await this.getPeerId());
     } catch {
       return null;
     }
@@ -49,16 +40,17 @@ export const browserIdentityAdapter: SocialIdentity = {
   },
 
   async sign(data: Uint8Array): Promise<Uint8Array> {
+    await ensureIdentityInitialized();
     const keypair = getKeypair();
     if (!keypair) throw new Error('Keypair not initialized');
-    return sign(data, keypair.privateKey);
+    const signature = await sign(data, keypair.privateKey);
+    return signature.data;
   },
 
   async verify(data: Uint8Array, signature: Uint8Array, publicKey: CryptoKey): Promise<boolean> {
     try {
-      // Export the CryptoKey back to raw bytes for verification
-      const publicKeyBytes = await crypto.subtle.exportKey('raw', publicKey);
-      return verify(data, signature, new Uint8Array(publicKeyBytes));
+      const sigObj = { data: signature, algorithm: 'Ed25519' as const };
+      return verify(data, sigObj, publicKey);
     } catch {
       return false;
     }

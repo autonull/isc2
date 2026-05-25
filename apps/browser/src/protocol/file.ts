@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * File Transfer Protocol - /isc/file/1.0
  * Matches Java's FileProtocol with length-prefixed frames

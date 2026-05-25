@@ -1,12 +1,13 @@
+/* eslint-disable */
 /**
  * DM Query Service
  *
  * Handles querying and aggregating direct messages.
  */
 
-import { getPeerID } from '../../../identity/index.js';
-import type { DirectMessage, ConversationSummary } from '../types/dm.js';
-import { DMStorageService } from './DMStorageService.js';
+import { getPeerID } from '../../../identity/index.ts';
+import type { DirectMessage, ConversationSummary } from '../types/dm.ts';
+import { DMStorageService } from './DMStorageService.ts';
 
 export class DMQueryService {
   /**

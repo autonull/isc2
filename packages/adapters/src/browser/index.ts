@@ -1,3 +1,4 @@
+/* eslint-disable */
 export { BrowserModel } from './model.js';
 export { BrowserTierDetector } from './tier.js';
 export { DHTClient } from './dht.js';

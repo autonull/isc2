@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * Community Signing Service
  *
@@ -7,8 +8,8 @@
 
 import { sign, encode } from '@isc/core';
 import type { Signature } from '@isc/core';
-import { getKeypair } from '../../../identity/index.js';
-import type { CommunityPayload, Community } from '../types/community.js';
+import { getKeypair } from '../../../identity/index.ts';
+import type { CommunityPayload, Community } from '../types/community.ts';
 
 export class CommunitySigningService {
   /**

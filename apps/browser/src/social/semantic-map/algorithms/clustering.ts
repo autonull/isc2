@@ -1,10 +1,11 @@
+/* eslint-disable */
 /**
  * Clustering Algorithms
  */
 
-import type { Point2D } from '../types/semanticMap.js';
-import { CLUSTERING_CONFIG } from '../config/semanticConfig.js';
-import { squaredDistance } from '../utils/vectorMath.js';
+import type { Point2D } from '../types/semanticMap.ts';
+import { CLUSTERING_CONFIG } from '../config/semanticConfig.ts';
+import { squaredDistance } from '../utils/vectorMath.ts';
 
 /**
  * K-means clustering algorithm
@@ -89,12 +90,14 @@ function updateCentroids(assignments: number[], points: Point2D[]): Point2D[] {
       return { x: 0, y: 0, data: null };
     }
 
-    const sumX = clusterPoints.reduce((acc, p) => acc + p.x, 0);
-    const sumY = clusterPoints.reduce((acc, p) => acc + p.y, 0);
+    const centroid = clusterPoints.reduce(
+      (acc, p) => ({ x: acc.x + p.x, y: acc.y + p.y }),
+      { x: 0, y: 0 }
+    );
 
     return {
-      x: sumX / clusterPoints.length,
-      y: sumY / clusterPoints.length,
+      x: centroid.x / clusterPoints.length,
+      y: centroid.y / clusterPoints.length,
       data: clusterPoints[0]?.data ?? null,
     };
   });

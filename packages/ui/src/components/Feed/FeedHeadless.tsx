@@ -4,7 +4,8 @@
  * Headless feed component that separates logic from presentation.
  */
 
-import { h, JSX } from 'preact';
+import type { JSX } from 'preact';
+import { h } from 'preact';
 import type { SignedPost } from '@isc/core';
 import { useFeedLogic, type UseFeedLogicOptions, type UseFeedLogicReturn } from '../../hooks/useFeedLogic.js';
 

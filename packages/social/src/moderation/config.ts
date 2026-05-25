@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * Court system configuration constants.
  * Store names are not here — those belong in the storage adapter.

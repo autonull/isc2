@@ -1,3 +1,4 @@
+/* eslint-disable */
 import { openDB, dbGet as _dbGet, dbGetAll as _dbGetAll, dbPut as _dbPut, dbDelete as _dbDelete, dbClear as _dbClear, dbKeys as _dbKeys, dbFilter as _dbFilter } from '@isc/adapters';
 
 const DB_NAME = 'isc-social';

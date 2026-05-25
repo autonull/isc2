@@ -1,4 +1,5 @@
-import type { PeerMatch } from '../services/network.js';
+/* eslint-disable */
+import type { PeerMatch } from './network.ts';
 
 export interface GhostPeer extends PeerMatch {
   isGhost: true;

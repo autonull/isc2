@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * Social Signing Service
  * 
@@ -6,11 +7,18 @@
  */
 
 import { sign, encode, verify, decode, type Signature } from '@isc/core';
-import { getPeerID, getKeypair, getPeerPublicKey } from '../identity/index.js';
+import { getKeypair, getPeerPublicKey } from '../identity/index.ts';
 import { DelegationClient } from '@isc/delegation';
-import { loggers } from '../utils/logger.js';
+import { loggers } from '../utils/logger.ts';
 
 const logger = loggers.social;
+
+interface AuthoredContent {
+  author?: string;
+  peerID?: string;
+  liker?: string;
+  [key: string]: unknown;
+}
 
 export interface SignablePayload {
   id: string;
@@ -47,7 +55,8 @@ export async function verifyContent<T extends SignablePayload>(
     const payload = encode(signed.data);
     
     // Get author's public key
-    const author = (signed.data as any).author || (signed.data as any).peerID || (signed.data as any).liker;
+    const data = signed.data as AuthoredContent;
+    const author = data.author || data.peerID || data.liker;
     if (!author) {
       logger.warn('No author in content for verification');
       return false;

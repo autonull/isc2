@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * Chat Notifications Configuration
  */

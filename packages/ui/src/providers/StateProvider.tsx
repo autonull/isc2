@@ -4,7 +4,8 @@
  * Provides state store to component tree.
  */
 
-import { h, JSX } from 'preact';
+import type { JSX } from 'preact';
+import { h } from 'preact';
 import { createContext } from 'preact';
 import type { StateStore } from '@isc/state';
 import { setStateStore } from '../hooks/useAppState.js';

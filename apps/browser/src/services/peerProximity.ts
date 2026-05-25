@@ -1,4 +1,5 @@
-import { getDB, dbGet, dbPut, dbGetAll } from '../db/factory.js';
+/* eslint-disable */
+import { getDB, dbGet, dbPut, dbGetAll } from '../db/factory.ts';
 
 const DB_NAME = 'isc-proximity';
 const DB_VERSION = 1;

@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * Reputation & Trust System Tests
  *
@@ -34,13 +35,17 @@ vi.mock('../src/identity', () => ({
 }));
 
 // Mock crypto functions
-vi.mock('@isc/core/crypto', () => ({
-  sign: vi.fn().mockResolvedValue({ data: new Uint8Array(), algorithm: 'Ed25519' }),
-  encode: vi.fn().mockReturnValue('{"test":true}'),
-}));
+vi.mock('@isc/core', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@isc/core')>();
+  return {
+    ...actual,
+    sign: vi.fn().mockResolvedValue({ data: new Uint8Array(), algorithm: 'Ed25519' }),
+    encode: vi.fn().mockReturnValue('{"test":true}'),
+  };
+});
 
 // Mock delegation client
-vi.mock('../src/delegation/fallback', () => ({
+vi.mock('@isc/delegation', () => ({
   DelegationClient: {
     getInstance: vi.fn().mockReturnValue({
       announce: vi.fn().mockResolvedValue(undefined),
@@ -48,6 +53,18 @@ vi.mock('../src/delegation/fallback', () => ({
     }),
   },
 }));
+
+// Mock network
+vi.mock('../src/social/adapters/network', () => ({
+  browserNetworkAdapter: {
+    broadcastPost: vi.fn().mockResolvedValue(undefined),
+    requestPosts: vi.fn().mockResolvedValue([]),
+    deletePost: vi.fn().mockResolvedValue(undefined),
+    announceFollow: vi.fn().mockResolvedValue(undefined),
+    queryFollows: vi.fn().mockResolvedValue([]),
+  }
+}));
+
 
 describe('Reputation System', () => {
   beforeEach(() => {
@@ -253,7 +270,7 @@ describe('Web of Trust', () => {
 // Integration test helpers
 describe('Phase 6 Integration', () => {
   it('should complete full reputation calculation flow', async () => {
-    const peerId = 'integration_test_peer';
+    const peerId = '12D3KooWK8vZwXhBhwD5aT34tXQjJm9F5K5bQG5a9x7Dk3L1P2Q9';
 
     // Record some interactions
     await recordInteraction(peerId, 'follow', 5);

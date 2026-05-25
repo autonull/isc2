@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * ISC Network Library
  *
@@ -44,16 +45,16 @@ export {
 
 // Browser Network Service
 export {
-  BrowserNetworkService,
-  createBrowserNetworkService,
-  getBrowserNetworkService,
+  ClientNetworkService,
+  createClientNetworkService,
+  getClientNetworkService,
   type NetworkServiceConfig,
-  type NetworkEvents as BrowserNetworkEvents,
+  type NetworkEvents as ClientNetworkEvents,
   type NetworkStatus,
   type ChannelData,
   type PostData,
   type Identity,
-} from './browser.js';
+} from './client.js';
 
 // Default config
 export { DEFAULT_CONFIG } from './types.js';

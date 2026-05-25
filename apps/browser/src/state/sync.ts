@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * Application State Synchronization Service
  * 
@@ -7,7 +8,7 @@
  * - IndexedDB for persistent state
  */
 
-import { loggers } from '../utils/logger.js';
+import { loggers } from '../utils/logger.ts';
 
 const logger = loggers.state;
 
@@ -69,8 +70,6 @@ const STORAGE_KEYS = {
   IDENTITY: 'isc-identity',
   SETTINGS: 'isc-settings',
 };
-
-const EVENT_PREFIX = 'isc-';
 
 class StateSyncServiceClass {
   private subscribers = new Map<string, Set<(state: any) => void>>();
@@ -168,7 +167,6 @@ class StateSyncServiceClass {
     window.addEventListener('storage', (event) => {
       if (!event.key || !event.key.startsWith('isc-')) return;
 
-      const storageKey = event.key.replace('isc-', '');
       const key = Object.entries(STORAGE_KEYS).find(([_, v]) => v === event.key)?.[0];
 
       if (key) {

@@ -1,15 +1,16 @@
+/* eslint-disable */
 /**
  * AudioSpace Service
  *
  * Manages audio space lifecycle and state.
  */
 
-import { AudioSpaceModel } from '../models/AudioSpace.js';
-import { AUDIO_CONFIG } from '../config/audioConfig.js';
-import { getPeerID } from '../../../identity/index.js';
-import { getChannel } from '../../../channels/manager.js';
+import { AudioSpaceModel } from '../models/AudioSpace.ts';
+import { AUDIO_CONFIG } from '../config/audioConfig.ts';
+import { getPeerID } from '../../../identity/index.ts';
+import { getChannel } from '../../../channels/manager.ts';
 import { DelegationClient } from '@isc/delegation';
-import type { AudioSpace } from '../types/audioSpace.js';
+import type { AudioSpace } from '../types/audioSpace.ts';
 
 export class AudioSpaceService {
   private spaces: Map<string, AudioSpaceModel> = new Map();

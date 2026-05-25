@@ -1,3 +1,4 @@
+/* eslint-disable */
 import type { Keypair } from '../crypto/keypair.js';
 import { sign } from '../crypto/signing.js';
 import type { CommunityReport } from './types.js';

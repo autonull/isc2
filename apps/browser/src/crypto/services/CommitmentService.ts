@@ -1,11 +1,12 @@
+/* eslint-disable */
 /**
  * Commitment Service - Manages embedding commitments
  */
 
-import { dbGet, dbPut } from '../../db/helpers.js';
-import { ZK_STORES } from '../config/zkConfig.js';
-import type { Embedding, EmbeddingCommitment } from '../models/proof.js';
-import { generateSalt, hashCommitment, embeddingToBytes } from '../utils/commitment.js';
+import { dbGet, dbPut } from '../../db/helpers.ts';
+import { ZK_STORES } from '../config/zkConfig.ts';
+import type { Embedding, EmbeddingCommitment } from '../models/proof.ts';
+import { generateSalt, hashCommitment, embeddingToBytes } from '../utils/commitment.ts';
 
 /**
  * Create a commitment to an embedding

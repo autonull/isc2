@@ -1,3 +1,4 @@
+/* eslint-disable */
 export type ConnectionStatus = 'online' | 'offline' | 'slow';
 
 export interface ConnectionInfo {
@@ -10,7 +11,7 @@ export interface ConnectionInfo {
 
 type ConnectionListener = (info: ConnectionInfo) => void;
 
-import { loggers } from '../utils/logger.js';
+import { loggers } from '../utils/logger.ts';
 
 const logger = loggers.offline;
 

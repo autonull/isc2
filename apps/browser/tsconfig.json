@@ -13,20 +13,35 @@
     "noEmit": true,
     "jsx": "react-jsx",
     "jsxImportSource": "preact",
-    "noUnusedLocals": false,
-    "noUnusedParameters": false
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noImplicitReturns": true,
+    "noFallthroughCasesInSwitch": true,
+    "baseUrl": ".",
+    "paths": {
+      "@isc/core": ["../../packages/core/src/index.ts"],
+      "@isc/core/*": ["../../packages/core/src/*"],
+      "@isc/adapters": ["../../packages/adapters/src/index.ts"],
+      "@isc/adapters/*": ["../../packages/adapters/src/*"],
+      "@isc/protocol": ["../../packages/protocol/src/index.ts"],
+      "@isc/protocol/*": ["../../packages/protocol/src/*"],
+      "@isc/state": ["../../packages/state/src/index.ts"],
+      "@isc/state/*": ["../../packages/state/src/*"],
+      "@isc/ui": ["../../packages/ui/src/index.ts"],
+      "@isc/ui/*": ["../../packages/ui/src/*"],
+      "@isc/social": ["../../packages/social/src/index.ts"],
+      "@isc/social/*": ["../../packages/social/src/*"],
+      "@isc/network": ["../../packages/network/src/index.ts"],
+      "@isc/network/*": ["../../packages/network/src/*"],
+      "@isc/delegation": ["../../packages/delegation/src/index.ts"],
+      "@isc/delegation/*": ["../../packages/delegation/src/*"]
+    }
   },
   "include": ["src/**/*"],
   "exclude": [
     "node_modules",
     "dist",
     "tests",
-    "src/social/audioSpaces.ts",
-    "src/social/communities.ts",
-    "src/social/directMessages.ts",
-    "src/social/moderation.ts",
-    "src/social/trending.ts",
-    "src/social/semanticMap.ts",
-    "src/social/thoughtBridge.ts"
+    "src/shared-workers/**/*.ts"
   ]
 }

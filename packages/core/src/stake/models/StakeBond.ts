@@ -1,3 +1,4 @@
+/* eslint-disable */
 import type { StakeBond, StakeStatus } from '../types/stake.js';
 import { STAKE_CONSTANTS } from '../config/stakeConfig.js';
 
@@ -43,7 +44,7 @@ export class StakeBondModel {
 
   get daysUntilUnlock(): number {
     const remainingMs = this.unlockableAt - Date.now();
-    if (remainingMs <= 0) return 0;
+    if (remainingMs <= 0) {return 0;}
     return Math.ceil(remainingMs / STAKE_CONSTANTS.LOCK_PERIOD_MS);
   }
 

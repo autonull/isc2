@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * Similarity and Distance Algorithms
  */

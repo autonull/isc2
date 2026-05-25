@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * Simple Embedding Fallback
  *

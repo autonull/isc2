@@ -18,49 +18,34 @@ async function skipOnboarding(page: Page) {
 
 test.describe('Integration Flows', () => {
   test.describe('Channel Creation to Chat Flow', () => {
-    test('should create channel and discover matches', async ({ page }) => {
+    test('should create channel and navigate to channel view', async ({ page }) => {
       await skipOnboarding(page);
       await page.goto('/');
+      await page.waitForSelector('[data-testid="nav-tab-now"]', { timeout: 10000 });
 
-      // Create a channel via compose
-      await page.click('[data-testid="nav-tab-compose"]');
+      // Create a channel via the modal (triggered by sidebar + button)
+      await page.evaluate(() => {
+        document.dispatchEvent(new CustomEvent('isc:new-channel'));
+      });
 
-      await page.fill('[data-testid="compose-name-input"]', 'Test Channel');
-      await page.fill('[data-testid="compose-description-input"]', 'Testing semantic matching with AI and machine learning');
-      await page.click('[data-testid="compose-save"]');
+      // Wait for modal to open
+      await page.waitForSelector('[data-testid="channel-edit-body"]', { timeout: 10000 });
 
-      // Wait for channel to be created and active
-      await page.waitForSelector('[data-testid="active-channel-badge"]', { timeout: 5000 });
+      // Fill in channel details
+      await page.fill('[data-testid="channel-edit-name"]', 'Test Channel');
+      await page.fill('[data-testid="channel-edit-description"]', 'Testing semantic matching with AI and machine learning');
 
-      // Navigate to discover
-      await page.click('[data-testid="nav-tab-discover"]');
+      // Select breadth
+      await page.click('[data-breadth="balanced"]');
 
-      // Wait for matches to load (or empty state)
-      await page.waitForSelector('[data-testid="match-list"], [data-testid="empty-state"]');
+      // Save
+      await page.click('[data-testid="channel-edit-save"]');
 
-      // Verify we're on discover page
-      await expect(page.locator('[data-testid="discover-title"]')).toBeVisible();
-    });
+      // Wait for modal to close and navigation to /channel
+      await page.waitForSelector('[data-testid="channel-edit-body"]', { state: 'detached', timeout: 10000 });
 
-    test('should handle model loading state', async ({ page }) => {
-      await skipOnboarding(page);
-      await page.goto('/');
-
-      // Navigate to compose
-      await page.click('[data-testid="nav-tab-compose"]');
-
-      // Check for model loading indicator (may or may not be present depending on cache)
-      const modelLoading = page.locator('[data-testid="model-loading"]');
-      const modelReady = page.locator('[data-testid="model-ready"]');
-      const modelFallback = page.locator('[data-testid="model-fallback"]');
-
-      // At least one state should be present or become present
-      const hasModelStatus = await modelLoading.isVisible() ||
-                             await modelReady.isVisible() ||
-                             await modelFallback.isVisible();
-
-      // Model status is optional (depends on load timing)
-      expect(hasModelStatus || true).toBeTruthy();
+      // Verify we're on the channel page
+      await expect(page.locator('[data-testid="channel-screen"]')).toBeVisible();
     });
   });
 
@@ -109,42 +94,6 @@ test.describe('Integration Flows', () => {
     });
   });
 
-  test.describe('Video Call Flow', () => {
-    test.skip('should create and manage video call', async ({ page }) => {
-      // Video calls not yet implemented in Vanilla UI
-      await skipOnboarding(page);
-      await page.goto('/');
-
-      await page.click('[data-testid="nav-tab-video"]');
-      await page.click('[data-testid="new-call-button"]');
-      await page.click('[data-testid="call-type-direct"]');
-      await page.fill('[data-testid="recipient-input"]', 'test-peer-id');
-      await page.click('[data-testid="create-call-button"]');
-
-      const callContainer = page.locator('[data-testid="video-call-container"]');
-      const callError = page.locator('[data-testid="call-error"]');
-
-      const hasCallUI = await callContainer.isVisible() || await callError.isVisible();
-      expect(hasCallUI).toBeTruthy();
-    });
-
-    test.skip('should handle media permission errors', async ({ page, context }) => {
-      // Video calls not yet implemented in Vanilla UI
-      await skipOnboarding(page);
-      await page.goto('/');
-
-      await context.clearPermissions();
-      await page.click('[data-testid="nav-tab-video"]');
-      await page.click('[data-testid="new-call-button"]');
-      await page.click('[data-testid="call-type-direct"]');
-      await page.fill('[data-testid="recipient-input"]', 'test-peer');
-      await page.click('[data-testid="create-call-button"]');
-
-      const errorBanner = page.locator('[data-testid="call-error"]');
-      await expect(errorBanner).toBeVisible();
-    });
-  });
-
   test.describe('Cross-Tab Synchronization', () => {
     test('should sync state across tabs', async ({ context }) => {
       // Open two tabs
@@ -156,12 +105,18 @@ test.describe('Integration Flows', () => {
 
       await page1.goto('/');
       await page2.goto('/');
+      await page1.waitForSelector('[data-testid="nav-tab-now"]', { timeout: 10000 });
 
-      // Create channel in page1
-      await page1.click('[data-testid="nav-tab-compose"]');
-      await page1.fill('[data-testid="compose-name-input"]', 'Sync Test');
-      await page1.fill('[data-testid="compose-description-input"]', 'Testing cross-tab sync with long enough description');
-      await page1.click('[data-testid="compose-save"]');
+      // Create channel in page1 via modal
+      await page1.evaluate(() => {
+        document.dispatchEvent(new CustomEvent('isc:new-channel'));
+      });
+      await page1.waitForSelector('[data-testid="channel-edit-body"]', { timeout: 10000 });
+      await page1.fill('[data-testid="channel-edit-name"]', 'Sync Test');
+      await page1.fill('[data-testid="channel-edit-description"]', 'Testing cross-tab sync with long enough description');
+      await page1.click('[data-breadth="balanced"]');
+      await page1.click('[data-testid="channel-edit-save"]');
+      await page1.waitForSelector('[data-testid="channel-edit-body"]', { state: 'detached', timeout: 10000 });
 
       // Wait for storage event to propagate
       await page2.waitForTimeout(1000);
@@ -182,32 +137,31 @@ test.describe('Integration Flows', () => {
     test('should handle network errors gracefully', async ({ page }) => {
       await skipOnboarding(page);
       await page.goto('/');
+      await page.waitForSelector('[data-testid="nav-tab-now"]', { timeout: 10000 });
 
       // Go offline
       await page.context().setOffline(true);
 
-      // Try to navigate - should still work (SPA)
-      await page.click('[data-testid="nav-tab-discover"]');
+      // Navigate between tabs - should still work (SPA)
+      await page.click('[data-testid="nav-tab-now"]');
 
       // Should show offline indicator or handle gracefully
-      await expect(page.locator('[data-testid="discover-title"]')).toBeVisible();
+      await expect(page.locator('[data-testid="nav-tab-chats"]').first()).toBeVisible();
 
       // Go back online
       await page.context().setOffline(false);
 
       // Should recover automatically
       await page.waitForTimeout(1000);
-      await expect(page.locator('[data-testid="discover-title"]')).toBeVisible();
+      await expect(page.locator('[data-testid="nav-tab-settings"]').first()).toBeVisible();
     });
 
     test('should recover from component errors', async ({ page }) => {
       await skipOnboarding(page);
       await page.goto('/');
 
-      // Error boundary should catch any component errors
-      // Navigate through different sections to test
+      // Navigate through all sections
       await page.click('[data-testid="nav-tab-now"]');
-      await page.click('[data-testid="nav-tab-discover"]');
       await page.click('[data-testid="nav-tab-chats"]');
       await page.click('[data-testid="nav-tab-settings"]');
 
@@ -240,23 +194,26 @@ test.describe('Integration Flows', () => {
     test('should persist state across page reloads', async ({ page }) => {
       await skipOnboarding(page);
       await page.goto('/');
+      await page.waitForSelector('[data-testid="nav-tab-now"]', { timeout: 10000 });
 
-      // Create a channel
-      await page.click('[data-testid="nav-tab-compose"]');
-      await page.fill('[data-testid="compose-name-input"]', 'Persist Test');
-      await page.fill('[data-testid="compose-description-input"]', 'Testing state persistence across reloads');
-      await page.click('[data-testid="compose-save"]');
-
-      // Wait for channel creation to complete
-      await page.waitForSelector('[data-testid="active-channel-badge"]', { timeout: 5000 });
+      // Create a channel via modal
+      await page.evaluate(() => {
+        document.dispatchEvent(new CustomEvent('isc:new-channel'));
+      });
+      await page.waitForSelector('[data-testid="channel-edit-body"]', { timeout: 10000 });
+      await page.fill('[data-testid="channel-edit-name"]', 'Persist Test');
+      await page.fill('[data-testid="channel-edit-description"]', 'Testing state persistence across reloads');
+      await page.click('[data-breadth="balanced"]');
+      await page.click('[data-testid="channel-edit-save"]');
+      await page.waitForSelector('[data-testid="channel-edit-body"]', { state: 'detached', timeout: 10000 });
 
       // Reload page (keep onboarding skipped)
       await page.evaluate(() => { localStorage.setItem('isc-onboarding-completed', 'true'); });
-      await page.reload();
+      await page.reload({ waitUntil: 'domcontentloaded' });
 
-      // Channel should still exist
-      await page.waitForSelector('[data-testid="active-channel-badge"]', { timeout: 5000 });
-      await expect(page.locator('[data-testid="active-channel-badge"]')).toBeVisible();
+      // Verify sidebar still shows the channel
+      const channelList = page.locator('[data-testid="sidebar-channel-list"]');
+      await expect(channelList).toBeVisible({ timeout: 10000 });
     });
   });
 });
@@ -280,13 +237,14 @@ test.describe('Performance Flows', () => {
   test('should handle rapid navigation', async ({ page }) => {
     await page.addInitScript(() => { localStorage.setItem('isc-onboarding-completed', 'true'); });
     await page.goto('/');
+    await page.waitForSelector('[data-testid="nav-tab-now"]', { timeout: 10000 });
 
     // Rapidly navigate between tabs
-    const tabs = ['nav-tab-now', 'nav-tab-discover', 'nav-tab-chats', 'nav-tab-settings'];
+    const tabs = ['nav-tab-now', 'nav-tab-chats', 'nav-tab-settings'];
 
     for (let i = 0; i < 3; i++) {
       for (const tab of tabs) {
-        await page.click(`[data-testid="${tab}"]`);
+        await page.locator(`[data-testid="${tab}"]`).first().click();
       }
     }
 

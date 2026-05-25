@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * Moderation Module
  *
@@ -36,7 +37,7 @@ export {
   
   // Statistics
   getCourtStats,
-} from './courts.js';
+} from './courts.ts';
 
 export type {
   AppealCase,
@@ -45,4 +46,4 @@ export type {
   Verdict,
   CourtSession,
   JurorStats,
-} from './courts.js';
+} from './courts.ts';

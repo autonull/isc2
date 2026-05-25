@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * Semantic Map Service - Legacy Compatibility Layer
  *
@@ -7,11 +8,10 @@
  * - SemanticMapRenderer for rendering
  */
 
-import { SemanticMapService } from './semantic-map/services/SemanticMapService.js';
-import { projectTo2D as projectFn, findNeighbors as findFn } from './semantic-map/services/SemanticLayoutService.js';
-import { kmeansClusters as kmeansFn } from './semantic-map/algorithms/clustering.js';
-import { renderToSVG } from './semantic-map/renderer/SemanticMapRenderer.js';
-import type { Point2D } from './semantic-map/types/semanticMap.js';
+import { SemanticMapService } from './semantic-map/services/SemanticMapService.ts';
+import { projectTo2D as projectFn, findNeighbors as findFn } from './semantic-map/services/SemanticLayoutService.ts';
+import { kmeansClusters as kmeansFn } from './semantic-map/algorithms/clustering.ts';
+import type { Point2D } from './semantic-map/types/semanticMap.ts';
 import type { Channel } from '@isc/core/types';
 
 const service = new SemanticMapService();

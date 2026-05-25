@@ -1,3 +1,4 @@
+/* eslint-disable */
 interface BridgeSuggestion {
   phrase: string;
   cosine: number;

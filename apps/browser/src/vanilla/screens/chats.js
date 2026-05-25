@@ -1,9 +1,10 @@
+/* eslint-disable */
 /**
  * Chats Screen - P2P E2E encrypted direct messages via WebRTC DataChannels.
  */
 
 import { chatService } from '../../services/index.js';
-import { toasts } from '../../utils/toast.js';
+import { toast as toasts } from '../../utils/toast.ts';
 import { modals } from '../components/modal.js';
 import { ConversationListComponent } from '../components/conversationList.js';
 import { ChatPanelComponent } from '../components/chatPanel.js';

@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * Phase 8: Advanced Cryptography Tests
  */

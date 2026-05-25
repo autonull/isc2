@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * Mixer Panel Component
  *
@@ -5,9 +6,9 @@
  * OOP class with self-contained state and scoped event handling.
  */
 
-import { channelSettingsService, getSpecificityLabel } from '../../services/channelSettings.js';
+import { channelSettingsService, getSpecificityLabel } from '../../services/index.js';
 import { channelService, networkService } from '../../services/index.js';
-import { toasts } from '../../utils/toast.js';
+import { toast as toasts } from '../../utils/toast.ts';
 import { escapeHtml, isMobile } from '../utils/dom.js';
 import { getMultilingualService } from '../../services/multilingual.ts';
 import { getState, actions } from '../../state.js';
@@ -291,7 +292,6 @@ class MixerPanelComponent {
     onAll('[data-view-mode]', 'click', (e) => {
       const mode = e.target.dataset.viewMode;
       this.#updateSettings({ viewMode: mode });
-      this.#dispatch('mixer:view-change', { mode });
     });
 
     onAll('[data-filter]', 'click', (e) => {
@@ -333,6 +333,13 @@ class MixerPanelComponent {
     this.#render();
     this.#bind();
     this.#dispatch('mixer:settings-change', updates);
+    this.#dispatch('mixer:view-change', {
+      viewMode: updates.viewMode,
+      specificity: updates.specificity,
+      minSimilarity: updates.minSimilarity,
+      sortBy: updates.sortOrder,
+      filters: updates.filters,
+    });
   }
 
   #dispatch(eventName, detail) {

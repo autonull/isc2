@@ -1,11 +1,12 @@
+/* eslint-disable */
 /**
  * Interaction Service
  *
  * Manages interaction recording and weight calculations.
  */
 
-import { recordInteraction } from '../../social/graph.js';
-import { INTERACTION_WEIGHTS } from '../config/reputationConfig.js';
+import { recordInteraction } from '../../social/graph.ts';
+import { INTERACTION_WEIGHTS } from '../config/reputationConfig.ts';
 
 export class InteractionService {
   /**

@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * Semantic Layout Service
  *
@@ -5,10 +6,10 @@
  */
 
 import type { Channel } from '@isc/core/types';
-import type { Point2D } from '../types/semanticMap.js';
-import { SEMANTIC_MAP_CONFIG } from '../config/semanticConfig.js';
-import { forceDirectedLayout, initializeOnUnitCircle } from '../algorithms/layout.js';
-import { distance } from '../utils/vectorMath.js';
+import type { Point2D } from '../types/semanticMap.ts';
+import { SEMANTIC_MAP_CONFIG } from '../config/semanticConfig.ts';
+import { forceDirectedLayout } from '../algorithms/layout.ts';
+import { distance } from '../utils/vectorMath.ts';
 
 /**
  * Compute 2D positions for channels

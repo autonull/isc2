@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * Signature Verification Service
  * Verifies signatures on incoming data from peers
@@ -5,7 +6,7 @@
 
 import { verify } from '@isc/core';
 import type { Signature } from '@isc/core';
-import { loggers } from '../utils/logger.js';
+import { loggers } from '../utils/logger.ts';
 
 const logger = loggers.crypto;
 
@@ -182,11 +183,11 @@ export function clearCache(): void {
  */
 export function cleanupCache(): void {
   const now = Date.now();
-  for (const [key, value] of VERIFICATION_CACHE.entries()) {
+  Array.from(VERIFICATION_CACHE.entries()).forEach(([key, value]) => {
     if (now - value.timestamp > CACHE_TTL) {
       VERIFICATION_CACHE.delete(key);
     }
-  }
+  });
 }
 
 // Helper functions

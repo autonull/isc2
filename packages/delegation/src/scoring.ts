@@ -1,3 +1,4 @@
+/* eslint-disable */
 import type { DelegateCapability, DelegationHealth } from '@isc/protocol/messages';
 import { Config } from '@isc/core';
 

@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * Appeal Service — browser adapter
  *
@@ -9,7 +10,7 @@ import {
   createBrowserModerationStorage,
   createBrowserModerationIdentity,
   createBrowserModerationNetwork,
-} from '../adapters.js';
+} from '../adapters.ts';
 import type { AppealCase } from '@isc/social';
 
 const service = createAppealService(

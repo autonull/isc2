@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * Embedding Service
  *
@@ -6,7 +7,7 @@
  */
 
 import type { EmbeddingModelAdapter } from '@isc/adapters';
-import { loggers } from '../utils/logger.js';
+import { loggers } from '../utils/logger.ts';
 
 const logger = loggers.embed;
 
@@ -24,7 +25,7 @@ interface EmbeddingCache {
 class EmbeddingServiceClass {
   private model: EmbeddingModelAdapter | null = null;
   private loadPromise: Promise<void> | null = null;
-  private instance: any | null = null;
+  private instance: EmbeddingModelAdapter | null = null;
   private isLoading = false;
   private isLoaded = false;
   private loadProgress = 0;

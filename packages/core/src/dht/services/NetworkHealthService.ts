@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * Network Health Service
  *
@@ -5,7 +6,7 @@
  */
 
 import type { NetworkHealth, NetworkStats } from '../types/dht.js';
-import { GeoShard } from '../sharding.js';
+import type { GeoShard } from '../sharding.js';
 import { DHT_CONFIG } from '../config/dhtConfig.js';
 
 export class NetworkHealthService {

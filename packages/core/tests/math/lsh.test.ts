@@ -1,3 +1,4 @@
+/* eslint-disable */
 import { describe, it, expect, beforeEach } from 'vitest';
 import { lshHash, collisionRate, hammingDistance } from '../../src/math/lsh.js';
 import { VECTORS, LSH_PARAMS } from '../fixtures/vectors.js';

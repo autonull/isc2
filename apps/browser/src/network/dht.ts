@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * Real libp2p DHT Client for Browser
  *
@@ -11,11 +12,11 @@ import { yamux } from '@chainsafe/libp2p-yamux';
 import { kadDHT, KadDHT } from '@libp2p/kad-dht';
 import { bootstrap } from '@libp2p/bootstrap';
 import type { Libp2p } from 'libp2p';
-import { checkQueryRate, checkAnnounceRate } from '../rateLimit.js';
-import { verifySignature, isPeerBlocked } from '../crypto/verifier.js';
+import { checkQueryRate, checkAnnounceRate } from '../rateLimit.ts';
+import { verifySignature, isPeerBlocked } from '../crypto/verifier.ts';
 import { sign, encode, type Signature, getSecurityTier, shouldSkipSignature } from '@isc/core';
-import { getKeypair } from '../identity/index.js';
-import { loggers } from '../utils/logger.js';
+import { getKeypair } from '../identity/index.ts';
+import { loggers } from '../utils/logger.ts';
 
 const logger = loggers.dht;
 

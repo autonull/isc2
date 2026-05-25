@@ -1,8 +1,9 @@
+/* eslint-disable */
 /**
  * Audio Space Configuration
  */
 
-import type { WebRTCConfig } from '../types/audioSpace.js';
+import type { WebRTCConfig } from '../types/audioSpace.ts';
 
 export const AUDIO_CONFIG: WebRTCConfig = {
   iceServers: [

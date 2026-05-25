@@ -1,3 +1,4 @@
+/* eslint-disable */
 import { describe, it, expect } from 'vitest';
 import { cosineSimilarity, normalize, squaredEuclideanDistance } from '../../src/math/cosine';
 

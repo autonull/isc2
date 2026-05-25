@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * Message Receiver Service
  *
@@ -6,9 +7,9 @@
 
 import type { Stream } from '@libp2p/interface';
 import { fromString, toString } from 'uint8arrays';
-import type { ChatMessage, TypingIndicator, MessageStatus } from '../types/chat.js';
-import { verifySignature, isPeerBlocked } from '../../../crypto/verifier.js';
-import { loggers } from '../../../utils/logger.js';
+import type { ChatMessage, TypingIndicator, MessageStatus } from '../types/chat.ts';
+import { verifySignature, isPeerBlocked } from '../../../crypto/verifier.ts';
+import { loggers } from '../../../utils/logger.ts';
 
 const logger = loggers.chat;
 

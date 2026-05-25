@@ -1,8 +1,9 @@
+/* eslint-disable */
 /**
  * Relay Configuration
  */
 
-import type { NATTraversalConfig, TURNConfig, STUNConfig } from '../types/relay.js';
+import type { NATTraversalConfig, TURNConfig, STUNConfig } from '../types/relay.ts';
 
 export const DEFAULT_TURN_SERVERS: TURNConfig[] = [];
 

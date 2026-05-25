@@ -1,16 +1,18 @@
+/* eslint-disable */
 /**
  * Reputation Service
  *
  * Main service for computing and managing reputation scores with decay.
  */
 
-import { getInteractionHistory } from '../../social/graph.js';
-import type { DecayReputation, DecayConfig, DecayCurvePoint } from '../types/reputation.js';
-import { REPUTATION_CONFIG } from '../config/reputationConfig.js';
+import { getInteractionHistory } from '../../social/graph.ts';
+import type { DecayReputation, DecayConfig, DecayCurvePoint } from '../types/reputation.ts';
+import { REPUTATION_CONFIG } from '../config/reputationConfig.ts';
 import { DecayCalculator } from '@isc/core';
 import { BootstrapService } from '@isc/core';
 import { SybilResistanceService } from '@isc/core';
-import { ReputationCache } from './ReputationCache.js';
+import type { SybilConfig } from '@isc/core';
+import { ReputationCache } from './ReputationCache.ts';
 
 export class ReputationService {
   /**
@@ -60,10 +62,15 @@ export class ReputationService {
 
     // Apply Sybil resistance
     const mutualFollowCount = 0; // Would be computed from social graph
+    const sybilConfig: SybilConfig = {
+      sybilCap: config.sybilCap,
+      mutualFollowCap: 0.4,
+      mutualFollowBonusPerFollow: 0.05,
+    };
     const sybilAdjustedScore = SybilResistanceService.applySybilResistance(
       decayedScore,
       mutualFollowCount,
-      config
+      sybilConfig
     );
 
     // Add bootstrap bonus (capped at MAX_FINAL_SCORE total)

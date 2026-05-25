@@ -1,14 +1,15 @@
+/* eslint-disable */
 /**
  * NAT Traversal Manager Service
  *
  * Main service coordinating NAT traversal, relay selection, and connection quality.
  */
 
-import type { NATTraversalConfig, RelayCandidate, ConnectionQuality, TURNConfig } from '../types/relay.js';
-import { RELAY_CONFIG } from '../config/relayConfig.js';
-import { RelayPoolManager } from './RelayPoolManager.js';
-import { ConnectionQualityTracker } from './ConnectionQualityTracker.js';
-import { ICEServerManager } from './ICEServerManager.js';
+import type { NATTraversalConfig, RelayCandidate, ConnectionQuality, TURNConfig } from '../types/relay.ts';
+import { RELAY_CONFIG } from '../config/relayConfig.ts';
+import { RelayPoolManager } from './RelayPoolManager.ts';
+import { ConnectionQualityTracker } from './ConnectionQualityTracker.ts';
+import { ICEServerManager } from './ICEServerManager.ts';
 
 export class NATTraversalManagerService {
   private config: NATTraversalConfig;

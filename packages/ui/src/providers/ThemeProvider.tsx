@@ -4,7 +4,8 @@
  * Provides theme context to component tree.
  */
 
-import { h, JSX } from 'preact';
+import type { JSX } from 'preact';
+import { h } from 'preact';
 import { createContext } from 'preact';
 import { useTheme as useThemeHook } from '../hooks/useTheme.js';
 import type { Theme } from '../styles/index.js';

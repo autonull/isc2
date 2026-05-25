@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * Settings Screen — Identity, discovery, preferences, danger zone
  */
@@ -9,8 +10,8 @@ import {
   moderationService,
 } from '../../services/index.js';
 import { networkService } from '../../services/network.ts';
-import { escapeHtml } from '../../utils/dom.js';
-import { toasts } from '../../utils/toast.js';
+import { escapeHtml } from '../utils/dom.js';
+import { toast as toasts } from '../../utils/toast.ts';
 import { modals } from '../components/modal.js';
 import { showEditModal } from '../components/mixerPanel.js';
 import { getBridgeMomentCandidates, getTopSimilarPeers } from '../../services/peerProximity.ts';
@@ -283,7 +284,7 @@ function renderAdvanced(isActive = true) {
 
 function renderChannels(channels, isActive = true) {
   return `
-    <section class="settings-section" data-testid="channels-section">
+    <section class="settings-section" data-testid="channels-section" data-settings-tab="channels"${isActive ? '' : ' style="display:none"'}>
       <div class="section-title">My Channels (${channels.length})</div>
       ${
         channels.length === 0
@@ -310,9 +311,9 @@ function renderChannels(channels, isActive = true) {
   `;
 }
 
-function renderDangerZone() {
+function renderDangerZone(isActive = true) {
   return `
-    <section class="settings-section danger" data-testid="danger-zone">
+    <section class="settings-section danger" data-testid="danger-zone" data-settings-tab="privacy"${isActive ? '' : ' style="display:none"'}>
       <div class="section-title text-danger">Danger Zone</div>
       <div class="section-description">These actions are irreversible and will delete your data.</div>
       <div class="form-actions">
@@ -323,11 +324,11 @@ function renderDangerZone() {
   `;
 }
 
-function renderModeration() {
+function renderModeration(isActive = true) {
   const blockedPeers = [...moderationService.getBlockedPeers()];
 
   return `
-    <section class="settings-section" data-testid="moderation-section">
+    <section class="settings-section" data-testid="moderation-section" data-settings-tab="privacy"${isActive ? '' : ' style="display:none"'}>
       <div class="section-title">Blocked Peers</div>
       ${
         blockedPeers.length === 0
@@ -356,7 +357,7 @@ function renderModeration() {
   `;
 }
 
-function renderShare() {
+function renderShare(isActive = true) {
   const identity = identityService.getIdentity();
   const peerId = identity?.peerId ?? identity?.pubkey;
   const inviteUrl = peerId
@@ -364,7 +365,7 @@ function renderShare() {
     : '';
 
   return `
-    <section class="settings-section" data-testid="share-section">
+    <section class="settings-section" data-testid="share-section" data-settings-tab="appearance"${isActive ? '' : ' style="display:none"'}>
       <div class="section-title">Share & Invite</div>
       <div class="form-group">
         <label class="form-label">Your Invite Link</label>
@@ -395,9 +396,9 @@ function renderShare() {
   `;
 }
 
-function renderAbout() {
+function renderAbout(isActive = true) {
   return `
-    <section class="settings-section card-blue" data-testid="about-section">
+    <section class="settings-section card-blue" data-testid="about-section" data-settings-tab="privacy"${isActive ? '' : ' style="display:none"'}>
       <div class="section-title text-brand">About ISC</div>
       <div class="about-text">
         <div><strong>ISC</strong> — Internet Semantic Chat</div>

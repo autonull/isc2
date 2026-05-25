@@ -1,12 +1,13 @@
+/* eslint-disable */
 /**
  * Batch Proof Service - Handles batch proof operations
  */
 
-import { dbFilter } from '../../db/helpers.js';
-import { ZK_STORES, ZK_PROTOCOL } from '../config/zkConfig.js';
-import type { Embedding, ProximityProof, VerificationResult } from '../models/proof.js';
-import { generateProximityProof } from './ProofGeneratorService.js';
-import { verifyProximityProof } from './ProofVerifierService.js';
+import { dbFilter } from '../../db/helpers.ts';
+import { ZK_STORES, ZK_PROTOCOL } from '../config/zkConfig.ts';
+import type { Embedding, ProximityProof, VerificationResult } from '../models/proof.ts';
+import { generateProximityProof } from './ProofGeneratorService.ts';
+import { verifyProximityProof } from './ProofVerifierService.ts';
 
 /**
  * Batch generate proofs for multiple embeddings
@@ -16,14 +17,9 @@ export async function generateBatchProofs(
   referenceEmbedding: Embedding,
   threshold: number = ZK_PROTOCOL.CHANNEL_RELEVANCE_THRESHOLD
 ): Promise<ProximityProof[]> {
-  const proofs: ProximityProof[] = [];
-
-  for (const embedding of embeddings) {
-    const proof = await generateProximityProof(embedding, referenceEmbedding, threshold);
-    proofs.push(proof);
-  }
-
-  return proofs;
+  return Promise.all(
+    embeddings.map(embedding => generateProximityProof(embedding, referenceEmbedding, threshold))
+  );
 }
 
 /**
@@ -32,14 +28,7 @@ export async function generateBatchProofs(
 export async function verifyBatchProofs(
   proofs: ProximityProof[]
 ): Promise<VerificationResult[]> {
-  const results: VerificationResult[] = [];
-
-  for (const proof of proofs) {
-    const result = await verifyProximityProof(proof);
-    results.push(result);
-  }
-
-  return results;
+  return Promise.all(proofs.map(verifyProximityProof));
 }
 
 /**

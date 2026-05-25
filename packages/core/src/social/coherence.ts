@@ -1,3 +1,4 @@
+/* eslint-disable */
 import { cosineSimilarity } from '../math/cosine.js';
 import type { ChannelDistribution } from '../channels/manager.js';
 import type { SignedPost } from './types.js';

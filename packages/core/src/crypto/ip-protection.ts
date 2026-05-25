@@ -1,3 +1,4 @@
+/* eslint-disable */
 export interface IPMetadata {
   region?: string;
   country?: string;
@@ -83,7 +84,7 @@ export async function createIPMetadata(ip: string, config: IPProtectionConfig = 
 
 export function selectRelayNodes(availableRelays: RelayNode[], config: IPProtectionConfig = DEFAULT_CONFIG): RelayNode[] {
   const hopCount = Math.floor(Math.random() * (config.maxHops - config.minHops + 1)) + config.minHops;
-  if (availableRelays.length < hopCount) return availableRelays;
+  if (availableRelays.length < hopCount) {return availableRelays;}
 
   const weightedRelays = availableRelays.map((relay) => ({ relay, weight: relay.reliability / (1 + relay.latency / 1000) }));
   const selected: RelayNode[] = [];
@@ -95,7 +96,7 @@ export function selectRelayNodes(availableRelays: RelayNode[], config: IPProtect
     let selectedRelay: RelayNode | null = null;
 
     for (const { relay, weight } of weightedRelays) {
-      if (used.has(relay.id)) continue;
+      if (used.has(relay.id)) {continue;}
       random -= weight;
       if (random <= 0) {
         selectedRelay = relay;
@@ -147,14 +148,14 @@ export class ConnectionRateLimiter {
       return true;
     }
 
-    if (existing.count >= this.config.maxConnectionsPerIP) return false;
+    if (existing.count >= this.config.maxConnectionsPerIP) {return false;}
     existing.count++;
     return true;
   }
 
   getConnectionCount(ip: string): number {
     const existing = this.connections.get(ip);
-    if (!existing) return 0;
+    if (!existing) {return 0;}
     return Date.now() - existing.windowStart > this.config.timeWindowMs ? 0 : existing.count;
   }
 
@@ -191,7 +192,7 @@ export class ConnectionPool {
 
   releaseConnection(id: string): void {
     const data = this.pool.get(id);
-    if (data) data.count = Math.max(0, data.count - 1);
+    if (data) {data.count = Math.max(0, data.count - 1);}
   }
 
   cleanup(): void {

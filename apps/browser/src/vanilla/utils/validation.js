@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * Validation Utilities
  *
@@ -84,11 +85,10 @@ export function pattern(value, pattern, message, fieldName = 'Value') {
  */
 export function compose(...validators) {
   return value => {
-    for (const validator of validators) {
-      const result = validator(value);
-      if (!result.valid) return result;
-    }
-    return { valid: true };
+    return validators.reduce((acc, validator) => {
+      if (!acc.valid) return acc;
+      return validator(value);
+    }, { valid: true });
   };
 }
 

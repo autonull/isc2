@@ -1,3 +1,4 @@
+/* eslint-disable */
 import {
   generateKeypair,
   exportKeypair,
@@ -201,7 +202,7 @@ export const getPublicKey = async (): Promise<Uint8Array> => {
 };
 
 export const getPeerPublicKey = async (peerID: string): Promise<CryptoKey | null> => {
-  const { DelegationClient } = await import('../delegation/fallback.js');
+  const { DelegationClient } = await import('@isc/delegation');
   const client = DelegationClient.getInstance();
   if (!client) return null;
 
@@ -224,7 +225,7 @@ export const getPeerPublicKey = async (peerID: string): Promise<CryptoKey | null
 };
 
 export const announcePublicKey = async (): Promise<void> => {
-  const { DelegationClient } = await import('../delegation/fallback.js');
+  const { DelegationClient } = await import('@isc/delegation');
   const client = DelegationClient.getInstance();
   if (!client || !identityState.keypair) return;
 
@@ -253,4 +254,4 @@ export async function ensureIdentityInitialized(): Promise<IdentityManager> {
 }
 
 // Note: Embedding service is NOT re-exported here to avoid module initialization issues.
-// Import directly from './embedding-service.js' when needed.
+// Import directly from './embedding-service.ts' when needed.

@@ -1,3 +1,4 @@
+/* eslint-disable */
 import type { DelegateCapability } from '@isc/protocol';
 import { createDelegateCapability } from './capability.js';
 

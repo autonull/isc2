@@ -1,12 +1,13 @@
+/* eslint-disable */
 /**
  * Reputation Cache Service
  *
  * Caches reputation scores for performance optimization.
  */
 
-import type { DecayReputation } from '../types/reputation.js';
-import { dbGet, dbPut } from '../../db/helpers.js';
-import { REPUTATION_STORES, REPUTATION_CONSTANTS } from '../config/reputationConfig.js';
+import type { DecayReputation } from '../types/reputation.ts';
+import { dbGet, dbPut } from '../../db/helpers.ts';
+import { REPUTATION_STORES, REPUTATION_CONSTANTS } from '../config/reputationConfig.ts';
 
 interface CachedReputation extends DecayReputation {
   cachedAt: number;

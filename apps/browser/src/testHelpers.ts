@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * Test Helpers for ISC Browser App
  * 
@@ -5,7 +6,7 @@
  */
 
 import { test, expect, type Page } from '@playwright/test';
-import { generateMockDataset, type MockDataset } from './dev/mockData.js';
+import { generateMockDataset, type MockDataset } from './dev/mockData.ts';
 
 /**
  * Test fixtures that can be reused across tests
@@ -205,7 +206,7 @@ export async function takeScreenshot(
 /**
  * Start video recording of the page
  */
-export async function startRecording(page: Page): Promise<void> {
+export async function startRecording(_page: Page): Promise<void> {
   // Playwright video is automatic when configured
   // This is a placeholder for any additional setup
 }

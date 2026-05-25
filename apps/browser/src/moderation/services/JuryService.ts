@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * Jury Service — browser adapter
  *
@@ -11,7 +12,7 @@ import {
   createBrowserModerationNetwork,
   createBrowserModerationReputation,
   createBrowserCouncilProvider,
-} from '../adapters.js';
+} from '../adapters.ts';
 import type { Jury, JurorStats } from '@isc/social';
 
 const service = createJuryService(

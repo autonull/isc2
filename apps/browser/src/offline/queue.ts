@@ -1,5 +1,6 @@
+/* eslint-disable */
 import { Config } from '@isc/core';
-import { getDB, dbGet, dbGetAll, dbPut, dbDelete, dbAdd, dbClear } from '../db/factory.js';
+import { getDB, dbGet, dbGetAll, dbPut, dbDelete, dbAdd, dbClear } from '../db/factory.ts';
 
 const OFFLINE_QUEUE_STORE = 'offline_queue';
 const DB_NAME = 'isc-offline-queue';

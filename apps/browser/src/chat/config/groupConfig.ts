@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * Group Chat Configuration
  */

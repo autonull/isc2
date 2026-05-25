@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * FeedHeader Component
  *

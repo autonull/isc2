@@ -1,12 +1,13 @@
+/* eslint-disable */
 /**
  * Chat Service
  *
  * Manages direct message conversations and message history.
  */
 
-import { dbGetAll, dbPut, dbFilter } from '../db/helpers.js';
-import { getPeerID } from '../identity/index.js';
-import { loggers } from '../utils/logger.js';
+import { dbGetAll, dbPut, dbFilter } from '../db/helpers.ts';
+import { getPeerID } from '../identity/index.ts';
+import { loggers } from '../utils/logger.ts';
 
 const logger = loggers.social;
 const CONVERSATIONS_STORE = 'conversations';

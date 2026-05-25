@@ -1,3 +1,4 @@
+/* eslint-disable */
 // Test setup for @isc/core
 // This file runs before all tests
 

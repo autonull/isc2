@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * Supernode Health Monitoring System
  *

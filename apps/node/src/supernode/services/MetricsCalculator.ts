@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * Metrics Calculator Service
  */

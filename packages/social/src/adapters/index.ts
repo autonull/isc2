@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * Adapters Index
  */

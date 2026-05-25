@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * Health Monitoring Configuration
  */

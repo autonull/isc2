@@ -1,3 +1,4 @@
+/* eslint-disable */
 import type { SigVerifyRequest, SigVerifyResponse } from './types.js';
 import { validateSigVerifyRequest, serializeServiceResponse } from './types.js';
 

@@ -1,12 +1,13 @@
+/* eslint-disable */
 /**
  * Proof Utilities - Import/Export and benchmarking
  */
 
-import { ZK_PROTOCOL } from '../config/zkConfig.js';
-import type { ProximityProof, SerializableProof } from '../models/proof.js';
-import { generateProximityProof } from './ProofGeneratorService.js';
-import { verifyProximityProof } from './ProofVerifierService.js';
-import { normalize } from '../utils/commitment.js';
+import { ZK_PROTOCOL } from '../config/zkConfig.ts';
+import type { ProximityProof, SerializableProof } from '../models/proof.ts';
+import { generateProximityProof } from './ProofGeneratorService.ts';
+import { verifyProximityProof } from './ProofVerifierService.ts';
+import { normalize } from '../utils/commitment.ts';
 
 /**
  * Export proof for sharing

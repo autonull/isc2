@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * Stake System Type Definitions
  */

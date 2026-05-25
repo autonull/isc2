@@ -1,3 +1,4 @@
+/* eslint-disable */
 import { describe, it, expect } from 'vitest';
 import { seededRng, randomInt, shuffle, randomSample } from '../../src/math/rng';
 

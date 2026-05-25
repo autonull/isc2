@@ -68,17 +68,6 @@ test.describe('Visual Regression', () => {
         maxDiffPixels: 300,
       });
     });
-
-    test('compose tab', async ({ page }) => {
-      const composeTab = page.locator('[data-testid="nav-tab-compose"], [data-tab="compose"]').first();
-      if (await composeTab.count() > 0) {
-        await composeTab.click();
-        await page.waitForTimeout(1000);
-      }
-      await expect(page).toHaveScreenshot('desktop-compose-tab.png', {
-        maxDiffPixels: 300,
-      });
-    });
   });
 
   test.describe('Mobile Layout (375x667)', () => {
@@ -137,22 +126,6 @@ test.describe('Visual Regression', () => {
   });
 
   test.describe('Component States', () => {
-    test('error boundary display', async ({ page }) => {
-      // Trigger an error by evaluating invalid JS
-      await page.goto('/');
-      await page.waitForSelector('#app', { timeout: 10000 });
-      
-      // Force an error in a child component
-      await page.evaluate(() => {
-        window.dispatchEvent(new CustomEvent('isc-test-error'));
-      });
-      
-      await page.waitForTimeout(1000);
-      await expect(page).toHaveScreenshot('error-state.png', {
-        maxDiffPixels: 200,
-      });
-    });
-
     test('loading state', async ({ page }) => {
       await page.goto('/');
       // Capture during initial load

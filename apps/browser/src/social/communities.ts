@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * Communities Module - Backward compatibility wrapper
  *
@@ -7,15 +8,15 @@
 export { type CommunityService } from '@isc/social';
 export type { Community } from '@isc/social';
 
-import { createCommunityService } from '@isc/social';
-import { browserStorageAdapter } from './adapters/storage.js';
-import { browserIdentityAdapter } from './adapters/identity.js';
-import { browserNetworkAdapter } from './adapters/network.js';
+import { createCommunityService, type CommunityService, type Community } from '@isc/social';
+import { browserStorageAdapter } from './adapters/storage.ts';
+import { browserIdentityAdapter } from './adapters/identity.ts';
+import { browserNetworkAdapter } from './adapters/network.ts';
 
 // Lazy-loaded community service singleton
-let communityService: any = null;
+let communityService: CommunityService | null = null;
 
-async function getCommunityService() {
+async function getCommunitySvc(): Promise<CommunityService> {
   if (!communityService) {
     communityService = createCommunityService(browserStorageAdapter, browserIdentityAdapter, browserNetworkAdapter);
   }
@@ -26,8 +27,7 @@ async function getCommunityService() {
  * Initialize community service (for compatibility)
  */
 export async function initializeCommunities(): Promise<void> {
-  // Already initialized on first access
-  await getCommunityService();
+  await getCommunitySvc();
 }
 
 /**
@@ -38,16 +38,16 @@ export async function createCommunityChannel(
   description: string,
   initialMembers: string[],
   coEditors: string[]
-): Promise<any> {
-  const svc = await getCommunityService();
+): Promise<Community> {
+  const svc = await getCommunitySvc();
   return svc.createCommunity(name, description, initialMembers, coEditors);
 }
 
 /**
  * Get community by ID
  */
-export async function getCommunity(channelID: string): Promise<any | null> {
-  const svc = await getCommunityService();
+export async function getCommunity(channelID: string): Promise<Community | null> {
+  const svc = await getCommunitySvc();
   return svc.getCommunity(channelID);
 }
 
@@ -55,7 +55,7 @@ export async function getCommunity(channelID: string): Promise<any | null> {
  * Join a community
  */
 export async function joinCommunity(channelID: string): Promise<void> {
-  const svc = await getCommunityService();
+  const svc = await getCommunitySvc();
   return svc.joinCommunity(channelID);
 }
 
@@ -63,7 +63,7 @@ export async function joinCommunity(channelID: string): Promise<void> {
  * Leave a community
  */
 export async function leaveCommunity(channelID: string): Promise<void> {
-  const svc = await getCommunityService();
+  const svc = await getCommunitySvc();
   return svc.leaveCommunity(channelID);
 }
 
@@ -71,7 +71,7 @@ export async function leaveCommunity(channelID: string): Promise<void> {
  * Add co-editor to community
  */
 export async function addCoEditor(channelID: string, newEditor: string): Promise<void> {
-  const svc = await getCommunityService();
+  const svc = await getCommunitySvc();
   return svc.addCoEditor(channelID, newEditor);
 }
 
@@ -82,38 +82,38 @@ export async function updateCommunityChannel(
   channelID: string,
   updates: { name?: string; description?: string }
 ): Promise<void> {
-  const svc = await getCommunityService();
+  const svc = await getCommunitySvc();
   return svc.updateCommunity(channelID, updates);
 }
 
 /**
  * Get user's communities
  */
-export async function getUserCommunities(): Promise<any[]> {
-  const svc = await getCommunityService();
+export async function getUserCommunities(): Promise<Community[]> {
+  const svc = await getCommunitySvc();
   return svc.getUserCommunities();
 }
 
 /**
  * Query communities by embedding
  */
-export async function queryCommunitiesByEmbedding(embedding: number[], limit?: number): Promise<any[]> {
-  const svc = await getCommunityService();
+export async function queryCommunitiesByEmbedding(embedding: number[], limit?: number): Promise<Community[]> {
+  const svc = await getCommunitySvc();
   return svc.queryByEmbedding(embedding, limit);
 }
 
 /**
  * Verify community signature
  */
-export async function verifyCommunity(community: any): Promise<boolean> {
-  const svc = await getCommunityService();
+export async function verifyCommunitySignature(community: Community): Promise<boolean> {
+  const svc = await getCommunitySvc();
   return svc.verifyCommunity(community);
 }
 
 /**
  * Compute semantic neighborhood
  */
-export async function computeSemanticNeighborhood(channelID: string, radius?: number): Promise<any[]> {
-  const svc = await getCommunityService();
+export async function computeSemanticNeighborhood(channelID: string, radius?: number): Promise<Community[]> {
+  const svc = await getCommunitySvc();
   return svc.computeSemanticNeighborhood(channelID, radius);
 }

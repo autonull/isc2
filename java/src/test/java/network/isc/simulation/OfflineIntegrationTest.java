@@ -15,18 +15,18 @@ import static org.junit.jupiter.api.Assertions.*;
 class OfflineIntegrationTest {
     @Test
     void testOfflineQueuePersistence() throws Exception {
-        var tempDb = Files.createTempFile("isc-test-", ".db").toFile();
+        File tempDb = Files.createTempFile("isc-test-", ".db").toFile();
         tempDb.delete();
         tempDb.deleteOnExit();
-        var storage = new MapDBStorageAdapter(tempDb.getAbsolutePath());
+        MapDBStorageAdapter storage = new MapDBStorageAdapter(tempDb.getAbsolutePath());
 
-        var action = OfflineAction.message("test-channel", "Offline message");
+        OfflineAction action = OfflineAction.message("test-channel", "Offline message");
         storage.enqueueAction(action);
 
         assertEquals(1, storage.getQueueCount());
         assertTrue(storage.hasPendingActions());
 
-        var actions = storage.getQueuedActions();
+        java.util.List<OfflineAction> actions = storage.getQueuedActions();
         assertEquals(1, actions.size());
         assertEquals(action.getId(), actions.get(0).getId());
         assertEquals(OfflineAction.ActionType.MESSAGE, actions.get(0).getType());
@@ -38,11 +38,11 @@ class OfflineIntegrationTest {
 
     @Test
     void testRetryIncrement() throws Exception {
-        var tempDb = Files.createTempFile("isc-test-", ".db").toFile();
+        File tempDb = Files.createTempFile("isc-test-", ".db").toFile();
         tempDb.delete();
         tempDb.deleteOnExit();
-        var storage = new MapDBStorageAdapter(tempDb.getAbsolutePath());
-        var action = OfflineAction.message("ch1", "test");
+        MapDBStorageAdapter storage = new MapDBStorageAdapter(tempDb.getAbsolutePath());
+        OfflineAction action = OfflineAction.message("ch1", "test");
         storage.enqueueAction(action);
 
         assertNotNull(storage.incrementRetry(action.getId())); // 1
@@ -54,17 +54,17 @@ class OfflineIntegrationTest {
 
     @Test
     void testQueueSurvivesRestart() throws Exception {
-        var tempDb = Files.createTempFile("isc-test-", ".db").toFile();
+        File tempDb = Files.createTempFile("isc-test-", ".db").toFile();
         tempDb.delete();
         tempDb.deleteOnExit();
 
-        var storage1 = new MapDBStorageAdapter(tempDb.getAbsolutePath());
+        MapDBStorageAdapter storage1 = new MapDBStorageAdapter(tempDb.getAbsolutePath());
         storage1.enqueueAction(OfflineAction.message("ch1", "persistent"));
         storage1.close();
 
-        var storage2 = new MapDBStorageAdapter(tempDb.getAbsolutePath());
+        MapDBStorageAdapter storage2 = new MapDBStorageAdapter(tempDb.getAbsolutePath());
         assertEquals(1, storage2.getQueueCount());
-        var actions = storage2.getQueuedActions();
+        java.util.List<OfflineAction> actions = storage2.getQueuedActions();
         assertEquals(1, actions.size());
         assertTrue(new String(actions.get(0).getPayload()).contains("persistent"));
         storage2.close();

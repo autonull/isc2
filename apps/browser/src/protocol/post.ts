@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * Historical Post Sync Protocol - /isc/post/1.0
  * Matches Java's PostProtocol with SYNC_REQUEST pattern

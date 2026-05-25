@@ -4,7 +4,8 @@
  * Loading placeholder component with multiple variants.
  */
 
-import { h, JSX } from 'preact';
+import type { JSX } from 'preact';
+import { h } from 'preact';
 
 export interface SkeletonProps {
   variant?: 'text' | 'circular' | 'rectangular' | 'post' | 'avatar';

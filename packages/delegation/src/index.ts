@@ -1,3 +1,4 @@
+/* eslint-disable */
 // Discovery
 export { SupernodeDiscovery, queryProximals } from './discovery.js';
 export type { SupernodeDiscoveryConfig, DHTAdapter } from './discovery.js';

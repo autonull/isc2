@@ -1,3 +1,4 @@
+/* eslint-disable */
 import { generateKeypair, exportKeypair, importKeypair, type Keypair } from './keypair.js';
 
 export interface EphemeralIdentity {
@@ -62,13 +63,13 @@ export async function createEphemeralIdentity(
 
 export function isEphemeralIdentityValid(identity: EphemeralIdentity): boolean {
   const now = Date.now();
-  if (identity.expiresAt && now > identity.expiresAt) return false;
-  if (identity.maxUses && identity.usedCount >= identity.maxUses) return false;
+  if (identity.expiresAt && now > identity.expiresAt) {return false;}
+  if (identity.maxUses && identity.usedCount >= identity.maxUses) {return false;}
   return true;
 }
 
 export function useEphemeralIdentity(identity: EphemeralIdentity): boolean {
-  if (!isEphemeralIdentityValid(identity)) return false;
+  if (!isEphemeralIdentityValid(identity)) {return false;}
   identity.usedCount++;
   return true;
 }

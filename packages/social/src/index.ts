@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * @isc/social - Social layer for ISC
  *

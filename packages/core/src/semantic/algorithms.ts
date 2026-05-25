@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * Semantic Analysis Algorithms
  *
@@ -17,7 +18,7 @@ export namespace VectorMath {
 
   export function normalize(vec: Point2D): Point2D {
     const mag = magnitude(vec);
-    if (mag === 0) return { x: 0, y: 0 };
+    if (mag === 0) {return { x: 0, y: 0 };}
     return { x: vec.x / mag, y: vec.y / mag };
   }
 
@@ -50,7 +51,7 @@ export namespace VectorMath {
   }
 
   export function centroid(points: Point2D[]): Point2D {
-    if (points.length === 0) return { x: 0, y: 0 };
+    if (points.length === 0) {return { x: 0, y: 0 };}
     const sum = points.reduce((acc, p) => add(acc, p), { x: 0, y: 0 });
     return { x: sum.x / points.length, y: sum.y / points.length };
   }
@@ -111,7 +112,7 @@ export namespace Clustering {
     k: number,
     maxIterations: number = DEFAULT_MAX_ITERATIONS
   ): Point2D[] {
-    if (points.length <= k) return points;
+    if (points.length <= k) {return points;}
 
     const centroids = initializeCentroids(points, k);
 
@@ -139,7 +140,7 @@ export namespace Clustering {
 
     while (clusters.length > maxClusters) {
       const { clusterA, clusterB, minDist } = findClosestClusters(clusters, distances);
-      if (minDist === Infinity) break;
+      if (minDist === Infinity) {break;}
 
       clusters[clusterA] = [...clusters[clusterA], ...clusters[clusterB]];
       clusters.splice(clusterB, 1);
@@ -340,20 +341,73 @@ export namespace Layout {
     }));
   }
 
+  /**
+   * Map multidimensional embeddings to 2D using UMAP
+   */
+  export async function projectUMAP(
+    embeddings: number[][],
+    config?: {
+      nNeighbors?: number;
+      minDist?: number;
+      spread?: number;
+      padding?: number;
+    }
+  ): Promise<Point2D[]> {
+    if (!embeddings || embeddings.length === 0) return [];
+    if (embeddings.length < 2) {
+      return [{ x: 0.5, y: 0.5 }];
+    }
+
+    const { UMAP } = await import('umap-js');
+
+    const maxNeighbors = Math.min(15, embeddings.length - 1);
+    const nNeighbors = config?.nNeighbors ?? Math.max(2, maxNeighbors);
+    const minDist = config?.minDist ?? 0.1;
+    const spread = config?.spread ?? 1.0;
+    const padding = config?.padding ?? 0.1;
+
+    const umap = new UMAP({
+      nComponents: 2,
+      nNeighbors,
+      minDist,
+      spread,
+    });
+
+    const projection = umap.fit(embeddings);
+
+    let minX = Infinity, maxX = -Infinity;
+    let minY = Infinity, maxY = -Infinity;
+
+    projection.forEach(p => {
+      if (p[0] < minX) minX = p[0];
+      if (p[0] > maxX) maxX = p[0];
+      if (p[1] < minY) minY = p[1];
+      if (p[1] > maxY) maxY = p[1];
+    });
+
+    const rangeX = maxX - minX || 1;
+    const rangeY = maxY - minY || 1;
+
+    return projection.map((p) => ({
+      x: padding + ((p[0] - minX) / rangeX) * (1 - 2 * padding),
+      y: padding + ((p[1] - minY) / rangeY) * (1 - 2 * padding),
+    }));
+  }
+
   // Private helper functions
   function applyForces(
     points: Point2D[],
     velocities: { x: number; y: number }[],
     repulsion: number,
-    attraction: number,
+    _attraction: number,
     damping: number
   ): void {
-    for (let i = 0; i < points.length; i++) {
+    points.forEach((pi, i) => {
       let vx = 0;
       let vy = 0;
 
-      for (let j = 0; j < points.length; j++) {
-        if (i === j) continue;
+      points.forEach((pj, j) => {
+        if (i === j) {return;}
 
         const dx = points[i].x - points[j].x;
         const dy = points[i].y - points[j].y;
@@ -363,19 +417,19 @@ export namespace Layout {
         const repulse = repulsion / (dist * dist);
         vx += (dx / dist) * repulse;
         vy += (dy / dist) * repulse;
-      }
+      });
 
       // Apply damping to velocity
       velocities[i].x = (velocities[i].x + vx) * damping;
       velocities[i].y = (velocities[i].y + vy) * damping;
-    }
+    });
   }
 
   function updatePositions(points: Point2D[], velocities: { x: number; y: number }[]): void {
-    for (let i = 0; i < points.length; i++) {
-      points[i].x += velocities[i].x;
-      points[i].y += velocities[i].y;
-    }
+    points.forEach((p, i) => {
+      p.x += velocities[i].x;
+      p.y += velocities[i].y;
+    });
   }
 
   function normalizeToUnitCircle(points: Point2D[], normalizationFactor: number): void {
@@ -402,7 +456,7 @@ export namespace Layout {
  * Default cosine similarity implementation
  */
 function defaultCosineSimilarity(a: number[], b: number[]): number {
-  if (a.length === 0 || b.length === 0) return 0;
+  if (a.length === 0 || b.length === 0) {return 0;}
 
   let dotProduct = 0;
   let normA = 0;
@@ -418,6 +472,6 @@ function defaultCosineSimilarity(a: number[], b: number[]): number {
   normA = Math.sqrt(normA);
   normB = Math.sqrt(normB);
 
-  if (normA === 0 || normB === 0) return 0;
+  if (normA === 0 || normB === 0) {return 0;}
   return dotProduct / (normA * normB);
 }

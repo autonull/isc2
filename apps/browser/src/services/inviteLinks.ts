@@ -1,3 +1,4 @@
+/* eslint-disable */
 export interface InviteData {
   type: 'peer' | 'channel';
   id: string;

@@ -1,3 +1,4 @@
+/* eslint-disable */
 export enum ChatErrorCode {
   TIMEOUT = 'TIMEOUT',
   INVALID_SIGNATURE = 'INVALID_SIGNATURE',

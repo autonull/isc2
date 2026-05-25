@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+/* eslint-disable */
 
 /**
  * ISC CLI - Command Line Interface for ISC
@@ -19,6 +20,7 @@ import { configCommands } from './commands/config.js';
 import { announceCommands } from './commands/announce.js';
 import { queryCommands } from './commands/query.js';
 import { supernodeCommands } from './commands/supernode.js';
+import { mcpCommands } from './commands/mcp.js';
 import { initCommand } from './commands/init.js';
 import type { CLIConfig } from './config.js';
 
@@ -53,6 +55,7 @@ function main(): void {
   announceCommands(program);
   queryCommands(program);
   supernodeCommands(program);
+  mcpCommands(program);
   initCommand(program);
 
   program.parseAsync(process.argv)

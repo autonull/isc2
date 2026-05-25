@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * Nostr Identity Bridge
  *

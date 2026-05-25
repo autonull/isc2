@@ -1,4 +1,5 @@
-import { EmbeddingModelAdapter } from '../interfaces/model.js';
+/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-return, @typescript-eslint/require-await, @typescript-eslint/no-explicit-any, @typescript-eslint/consistent-type-imports */
+import type { EmbeddingModelAdapter } from '../interfaces/model.js';
 import { pipeline, env, type PipelineType } from '@xenova/transformers';
 
 interface NodeModelOptions {
@@ -21,7 +22,7 @@ export class NodeModel implements EmbeddingModelAdapter {
       env.allowLocalModels = true;
       env.useBrowserCache = false;
 
-      // @ts-ignore - Disable progress callback logging
+      // @ts-expect-error - Disable progress callback logging
       this.extractor = await pipeline('feature-extraction' as PipelineType, modelId, {
         progress_callback: () => {}
       });
@@ -86,10 +87,10 @@ export class NodeModel implements EmbeddingModelAdapter {
   }
 
   async embedBatch(texts: string[]): Promise<number[][]> {
-    const batches: string[][] = [];
-    for (let i = 0; i < texts.length; i += this.options.maxBatchSize) {
-      batches.push(texts.slice(i, i + this.options.maxBatchSize));
-    }
+    const batches: string[][] = Array.from(
+      { length: Math.ceil(texts.length / this.options.maxBatchSize) },
+      (_, i) => texts.slice(i * this.options.maxBatchSize, (i + 1) * this.options.maxBatchSize)
+    );
 
     const results: number[][] = [];
     for (const batch of batches) {

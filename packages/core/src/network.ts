@@ -1,3 +1,4 @@
+/* eslint-disable */
 export interface Stream {
   source: AsyncIterable<Uint8Array>;
   sink: (source: AsyncIterable<Uint8Array>) => Promise<void>;

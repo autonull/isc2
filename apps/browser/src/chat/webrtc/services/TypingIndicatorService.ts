@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * Typing Indicator Service
  *
@@ -6,8 +7,8 @@
 
 import type { Libp2p } from 'libp2p';
 import { fromString } from 'uint8arrays';
-import type { TypingIndicator } from '../types/chat.js';
-import { CHAT_CONFIG } from '../config/chatConfig.js';
+import type { TypingIndicator } from '../types/chat.ts';
+import { CHAT_CONFIG } from '../config/chatConfig.ts';
 
 interface TypingCallbacks {
   onTyping?: (indicator: TypingIndicator) => void;

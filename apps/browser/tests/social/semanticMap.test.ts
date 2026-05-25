@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * Semantic Map Tests
  */

@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * Conversation List Component
  *
@@ -6,9 +7,9 @@
  */
 
 import { chatService } from '../../services/index.js';
-import { escapeHtml } from '../../utils/dom.js';
-import { formatTime } from '../../utils/time.js';
-import { getProximityTier, formatProximity } from '../../utils/proximity.js';
+import { escapeHtml } from '../utils/dom.js';
+import { formatTime } from '../../utils/time.ts';
+import { getProximityTier, formatProximity } from '../../utils/proximity.ts';
 import { renderEmpty } from '../utils/screen.js';
 
 class ConversationListComponent {

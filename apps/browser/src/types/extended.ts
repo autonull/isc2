@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * Extended Types for Browser App
  * 
@@ -35,7 +36,6 @@ export interface Relation {
 export interface Channel extends CoreChannel {
   postCount?: number;
   followerCount?: number;
-  relations?: Relation[];
   breadth?: string;
 }
 

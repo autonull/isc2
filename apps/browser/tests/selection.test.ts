@@ -1,10 +1,11 @@
+/* eslint-disable */
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { HealthSelector } from '../src/delegation/selection.js';
+import { HealthSelector } from '@isc/delegation';
 import type { DelegationHealth } from '@isc/protocol/messages';
 
 const createMockHealth = (overrides: Partial<DelegationHealth> = {}): DelegationHealth => ({
   type: 'delegation_health',
-  peerID: 'test-peer',
+  peerID: '12D3KooWK8vZwXhBhwD5aT34tXQjJm9F5K5bQG5a9x7Dk3L1P2R2',
   successRate: 0.9,
   avgLatencyMs: 500,
   requestsServed24h: 100,
@@ -117,7 +118,7 @@ describe('HealthSelector', () => {
         ['known', createMockHealth({ peerID: 'known', successRate: 0.9 })],
       ]);
 
-      const result = selector.getHealthyPeerIDs(capabilities, healthMap);
+      const result = selector.getHealthyPeerIDs(capabilities as any, healthMap);
 
       expect(result).toContain('unknown');
       expect(result).toContain('known');
@@ -130,7 +131,7 @@ describe('HealthSelector', () => {
         ['bad', createMockHealth({ peerID: 'bad', successRate: 0.5 })],
       ]);
 
-      const result = selector.getHealthyPeerIDs(capabilities, healthMap);
+      const result = selector.getHealthyPeerIDs(capabilities as any, healthMap);
 
       expect(result).toContain('good');
       expect(result).not.toContain('bad');

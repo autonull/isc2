@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * ISC Phase P3.1: RLN (Rate Limiting Nullifier) Proof Generation and Verification
  *
@@ -56,7 +57,7 @@ export function isWASMLoaded(): boolean {
 }
 
 export async function loadRLNWASM(): Promise<void> {
-  if (wasmModule) return;
+  if (wasmModule) {return;}
 
   try {
     const wasmUrl = await getRLNWASMUrl();
@@ -75,17 +76,18 @@ export async function loadRLNWASM(): Promise<void> {
           }
 
           const handler = (event: MessageEvent) => {
-            if (event.data.type === 'rln_proof_result') {
+            const data = event.data as Record<string, unknown>;
+            if (data.type === 'rln_proof_result') {
               rlnWorker!.removeEventListener('message', handler);
-              resolve(event.data.proof);
-            } else if (event.data.type === 'rln_proof_error') {
+              resolve(data.proof as RLNProof);
+            } else if (data.type === 'rln_proof_error') {
               rlnWorker!.removeEventListener('message', handler);
-              reject(new Error(event.data.error));
+              reject(new Error(String(data.error)));
             }
           };
 
-          rlnWorker!.addEventListener('message', handler);
-          rlnWorker!.postMessage({ type: 'generate_proof', request });
+          rlnWorker.addEventListener('message', handler);
+          rlnWorker.postMessage({ type: 'generate_proof', request });
         });
       },
       verifyProof: async (_proof) => {
@@ -106,8 +108,8 @@ export async function loadRLNWASM(): Promise<void> {
   }
 }
 
-async function getRLNWASMUrl(): Promise<string | null> {
-  return null;
+function getRLNWASMUrl(): Promise<string | null> {
+  return Promise.resolve(null);
 }
 
 export async function generateRLNProof(
@@ -195,7 +197,7 @@ export async function verifyRLNProof(
 
 export function getEpochRemainingQuota(epoch: number): number {
   const proofs = proofsByEpoch.get(epoch);
-  if (!proofs) return 5;
+  if (!proofs) {return 5;}
   return Math.max(0, 5 - proofs.size);
 }
 

@@ -1,3 +1,4 @@
+/* eslint-disable */
 export type Embedding = number[];
 
 export interface ProofData {

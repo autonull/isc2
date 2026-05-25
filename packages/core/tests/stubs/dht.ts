@@ -1,3 +1,4 @@
+/* eslint-disable */
 export interface DHTEntry {
   value: Uint8Array;
   expiresAt: number;

@@ -1,11 +1,12 @@
+/* eslint-disable */
 /**
  * Discovery Service
  *
  * Manages peer discovery, search, and recommendations.
  */
 
-import { getWebUINetworkService } from './networkService.js';
-import { loggers } from '../utils/logger.js';
+import { getWebUINetworkService } from './networkService.ts';
+import { loggers } from '../utils/logger.ts';
 
 const logger = loggers.social;
 

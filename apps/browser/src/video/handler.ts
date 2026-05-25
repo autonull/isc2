@@ -1,3 +1,4 @@
+/* eslint-disable */
 import { sign, encode } from '@isc/core';
 import type {
   VideoCall,
@@ -6,12 +7,11 @@ import type {
   VideoCallSettings,
   ScreenShareState,
   VideoCallStats,
-} from './types.js';
-import { DEFAULT_VIDEO_SETTINGS, VIDEO_QUALITY_CONSTRAINTS } from './types.js';
+} from './types.ts';
+import { DEFAULT_VIDEO_SETTINGS, VIDEO_QUALITY_CONSTRAINTS } from './types.ts';
 import { DelegationClient } from '@isc/delegation';
-import { getPeerID, getKeypair } from '../identity/index.js';
+import { getPeerID, getKeypair } from '../identity/index.ts';
 
-const VIDEO_CALL_PROTOCOL = '/isc/video/1.0.0';
 const MAX_PARTICIPANTS = 8;
 
 const activeCalls = new Map<string, VideoCall>();

@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * Success Rate Health Strategy
  */

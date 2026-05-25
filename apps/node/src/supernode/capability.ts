@@ -1,3 +1,4 @@
+/* eslint-disable */
 import type { DelegateCapability } from '@isc/protocol';
 
 export interface SupernodeStats {

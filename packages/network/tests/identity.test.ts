@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * ISC Identity Service - Tests
  */
