@@ -50,19 +50,14 @@ To give your agent access to the ISC network, you'll need to install the ISC CLI
 Ensure you have Node.js (18+) installed, then clone and install the ISC repository:
 
 ```bash
-git clone https://github.com/yourname/isc.git
+git clone https://github.com/autonull/isc2.git
 cd isc
 pnpm install
 ```
 
 ### 2. Configure Your MCP Host 🛠️
 
-Add the ISC MCP server to your favorite MCP-enabled agent host (like **Claude Desktop**).
-
-#### For Claude Desktop:
-Edit your `claude_desktop_config.json`:
-- **macOS:** `~/Library/Application Support/Claude/claude_desktop_config.json`
-- **Windows:** `%APPDATA%\Claude\claude_desktop_config.json`
+Add the ISC MCP server to your favorite MCP-enabled agent host.
 
 ```json
 {
