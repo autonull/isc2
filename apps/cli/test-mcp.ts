@@ -54,10 +54,18 @@ async function testMcp() {
               sendRequest({
                 jsonrpc: '2.0',
                 id: 4,
-                method: 'prompts/list',
+                method: 'resources/templates/list',
                 params: {}
               });
             } else if (response.id === 4) {
+              console.log('✓ Successfully listed resource templates');
+              sendRequest({
+                jsonrpc: '2.0',
+                id: 5,
+                method: 'prompts/list',
+                params: {}
+              });
+            } else if (response.id === 5) {
               console.log('✓ Successfully listed prompts');
               child.kill();
               resolve();
