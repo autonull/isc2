@@ -181,6 +181,11 @@ export function mcpCommands(program: Command): void {
         server.setRequestHandler(ListToolsRequestSchema, async () => ({
           tools: [
             {
+              name: 'get_network_status',
+              description: 'Get the current status of the ISC P2P network connection',
+              inputSchema: { type: 'object', properties: {} },
+            },
+            {
               name: 'get_identity',
               description: 'Get current ISC identity and peer information',
               inputSchema: { type: 'object', properties: {} },
@@ -336,8 +341,26 @@ export function mcpCommands(program: Command): void {
         server.setRequestHandler(CallToolRequestSchema, async (request) => {
           const { name, arguments: args } = request.params;
 
-          switch (name) {
-            case 'get_identity': {
+          try {
+            switch (name) {
+              case 'get_network_status': {
+                const status = network.getStatus();
+                const isRunning = network.getNetworkAdapter()?.isRunning?.() ?? false;
+                const matches = network.getMatches().length;
+                const channels = network.getChannels().length;
+                return {
+                  content: [{
+                    type: 'text',
+                    text: JSON.stringify({
+                      status,
+                      adapterRunning: isRunning,
+                      peerMatchesFound: matches,
+                      channelsJoined: channels
+                    }, null, 2)
+                  }],
+                };
+              }
+              case 'get_identity': {
               return {
                 content: [{ type: 'text', text: JSON.stringify(network.getIdentity(), null, 2) }],
               };
@@ -422,19 +445,23 @@ export function mcpCommands(program: Command): void {
                 content: [{ type: 'text', text: 'Cache cleared successfully' }],
               };
             }
-            case 'fetch_posts': {
-              const channelId = args?.channelId as string;
-              const channel = network.getChannels().find(c => c.id === channelId);
-              if (!channel) {
-                throw new McpError(ErrorCode.InvalidParams, `Channel not found: ${channelId}`);
+              case 'fetch_posts': {
+                const channelId = args?.channelId as string;
+                const channel = network.getChannels().find(c => c.id === channelId);
+                if (!channel) {
+                  throw new McpError(ErrorCode.InvalidParams, `Channel not found: ${channelId}`);
+                }
+                const posts = await network.fetchMessagesForChannel(channel);
+                return {
+                  content: [{ type: 'text', text: JSON.stringify(posts, null, 2) }],
+                };
               }
-              const posts = await network.fetchMessagesForChannel(channel);
-              return {
-                content: [{ type: 'text', text: JSON.stringify(posts, null, 2) }],
-              };
+              default:
+                throw new McpError(ErrorCode.MethodNotFound, `Unknown tool: ${name}`);
             }
-            default:
-              throw new McpError(ErrorCode.MethodNotFound, `Unknown tool: ${name}`);
+          } catch (error: any) {
+            if (error instanceof McpError) throw error;
+            throw new McpError(ErrorCode.InternalError, `Tool execution failed: ${error?.message || String(error)}`);
           }
         });
 
@@ -468,6 +495,11 @@ export function mcpCommands(program: Command): void {
                 },
               ],
             },
+            {
+              name: 'network_diagnostics',
+              description: 'Run diagnostic checks on the P2P network and explore connections',
+              arguments: [],
+            },
           ],
         }));
 
@@ -485,10 +517,11 @@ export function mcpCommands(program: Command): void {
                     text: `I am looking for content on the ISC network related to: "${query}".
 
 Instructions:
-1. Use 'create_channel' to create a semantic entry point for this query. Provide a clear name and a detailed description that captures the essence of what you're looking for.
-2. Once the channel is created, use 'fetch_posts' with the new channel ID to discover existing content in that semantic neighborhood.
-3. You can also use 'query_peers' to find other users with similar interests.
-4. If you find relevant posts, you can 'like_post' or reply by using 'create_post'.`,
+1. First, check your connection state using 'get_network_status' to ensure the network is connected.
+2. Use 'create_channel' to create a semantic entry point for this query. Provide a clear name and a detailed description that captures the essence of what you're looking for.
+3. Once the channel is created, use 'fetch_posts' with the new channel ID to discover existing content in that semantic neighborhood. Note that 'fetch_posts' may take some time as it scans the P2P network.
+4. Use 'query_peers' to find other users with similar interests.
+5. If you find relevant posts, you can 'like_post' or reply by using 'create_post'.`,
                   },
                 },
               ],
@@ -507,10 +540,31 @@ Instructions:
                     text: `I want to set up my ISC identity. My name is "${userName}" and my interests are: "${userBio}".
 
 Instructions:
-1. Use 'update_identity' with the provided name and bio.
-2. Your bio is crucial because it determines your position in the semantic space of the network, allowing you to discover like-minded peers.
-3. After updating, use 'get_identity' to verify your profile.
-4. You can then use 'query_peers' to see who is nearby in the semantic network.`,
+1. Verify network connection state using 'get_network_status'.
+2. Use 'update_identity' with the provided name and bio.
+3. Your bio is crucial because it determines your position in the semantic space of the network, allowing you to discover like-minded peers automatically.
+4. After updating, use 'get_identity' to verify your profile was saved correctly.
+5. You can then use 'query_peers' to see who is nearby in the semantic network based on your new bio.`,
+                  },
+                },
+              ],
+            };
+          }
+
+          if (name === 'network_diagnostics') {
+            return {
+              messages: [
+                {
+                  role: 'user',
+                  content: {
+                    type: 'text',
+                    text: `I want to diagnose my ISC network connection and explore what my agent sees.
+
+Instructions:
+1. Use 'get_network_status' to check if the adapter is running and if you are connected. Note how many channels you are joined to and how many peer matches you have.
+2. Use 'get_identity' to verify your identity is properly initialized and not anonymous.
+3. Call 'query_peers' to force a fresh peer discovery cycle. Look at the resulting matches and similarities to see if the semantic routing is working.
+4. Read from the 'isc://channels' resource to list the topics your node is currently seeding or participating in.`,
                   },
                 },
               ],
