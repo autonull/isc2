@@ -12,6 +12,7 @@ import {
   CallToolRequestSchema,
   ErrorCode,
   ListResourcesRequestSchema,
+  ListResourceTemplatesRequestSchema,
   ListToolsRequestSchema,
   McpError,
   ReadResourceRequestSchema,
@@ -103,6 +104,17 @@ export function mcpCommands(program: Command): void {
               name: 'ISC Peers',
               mimeType: 'application/json',
               description: 'List of discovered peer matches in the semantic network',
+            },
+          ],
+        }));
+
+        server.setRequestHandler(ListResourceTemplatesRequestSchema, async () => ({
+          resourceTemplates: [
+            {
+              uriTemplate: 'isc://posts/{channelId}',
+              name: 'Channel Posts',
+              mimeType: 'application/json',
+              description: 'Real-time feed of posts within a specific channel',
             },
           ],
         }));
