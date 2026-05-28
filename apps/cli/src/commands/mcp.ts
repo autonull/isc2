@@ -6,8 +6,10 @@
  */
 
 import { Command } from 'commander';
+import express from 'express';
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
+import { SSEServerTransport } from '@modelcontextprotocol/sdk/server/sse.js';
 import {
   CallToolRequestSchema,
   ErrorCode,
@@ -27,8 +29,10 @@ export function mcpCommands(program: Command): void {
   program
     .command('mcp')
     .description('Start MCP server for agent communication')
-    .action(async () => {
+    .option('-p, --port <number>', 'Port to start SSE server on (if omitted, uses stdio)', parseInt)
+    .action(async (options) => {
       const config = (program as any).config as CLIConfig;
+      const port = options.port;
 
       // Capture original streams
       const realStdoutWrite = process.stdout.write.bind(process.stdout);
@@ -67,8 +71,6 @@ export function mcpCommands(program: Command): void {
           storage: createStorage(config.dataDir),
           autoDiscover: true
         });
-
-        const transport = new StdioServerTransport();
 
         const server = new Server(
           {
@@ -518,8 +520,35 @@ Instructions:
           throw new McpError(ErrorCode.MethodNotFound, `Unknown prompt: ${name}`);
         });
 
-        await server.connect(transport);
-        console.info('MCP server connected to transport');
+        if (port) {
+          const app = express();
+
+          let sseTransport: SSEServerTransport | null = null;
+
+          app.get('/sse', async (req, res) => {
+            console.info('New SSE connection established');
+            sseTransport = new SSEServerTransport('/message', res);
+            await server.connect(sseTransport);
+          });
+
+          app.post('/message', async (req, res) => {
+            if (sseTransport) {
+              await sseTransport.handlePostMessage(req, res);
+            } else {
+              res.status(400).send('No active SSE connection');
+            }
+          });
+
+          app.listen(port, () => {
+            console.info(`MCP SSE Server listening on port ${port}`);
+            console.info(`SSE Endpoint: http://localhost:${port}/sse`);
+            console.info(`Message Endpoint: http://localhost:${port}/message`);
+          });
+        } else {
+          const transport = new StdioServerTransport();
+          await server.connect(transport);
+          console.info('MCP server connected to stdio transport');
+        }
 
         console.info('Initializing ISC Network...');
         await network.initialize();
